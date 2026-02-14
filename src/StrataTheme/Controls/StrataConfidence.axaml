@@ -1,0 +1,104 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataConfidence}" TargetType="controls:StrataConfidence">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel Spacing="10">
+              <DockPanel>
+                <TextBlock Text="{TemplateBinding Label}"
+                           Classes="caption"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource Brush.TextSecondary}" />
+
+                <StackPanel DockPanel.Dock="Right"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                  <TextBlock Name="PART_PercentText"
+                             Classes="caption"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource Brush.TextPrimary}"
+                             Text="72%" />
+                  <Border Name="PART_BandBadge"
+                          CornerRadius="999"
+                          Padding="8,2"
+                          Background="{DynamicResource Brush.AccentSubtle}">
+                    <TextBlock Name="PART_BandText"
+                               Classes="caption"
+                               Foreground="{DynamicResource Brush.AccentDefault}"
+                               FontWeight="SemiBold"
+                               Text="Medium" />
+                  </Border>
+                </StackPanel>
+              </DockPanel>
+
+              <Border Name="PART_Track"
+                      Height="8"
+                      CornerRadius="999"
+                      Background="{DynamicResource Brush.SubtleHover}"
+                      ClipToBounds="True"
+                      RenderTransformOrigin="0.5,0.5"
+                      RenderTransform="scale(1)">
+                <Border.Transitions>
+                  <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+                <Border Name="PART_Fill"
+                        Height="8"
+                        Width="0"
+                        CornerRadius="999"
+                        Background="{DynamicResource Brush.SelectionGradient}">
+                  <Border.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Width" Duration="0:0:0.4" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Border.Transitions>
+                </Border>
+              </Border>
+
+              <ContentPresenter Content="{TemplateBinding Explanation}" />
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:high /template/ Border#PART_BandBadge">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+        </Style>
+        <Style Selector="^:high /template/ TextBlock#PART_BandText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <Style Selector="^:medium /template/ Border#PART_BandBadge">
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningSubtle}" />
+        </Style>
+        <Style Selector="^:medium /template/ TextBlock#PART_BandText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
+
+        <Style Selector="^:low /template/ Border#PART_BandBadge">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerSubtle}" />
+        </Style>
+        <Style Selector="^:low /template/ TextBlock#PART_BandText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+
+        <Style Selector="^:editable /template/ Border#PART_Track">
+          <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style Selector="^:editable /template/ Border#PART_Track:pointerover">
+          <Setter Property="RenderTransform" Value="scaleY(1.3)" />
+        </Style>
+
+        <Style Selector="^:focus-visible /template/ Border#PART_Track">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="BorderThickness" Value="1" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

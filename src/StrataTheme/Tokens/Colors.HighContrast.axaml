@@ -134,6 +134,7 @@
 
   <SolidColorBrush x:Key="Brush.SuccessDefault" Color="{DynamicResource Palette.Success500}" />
   <SolidColorBrush x:Key="Brush.WarningDefault" Color="{DynamicResource Palette.Warning500}" />
+  <SolidColorBrush x:Key="Brush.WarningSubtle" Color="{DynamicResource Palette.Warning100}" />
 
   <!-- High contrast: gradients fall back to solid accent for maximum clarity -->
   <Color x:Key="Color.AccentViolet">#7C3AED</Color>

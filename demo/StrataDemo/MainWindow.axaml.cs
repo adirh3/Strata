@@ -16,7 +16,7 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         // Cache page references
-        for (int i = 0; i <= 4; i++)
+        for (int i = 0; i <= 5; i++)
         {
             var page = this.FindControl<ScrollViewer>($"Page{i}");
             if (page is not null)

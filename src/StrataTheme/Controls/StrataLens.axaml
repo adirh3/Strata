@@ -1,0 +1,94 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataLens}" TargetType="controls:StrataLens">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Name="PART_Root"
+                    Background="{DynamicResource Brush.Surface1}"
+                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                    BorderThickness="{DynamicResource Stroke.Thin}"
+                    CornerRadius="{DynamicResource Radius.Interactive}"
+                    Padding="16,14,16,12">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
+                </Transitions>
+              </Border.Transitions>
+              <StackPanel Spacing="10">
+                <!-- Header — always visible -->
+                <ContentPresenter Content="{TemplateBinding Header}" />
+
+                <!-- Summary — always visible -->
+                <ContentPresenter Content="{TemplateBinding Summary}" />
+
+                <!-- Detail — animated MaxHeight reveal -->
+                <Border Name="PART_DetailHost" ClipToBounds="True" MaxHeight="0" Opacity="0">
+                  <Border.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="MaxHeight" Duration="0:0:0.3" Easing="CubicEaseOut" />
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <StackPanel Spacing="8">
+                    <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,2,0,0" />
+                    <ContentPresenter Content="{TemplateBinding Detail}" />
+                  </StackPanel>
+                </Border>
+
+                <!-- Toggle button -->
+                <Button Name="PART_ToggleButton"
+                        Classes="subtle"
+                        HorizontalAlignment="Left"
+                        Padding="6,3"
+                        MinHeight="0">
+                  <StackPanel Orientation="Horizontal" Spacing="5">
+                    <TextBlock Name="PART_ToggleText"
+                               Text="{TemplateBinding ExpandText}"
+                               Classes="caption"
+                               FontWeight="SemiBold" />
+                    <Border Name="PART_Chevron"
+                            Width="12" Height="12"
+                            RenderTransformOrigin="0.5,0.5"
+                            RenderTransform="rotate(0deg)">
+                      <Border.Transitions>
+                        <Transitions>
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </Border.Transitions>
+                      <TextBlock Text="▾" Classes="caption"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                 Foreground="{DynamicResource Brush.TextTertiary}" />
+                    </Border>
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Expanded: reveal detail, flip chevron, swap text -->
+        <Style Selector="^[IsExpanded=True] /template/ Border#PART_DetailHost">
+          <Setter Property="MaxHeight" Value="600" />
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^[IsExpanded=True] /template/ Border#PART_Chevron">
+          <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+        <Style Selector="^[IsExpanded=True] /template/ TextBlock#PART_ToggleText">
+          <Setter Property="Text" Value="{Binding CollapseText, RelativeSource={RelativeSource TemplatedParent}}" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

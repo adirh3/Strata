@@ -1,0 +1,77 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <ControlTheme x:Key="{x:Type controls:StrataPeek}" TargetType="controls:StrataPeek">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel Spacing="0">
+              <!-- Clipped content area with animated MaxHeight -->
+              <Border Name="PART_ContentHost"
+                      MaxHeight="{TemplateBinding CollapsedHeight}"
+                      ClipToBounds="True">
+                <Panel>
+                  <ContentPresenter Name="PART_ContentPresenter"
+                                    Content="{TemplateBinding Content}" />
+                  <!-- Gradient fade overlay — uses Surface1 color for theme awareness -->
+                  <Border Name="PART_FadeOverlay"
+                          VerticalAlignment="Bottom"
+                          Height="48"
+                          IsHitTestVisible="False">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#00000000" Offset="0" />
+                        <GradientStop Color="{DynamicResource Color.Surface1}" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                </Panel>
+              </Border>
+
+              <!-- Toggle link -->
+                    <Button Name="PART_ToggleButton"
+                      Classes="subtle"
+                      HorizontalAlignment="Left"
+                      Margin="0,8,0,0"
+                      Padding="0,2"
+                      MinHeight="0">
+                <TextBlock Name="PART_ToggleText"
+                           Text="{TemplateBinding PeekText}"
+                           Foreground="{DynamicResource Brush.AccentDefault}"
+                           FontSize="{DynamicResource Font.SizeCaption}"
+                           FontWeight="SemiBold">
+                  <TextBlock.Transitions>
+                    <Transitions>
+                      <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+                    </Transitions>
+                  </TextBlock.Transitions>
+                </TextBlock>
+              </Button>
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Hover on toggle link -->
+        <Style Selector="^ /template/ Button#PART_ToggleButton:pointerover TextBlock">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentHover}" />
+        </Style>
+
+        <Style Selector="^:focus-visible /template/ Button#PART_ToggleButton TextBlock">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <!-- Revealed: switch toggle text -->
+        <Style Selector="^[IsRevealed=True] /template/ TextBlock#PART_ToggleText">
+          <Setter Property="Text" Value="{Binding CollapseText, RelativeSource={RelativeSource TemplatedParent}}" />
+        </Style>
+      </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

@@ -57,4 +57,20 @@
   <StyleInclude Source="avares://StrataTheme/Controls/DataGrid.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/Separator.axaml" />
 
+  <!-- Strata custom controls -->
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataLens.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataCard.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataPeek.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataOrb.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataFork.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataStream.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataConfidence.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataPromptBar.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataStepFlow.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataCueSwitch.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataBudgetChip.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataThink.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataTrace.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataPulse.axaml" />
+
 </Styles>

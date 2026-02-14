@@ -1,10 +1,11 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:StrataDemo"
+        xmlns:sc="using:StrataTheme.Controls"
         x:Class="StrataDemo.MainWindow"
         Title="Strata UI – Design System Preview"
-        Width="1280" Height="820"
-        MinWidth="900" MinHeight="600"
+        Width="1280" Height="860"
+        MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen">
 
   <Window.DataContext>
@@ -13,42 +14,41 @@
 
   <DockPanel>
 
-    <!-- ════════════ LEFT SIDEBAR ════════════ -->
+    <!-- ═══════════════════ LEFT SIDEBAR ═══════════════════ -->
     <Border DockPanel.Dock="Left"
-            Width="260"
+            Width="248"
             Background="{DynamicResource Brush.Surface0}"
             BorderBrush="{DynamicResource Brush.BorderSubtle}"
             BorderThickness="0,0,1,0">
       <DockPanel>
-        <!-- Brand header with accent gradient strip -->
+
+        <!-- Brand header -->
         <Border DockPanel.Dock="Top">
           <StackPanel>
-            <!-- Strata signature brand line -->
-            <Border Height="3" CornerRadius="0" Background="{DynamicResource Brush.StratumLine}" />
-            <StackPanel Margin="20,18,20,16" Spacing="2">
-              <StackPanel Orientation="Horizontal" Spacing="10">
-                <!-- Logo mark -->
-                <Border Width="34" Height="34"
-                        CornerRadius="9"
+            <Border Height="3" Background="{DynamicResource Brush.StratumLine}" />
+            <StackPanel Margin="20,20,20,18" Spacing="2">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <Border Width="36" Height="36"
+                        CornerRadius="10"
                         Background="{DynamicResource Brush.AccentGradient}">
-                  <TextBlock Text="S" FontSize="17" FontWeight="Bold"
+                  <TextBlock Text="S" FontSize="18" FontWeight="Bold"
                              Foreground="{DynamicResource Brush.TextOnAccent}"
                              HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
-                <StackPanel VerticalAlignment="Center">
-                  <TextBlock Text="Strata UI" FontSize="17" FontWeight="SemiBold" />
-                  <TextBlock Classes="caption tertiary" Text="Design System Preview" />
+                <StackPanel VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="Strata" FontSize="18" FontWeight="SemiBold" />
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.TextTertiary}"
+                             Text="Design System" FontWeight="Medium" />
                 </StackPanel>
               </StackPanel>
             </StackPanel>
+            <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="20,0" />
           </StackPanel>
         </Border>
 
-        <Separator DockPanel.Dock="Top" Margin="16,0" />
-
-        <!-- Bottom controls -->
-        <StackPanel DockPanel.Dock="Bottom" Margin="16,8,16,16" Spacing="8">
-          <Separator />
+        <!-- Bottom: Theme controls -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="20,12,20,20" Spacing="6">
+          <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,0,0,6" />
           <ToggleSwitch Content="Dark Mode"
                         IsChecked="{Binding IsDarkTheme}"
                         x:Name="ThemeToggle" />
@@ -57,46 +57,92 @@
                         x:Name="DensityToggle" />
         </StackPanel>
 
-        <!-- Navigation -->
+        <!-- Navigation list -->
         <ScrollViewer VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Margin="12,12,12,0" Spacing="2">
-            <TextBlock Classes="caption tertiary" Text="NAVIGATION" Margin="8,8,0,6" FontWeight="SemiBold" />
+          <StackPanel Margin="12,16,12,0" Spacing="1">
+            <TextBlock Classes="caption" Text="PAGES" Margin="12,4,0,10"
+                       FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextTertiary}"
+                       LetterSpacing="1.2" FontSize="10" />
             <ListBox x:Name="NavList"
-                     ItemsSource="{Binding NavItems}"
                      SelectedIndex="{Binding SelectedNavIndex}"
                      BorderThickness="0"
                      Background="Transparent"
-                     Padding="0" />
+                     Padding="0">
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="&#x25A3;" FontSize="15" Width="18" TextAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+                  <TextBlock Text="Dashboard" FontWeight="Medium" VerticalAlignment="Center" />
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="&#x2630;" FontSize="15" Width="18" TextAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+                  <TextBlock Text="Form Controls" FontWeight="Medium" VerticalAlignment="Center" />
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="&#x229E;" FontSize="15" Width="18" TextAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+                  <TextBlock Text="Data Grid" FontWeight="Medium" VerticalAlignment="Center" />
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="&#x25C7;" FontSize="15" Width="18" TextAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+                  <TextBlock Text="Components" FontWeight="Medium" VerticalAlignment="Center" />
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="&#x25C8;" FontSize="15" Width="18" TextAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+                  <TextBlock Text="Strata Controls" FontWeight="Medium" VerticalAlignment="Center" />
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="&#x2699;" FontSize="15" Width="18" TextAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+                  <TextBlock Text="Settings" FontWeight="Medium" VerticalAlignment="Center" />
+                </StackPanel>
+              </ListBoxItem>
+            </ListBox>
           </StackPanel>
         </ScrollViewer>
       </DockPanel>
     </Border>
 
-    <!-- ════════════ MAIN CONTENT ════════════ -->
+    <!-- ═══════════════════ MAIN CONTENT ═══════════════════ -->
     <Panel x:Name="PageHost" Background="{DynamicResource Brush.Background}">
 
-      <!-- ──── Page 0: Dashboard ──── -->
+      <!-- ════════ Page 0: Dashboard ════════ -->
       <ScrollViewer x:Name="Page0"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="True">
-        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
-          <!-- Page header -->
-          <StackPanel Spacing="6">
-            <TextBlock Classes="headline" Text="Dashboard" />
-            <TextBlock Classes="secondary" Text="A high-level view of system metrics, type hierarchy, and control quality." />
-          </StackPanel>
+        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
 
-          <!-- Stat cards row -->
+          <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="headline" Text="Dashboard" />
+              <TextBlock Classes="secondary" Text="System metrics, type hierarchy, and control quality at a glance." />
+            </StackPanel>
+          </Border>
+
+          <!-- Stat cards -->
           <Grid ColumnDefinitions="*,16,*,16,*">
             <Border Grid.Column="0" Classes="strata-card" Padding="0" ClipToBounds="True"
                     ToolTip.Tip="Revenue for the current billing period">
               <DockPanel>
-                <Border DockPanel.Dock="Top" Height="2" Background="{DynamicResource Brush.StratumLine}" />
-                <StackPanel Spacing="6" Margin="20,14,20,16">
-                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="Total Revenue" FontWeight="SemiBold" />
-                  <TextBlock Classes="headline" Text="$84,250" />
+                <Border DockPanel.Dock="Top" Height="2.5" Background="{DynamicResource Brush.StratumLine}" />
+                <StackPanel Spacing="6" Margin="20,16,20,18">
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="TOTAL REVENUE" FontWeight="SemiBold" LetterSpacing="0.5" />
+                  <TextBlock FontSize="28" FontWeight="SemiBold" Text="$84,250" Margin="0,2,0,0" />
                   <TextBlock Classes="caption" Foreground="{DynamicResource Brush.SuccessDefault}" Text="↑ 12.5% from last month" />
                 </StackPanel>
               </DockPanel>
@@ -104,10 +150,10 @@
             <Border Grid.Column="2" Classes="strata-card" Padding="0" ClipToBounds="True"
                     ToolTip.Tip="Active clients across all projects">
               <DockPanel>
-                <Border DockPanel.Dock="Top" Height="2" Background="{DynamicResource Brush.StratumLine}" />
-                <StackPanel Spacing="6" Margin="20,14,20,16">
-                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="Active Clients" FontWeight="SemiBold" />
-                  <TextBlock Classes="headline" Text="38" />
+                <Border DockPanel.Dock="Top" Height="2.5" Background="{DynamicResource Brush.StratumLine}" />
+                <StackPanel Spacing="6" Margin="20,16,20,18">
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="ACTIVE CLIENTS" FontWeight="SemiBold" LetterSpacing="0.5" />
+                  <TextBlock FontSize="28" FontWeight="SemiBold" Text="38" Margin="0,2,0,0" />
                   <TextBlock Classes="caption secondary" Text="4 new this week" />
                 </StackPanel>
               </DockPanel>
@@ -115,10 +161,10 @@
             <Border Grid.Column="4" Classes="strata-card" Padding="0" ClipToBounds="True"
                     ToolTip.Tip="Overall project completion rate">
               <DockPanel>
-                <Border DockPanel.Dock="Top" Height="2" Background="{DynamicResource Brush.StratumLine}" />
-                <StackPanel Spacing="6" Margin="20,14,20,16">
-                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="Completion" FontWeight="SemiBold" />
-                  <TextBlock Classes="headline" Text="{Binding ProgressValue, StringFormat='{}{0:F0}%'}" />
+                <Border DockPanel.Dock="Top" Height="2.5" Background="{DynamicResource Brush.StratumLine}" />
+                <StackPanel Spacing="6" Margin="20,16,20,18">
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="COMPLETION" FontWeight="SemiBold" LetterSpacing="0.5" />
+                  <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding ProgressValue, StringFormat='{}{0:F0}%'}" Margin="0,2,0,0" />
                   <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}" Margin="0,2,0,0" />
                 </StackPanel>
               </DockPanel>
@@ -127,51 +173,54 @@
 
           <!-- Type scale -->
           <Border Classes="strata-card">
-            <StackPanel Spacing="6">
-              <TextBlock Classes="subtitle" Text="Type Scale" Margin="0,0,0,8" />
-              <TextBlock Classes="display" Text="Display" />
-              <TextBlock Classes="headline" Text="Headline" />
-              <TextBlock Classes="title" Text="Title" />
-              <TextBlock Classes="subtitle" Text="Subtitle" />
-              <TextBlock Classes="body-strong" Text="Body Strong" />
-              <TextBlock Classes="body" Text="Body" />
-              <TextBlock Classes="caption" Text="Caption" />
+            <StackPanel Spacing="8">
+              <TextBlock Classes="subtitle" Text="Type Scale" Margin="0,0,0,6" />
+              <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,0,0,4" />
+              <TextBlock Classes="display" Text="Display — 32px" />
+              <TextBlock Classes="headline" Text="Headline — 24px" />
+              <TextBlock Classes="title" Text="Title — 20px" />
+              <TextBlock Classes="subtitle" Text="Subtitle — 16px" />
+              <TextBlock Classes="body-strong" Text="Body Strong — 14px SemiBold" />
+              <TextBlock Text="Body — 14px" />
+              <TextBlock Classes="caption" Text="Caption — 12px" />
             </StackPanel>
           </Border>
 
           <!-- Buttons -->
           <Border Classes="strata-card">
-            <StackPanel Spacing="14">
+            <StackPanel Spacing="16">
               <StackPanel Spacing="2">
                 <TextBlock Classes="subtitle" Text="Buttons" />
-                <TextBlock Classes="caption tertiary" Text="Action hierarchy for primary, secondary, subtle, and destructive flows." />
+                <TextBlock Classes="caption tertiary" Text="Action hierarchy: primary, secondary, subtle, and destructive." />
               </StackPanel>
-              <WrapPanel Orientation="Horizontal">
-                <Button Content="Default" Margin="0,0,8,8" ToolTip.Tip="Standard button for secondary actions" />
-                <Button Classes="accent" Content="Primary" Margin="0,0,8,8" ToolTip.Tip="High-emphasis primary action" />
-                <Button Classes="subtle" Content="Subtle" Margin="0,0,8,8" ToolTip.Tip="Low-emphasis inline action" />
-                <Button Classes="danger" Content="Delete" Margin="0,0,8,8" ToolTip.Tip="Destructive action — use with care" />
-                <Button Content="Disabled" IsEnabled="False" Margin="0,0,8,8" />
-              </WrapPanel>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="accent" Content="Primary" ToolTip.Tip="High-emphasis primary action" />
+                <Button Content="Default" ToolTip.Tip="Standard secondary action" />
+                <Button Classes="subtle" Content="Subtle" ToolTip.Tip="Low-emphasis inline action" />
+                <Button Classes="danger" Content="Delete" ToolTip.Tip="Destructive action" />
+                <Button Content="Disabled" IsEnabled="False" />
+              </StackPanel>
             </StackPanel>
           </Border>
         </StackPanel>
       </ScrollViewer>
 
-      <!-- ──── Page 1: Forms ──── -->
+      <!-- ════════ Page 1: Forms ════════ -->
       <ScrollViewer x:Name="Page1"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="False">
-        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
-          <StackPanel Spacing="6">
-            <TextBlock Classes="headline" Text="Form Controls" />
-            <TextBlock Classes="secondary" Text="Inputs, selections, toggles, and progress indicators." />
-          </StackPanel>
+        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
 
-          <!-- Text Input -->
+          <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="headline" Text="Form Controls" />
+              <TextBlock Classes="secondary" Text="Inputs, selections, toggles, and progress indicators." />
+            </StackPanel>
+          </Border>
+
           <Border Classes="strata-card">
-            <StackPanel Spacing="14">
+            <StackPanel Spacing="16">
               <StackPanel Spacing="2">
                 <TextBlock Classes="subtitle" Text="Text Input" />
                 <TextBlock Classes="caption tertiary" Text="Click a field to see the focus indicator." />
@@ -189,9 +238,8 @@
             </StackPanel>
           </Border>
 
-          <!-- Selection -->
           <Border Classes="strata-card">
-            <StackPanel Spacing="14">
+            <StackPanel Spacing="16">
               <StackPanel Spacing="2">
                 <TextBlock Classes="subtitle" Text="Selection" />
                 <TextBlock Classes="caption tertiary" Text="Dropdown menus and continuous value sliders." />
@@ -213,7 +261,6 @@
             </StackPanel>
           </Border>
 
-          <!-- Toggles -->
           <Grid ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card">
               <StackPanel Spacing="14">
@@ -232,7 +279,7 @@
               <StackPanel Spacing="14">
                 <StackPanel Spacing="2">
                   <TextBlock Classes="subtitle" Text="RadioButton" />
-                  <TextBlock Classes="caption tertiary" Text="Mutually exclusive single-select options." />
+                  <TextBlock Classes="caption tertiary" Text="Mutually exclusive single-select." />
                 </StackPanel>
                 <StackPanel Spacing="8">
                   <RadioButton Content="Small" GroupName="Size" IsChecked="True" />
@@ -243,7 +290,6 @@
             </Border>
           </Grid>
 
-          <!-- Switches and Progress -->
           <Grid ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card">
               <StackPanel Spacing="14">
@@ -276,16 +322,19 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- ──── Page 2: Data Grid ──── -->
+      <!-- ════════ Page 2: Data Grid ════════ -->
       <ScrollViewer x:Name="Page2"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="False">
-        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
-          <StackPanel Spacing="6">
-            <TextBlock Classes="headline" Text="DataGrid" />
-            <TextBlock Classes="secondary" Text="Tabular data with sorting, selection, and resizable columns." />
-          </StackPanel>
+        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+
+          <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="headline" Text="DataGrid" />
+              <TextBlock Classes="secondary" Text="Tabular data with sorting, selection, and resizable columns." />
+            </StackPanel>
+          </Border>
 
           <DataGrid ItemsSource="{Binding GridData}"
                     AutoGenerateColumns="False"
@@ -293,7 +342,7 @@
                     CanUserReorderColumns="True"
                     CanUserResizeColumns="True"
                     CanUserSortColumns="True"
-                    Height="420">
+                    Height="440">
             <DataGrid.Columns>
               <DataGridTextColumn Header="Invoice" Binding="{Binding Invoice}" Width="120" />
               <DataGridTextColumn Header="Client" Binding="{Binding Client}" Width="180" />
@@ -305,38 +354,41 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- ──── Page 3: Components ──── -->
+      <!-- ════════ Page 3: Components ════════ -->
       <ScrollViewer x:Name="Page3"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="False">
-        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
-          <StackPanel Spacing="6">
-            <TextBlock Classes="headline" Text="Components" />
-            <TextBlock Classes="secondary" Text="Navigation patterns, disclosure components, and layered interaction surfaces." />
-          </StackPanel>
+        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+
+          <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="headline" Text="Components" />
+              <TextBlock Classes="secondary" Text="Navigation patterns, disclosure controls, and layered interaction surfaces." />
+            </StackPanel>
+          </Border>
 
           <Border Classes="strata-card">
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="10">
               <TextBlock Classes="subtitle" Text="TabControl" />
-              <TextBlock Classes="caption tertiary" Text="Organize content into switchable views." Margin="0,0,0,4" />
+              <TextBlock Classes="caption tertiary" Text="Organize content into switchable views." Margin="0,0,0,2" />
               <TabControl>
                 <TabItem Header="Overview">
-                  <StackPanel Margin="4,12" Spacing="6">
+                  <StackPanel Margin="4,14" Spacing="6">
                     <TextBlock Classes="body-strong" Text="Unified design language" />
                     <TextBlock Classes="secondary" TextWrapping="Wrap"
                                Text="Every control in Strata shares the same spacing, radius, and color tokens — creating a cohesive visual rhythm across dashboards, forms, and data views." />
                   </StackPanel>
                 </TabItem>
                 <TabItem Header="Activity">
-                  <StackPanel Margin="4,12" Spacing="6">
+                  <StackPanel Margin="4,14" Spacing="6">
                     <TextBlock Classes="body-strong" Text="Recent changes" />
                     <TextBlock Classes="secondary" TextWrapping="Wrap"
                                Text="Activity feeds, notifications, and real-time updates can be displayed here with consistent styling and clear visual hierarchy." />
                   </StackPanel>
                 </TabItem>
                 <TabItem Header="Analytics">
-                  <StackPanel Margin="4,12" Spacing="6">
+                  <StackPanel Margin="4,14" Spacing="6">
                     <TextBlock Classes="body-strong" Text="Insights at a glance" />
                     <TextBlock Classes="secondary" TextWrapping="Wrap"
                                Text="Charts, sparklines, and key metrics rendered with the same token-driven styling for a seamless analytical experience." />
@@ -347,9 +399,9 @@
           </Border>
 
           <Border Classes="strata-card">
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="10">
               <TextBlock Classes="subtitle" Text="Expander" />
-              <TextBlock Classes="caption tertiary" Text="Progressive disclosure — reveal details on demand." Margin="0,0,0,4" />
+              <TextBlock Classes="caption tertiary" Text="Progressive disclosure — reveal details on demand." Margin="0,0,0,2" />
               <Expander Header="Advanced Settings">
                 <StackPanel Spacing="8" Margin="0,4">
                   <CheckBox Content="Enable experimental features" />
@@ -367,9 +419,9 @@
 
           <Grid ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card">
-              <StackPanel Spacing="8">
+              <StackPanel Spacing="10">
                 <TextBlock Classes="subtitle" Text="ListBox" />
-                <TextBlock Classes="caption tertiary" Text="Scrollable single-select item list." Margin="0,0,0,4" />
+                <TextBlock Classes="caption tertiary" Text="Scrollable single-select item list." Margin="0,0,0,2" />
                 <ListBox Height="200">
                   <ListBoxItem Content="Dashboard" />
                   <ListBoxItem Content="Analytics" />
@@ -380,10 +432,10 @@
               </StackPanel>
             </Border>
             <Border Grid.Column="2" Classes="strata-card">
-              <StackPanel Spacing="8">
+              <StackPanel Spacing="10">
                 <TextBlock Classes="subtitle" Text="Overlay Panel" />
-                <TextBlock Classes="caption tertiary" Text="Elevated dialog surface for confirmations." Margin="0,0,0,4" />
-                <Border Classes="strata-dialog" HorizontalAlignment="Stretch" Margin="0,4,0,0">
+                <TextBlock Classes="caption tertiary" Text="Elevated dialog surface for confirmations." Margin="0,0,0,2" />
+                <Border Classes="strata-dialog" HorizontalAlignment="Stretch">
                   <StackPanel Spacing="12">
                     <TextBlock Classes="subtitle" Text="Confirm Action" />
                     <TextBlock Classes="secondary" TextWrapping="Wrap"
@@ -400,16 +452,306 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- ──── Page 4: Settings ──── -->
+      <!-- ════════ Page 4: Strata Controls ════════ -->
       <ScrollViewer x:Name="Page4"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="False">
-        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
-          <StackPanel Spacing="6">
-            <TextBlock Classes="headline" Text="Settings" />
-            <TextBlock Classes="secondary" Text="Configuration controls for appearance, notifications, and regional preferences." />
-          </StackPanel>
+        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+
+          <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="headline" Text="Strata Controls" />
+              <TextBlock Classes="secondary" Text="Purpose-built controls for real-time workflows." />
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataLens ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataLens" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Collapsible reading surface. Header and summary always visible; click to reveal detail." />
+              </StackPanel>
+
+              <sc:StrataLens>
+                <sc:StrataLens.Header>
+                  <TextBlock Classes="body-strong" Text="Q4 Revenue Review" />
+                </sc:StrataLens.Header>
+                <sc:StrataLens.Summary>
+                  <TextBlock Classes="secondary" TextWrapping="Wrap"
+                             Text="Revenue grew 12.5% QoQ, driven by enterprise expansion and larger average deal size." />
+                </sc:StrataLens.Summary>
+                <sc:StrataLens.Detail>
+                  <StackPanel Spacing="8">
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Q4 2025 reached $84,250 MRR, up 12.5% from Q3. Enterprise accounts contributed 68% of new ARR through seat expansion and annual plan upgrades." />
+                    <TextBlock TextWrapping="Wrap" Classes="secondary"
+                               Text="Three strategic accounts closed in December. Average deal size increased 23% quarter-over-quarter. Churn improved to 1.8% with NPS up 15 points." />
+                  </StackPanel>
+                </sc:StrataLens.Detail>
+              </sc:StrataLens>
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataFork + StrataConfidence ── -->
+          <Grid ColumnDefinitions="*,16,*">
+            <Border Grid.Column="0" Classes="strata-card" Padding="24,20">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="3">
+                  <TextBlock Classes="subtitle" Text="StrataFork" />
+                  <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                             Text="Switch between generated branches." />
+                </StackPanel>
+                <sc:StrataFork OptionATitle="Concise" OptionBTitle="Detailed" SelectedIndex="0">
+                  <sc:StrataFork.OptionAContent>
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="body-strong" Text="Executive Summary" />
+                      <TextBlock Classes="secondary" TextWrapping="Wrap"
+                                 Text="Adopt event-driven architecture in Q2. Improves resilience and supports independent scaling." />
+                    </StackPanel>
+                  </sc:StrataFork.OptionAContent>
+                  <sc:StrataFork.OptionBContent>
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="body-strong" Text="Technical Rationale" />
+                      <TextBlock TextWrapping="Wrap"
+                                 Text="Synchronous REST chains show 340ms p99 under peak load. Event-driven flow decouples lifecycles." />
+                    </StackPanel>
+                  </sc:StrataFork.OptionBContent>
+                </sc:StrataFork>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="strata-card" Padding="24,20">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="3">
+                  <TextBlock Classes="subtitle" Text="StrataConfidence" />
+                  <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                             Text="Confidence gauge. First bar is editable." />
+                </StackPanel>
+                <StackPanel Spacing="12">
+                  <sc:StrataConfidence Label="Policy Match" Confidence="91" IsEditable="True">
+                    <sc:StrataConfidence.Explanation>
+                      <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                                 Text="High agreement with approved templates." />
+                    </sc:StrataConfidence.Explanation>
+                  </sc:StrataConfidence>
+                  <sc:StrataConfidence Label="Root Cause" Confidence="63">
+                    <sc:StrataConfidence.Explanation>
+                      <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                                 Text="Competing hypotheses remain." />
+                    </sc:StrataConfidence.Explanation>
+                  </sc:StrataConfidence>
+                  <sc:StrataConfidence Label="Anomaly" Confidence="34">
+                    <sc:StrataConfidence.Explanation>
+                      <TextBlock Classes="caption secondary" TextWrapping="Wrap"
+                                 Text="Sparse telemetry; needs more traces." />
+                    </sc:StrataConfidence.Explanation>
+                  </sc:StrataConfidence>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <!-- ── StrataStream ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataStream" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Live generation surface with stream rail and token-rate telemetry." />
+              </StackPanel>
+              <sc:StrataStream IsStreaming="True" StageText="Synthesizing" TokensPerSecond="31.7">
+                <sc:StrataStream.Header>
+                  <TextBlock Classes="body-strong" Text="Incident Draft — Generated Response" />
+                </sc:StrataStream.Header>
+                <sc:StrataStream.Content>
+                  <TextBlock TextWrapping="Wrap"
+                             Text="Detected elevated memory pressure on worker pool C. Applying autoscale policy and tuning GC thresholds. Early signs show stabilization in p95 latency." />
+                </sc:StrataStream.Content>
+              </sc:StrataStream>
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataThink ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataThink" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Compact pill that expands into a reasoning trace. Click to reveal AI thinking." />
+              </StackPanel>
+              <StackPanel Spacing="8">
+                <sc:StrataThink Label="Thinking…" IsActive="True">
+                  <sc:StrataThink.Content>
+                    <TextBlock Classes="secondary" TextWrapping="Wrap"
+                               Text="The user is asking about memory pressure on worker pool C. I should check the autoscale policy, GC thresholds, and recent p95 latency data. The incident logs show a correlation between allocation bursts and GC pause spikes in the last 24 hours." />
+                  </sc:StrataThink.Content>
+                </sc:StrataThink>
+                <sc:StrataThink Label="Thought for 4s" IsActive="False">
+                  <sc:StrataThink.Content>
+                    <TextBlock Classes="secondary" TextWrapping="Wrap"
+                               Text="Evaluated three remediation strategies: memory uplift, GC tuning, and horizontal scaling. Selected GC tuning based on cost-efficiency and turnaround time. Confidence: 78%." />
+                  </sc:StrataThink.Content>
+                </sc:StrataThink>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataTrace + StrataPulse ── -->
+          <Grid ColumnDefinitions="*,16,*">
+            <Border Grid.Column="0" Classes="strata-card" Padding="24,20">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="3">
+                  <TextBlock Classes="subtitle" Text="StrataTrace" />
+                  <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                             Text="Inline citation badges. Hover or click to reveal source details." />
+                </StackPanel>
+                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}">
+                  <Run Text="Memory pressure on worker pool C exceeded the 85% threshold" />
+                </TextBlock>
+                <StackPanel Spacing="6">
+                  <sc:StrataTrace Index="1" Title="Runbook: Memory Autoscale"
+                                  Snippet="When heap exceeds 85%, enable autoscale tier 2 and reduce GC gen-2 budget by 20%."
+                                  Origin="runbooks/infra/autoscale.md"
+                                  Relevance="94" />
+                  <sc:StrataTrace Index="2" Title="Incident IR-4471 Post-mortem"
+                                  Snippet="Root cause traced to allocation burst in serializer hot path during peak traffic window."
+                                  Origin="incidents/2025/IR-4471.pdf"
+                                  Relevance="81" />
+                  <sc:StrataTrace Index="3" Title="GC Tuning Guide"
+                                  Snippet="Workstation GC mode is not recommended for server workloads exceeding 4 cores."
+                                  Origin="docs/perf/gc-tuning.md"
+                                  Relevance="67" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="strata-card" Padding="24,20">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="3">
+                  <TextBlock Classes="subtitle" Text="StrataPulse" />
+                  <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                             Text="Live activity heartbeat. Bar graph shows recent intensity." />
+                </StackPanel>
+                <StackPanel Spacing="10">
+                  <sc:StrataPulse Label="API Calls" Rate="31.2" IsLive="True" />
+                  <sc:StrataPulse Label="Token Usage" Rate="4.8" IsLive="True" HeightMax="20" />
+                  <sc:StrataPulse Label="Queue Depth" Rate="0" IsLive="False" HeightMax="16" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <!-- ── StrataStepFlow + StrataPromptBar ── -->
+          <Grid ColumnDefinitions="*,16,*">
+            <Border Grid.Column="0" Classes="strata-card" Padding="24,20">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="3">
+                  <TextBlock Classes="subtitle" Text="StrataStepFlow" />
+                  <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                             Text="Click stages or arrow-key between steps." />
+                </StackPanel>
+                <sc:StrataStepFlow CurrentStep="1"
+                                   Step0Title="Draft"
+                                   Step1Title="Grounding"
+                                   Step2Title="Reasoning"
+                                   Step3Title="Finalize">
+                  <sc:StrataStepFlow.Step0Content>
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="body-strong" Text="Draft" />
+                      <TextBlock Classes="secondary" TextWrapping="Wrap" Text="Initial response from prompt intent." />
+                    </StackPanel>
+                  </sc:StrataStepFlow.Step0Content>
+                  <sc:StrataStepFlow.Step1Content>
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="body-strong" Text="Grounding" />
+                      <TextBlock TextWrapping="Wrap" Text="Cross-checked against runbook and metrics." />
+                    </StackPanel>
+                  </sc:StrataStepFlow.Step1Content>
+                  <sc:StrataStepFlow.Step2Content>
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="body-strong" Text="Reasoning" />
+                      <TextBlock Classes="secondary" TextWrapping="Wrap" Text="Hypotheses ranked by evidence." />
+                    </StackPanel>
+                  </sc:StrataStepFlow.Step2Content>
+                  <sc:StrataStepFlow.Step3Content>
+                    <StackPanel Spacing="4">
+                      <TextBlock Classes="body-strong" Text="Finalize" />
+                      <TextBlock Classes="secondary" TextWrapping="Wrap" Text="Normalized to stakeholder format." />
+                    </StackPanel>
+                  </sc:StrataStepFlow.Step3Content>
+                </sc:StrataStepFlow>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="strata-card" Padding="24,20">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="3">
+                  <TextBlock Classes="subtitle" Text="StrataPromptBar" />
+                  <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                             Text="Prompt composer with intent switching." />
+                </StackPanel>
+                <sc:StrataPromptBar Placeholder="Summarize this incident..."
+                                    PromptText="Summarize the outage timeline and propose a mitigation plan."
+                                    Intent="Summary"
+                                    IsBusy="False" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <!-- ── Micro Indicators ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="16">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="Micro Indicators" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Status dots, provenance cues, and token budget chips." />
+              </StackPanel>
+
+              <Grid ColumnDefinitions="*,24,*">
+                <StackPanel Grid.Column="0" Spacing="10">
+                  <TextBlock Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextSecondary}" Text="StrataOrb" />
+                  <sc:StrataOrb Label="Idle" State="Idle" />
+                  <sc:StrataOrb Label="Active" State="Active" />
+                  <sc:StrataOrb Label="Success" State="Success" />
+                  <sc:StrataOrb Label="Warning" State="Warning" />
+                  <sc:StrataOrb Label="Error" State="Error" />
+                  <sc:StrataOrb Label="Interactive — click to cycle" State="Idle" IsInteractive="True" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="12">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextSecondary}" Text="StrataCueSwitch" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <sc:StrataCueSwitch Mode="Memory" />
+                      <sc:StrataCueSwitch Mode="Grounded" />
+                      <sc:StrataCueSwitch Mode="Tool" />
+                    </StackPanel>
+                  </StackPanel>
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextSecondary}" Text="StrataBudgetChip" />
+                    <sc:StrataBudgetChip UsedTokens="2480" MaxTokens="8000" />
+                    <sc:StrataBudgetChip UsedTokens="7620" MaxTokens="8000" IsEditable="False" />
+                  </StackPanel>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- ════════ Page 5: Settings ════════ -->
+      <ScrollViewer x:Name="Page5"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    IsVisible="False">
+        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+
+          <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="headline" Text="Settings" />
+              <TextBlock Classes="secondary" Text="Appearance, notifications, and regional configuration." />
+            </StackPanel>
+          </Border>
 
           <Border Classes="strata-card">
             <StackPanel Spacing="16">
@@ -435,7 +777,7 @@
           </Border>
 
           <Border Classes="strata-card">
-            <StackPanel Spacing="14">
+            <StackPanel Spacing="16">
               <StackPanel Spacing="2">
                 <TextBlock Classes="subtitle" Text="Region &amp; Language" />
                 <TextBlock Classes="caption tertiary" Text="Set your locale and display preferences." />

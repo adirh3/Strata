@@ -1,0 +1,113 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <ControlTheme x:Key="{x:Type controls:StrataCard}" TargetType="controls:StrataCard">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Background" Value="{DynamicResource Brush.SurfaceCard}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="ClipToBounds" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Name="PART_RootBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    BoxShadow="0 1 3 0 #08000000"
+                    ClipToBounds="True">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="Background" Duration="0:0:0.2" />
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                </Transitions>
+              </Border.Transitions>
+              <DockPanel>
+                <!-- Stratum accent line -->
+                <Border Name="PART_StratumLine"
+                        DockPanel.Dock="Top"
+                        Height="2.5"
+                        Background="{DynamicResource Brush.StratumLine}">
+                  <Border.Transitions>
+                    <Transitions>
+                      <BrushTransition Property="Background" Duration="0:0:0.3" />
+                    </Transitions>
+                  </Border.Transitions>
+                </Border>
+
+                <DockPanel Margin="24,16,24,20">
+                  <!-- Header row with chevron -->
+                  <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                    <Border Name="PART_Chevron"
+                            DockPanel.Dock="Right"
+                            Width="20" Height="20"
+                            VerticalAlignment="Center"
+                            RenderTransformOrigin="0.5,0.5"
+                            RenderTransform="rotate(0deg)">
+                      <Border.Transitions>
+                        <Transitions>
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </Border.Transitions>
+                      <TextBlock Text="▾"
+                                 FontSize="14"
+                                 Foreground="{DynamicResource Brush.TextTertiary}"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                    </Border>
+                    <ContentPresenter Name="PART_HeaderPresenter"
+                                      Content="{TemplateBinding Header}" />
+                  </DockPanel>
+
+                  <!-- Animated content area -->
+                  <Border Name="PART_ContentHost" ClipToBounds="True">
+                    <Panel>
+                      <ContentPresenter Name="PART_SummaryPresenter"
+                                        Content="{TemplateBinding Summary}"
+                                        IsVisible="True" />
+                      <ContentPresenter Name="PART_DetailPresenter"
+                                        Content="{TemplateBinding Detail}"
+                                        IsVisible="False" />
+                    </Panel>
+                  </Border>
+                </DockPanel>
+              </DockPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Hover -->
+        <Style Selector="^:pointerover /template/ Border#PART_RootBorder">
+          <Setter Property="Background" Value="{DynamicResource Brush.SurfaceCardHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+          <Setter Property="BoxShadow" Value="0 4 16 0 #14000000" />
+        </Style>
+
+        <Style Selector="^:pressed /template/ Border#PART_RootBorder">
+          <Setter Property="BoxShadow" Value="0 2 8 0 #12000000" />
+        </Style>
+
+        <Style Selector="^:focus-visible /template/ Border#PART_RootBorder">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <!-- Expanded: upgrade stratum line to accent gradient -->
+        <Style Selector="^[IsExpanded=True] /template/ Border#PART_StratumLine">
+          <Setter Property="Height" Value="3" />
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+        </Style>
+
+        <Style Selector="^[IsExpanded=True] /template/ Border#PART_Chevron">
+          <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+      </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

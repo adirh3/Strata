@@ -1,0 +1,103 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataStepFlow}" TargetType="controls:StrataStepFlow">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel Spacing="10">
+              <Grid ColumnDefinitions="*,6,*,6,*,6,*">
+                <Button Name="PART_Step0" Grid.Column="0" Classes="subtle" Content="{TemplateBinding Step0Title}" Padding="10,4" MinHeight="0" />
+                <Button Name="PART_Step1" Grid.Column="2" Classes="subtle" Content="{TemplateBinding Step1Title}" Padding="10,4" MinHeight="0" />
+                <Button Name="PART_Step2" Grid.Column="4" Classes="subtle" Content="{TemplateBinding Step2Title}" Padding="10,4" MinHeight="0" />
+                <Button Name="PART_Step3" Grid.Column="6" Classes="subtle" Content="{TemplateBinding Step3Title}" Padding="10,4" MinHeight="0" />
+              </Grid>
+
+              <Border Name="PART_Track"
+                      Height="6"
+                      CornerRadius="999"
+                      Background="{DynamicResource Brush.SubtleHover}"
+                      ClipToBounds="True">
+                <Grid>
+                  <Border Name="PART_Fill"
+                          Height="6"
+                          Width="0"
+                          HorizontalAlignment="Left"
+                          CornerRadius="999"
+                          Background="{DynamicResource Brush.StratumLine}">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Width" Duration="0:0:0.24" Easing="0.2,0 0,1" />
+                      </Transitions>
+                    </Border.Transitions>
+                  </Border>
+
+                  <Border Name="PART_Head"
+                          Width="10"
+                          Height="10"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Center"
+                          CornerRadius="999"
+                          Background="{DynamicResource Brush.AccentDefault}"
+                      BoxShadow="0 0 8 2 #404F46E5"
+                          Margin="0,0,0,0" />
+                </Grid>
+              </Border>
+
+              <Border Background="{DynamicResource Brush.Surface1}"
+                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                      BorderThickness="{DynamicResource Stroke.Thin}"
+                      CornerRadius="{DynamicResource Radius.Base}"
+                      Padding="14,12"
+                      RenderTransformOrigin="0.5,0.5"
+                      RenderTransform="scale(1)">
+                <Border.Transitions>
+                  <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+                <Grid>
+                  <ContentPresenter Name="PART_Content0" Content="{TemplateBinding Step0Content}" />
+                  <ContentPresenter Name="PART_Content1" Content="{TemplateBinding Step1Content}" IsVisible="False" />
+                  <ContentPresenter Name="PART_Content2" Content="{TemplateBinding Step2Content}" IsVisible="False" />
+                  <ContentPresenter Name="PART_Content3" Content="{TemplateBinding Step3Content}" IsVisible="False" />
+                </Grid>
+              </Border>
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:s0 /template/ Button#PART_Step0">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="^:s1 /template/ Button#PART_Step1">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="^:s2 /template/ Button#PART_Step2">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="^:s3 /template/ Button#PART_Step3">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="^:focus-visible /template/ Border#PART_Track">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="BorderThickness" Value="1" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

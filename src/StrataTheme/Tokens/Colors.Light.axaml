@@ -145,6 +145,7 @@
 
   <SolidColorBrush x:Key="Brush.SuccessDefault" Color="{DynamicResource Palette.Success500}" />
   <SolidColorBrush x:Key="Brush.WarningDefault" Color="{DynamicResource Palette.Warning500}" />
+  <SolidColorBrush x:Key="Brush.WarningSubtle" Color="{DynamicResource Palette.Warning100}" />
 
   <!-- ── Strata Signature: Gradient Accent System ── -->
   <Color x:Key="Color.AccentViolet">#7C3AED</Color>

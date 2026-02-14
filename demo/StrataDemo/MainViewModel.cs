@@ -64,15 +64,6 @@ public class MainViewModel : INotifyPropertyChanged
         new SampleRow("INV-010", "Wonka Ltd", "Maintenance", 2800.00m, "Paid"),
     };
 
-    public ObservableCollection<string> NavItems { get; } = new()
-    {
-        "Dashboard",
-        "Forms",
-        "Data Grid",
-        "Components",
-        "Settings"
-    };
-
     public ObservableCollection<string> ComboItems { get; } = new()
     {
         "Option Alpha",

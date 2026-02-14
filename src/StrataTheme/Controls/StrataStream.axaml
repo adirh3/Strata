@@ -1,0 +1,103 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataStream}" TargetType="controls:StrataStream">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Background" Value="{DynamicResource Brush.SurfaceCard}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    ClipToBounds="True">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
+                </Transitions>
+              </Border.Transitions>
+              <StackPanel Spacing="0">
+                <Border Name="PART_StreamTrack"
+                        Height="2.5"
+                        Background="{DynamicResource Brush.SubtleHover}"
+                        ClipToBounds="True">
+                  <Border Name="PART_StreamBar"
+                          Height="2.5"
+                          Width="90"
+                          HorizontalAlignment="Left"
+                          Background="{DynamicResource Brush.StratumLine}"
+                          Opacity="0" />
+                </Border>
+
+                <StackPanel Spacing="12" Margin="18,14,18,16">
+                  <DockPanel>
+                    <ContentPresenter Name="PART_HeaderPresenter"
+                                      Content="{TemplateBinding Header}"
+                                      VerticalAlignment="Center" />
+
+                        <Border Name="PART_StatusArea"
+                          DockPanel.Dock="Right"
+                          Cursor="Hand"
+                          Padding="4,2"
+                          CornerRadius="999">
+                          <StackPanel Orientation="Horizontal"
+                          Spacing="8"
+                          VerticalAlignment="Center">
+                      <Border Name="PART_StatusDot"
+                        Width="8" Height="8"
+                        CornerRadius="4"
+                        Background="{DynamicResource Brush.SuccessDefault}" />
+                      <TextBlock Name="PART_StatusText"
+                           Text="{TemplateBinding StageText}"
+                           Classes="caption"
+                           Foreground="{DynamicResource Brush.TextSecondary}" />
+                      <TextBlock Name="PART_RateText"
+                           Text="{Binding TokensPerSecond, RelativeSource={RelativeSource TemplatedParent}, StringFormat='{}{0:F1} t/s'}"
+                           Classes="caption"
+                           Foreground="{DynamicResource Brush.TextTertiary}" />
+                          </StackPanel>
+                        </Border>
+                  </DockPanel>
+
+                  <Border Background="{DynamicResource Brush.Surface1}"
+                          BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                          BorderThickness="{DynamicResource Stroke.Thin}"
+                          CornerRadius="{DynamicResource Radius.Base}"
+                          Padding="14,12">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}" />
+                  </Border>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:ready /template/ Border#PART_StatusDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+
+        <Style Selector="^:ready /template/ TextBlock#PART_StatusText">
+          <Setter Property="Text" Value="Ready" />
+        </Style>
+
+        <Style Selector="^:streaming /template/ Border#PART_StatusDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <Style Selector="^ /template/ Border#PART_StatusArea:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+        </Style>
+
+        <Style Selector="^:focus-visible /template/ Border#PART_StatusArea">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

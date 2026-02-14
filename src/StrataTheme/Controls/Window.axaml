@@ -27,12 +27,11 @@
     </Setter>
   </Style>
 
-  <!-- Card hover: restrained elevation + subtle lift -->
+  <!-- Card hover: restrained border upgrade -->
   <Style Selector="Border.strata-card:pointerover">
     <Setter Property="Background" Value="{DynamicResource Brush.SurfaceCardHover}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
-    <Setter Property="BoxShadow" Value="0 5 14 0 #10000000, 0 12 30 0 #0A000000" />
-    <Setter Property="RenderTransform" Value="translateY(-1px)" />
+    <Setter Property="BoxShadow" Value="0 2 8 0 #0C000000, 0 6 20 0 #08000000" />
   </Style>
 
   <Style Selector="Border.strata-card:focus-within">

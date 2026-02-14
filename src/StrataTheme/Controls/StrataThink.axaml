@@ -1,0 +1,116 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataThink}" TargetType="controls:StrataThink">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <!-- Single rounded container — fixed radius, just grows in height -->
+            <Border Name="PART_Pill"
+                    Cursor="Hand"
+                    Background="{DynamicResource Brush.ControlDefault}"
+                    BorderBrush="{DynamicResource Brush.ControlElevationBorder}"
+                    BorderThickness="{DynamicResource Stroke.Thin}"
+                    CornerRadius="{DynamicResource Radius.Base}"
+                    Padding="10,6,10,6"
+                    BoxShadow="0 1 2 0 #0A000000"
+                    HorizontalAlignment="Left">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="Background" Duration="0:0:0.12" />
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                  <ThicknessTransition Property="Padding" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                  <DoubleTransition Property="Width" Duration="0:0:0.26" Easing="CubicEaseOut" />
+                  <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+                </Transitions>
+              </Border.Transitions>
+
+              <StackPanel Spacing="0">
+                <!-- Compact header row -->
+                <StackPanel Name="PART_HeaderRow" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                  <Border Name="PART_Dot"
+                          Width="6" Height="6"
+                          CornerRadius="3"
+                          Background="{DynamicResource Brush.TextTertiary}">
+                    <Border.Transitions>
+                      <Transitions>
+                        <BrushTransition Property="Background" Duration="0:0:0.2" />
+                      </Transitions>
+                    </Border.Transitions>
+                  </Border>
+                  <TextBlock Text="{TemplateBinding Label}"
+                             FontSize="{DynamicResource Font.SizeCaption}"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource Brush.TextSecondary}" />
+                </StackPanel>
+
+                <!-- Content area — animated MaxHeight reveal -->
+                <Border Name="PART_ContentHost"
+                        ClipToBounds="True"
+                        MaxHeight="0"
+                        Opacity="0"
+                        RenderTransformOrigin="0.5,0"
+                        RenderTransform="translateY(-6px) scaleY(0.94)">
+                  <Border.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="MaxHeight" Duration="0:0:0.3" Easing="CubicEaseOut" />
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.26" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <StackPanel>
+                    <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,6,0,6" />
+                    <ContentPresenter Content="{TemplateBinding Content}" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Expanded: grow width + reveal content, NO corner radius change -->
+        <Style Selector="^[IsExpanded=True] /template/ Border#PART_Pill">
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+          <Setter Property="BoxShadow" Value="0 4 16 0 #14000000" />
+        </Style>
+        <Style Selector="^[IsExpanded=True] /template/ Border#PART_ContentHost">
+          <Setter Property="MaxHeight" Value="500" />
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
+        </Style>
+
+        <!-- Active state: accent dot -->
+        <Style Selector="^:active /template/ Border#PART_Dot">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <!-- Hover -->
+        <Style Selector="^ /template/ Border#PART_Pill:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.ControlElevationBorder}" />
+          <Setter Property="BoxShadow" Value="0 2 6 0 #0E000000, 0 1 2 0 #06000000" />
+        </Style>
+
+        <Style Selector="^[IsExpanded=True] /template/ Border#PART_Pill:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+          <Setter Property="BoxShadow" Value="0 4 16 0 #14000000" />
+        </Style>
+
+        <Style Selector="^:pressed /template/ Border#PART_Pill">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlPressed}" />
+          <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+          <Setter Property="RenderTransform" Value="scale(0.98)" />
+        </Style>
+
+        <Style Selector="^:focus-visible /template/ Border#PART_Pill">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

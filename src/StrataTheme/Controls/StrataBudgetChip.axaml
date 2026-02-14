@@ -1,0 +1,69 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataBudgetChip}" TargetType="controls:StrataBudgetChip">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Name="PART_Root"
+                    Cursor="Hand"
+                    Background="{DynamicResource Brush.Surface1}"
+                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                    BorderThickness="{DynamicResource Stroke.Thin}"
+                    CornerRadius="999"
+                    Padding="10,6">
+              <StackPanel Spacing="5">
+                <DockPanel>
+                  <TextBlock Classes="caption" Text="Budget" Foreground="{DynamicResource Brush.TextTertiary}" />
+                  <TextBlock Name="PART_Label" DockPanel.Dock="Right" Classes="caption" FontWeight="SemiBold" Text="0/0" />
+                </DockPanel>
+
+                <Border Name="PART_Track"
+                        Height="4"
+                        CornerRadius="999"
+                        Background="{DynamicResource Brush.SubtleHover}"
+                        ClipToBounds="True">
+                  <Border Name="PART_Fill"
+                          Height="4"
+                          Width="0"
+                          HorizontalAlignment="Left"
+                          CornerRadius="999"
+                          Background="{DynamicResource Brush.SelectionGradient}">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="0.2,0 0,1" />
+                      </Transitions>
+                    </Border.Transitions>
+                  </Border>
+                </Border>
+              </StackPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:safe /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+        </Style>
+
+        <Style Selector="^:warn /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
+
+        <Style Selector="^:danger /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+
+        <Style Selector="^:focus-visible /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <Style Selector="^:not(:editable) /template/ Border#PART_Root">
+          <Setter Property="Opacity" Value="0.7" />
+          <Setter Property="Cursor" Value="Arrow" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

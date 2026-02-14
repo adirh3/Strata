@@ -15,7 +15,7 @@
   </Style>
 
   <Style Selector="Separator:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.StratumLine}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderDefault}" />
     <Setter Property="Opacity" Value="1" />
   </Style>
 

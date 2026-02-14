@@ -1,0 +1,74 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataPulse}" TargetType="controls:StrataPulse">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Background="{DynamicResource Brush.Surface1}"
+                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                    BorderThickness="{DynamicResource Stroke.Thin}"
+                    CornerRadius="{DynamicResource Radius.Base}"
+                    Padding="10,8">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                </Transitions>
+              </Border.Transitions>
+              <StackPanel Spacing="6">
+                <!-- Label row -->
+                <DockPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <Border Name="PART_StatusDot"
+                            Width="5" Height="5"
+                            CornerRadius="2.5"
+                            Background="{DynamicResource Brush.TextTertiary}">
+                      <Border.Transitions>
+                        <Transitions>
+                          <BrushTransition Property="Background" Duration="0:0:0.2" />
+                        </Transitions>
+                      </Border.Transitions>
+                    </Border>
+                    <TextBlock Text="{TemplateBinding Label}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brush.TextSecondary}" />
+                  </StackPanel>
+                  <TextBlock Name="PART_RateText"
+                             DockPanel.Dock="Right"
+                             FontSize="10"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource Brush.TextTertiary}"
+                             VerticalAlignment="Center" />
+                </DockPanel>
+
+                <!-- Bar graph -->
+                <Border Height="{TemplateBinding HeightMax}" ClipToBounds="True">
+                  <StackPanel Name="PART_BarHost"
+                              Orientation="Horizontal"
+                              Spacing="2"
+                              VerticalAlignment="Bottom"
+                              HorizontalAlignment="Stretch" />
+                </Border>
+              </StackPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:live /template/ Border#PART_StatusDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <Style Selector="^:paused /template/ Border#PART_StatusDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+
+        <Style Selector="^:focus-visible">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>
