@@ -1,0 +1,192 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRATA UI – DARK THEME VARIANT
+       Semantic color + brush tokens
+       ═══════════════════════════════════════════════════════════ -->
+
+  <!-- ── Palette Primitives ── -->
+  <Color x:Key="Palette.Neutral0">#FFFFFF</Color>
+  <Color x:Key="Palette.Neutral50">#F7F8FA</Color>
+  <Color x:Key="Palette.Neutral100">#D8DCE4</Color>
+  <Color x:Key="Palette.Neutral200">#B8BFC9</Color>
+  <Color x:Key="Palette.Neutral300">#929BAA</Color>
+  <Color x:Key="Palette.Neutral400">#6B7585</Color>
+  <Color x:Key="Palette.Neutral500">#4A5364</Color>
+  <Color x:Key="Palette.Neutral600">#333B49</Color>
+  <Color x:Key="Palette.Neutral700">#272D38</Color>
+  <Color x:Key="Palette.Neutral800">#1C2129</Color>
+  <Color x:Key="Palette.Neutral900">#13161C</Color>
+
+  <Color x:Key="Palette.Accent400">#5B9AF0</Color>
+  <Color x:Key="Palette.Accent500">#4488E8</Color>
+  <Color x:Key="Palette.Accent600">#3370CC</Color>
+  <Color x:Key="Palette.Accent100">#1E3254</Color>
+  <Color x:Key="Palette.Accent200">#264270</Color>
+
+  <Color x:Key="Palette.Danger400">#F06060</Color>
+  <Color x:Key="Palette.Danger500">#E04848</Color>
+  <Color x:Key="Palette.Danger600">#C43A3A</Color>
+  <Color x:Key="Palette.Danger100">#3D1C1C</Color>
+
+  <Color x:Key="Palette.Warning400">#FBBF24</Color>
+  <Color x:Key="Palette.Warning500">#F59E0B</Color>
+  <Color x:Key="Palette.Warning100">#451A03</Color>
+
+  <Color x:Key="Palette.Success400">#34D399</Color>
+  <Color x:Key="Palette.Success500">#10B981</Color>
+  <Color x:Key="Palette.Success100">#064E3B</Color>
+
+  <!-- ── Semantic Surface Colors ── -->
+  <Color x:Key="Color.Background">#161616</Color>
+  <Color x:Key="Color.Surface0">#1E1E1E</Color>
+  <Color x:Key="Color.Surface1">#252525</Color>
+  <Color x:Key="Color.Surface2">#2D2D2D</Color>
+  <Color x:Key="Color.SurfaceOverlay">#2A2A2A</Color>
+
+  <!-- ── Semantic Text Colors ── -->
+  <Color x:Key="Color.TextPrimary">#E4E4E4</Color>
+  <Color x:Key="Color.TextSecondary">#B0B0B0</Color>
+  <Color x:Key="Color.TextTertiary">#8A8A8A</Color>
+  <Color x:Key="Color.TextDisabled">#595959</Color>
+  <Color x:Key="Color.TextOnAccent">#FFFFFF</Color>
+  <Color x:Key="Color.TextOnDanger">#FFFFFF</Color>
+  <Color x:Key="Color.TextLink">#A5B4FC</Color>
+
+  <!-- ── Semantic Border / Keyline Colors ── -->
+  <Color x:Key="Color.BorderDefault">#3A3A3A</Color>
+  <Color x:Key="Color.BorderSubtle">#2D2D2D</Color>
+  <Color x:Key="Color.BorderStrong">#505050</Color>
+  <Color x:Key="Color.BorderFocus">#818CF8</Color>
+  <Color x:Key="Color.BorderError">#FF6B6B</Color>
+
+  <!-- ── Semantic Interactive Colors ── -->
+  <Color x:Key="Color.AccentDefault">#818CF8</Color>
+  <Color x:Key="Color.AccentHover">#A5B4FC</Color>
+  <Color x:Key="Color.AccentPressed">#6366F1</Color>
+  <Color x:Key="Color.AccentSubtle">#1E1B4B</Color>
+  <Color x:Key="Color.AccentSubtleHover">#312E81</Color>
+
+  <Color x:Key="Color.DangerDefault">#F06060</Color>
+  <Color x:Key="Color.DangerHover">#FF7878</Color>
+  <Color x:Key="Color.DangerPressed">#D94545</Color>
+  <Color x:Key="Color.DangerSubtle">#3D1C1C</Color>
+
+  <Color x:Key="Color.ControlDefault">#272727</Color>
+  <Color x:Key="Color.ControlHover">#2F2F2F</Color>
+  <Color x:Key="Color.ControlPressed">#383838</Color>
+  <Color x:Key="Color.ControlDisabled">#272727</Color>
+
+  <Color x:Key="Color.SubtleDefault">#00000000</Color>
+  <Color x:Key="Color.SubtleHover">#14FFFFFF</Color>
+  <Color x:Key="Color.SubtlePressed">#24FFFFFF</Color>
+
+  <Color x:Key="Color.SelectionBackground">#1E1B4B</Color>
+  <Color x:Key="Color.SelectionText">#E4E4E4</Color>
+
+  <Color x:Key="Color.OverlayScrim">#80000000</Color>
+
+  <!-- ── Brushes ── -->
+  <SolidColorBrush x:Key="Brush.Background" Color="{DynamicResource Color.Background}" />
+  <SolidColorBrush x:Key="Brush.Surface0" Color="{DynamicResource Color.Surface0}" />
+  <SolidColorBrush x:Key="Brush.Surface1" Color="{DynamicResource Color.Surface1}" />
+  <SolidColorBrush x:Key="Brush.Surface2" Color="{DynamicResource Color.Surface2}" />
+  <SolidColorBrush x:Key="Brush.SurfaceOverlay" Color="{DynamicResource Color.SurfaceOverlay}" />
+
+  <SolidColorBrush x:Key="Brush.TextPrimary" Color="{DynamicResource Color.TextPrimary}" />
+  <SolidColorBrush x:Key="Brush.TextSecondary" Color="{DynamicResource Color.TextSecondary}" />
+  <SolidColorBrush x:Key="Brush.TextTertiary" Color="{DynamicResource Color.TextTertiary}" />
+  <SolidColorBrush x:Key="Brush.TextDisabled" Color="{DynamicResource Color.TextDisabled}" />
+  <SolidColorBrush x:Key="Brush.TextOnAccent" Color="{DynamicResource Color.TextOnAccent}" />
+  <SolidColorBrush x:Key="Brush.TextOnDanger" Color="{DynamicResource Color.TextOnDanger}" />
+  <SolidColorBrush x:Key="Brush.TextLink" Color="{DynamicResource Color.TextLink}" />
+
+  <SolidColorBrush x:Key="Brush.BorderDefault" Color="{DynamicResource Color.BorderDefault}" />
+  <SolidColorBrush x:Key="Brush.BorderSubtle" Color="{DynamicResource Color.BorderSubtle}" />
+  <SolidColorBrush x:Key="Brush.BorderStrong" Color="{DynamicResource Color.BorderStrong}" />
+  <SolidColorBrush x:Key="Brush.BorderFocus" Color="{DynamicResource Color.BorderFocus}" />
+  <SolidColorBrush x:Key="Brush.BorderError" Color="{DynamicResource Color.BorderError}" />
+
+  <!-- Elevation border: top-lit gradient simulating depth -->
+  <LinearGradientBrush x:Key="Brush.ControlElevationBorder" StartPoint="0%,0%" EndPoint="0%,100%">
+    <GradientStop Offset="0.9" Color="#404040" />
+    <GradientStop Offset="1.0" Color="#333333" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="Brush.AccentElevationBorder" StartPoint="0%,0%" EndPoint="0%,100%">
+    <GradientStop Offset="0.9" Color="#A5B4FC" />
+    <GradientStop Offset="1.0" Color="#818CF8" />
+  </LinearGradientBrush>
+
+  <SolidColorBrush x:Key="Brush.AccentDefault" Color="{DynamicResource Color.AccentDefault}" />
+  <SolidColorBrush x:Key="Brush.AccentHover" Color="{DynamicResource Color.AccentHover}" />
+  <SolidColorBrush x:Key="Brush.AccentPressed" Color="{DynamicResource Color.AccentPressed}" />
+  <SolidColorBrush x:Key="Brush.AccentSubtle" Color="{DynamicResource Color.AccentSubtle}" />
+  <SolidColorBrush x:Key="Brush.AccentSubtleHover" Color="{DynamicResource Color.AccentSubtleHover}" />
+
+  <SolidColorBrush x:Key="Brush.DangerDefault" Color="{DynamicResource Color.DangerDefault}" />
+  <SolidColorBrush x:Key="Brush.DangerHover" Color="{DynamicResource Color.DangerHover}" />
+  <SolidColorBrush x:Key="Brush.DangerPressed" Color="{DynamicResource Color.DangerPressed}" />
+  <SolidColorBrush x:Key="Brush.DangerSubtle" Color="{DynamicResource Color.DangerSubtle}" />
+
+  <SolidColorBrush x:Key="Brush.ControlDefault" Color="{DynamicResource Color.ControlDefault}" />
+  <SolidColorBrush x:Key="Brush.ControlHover" Color="{DynamicResource Color.ControlHover}" />
+  <SolidColorBrush x:Key="Brush.ControlPressed" Color="{DynamicResource Color.ControlPressed}" />
+  <SolidColorBrush x:Key="Brush.ControlDisabled" Color="{DynamicResource Color.ControlDisabled}" />
+
+  <SolidColorBrush x:Key="Brush.SubtleDefault" Color="{DynamicResource Color.SubtleDefault}" />
+  <SolidColorBrush x:Key="Brush.SubtleHover" Color="{DynamicResource Color.SubtleHover}" />
+  <SolidColorBrush x:Key="Brush.SubtlePressed" Color="{DynamicResource Color.SubtlePressed}" />
+
+  <SolidColorBrush x:Key="Brush.SelectionBackground" Color="{DynamicResource Color.SelectionBackground}" />
+  <SolidColorBrush x:Key="Brush.SelectionText" Color="{DynamicResource Color.SelectionText}" />
+
+  <SolidColorBrush x:Key="Brush.OverlayScrim" Color="{DynamicResource Color.OverlayScrim}" />
+
+  <SolidColorBrush x:Key="Brush.SuccessDefault" Color="{DynamicResource Palette.Success500}" />
+  <SolidColorBrush x:Key="Brush.WarningDefault" Color="{DynamicResource Palette.Warning500}" />
+
+  <!-- ── Strata Signature: Gradient Accent System ── -->
+  <Color x:Key="Color.AccentViolet">#A78BFA</Color>
+  <Color x:Key="Color.AccentRose">#F472B6</Color>
+
+  <LinearGradientBrush x:Key="Brush.AccentGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+    <GradientStop Offset="0" Color="#818CF8" />
+    <GradientStop Offset="1" Color="#A78BFA" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="Brush.AccentGradientHover" StartPoint="0%,0%" EndPoint="100%,100%">
+    <GradientStop Offset="0" Color="#A5B4FC" />
+    <GradientStop Offset="1" Color="#C4B5FD" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="Brush.AccentGradientPressed" StartPoint="0%,0%" EndPoint="100%,100%">
+    <GradientStop Offset="0" Color="#6366F1" />
+    <GradientStop Offset="1" Color="#8B5CF6" />
+  </LinearGradientBrush>
+
+  <LinearGradientBrush x:Key="Brush.StratumLine" StartPoint="0%,50%" EndPoint="100%,50%">
+    <GradientStop Offset="0" Color="#818CF8" />
+    <GradientStop Offset="0.5" Color="#A78BFA" />
+    <GradientStop Offset="1" Color="#F472B6" />
+  </LinearGradientBrush>
+
+  <!-- ── Surface layering + glow accents ── -->
+  <LinearGradientBrush x:Key="Brush.SurfaceCard" StartPoint="0%,0%" EndPoint="0%,100%">
+    <GradientStop Offset="0" Color="#24242A" />
+    <GradientStop Offset="1" Color="#1F1F24" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="Brush.SurfaceCardHover" StartPoint="0%,0%" EndPoint="0%,100%">
+    <GradientStop Offset="0" Color="#2A2A31" />
+    <GradientStop Offset="1" Color="#23232A" />
+  </LinearGradientBrush>
+
+  <SolidColorBrush x:Key="Brush.AccentGlowSoft" Color="#28818CF8" />
+  <SolidColorBrush x:Key="Brush.AccentGlowStrong" Color="#44818CF8" />
+
+  <!-- Selection gradient: subtle left-to-right accent wash for DataGrid / table selection -->
+  <LinearGradientBrush x:Key="Brush.SelectionGradient" StartPoint="0%,50%" EndPoint="100%,50%">
+    <GradientStop Offset="0" Color="#20818CF8" />
+    <GradientStop Offset="0.6" Color="#10A78BFA" />
+    <GradientStop Offset="1" Color="#06F472B6" />
+  </LinearGradientBrush>
+
+</ResourceDictionary>

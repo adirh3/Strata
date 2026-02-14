@@ -1,0 +1,14 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRATA UI – PopupRoot
+       Transparent background so BoxShadow on popup children
+       can render into the margin bleed space.
+       ═══════════════════════════════════════════════════════════ -->
+
+  <Style Selector="PopupRoot">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+</Styles>

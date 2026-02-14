@@ -1,0 +1,15 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="StrataDemo.App"
+             RequestedThemeVariant="Light">
+
+  <Application.Styles>
+    <!-- Avalonia Simple theme as base (provides missing templates) -->
+    <SimpleTheme />
+    <!-- DataGrid base theme templates -->
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml" />
+    <!-- Strata theme overlay -->
+    <StyleInclude Source="avares://StrataTheme/StrataTheme.axaml" />
+  </Application.Styles>
+
+</Application>

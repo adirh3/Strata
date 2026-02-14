@@ -1,0 +1,266 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:strata="using:StrataTheme">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRATA UI – DataGrid
+       Uses Simple theme template parts:
+         DataGrid → Border#DataGridBorder
+         DataGridRow → Border#RowBorder, Rectangle#BackgroundRectangle
+         DataGridColumnHeader → Border#HeaderBorder, Rectangle#VerticalSeparator
+         DataGridCell → Border#CellBorder
+       ═══════════════════════════════════════════════════════════ -->
+
+  <!-- ── DataGrid container ── -->
+  <Style Selector="DataGrid">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface0}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.ControlElevationBorder}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+    <Setter Property="RowHeaderWidth" Value="0" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="RowHeight" Value="{DynamicResource Size.DataGridRowHeight}" />
+    <Setter Property="HeadersVisibility" Value="Column" />
+    <Setter Property="GridLinesVisibility" Value="None" />
+    <Setter Property="HorizontalGridLinesBrush" Value="Transparent" />
+    <Setter Property="VerticalGridLinesBrush" Value="Transparent" />
+    <Setter Property="(strata:DataGridSortAnimationHelper.EnableSortAnimation)" Value="True" />
+  </Style>
+
+  <!-- Outer DataGrid border -->
+  <Style Selector="DataGrid /template/ Border#DataGridBorder">
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.ControlElevationBorder}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface0}" />
+    <Setter Property="BoxShadow" Value="0 1 3 0 #0A000000, 0 0 0 1 #06000000" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="DataGrid:pointerover /template/ Border#DataGridBorder">
+    <Setter Property="BoxShadow" Value="0 2 8 0 #0E000000, 0 0 0 1 #08000000" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+  </Style>
+
+  <Style Selector="DataGrid:focus-within /template/ Border#DataGridBorder">
+    <Setter Property="BoxShadow" Value="0 0 0 2 #1A4F46E5, 0 2 8 0 #0E000000" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+  </Style>
+
+  <!-- Hide corner artifacts (row headers are disabled) -->
+  <Style Selector="DataGrid /template/ DataGridColumnHeader#PART_TopLeftCornerHeader">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="DataGrid /template/ Rectangle#BottomLeftCorner">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="DataGrid /template/ DataGridColumnHeader#PART_TopRightCornerHeader">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="CornerRadius" Value="0,6,0,0" />
+  </Style>
+  <Style Selector="DataGrid /template/ Rectangle#PART_BottomRightCorner">
+    <Setter Property="Fill" Value="{DynamicResource Brush.Surface0}" />
+  </Style>
+
+  <!-- Round top corners of first and last column headers to match DataGrid border -->
+  <Style Selector="DataGridColumnHeader:nth-child(1) /template/ Border#HeaderBorder">
+    <Setter Property="CornerRadius" Value="6,0,0,0" />
+  </Style>
+  <Style Selector="DataGridColumnHeader:nth-last-child(1) /template/ Border#HeaderBorder">
+    <Setter Property="CornerRadius" Value="0,6,0,0" />
+  </Style>
+
+  <!-- Header/body separator — StratumLine accent -->
+  <Style Selector="DataGrid /template/ Rectangle#PART_ColumnHeadersAndRowsSeparator">
+    <Setter Property="Fill" Value="{DynamicResource Brush.StratumLine}" />
+    <Setter Property="Height" Value="2" />
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+  <!-- ── Column headers ── -->
+  <Style Selector="DataGridColumnHeader">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+    <Setter Property="MinHeight" Value="{DynamicResource Size.DataGridHeaderHeight}" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="SeparatorBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <!-- Header inner border (Simple theme template part) -->
+  <Style Selector="DataGridColumnHeader /template/ Border#HeaderBorder">
+    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceCard}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="DataGridColumnHeader:pointerover /template/ Border#HeaderBorder">
+    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceCardHover}" />
+  </Style>
+  <Style Selector="DataGridColumnHeader:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+
+  <Style Selector="DataGridColumnHeader:pressed /template/ Border#HeaderBorder">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlPressed}" />
+  </Style>
+
+  <!-- Sorted header: accent text to indicate active sort column -->
+  <Style Selector="DataGridColumnHeader:sortascending">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="DataGridColumnHeader:sortdescending">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+
+  <!-- Sorted header background: subtle accent tint -->
+  <Style Selector="DataGridColumnHeader:sortascending /template/ Border#HeaderBorder">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+  <Style Selector="DataGridColumnHeader:sortdescending /template/ Border#HeaderBorder">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+
+  <!-- Sort icon: only restyle color, let Simple theme handle visibility + flip -->
+  <Style Selector="DataGridColumnHeader /template/ Path#SortIcon">
+    <Setter Property="Fill" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+
+  <!-- Sort ascending: chevron points up (Simple theme default) -->
+  <Style Selector="DataGridColumnHeader:sortascending /template/ Path#SortIcon">
+    <Setter Property="Fill" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+
+  <!-- Sort descending: chevron flipped by Simple theme ScaleTransform -->
+  <Style Selector="DataGridColumnHeader:sortdescending /template/ Path#SortIcon">
+    <Setter Property="Fill" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+
+  <!-- Column separator lines -->
+  <Style Selector="DataGridColumnHeader /template/ Rectangle#VerticalSeparator">
+    <Setter Property="Fill" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="Width" Value="1" />
+  </Style>
+
+  <!-- ── Rows ── -->
+  <Style Selector="DataGridRow">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+  </Style>
+
+  <!-- Row inner border (Simple theme template part) -->
+  <Style Selector="DataGridRow /template/ Border#RowBorder">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.15" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <!-- BackgroundRectangle is the selection/hover highlight -->
+  <Style Selector="DataGridRow /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="RadiusX" Value="0" />
+    <Setter Property="RadiusY" Value="0" />
+  </Style>
+
+  <!-- Hover -->
+  <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="Transparent" />
+  </Style>
+  <Style Selector="DataGridRow:pointerover /template/ Border#RowBorder">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+  </Style>
+
+  <!-- Selected: accent gradient wash across the row -->
+  <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource Brush.SelectionGradient}" />
+  </Style>
+  <Style Selector="DataGridRow:selected /template/ Border#RowBorder">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGlowSoft}" />
+  </Style>
+  <Style Selector="DataGridRow:selected">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+
+  <!-- Selected + hover -->
+  <Style Selector="DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource Brush.SelectionGradient}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="DataGridRow:selected:pointerover /template/ Border#RowBorder">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtleHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGlowStrong}" />
+  </Style>
+
+  <!-- Selected + focus (keyboard) -->
+  <Style Selector="DataGridRow:selected:focus /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource Brush.SelectionGradient}" />
+  </Style>
+  <Style Selector="DataGridRow:selected:focus /template/ Border#RowBorder">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtleHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGlowStrong}" />
+  </Style>
+
+  <!-- ── Cells ── -->
+  <Style Selector="DataGridCell">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="DataGridCell /template/ Border#CellBorder">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <Style Selector="DataGridCell:focus /template/ Border#CellBorder">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+
+  <!-- ── Row group header ── -->
+  <Style Selector="DataGridRowGroupHeader">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+  </Style>
+
+  <!-- ── Row header (hidden — row header width is 0) ── -->
+  <Style Selector="DataGridRowHeader">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+</Styles>

@@ -1,0 +1,85 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRATA UI – Menu, ContextMenu, MenuItem
+       Property-based styling (avoiding complex template parts)
+       ═══════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type ContextMenu}" TargetType="ContextMenu">
+        <Setter Property="Background" Value="{DynamicResource Brush.SurfaceOverlay}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    Padding="{TemplateBinding Padding}"
+                    BoxShadow="0 8 32 0 #1A000000, 0 2 8 0 #0D000000"
+                    Opacity="1"
+                    RenderTransformOrigin="0.5,0"
+                    RenderTransform="translateY(0px)">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="Background" Duration="0:0:0.12" />
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                  <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                </Transitions>
+              </Border.Transitions>
+              <ScrollViewer>
+                <ItemsPresenter Name="PART_ItemsPresenter"
+                                ItemsPanel="{TemplateBinding ItemsPanel}" />
+              </ScrollViewer>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <Style Selector="Menu">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+  </Style>
+
+  <Style Selector="MenuItem">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="Margin" Value="2,1" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.1" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="MenuItem:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+    <Setter Property="RenderTransform" Value="translateX(1px)" />
+  </Style>
+
+  <Style Selector="MenuItem:pressed">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+    <Setter Property="RenderTransform" Value="translateX(0px)" />
+  </Style>
+
+  <Style Selector="MenuItem:disabled">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+</Styles>

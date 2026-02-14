@@ -1,0 +1,61 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRATA UI – ScrollBar + ScrollViewer
+       ═══════════════════════════════════════════════════════════ -->
+
+  <Style Selector="ScrollViewer">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- Style scrollbar thumb appearance via property overrides
+       (avoids replacing internal track/thumb template fully) -->
+  <Style Selector="ScrollBar">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="0.5" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.25" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ScrollBar:pointerover">
+    <Setter Property="Opacity" Value="1.0" />
+  </Style>
+
+  <Style Selector="ScrollBar:vertical">
+    <Setter Property="Width" Value="{DynamicResource Size.ScrollbarThick}" />
+  </Style>
+
+  <Style Selector="ScrollBar:horizontal">
+    <Setter Property="Height" Value="{DynamicResource Size.ScrollbarThick}" />
+  </Style>
+
+  <Style Selector="ScrollBar /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderStrong}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Full}" />
+    <Setter Property="Opacity" Value="0.7" />
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.15" />
+        <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="ScrollBar:pointerover /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="Opacity" Value="0.95" />
+    <Setter Property="RenderTransform" Value="scaleX(1.05) scaleY(1.05)" />
+  </Style>
+
+  <Style Selector="ScrollBar:pressed /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentHover}" />
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="RenderTransform" Value="scaleX(1.08) scaleY(1.08)" />
+  </Style>
+
+</Styles>

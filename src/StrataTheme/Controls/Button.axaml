@@ -1,0 +1,182 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRATA UI – Button Styles
+       Variants: default, accent, subtle, danger
+       ═══════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
+        <Setter Property="Background" Value="{DynamicResource Brush.ControlDefault}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.ControlElevationBorder}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+        <Setter Property="Padding" Value="{DynamicResource Padding.Control}" />
+        <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <Border Name="PART_FocusRing"
+                      CornerRadius="{TemplateBinding CornerRadius}"
+                      BorderThickness="{DynamicResource Stroke.FocusRing}"
+                      BorderBrush="Transparent"
+                      Margin="-2"
+                      IsHitTestVisible="False" />
+              <Border Name="PART_Surface"
+                      Background="{TemplateBinding Background}"
+                      BorderBrush="{TemplateBinding BorderBrush}"
+                      BorderThickness="{TemplateBinding BorderThickness}"
+                      CornerRadius="{TemplateBinding CornerRadius}"
+                      BoxShadow="0 1 2 0 #0A000000"
+                      RenderTransformOrigin="0.5,0.5"
+                      ClipToBounds="True">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+                <Grid>
+                  <Border Name="PART_Aurora"
+                          Height="2"
+                          Background="{DynamicResource Brush.StratumLine}"
+                          VerticalAlignment="Top"
+                          HorizontalAlignment="Stretch"
+                          Opacity="0"
+                          IsHitTestVisible="False"
+                          RenderTransformOrigin="0.5,0.5"
+                          RenderTransform="translateX(-18px)">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.3" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Border.Transitions>
+                  </Border>
+                  <ContentPresenter Name="PART_ContentPresenter"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    Foreground="{TemplateBinding Foreground}"
+                                    TextElement.Foreground="{TemplateBinding Foreground}"
+                                    Padding="{TemplateBinding Padding}"
+                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Grid>
+              </Border>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Surface">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+          <Setter Property="BoxShadow" Value="0 2 6 0 #0E000000, 0 1 2 0 #06000000" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#PART_Aurora">
+          <Setter Property="Opacity" Value="0.22" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#PART_Surface">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlPressed}" />
+          <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+          <Setter Property="RenderTransform" Value="scale(0.98)" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#PART_Aurora">
+          <Setter Property="Opacity" Value="0" />
+        </Style>
+        <Style Selector="^:disabled">
+          <Setter Property="Opacity" Value="0.5" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Accent variant -->
+  <Style Selector="Button.accent">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.accent TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+  </Style>
+  <Style Selector="Button.accent:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BoxShadow" Value="0 3 10 0 #1A4F46E5, 0 0 0 1 #1C4F46E5" />
+  </Style>
+  <Style Selector="Button.accent:pointerover /template/ Border#PART_Aurora">
+    <Setter Property="Opacity" Value="0.75" />
+    <Setter Property="RenderTransform" Value="translateX(0)" />
+    <Style.Animations>
+      <Animation Duration="0:0:1.8" IterationCount="Infinite">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0.55" />
+        </KeyFrame>
+        <KeyFrame Cue="50%">
+          <Setter Property="Opacity" Value="0.85" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="0.55" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Button.accent:pressed /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientPressed}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+    <Setter Property="RenderTransform" Value="scale(0.98)" />
+  </Style>
+  <Style Selector="Button.accent:pressed /template/ Border#PART_Aurora">
+    <Setter Property="Opacity" Value="0.35" />
+  </Style>
+
+  <!-- Subtle variant -->
+  <Style Selector="Button.subtle">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleDefault}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.subtle:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+  </Style>
+  <Style Selector="Button.subtle:pressed /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+    <Setter Property="RenderTransform" Value="scale(0.98)" />
+  </Style>
+
+  <!-- Danger variant -->
+  <Style Selector="Button.danger">
+    <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnDanger}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.DangerDefault}" />
+  </Style>
+  <Style Selector="Button.danger TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnDanger}" />
+  </Style>
+  <Style Selector="Button.danger:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.DangerHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.DangerHover}" />
+    <Setter Property="BoxShadow" Value="0 2 8 0 #18BA1A1A" />
+  </Style>
+  <Style Selector="Button.danger:pressed /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.DangerPressed}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.DangerPressed}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+    <Setter Property="RenderTransform" Value="scale(0.98)" />
+  </Style>
+
+</Styles>

@@ -1,0 +1,471 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:StrataDemo"
+        x:Class="StrataDemo.MainWindow"
+        Title="Strata UI – Design System Preview"
+        Width="1280" Height="820"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.DataContext>
+    <local:MainViewModel />
+  </Window.DataContext>
+
+  <DockPanel>
+
+    <!-- ════════════ LEFT SIDEBAR ════════════ -->
+    <Border DockPanel.Dock="Left"
+            Width="260"
+            Background="{DynamicResource Brush.Surface0}"
+            BorderBrush="{DynamicResource Brush.BorderSubtle}"
+            BorderThickness="0,0,1,0">
+      <DockPanel>
+        <!-- Brand header with accent gradient strip -->
+        <Border DockPanel.Dock="Top">
+          <StackPanel>
+            <!-- Strata signature brand line -->
+            <Border Height="3" CornerRadius="0" Background="{DynamicResource Brush.StratumLine}" />
+            <StackPanel Margin="20,18,20,16" Spacing="2">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <!-- Logo mark -->
+                <Border Width="34" Height="34"
+                        CornerRadius="9"
+                        Background="{DynamicResource Brush.AccentGradient}">
+                  <TextBlock Text="S" FontSize="17" FontWeight="Bold"
+                             Foreground="{DynamicResource Brush.TextOnAccent}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                  <TextBlock Text="Strata UI" FontSize="17" FontWeight="SemiBold" />
+                  <TextBlock Classes="caption tertiary" Text="Design System Preview" />
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Separator DockPanel.Dock="Top" Margin="16,0" />
+
+        <!-- Bottom controls -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="16,8,16,16" Spacing="8">
+          <Separator />
+          <ToggleSwitch Content="Dark Mode"
+                        IsChecked="{Binding IsDarkTheme}"
+                        x:Name="ThemeToggle" />
+          <ToggleSwitch Content="Compact"
+                        IsChecked="{Binding IsCompactDensity}"
+                        x:Name="DensityToggle" />
+        </StackPanel>
+
+        <!-- Navigation -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="12,12,12,0" Spacing="2">
+            <TextBlock Classes="caption tertiary" Text="NAVIGATION" Margin="8,8,0,6" FontWeight="SemiBold" />
+            <ListBox x:Name="NavList"
+                     ItemsSource="{Binding NavItems}"
+                     SelectedIndex="{Binding SelectedNavIndex}"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     Padding="0" />
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- ════════════ MAIN CONTENT ════════════ -->
+    <Panel x:Name="PageHost" Background="{DynamicResource Brush.Background}">
+
+      <!-- ──── Page 0: Dashboard ──── -->
+      <ScrollViewer x:Name="Page0"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    IsVisible="True">
+        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
+          <!-- Page header -->
+          <StackPanel Spacing="6">
+            <TextBlock Classes="headline" Text="Dashboard" />
+            <TextBlock Classes="secondary" Text="A high-level view of system metrics, type hierarchy, and control quality." />
+          </StackPanel>
+
+          <!-- Stat cards row -->
+          <Grid ColumnDefinitions="*,16,*,16,*">
+            <Border Grid.Column="0" Classes="strata-card" Padding="0" ClipToBounds="True"
+                    ToolTip.Tip="Revenue for the current billing period">
+              <DockPanel>
+                <Border DockPanel.Dock="Top" Height="2" Background="{DynamicResource Brush.StratumLine}" />
+                <StackPanel Spacing="6" Margin="20,14,20,16">
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="Total Revenue" FontWeight="SemiBold" />
+                  <TextBlock Classes="headline" Text="$84,250" />
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.SuccessDefault}" Text="↑ 12.5% from last month" />
+                </StackPanel>
+              </DockPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="strata-card" Padding="0" ClipToBounds="True"
+                    ToolTip.Tip="Active clients across all projects">
+              <DockPanel>
+                <Border DockPanel.Dock="Top" Height="2" Background="{DynamicResource Brush.StratumLine}" />
+                <StackPanel Spacing="6" Margin="20,14,20,16">
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="Active Clients" FontWeight="SemiBold" />
+                  <TextBlock Classes="headline" Text="38" />
+                  <TextBlock Classes="caption secondary" Text="4 new this week" />
+                </StackPanel>
+              </DockPanel>
+            </Border>
+            <Border Grid.Column="4" Classes="strata-card" Padding="0" ClipToBounds="True"
+                    ToolTip.Tip="Overall project completion rate">
+              <DockPanel>
+                <Border DockPanel.Dock="Top" Height="2" Background="{DynamicResource Brush.StratumLine}" />
+                <StackPanel Spacing="6" Margin="20,14,20,16">
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="Completion" FontWeight="SemiBold" />
+                  <TextBlock Classes="headline" Text="{Binding ProgressValue, StringFormat='{}{0:F0}%'}" />
+                  <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}" Margin="0,2,0,0" />
+                </StackPanel>
+              </DockPanel>
+            </Border>
+          </Grid>
+
+          <!-- Type scale -->
+          <Border Classes="strata-card">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="subtitle" Text="Type Scale" Margin="0,0,0,8" />
+              <TextBlock Classes="display" Text="Display" />
+              <TextBlock Classes="headline" Text="Headline" />
+              <TextBlock Classes="title" Text="Title" />
+              <TextBlock Classes="subtitle" Text="Subtitle" />
+              <TextBlock Classes="body-strong" Text="Body Strong" />
+              <TextBlock Classes="body" Text="Body" />
+              <TextBlock Classes="caption" Text="Caption" />
+            </StackPanel>
+          </Border>
+
+          <!-- Buttons -->
+          <Border Classes="strata-card">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="subtitle" Text="Buttons" />
+                <TextBlock Classes="caption tertiary" Text="Action hierarchy for primary, secondary, subtle, and destructive flows." />
+              </StackPanel>
+              <WrapPanel Orientation="Horizontal">
+                <Button Content="Default" Margin="0,0,8,8" ToolTip.Tip="Standard button for secondary actions" />
+                <Button Classes="accent" Content="Primary" Margin="0,0,8,8" ToolTip.Tip="High-emphasis primary action" />
+                <Button Classes="subtle" Content="Subtle" Margin="0,0,8,8" ToolTip.Tip="Low-emphasis inline action" />
+                <Button Classes="danger" Content="Delete" Margin="0,0,8,8" ToolTip.Tip="Destructive action — use with care" />
+                <Button Content="Disabled" IsEnabled="False" Margin="0,0,8,8" />
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- ──── Page 1: Forms ──── -->
+      <ScrollViewer x:Name="Page1"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    IsVisible="False">
+        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="headline" Text="Form Controls" />
+            <TextBlock Classes="secondary" Text="Inputs, selections, toggles, and progress indicators." />
+          </StackPanel>
+
+          <!-- Text Input -->
+          <Border Classes="strata-card">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="subtitle" Text="Text Input" />
+                <TextBlock Classes="caption tertiary" Text="Click a field to see the focus indicator." />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,24,*">
+                <StackPanel Grid.Column="0" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="Full name" />
+                  <TextBox Watermark="Enter your name..." Text="{Binding SampleText}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="Email (disabled)" />
+                  <TextBox Watermark="Disabled input" IsEnabled="False" Text="user@example.com" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Selection -->
+          <Border Classes="strata-card">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="subtitle" Text="Selection" />
+                <TextBlock Classes="caption tertiary" Text="Dropdown menus and continuous value sliders." />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,24,*">
+                <StackPanel Grid.Column="0" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="Region" />
+                  <ComboBox ItemsSource="{Binding ComboItems}"
+                            SelectedIndex="0"
+                            PlaceholderText="Choose an option..."
+                            HorizontalAlignment="Stretch" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="Volume" />
+                  <Slider Minimum="0" Maximum="100" Value="{Binding SliderValue}" />
+                  <TextBlock Classes="caption tertiary" Text="{Binding SliderValue, StringFormat='Value: {0:F0}'}" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Toggles -->
+          <Grid ColumnDefinitions="*,16,*">
+            <Border Grid.Column="0" Classes="strata-card">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="subtitle" Text="CheckBox" />
+                  <TextBlock Classes="caption tertiary" Text="Binary and tri-state toggles." />
+                </StackPanel>
+                <StackPanel Spacing="8">
+                  <CheckBox Content="Enable notifications" IsChecked="True" />
+                  <CheckBox Content="Auto-save drafts" />
+                  <CheckBox Content="Indeterminate" IsThreeState="True" IsChecked="{x:Null}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="strata-card">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="subtitle" Text="RadioButton" />
+                  <TextBlock Classes="caption tertiary" Text="Mutually exclusive single-select options." />
+                </StackPanel>
+                <StackPanel Spacing="8">
+                  <RadioButton Content="Small" GroupName="Size" IsChecked="True" />
+                  <RadioButton Content="Medium" GroupName="Size" />
+                  <RadioButton Content="Large" GroupName="Size" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <!-- Switches and Progress -->
+          <Grid ColumnDefinitions="*,16,*">
+            <Border Grid.Column="0" Classes="strata-card">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="subtitle" Text="ToggleSwitch" />
+                  <TextBlock Classes="caption tertiary" Text="On/off switches for boolean settings." />
+                </StackPanel>
+                <StackPanel Spacing="8">
+                  <ToggleSwitch Content="Wi-Fi" IsChecked="True" />
+                  <ToggleSwitch Content="Bluetooth" />
+                  <ToggleSwitch Content="Disabled" IsEnabled="False" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="strata-card">
+              <StackPanel Spacing="14">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="subtitle" Text="Progress" />
+                  <TextBlock Classes="caption tertiary" Text="Track and visualize completion." />
+                </StackPanel>
+                <StackPanel Spacing="12">
+                  <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}" />
+                  <TextBlock Classes="caption tertiary"
+                             Text="{Binding ProgressValue, StringFormat='{}{0}% complete'}" />
+                  <Slider Minimum="0" Maximum="100" Value="{Binding ProgressValue}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- ──── Page 2: Data Grid ──── -->
+      <ScrollViewer x:Name="Page2"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    IsVisible="False">
+        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="headline" Text="DataGrid" />
+            <TextBlock Classes="secondary" Text="Tabular data with sorting, selection, and resizable columns." />
+          </StackPanel>
+
+          <DataGrid ItemsSource="{Binding GridData}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    CanUserReorderColumns="True"
+                    CanUserResizeColumns="True"
+                    CanUserSortColumns="True"
+                    Height="420">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Invoice" Binding="{Binding Invoice}" Width="120" />
+              <DataGridTextColumn Header="Client" Binding="{Binding Client}" Width="180" />
+              <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" />
+              <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='{}{0:C}'}" Width="120" />
+              <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- ──── Page 3: Components ──── -->
+      <ScrollViewer x:Name="Page3"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    IsVisible="False">
+        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="headline" Text="Components" />
+            <TextBlock Classes="secondary" Text="Navigation patterns, disclosure components, and layered interaction surfaces." />
+          </StackPanel>
+
+          <Border Classes="strata-card">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="subtitle" Text="TabControl" />
+              <TextBlock Classes="caption tertiary" Text="Organize content into switchable views." Margin="0,0,0,4" />
+              <TabControl>
+                <TabItem Header="Overview">
+                  <StackPanel Margin="4,12" Spacing="6">
+                    <TextBlock Classes="body-strong" Text="Unified design language" />
+                    <TextBlock Classes="secondary" TextWrapping="Wrap"
+                               Text="Every control in Strata shares the same spacing, radius, and color tokens — creating a cohesive visual rhythm across dashboards, forms, and data views." />
+                  </StackPanel>
+                </TabItem>
+                <TabItem Header="Activity">
+                  <StackPanel Margin="4,12" Spacing="6">
+                    <TextBlock Classes="body-strong" Text="Recent changes" />
+                    <TextBlock Classes="secondary" TextWrapping="Wrap"
+                               Text="Activity feeds, notifications, and real-time updates can be displayed here with consistent styling and clear visual hierarchy." />
+                  </StackPanel>
+                </TabItem>
+                <TabItem Header="Analytics">
+                  <StackPanel Margin="4,12" Spacing="6">
+                    <TextBlock Classes="body-strong" Text="Insights at a glance" />
+                    <TextBlock Classes="secondary" TextWrapping="Wrap"
+                               Text="Charts, sparklines, and key metrics rendered with the same token-driven styling for a seamless analytical experience." />
+                  </StackPanel>
+                </TabItem>
+              </TabControl>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="strata-card">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="subtitle" Text="Expander" />
+              <TextBlock Classes="caption tertiary" Text="Progressive disclosure — reveal details on demand." Margin="0,0,0,4" />
+              <Expander Header="Advanced Settings">
+                <StackPanel Spacing="8" Margin="0,4">
+                  <CheckBox Content="Enable experimental features" />
+                  <CheckBox Content="Verbose logging" />
+                  <TextBox Watermark="Custom endpoint URL..." />
+                </StackPanel>
+              </Expander>
+              <Expander Header="About" IsExpanded="True">
+                <TextBlock Classes="secondary"
+                           TextWrapping="Wrap"
+                           Text="Strata UI is a token-driven Avalonia theme for modern professional desktop applications. It prioritizes readability, consistency, and accessible contrast across light, dark, and high-contrast variants." />
+              </Expander>
+            </StackPanel>
+          </Border>
+
+          <Grid ColumnDefinitions="*,16,*">
+            <Border Grid.Column="0" Classes="strata-card">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="subtitle" Text="ListBox" />
+                <TextBlock Classes="caption tertiary" Text="Scrollable single-select item list." Margin="0,0,0,4" />
+                <ListBox Height="200">
+                  <ListBoxItem Content="Dashboard" />
+                  <ListBoxItem Content="Analytics" />
+                  <ListBoxItem Content="Reports" IsSelected="True" />
+                  <ListBoxItem Content="Team Members" />
+                  <ListBoxItem Content="Billing" />
+                </ListBox>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="strata-card">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="subtitle" Text="Overlay Panel" />
+                <TextBlock Classes="caption tertiary" Text="Elevated dialog surface for confirmations." Margin="0,0,0,4" />
+                <Border Classes="strata-dialog" HorizontalAlignment="Stretch" Margin="0,4,0,0">
+                  <StackPanel Spacing="12">
+                    <TextBlock Classes="subtitle" Text="Confirm Action" />
+                    <TextBlock Classes="secondary" TextWrapping="Wrap"
+                               Text="This action cannot be undone. Are you sure?" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                      <Button Content="Cancel" />
+                      <Button Classes="accent" Content="Confirm" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- ──── Page 4: Settings ──── -->
+      <ScrollViewer x:Name="Page4"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    IsVisible="False">
+        <StackPanel Margin="48,36" Spacing="28" MaxWidth="960">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="headline" Text="Settings" />
+            <TextBlock Classes="secondary" Text="Configuration controls for appearance, notifications, and regional preferences." />
+          </StackPanel>
+
+          <Border Classes="strata-card">
+            <StackPanel Spacing="16">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="subtitle" Text="Appearance" />
+                <TextBlock Classes="caption tertiary" Text="Choose your preferred visual style." />
+              </StackPanel>
+              <ToggleSwitch Content="Dark Mode" IsChecked="{Binding IsDarkTheme}" x:Name="ThemeToggle2" />
+              <ToggleSwitch Content="Compact Density" IsChecked="{Binding IsCompactDensity}" x:Name="DensityToggle2" />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="strata-card">
+            <StackPanel Spacing="16">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="subtitle" Text="Notifications" />
+                <TextBlock Classes="caption tertiary" Text="Manage how you receive alerts and updates." />
+              </StackPanel>
+              <CheckBox Content="Enable email notifications" IsChecked="True" />
+              <CheckBox Content="Enable push notifications" />
+              <CheckBox Content="Weekly digest" IsChecked="True" />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="strata-card">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="subtitle" Text="Region &amp; Language" />
+                <TextBlock Classes="caption tertiary" Text="Set your locale and display preferences." />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,24,*">
+                <StackPanel Grid.Column="0" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="Language" />
+                  <ComboBox ItemsSource="{Binding ComboItems}"
+                            SelectedIndex="0"
+                            PlaceholderText="Select language..."
+                            HorizontalAlignment="Stretch" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="Timezone" />
+                  <ComboBox PlaceholderText="Select timezone..."
+                            HorizontalAlignment="Stretch">
+                    <ComboBoxItem Content="UTC-8 Pacific" />
+                    <ComboBoxItem Content="UTC-5 Eastern" />
+                    <ComboBoxItem Content="UTC+0 London" />
+                    <ComboBoxItem Content="UTC+1 Berlin" />
+                    <ComboBoxItem Content="UTC+9 Tokyo" />
+                  </ComboBox>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+    </Panel>
+  </DockPanel>
+
+</Window>

@@ -1,0 +1,22 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Style Selector="Separator">
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Margin" Value="0,4" />
+    <Setter Property="Opacity" Value="0.9" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.18" />
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="Separator:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.StratumLine}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+</Styles>

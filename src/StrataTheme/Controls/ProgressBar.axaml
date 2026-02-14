@@ -1,0 +1,65 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <ControlTheme x:Key="{x:Type ProgressBar}" TargetType="ProgressBar">
+        <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.AccentGradient}" />
+        <Setter Property="MinHeight" Value="4" />
+        <Setter Property="CornerRadius" Value="2" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Background="{TemplateBinding Background}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    ClipToBounds="True">
+              <Border Name="PART_Indicator"
+                      Background="{TemplateBinding Foreground}"
+                      CornerRadius="{TemplateBinding CornerRadius}"
+                      HorizontalAlignment="Left"
+                      Opacity="0.92"
+                      BoxShadow="0 0 0 0 #00000000">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.2" />
+                    <DoubleTransition Property="Width" Duration="0:0:0.4" Easing="0.2,0 0,1" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                  </Transitions>
+                </Border.Transitions>
+                <Border Name="PART_IndicatorSheen"
+                        Background="{DynamicResource Brush.StratumLine}"
+                        Opacity="0.16"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Height="2"
+                        Margin="6,0" />
+              </Border>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ Border#PART_Indicator">
+          <Style.Animations>
+            <Animation Duration="0:0:1.6" IterationCount="Infinite">
+              <KeyFrame Cue="0%">
+                <Setter Property="Opacity" Value="0.9" />
+              </KeyFrame>
+              <KeyFrame Cue="50%">
+                <Setter Property="Opacity" Value="1" />
+              </KeyFrame>
+              <KeyFrame Cue="100%">
+                <Setter Property="Opacity" Value="0.9" />
+              </KeyFrame>
+            </Animation>
+          </Style.Animations>
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Indicator">
+          <Setter Property="BoxShadow" Value="0 0 0 2 #184F46E5" />
+        </Style>
+      </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

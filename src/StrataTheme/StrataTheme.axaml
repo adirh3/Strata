@@ -1,0 +1,60 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:strata="using:StrataTheme">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRATA UI – THEME ENTRY POINT
+       Include this single file to apply the entire Strata theme.
+       
+       Usage in consuming App.axaml:
+         <StyleInclude Source="avares://StrataTheme/StrataTheme.axaml" />
+       ═══════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+
+        <!-- Shared tokens -->
+        <ResourceInclude Source="avares://StrataTheme/Tokens/Typography.axaml" />
+        <ResourceInclude Source="avares://StrataTheme/Tokens/Geometry.axaml" />
+        <ResourceInclude Source="avares://StrataTheme/Tokens/Density.Comfortable.axaml" />
+
+        <!-- Theme-variant color tokens -->
+        <ResourceDictionary>
+          <ResourceDictionary.ThemeDictionaries>
+            <ResourceInclude x:Key="Light"  Source="avares://StrataTheme/Tokens/Colors.Light.axaml" />
+            <ResourceInclude x:Key="Dark"   Source="avares://StrataTheme/Tokens/Colors.Dark.axaml" />
+            <ResourceInclude x:Key="{x:Static strata:StrataThemeVariants.HighContrast}" Source="avares://StrataTheme/Tokens/Colors.HighContrast.axaml" />
+          </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Control styles (ControlTheme-only files merged as ResourceInclude) -->
+  <StyleInclude Source="avares://StrataTheme/Controls/PopupRoot.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/TextBox.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/CheckBox.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/RadioButton.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/ComboBox.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/ListBox.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/TabControl.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/Slider.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/ProgressBar.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/ToolTip.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/Expander.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/ToggleSwitch.axaml" />
+
+  <!-- Mixed files (ControlTheme + Style selectors) -->
+  <StyleInclude Source="avares://StrataTheme/Controls/Button.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/Menu.axaml" />
+
+  <!-- Style-only files -->
+  <StyleInclude Source="avares://StrataTheme/Controls/Window.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/TextBlock.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/ScrollBar.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/DataGrid.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/Separator.axaml" />
+
+</Styles>

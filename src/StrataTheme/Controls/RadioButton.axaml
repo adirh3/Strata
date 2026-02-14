@@ -1,0 +1,111 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <ControlTheme x:Key="{x:Type RadioButton}" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
+        <Setter Property="Padding" Value="8,0,0,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Grid ColumnDefinitions="Auto,*">
+              <Panel Width="20" Height="20" VerticalAlignment="Center">
+                <Border Name="PART_FocusRing"
+                        CornerRadius="12"
+                        BorderThickness="{DynamicResource Stroke.FocusRing}"
+                        BorderBrush="Transparent"
+                        Margin="-3"
+                        IsHitTestVisible="False" />
+                <Border Name="RadioBorder"
+                        Width="20" Height="20"
+                        CornerRadius="10"
+                        Background="{DynamicResource Brush.ControlDefault}"
+                        BorderBrush="{DynamicResource Brush.BorderDefault}"
+                        BorderThickness="{DynamicResource Stroke.Thin}"
+                        BoxShadow="0 0 0 0 #00000000"
+                        RenderTransformOrigin="0.5,0.5">
+                  <Border.Transitions>
+                    <Transitions>
+                      <BrushTransition Property="Background" Duration="0:0:0.167" />
+                      <BrushTransition Property="BorderBrush" Duration="0:0:0.167" />
+                      <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <Ellipse Name="RadioDot"
+                           Width="0" Height="0"
+                           Fill="{DynamicResource Brush.TextOnAccent}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center">
+                    <Ellipse.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                        <DoubleTransition Property="Height" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                      </Transitions>
+                    </Ellipse.Transitions>
+                  </Ellipse>
+                </Border>
+              </Panel>
+              <ContentPresenter Name="PART_ContentPresenter"
+                                Grid.Column="1"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                Padding="{TemplateBinding Padding}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </Grid>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:checked /template/ Border#RadioBorder">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^:checked /template/ Ellipse#RadioDot">
+          <Setter Property="Width" Value="8" />
+          <Setter Property="Height" Value="8" />
+          <Setter Property="Opacity" Value="1" />
+          <Style.Animations>
+            <Animation Duration="0:0:1.6" IterationCount="Infinite">
+              <KeyFrame Cue="0%">
+                <Setter Property="Opacity" Value="0.85" />
+              </KeyFrame>
+              <KeyFrame Cue="50%">
+                <Setter Property="Opacity" Value="1" />
+              </KeyFrame>
+              <KeyFrame Cue="100%">
+                <Setter Property="Opacity" Value="0.85" />
+              </KeyFrame>
+            </Animation>
+          </Style.Animations>
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#RadioBorder">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+          <Setter Property="BoxShadow" Value="0 0 0 1 #14000000" />
+          <Setter Property="RenderTransform" Value="scaleX(1.04) scaleY(1.04)" />
+        </Style>
+        <Style Selector="^:checked:pointerover /template/ Ellipse#RadioDot">
+          <Setter Property="Width" Value="9" />
+          <Setter Property="Height" Value="9" />
+        </Style>
+        <Style Selector="^:checked:pointerover /template/ Border#RadioBorder">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentHover}" />
+          <Setter Property="BoxShadow" Value="0 0 0 2 #1A4F46E5" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+        </Style>
+        <Style Selector="^:disabled">
+          <Setter Property="Opacity" Value="0.5" />
+        </Style>
+      </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

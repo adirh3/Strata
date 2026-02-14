@@ -1,0 +1,154 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <!-- Slider thumb with scale animation -->
+      <ControlTheme x:Key="StrataSliderThumb" TargetType="Thumb">
+        <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Surface0}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="ClipToBounds" Value="False" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Background="{TemplateBinding BorderBrush}"
+                    CornerRadius="10"
+                    Margin="-2"
+                    BorderThickness="0"
+                    BoxShadow="0 1 3 0 #14000000">
+              <Border.Transitions>
+                <Transitions>
+                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                </Transitions>
+              </Border.Transitions>
+              <Ellipse x:Name="SliderInnerThumb"
+                       Fill="{TemplateBinding Background}"
+                       Width="14" Height="14"
+                       RenderTransformOrigin="0.5,0.5">
+                <Ellipse.Transitions>
+                  <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform"
+                                                   Duration="0:0:0.2"
+                                                   Easing="0.2,0 0,1" />
+                  </Transitions>
+                </Ellipse.Transitions>
+              </Ellipse>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Ellipse#SliderInnerThumb">
+          <Setter Property="RenderTransform" Value="scaleX(1.12) scaleY(1.12)" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border">
+          <Setter Property="BoxShadow" Value="0 0 0 2 #204F46E5, 0 2 6 0 #12000000" />
+        </Style>
+        <Style Selector="^:pressed /template/ Ellipse#SliderInnerThumb">
+          <Setter Property="RenderTransform" Value="scaleX(0.92) scaleY(0.92)" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border">
+          <Setter Property="BoxShadow" Value="0 0 0 3 #284F46E5, 0 1 4 0 #0A000000" />
+        </Style>
+      </ControlTheme>
+
+      <ControlTheme x:Key="{x:Type Slider}" TargetType="Slider">
+        <Setter Property="Background" Value="{DynamicResource Brush.BorderDefault}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.AccentGradient}" />
+        <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="ClipToBounds" Value="False" />
+        <Setter Property="Cursor" Value="Hand" />
+
+        <Style Selector="^:horizontal">
+          <Setter Property="Template">
+            <ControlTemplate>
+              <DataValidationErrors>
+                <Grid VerticalAlignment="Center" MinHeight="32" ClipToBounds="False">
+                  <Track Name="PART_Track"
+                         Orientation="Horizontal"
+                         Minimum="{TemplateBinding Minimum}"
+                         Maximum="{TemplateBinding Maximum}"
+                         Value="{TemplateBinding Value, Mode=TwoWay}"
+                         Margin="2,0"
+                         ClipToBounds="False">
+                    <Track.DecreaseButton>
+                      <RepeatButton Name="PART_DecreaseButton"
+                                    Background="{TemplateBinding Foreground}"
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch">
+                        <RepeatButton.Template>
+                          <ControlTemplate>
+                            <Grid>
+                              <Border Background="Transparent" Margin="0,-10" />
+                              <Border Background="{TemplateBinding Background}"
+                                      Name="DecreaseTrackFill"
+                                      CornerRadius="2"
+                                      Height="4"
+                                      VerticalAlignment="Center" />
+                            </Grid>
+                          </ControlTemplate>
+                        </RepeatButton.Template>
+                      </RepeatButton>
+                    </Track.DecreaseButton>
+                    <Track.IncreaseButton>
+                      <RepeatButton Name="PART_IncreaseButton"
+                                    Background="{TemplateBinding Background}"
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch">
+                        <RepeatButton.Template>
+                          <ControlTemplate>
+                            <Grid>
+                              <Border Background="Transparent" Margin="0,-10" />
+                              <Border Background="{TemplateBinding Background}"
+                                      Name="IncreaseTrackFill"
+                                      CornerRadius="2"
+                                      Height="4"
+                                      VerticalAlignment="Center" />
+                            </Grid>
+                          </ControlTemplate>
+                        </RepeatButton.Template>
+                      </RepeatButton>
+                    </Track.IncreaseButton>
+                    <Thumb Name="SliderThumb"
+                           Theme="{StaticResource StrataSliderThumb}"
+                           Width="18" Height="18"
+                           Margin="0" Padding="0" />
+                  </Track>
+                </Grid>
+              </DataValidationErrors>
+            </ControlTemplate>
+          </Setter>
+        </Style>
+
+        <Style Selector="^:disabled">
+          <Setter Property="Opacity" Value="0.5" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Border#DecreaseTrackFill">
+          <Setter Property="Height" Value="5" />
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+          <Setter Property="Transitions">
+            <Transitions>
+              <DoubleTransition Property="Height" Duration="0:0:0.14" />
+              <BrushTransition Property="Background" Duration="0:0:0.14" />
+            </Transitions>
+          </Setter>
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Border#IncreaseTrackFill">
+          <Setter Property="Height" Value="5" />
+          <Setter Property="Transitions">
+            <Transitions>
+              <DoubleTransition Property="Height" Duration="0:0:0.14" />
+            </Transitions>
+          </Setter>
+        </Style>
+
+        <Style Selector="^:pressed /template/ Border#DecreaseTrackFill">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientPressed}" />
+        </Style>
+      </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

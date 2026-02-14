@@ -1,0 +1,132 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:strata="using:StrataTheme">
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <ControlTheme x:Key="{x:Type TabControl}" TargetType="TabControl">
+        <Setter Property="(strata:SelectionIndicatorAnimationHelper.Enable)" Value="True" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <DockPanel>
+              <Border Name="TabStrip"
+                      DockPanel.Dock="Top"
+                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                      BorderThickness="0,0,0,1"
+                      Padding="4,0">
+                <ItemsPresenter Name="PART_ItemsPresenter"
+                                ItemsPanel="{TemplateBinding ItemsPanel}" />
+              </Border>
+              <Border Background="{TemplateBinding Background}" Margin="0,4,0,0">
+                <ContentPresenter Name="PART_SelectedContentHost"
+                                  Content="{TemplateBinding SelectedContent}"
+                                  ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                                  Margin="{TemplateBinding Padding}"
+                                  Opacity="1"
+                                  RenderTransformOrigin="0.5,0"
+                                  RenderTransform="translateY(0px)">
+                  <ContentPresenter.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="0.2,0 0,1" />
+                    </Transitions>
+                  </ContentPresenter.Transitions>
+                </ContentPresenter>
+              </Border>
+            </DockPanel>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <ControlTheme x:Key="{x:Type TabItem}" TargetType="TabItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="ClipToBounds" Value="False" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel ClipToBounds="False">
+              <Border Name="PART_FocusRing"
+                      CornerRadius="{DynamicResource Radius.Base}"
+                      BorderThickness="{DynamicResource Stroke.FocusRing}"
+                      BorderBrush="Transparent"
+                      Margin="-2"
+                      IsHitTestVisible="False" />
+              <Border Name="TabBorder"
+                      Background="{TemplateBinding Background}"
+                      CornerRadius="6,6,0,0"
+                      Padding="{TemplateBinding Padding}"
+                      RenderTransformOrigin="0.5,0.5">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.1" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+                <ContentPresenter Name="PART_ContentPresenter"
+                                  Content="{TemplateBinding Header}"
+                                  ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" />
+              </Border>
+              <Border Name="PART_SelectedPipe"
+                      Height="3"
+                      CornerRadius="1.5,1.5,0,0"
+                      Background="{DynamicResource Brush.StratumLine}"
+                      VerticalAlignment="Bottom"
+                      HorizontalAlignment="Stretch"
+                      Margin="8,0"
+                      ClipToBounds="False"
+                      Opacity="0" />
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#TabBorder">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+          <Setter Property="RenderTransform" Value="translateY(-1px)" />
+        </Style>
+        <Style Selector="^:selected">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="^:selected /template/ Border#TabBorder">
+          <Setter Property="RenderTransform" Value="translateY(-1px)" />
+        </Style>
+        <Style Selector="^:selected /template/ Border#PART_SelectedPipe">
+          <Setter Property="Opacity" Value="1" />
+          <Style.Animations>
+            <Animation Duration="0:0:2" IterationCount="Infinite">
+              <KeyFrame Cue="0%">
+                <Setter Property="Opacity" Value="0.86" />
+              </KeyFrame>
+              <KeyFrame Cue="50%">
+                <Setter Property="Opacity" Value="1" />
+              </KeyFrame>
+              <KeyFrame Cue="100%">
+                <Setter Property="Opacity" Value="0.86" />
+              </KeyFrame>
+            </Animation>
+          </Style.Animations>
+        </Style>
+        <Style Selector="^:selected:pointerover /template/ Border#PART_SelectedPipe">
+          <Setter Property="RenderTransform" Value="scaleX(1.05)" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+        </Style>
+      </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

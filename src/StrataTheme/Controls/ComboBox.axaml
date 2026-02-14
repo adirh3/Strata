@@ -1,0 +1,193 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:strata="using:StrataTheme">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRATA UI – ComboBox
+       Popup animation via Composition API (PopupAnimationHelper).
+       ═══════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <ControlTheme x:Key="{x:Type ComboBox}" TargetType="ComboBox">
+        <Setter Property="Background" Value="{DynamicResource Brush.ControlDefault}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.ControlElevationBorder}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+        <Setter Property="Padding" Value="12,0,0,0" />
+        <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="MaxDropDownHeight" Value="420" />
+        <Setter Property="FocusAdorner" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <DataValidationErrors>
+              <Panel>
+                <Border x:Name="Border"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        MinHeight="{TemplateBinding MinHeight}">
+                  <Border.Transitions>
+                    <Transitions>
+                      <BrushTransition Property="Background" Duration="0:0:0.15" />
+                      <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                      <CornerRadiusTransition Property="CornerRadius" Duration="0:0:0.15" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <Grid ColumnDefinitions="*,32">
+                    <ContentControl x:Name="ContentPresenter"
+                                    Content="{TemplateBinding SelectionBoxItem}"
+                                    ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                    Grid.Column="0"
+                                    Margin="{TemplateBinding Padding}"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+
+                    <TextBlock x:Name="PlaceholderTextBlock"
+                               Grid.Column="0"
+                               Text="{TemplateBinding PlaceholderText}"
+                               Foreground="{DynamicResource Brush.TextTertiary}"
+                               Margin="{TemplateBinding Padding}"
+                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                               IsVisible="{TemplateBinding SelectionBoxItem, Converter={x:Static ObjectConverters.IsNull}}" />
+
+                    <Path x:Name="DropDownGlyph"
+                          Grid.Column="1"
+                          Data="M 0,0 L 4,4 L 8,0"
+                          Stroke="{DynamicResource Brush.TextSecondary}"
+                          StrokeThickness="1.5"
+                          StrokeLineCap="Round"
+                          StrokeJoin="Round"
+                          Width="8" Height="4"
+                          Stretch="Uniform"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"
+                          RenderTransformOrigin="0.5,0.5"
+                          RenderTransform="rotate(0deg)">
+                      <Path.Transitions>
+                        <Transitions>
+                          <BrushTransition Property="Stroke" Duration="0:0:0.15" />
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </Path.Transitions>
+                    </Path>
+                  </Grid>
+                </Border>
+
+                <Popup Name="PART_Popup"
+                       WindowManagerAddShadowHint="False"
+                       IsOpen="{TemplateBinding IsDropDownOpen, Mode=TwoWay}"
+                       MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                       PlacementTarget="Border"
+                       Placement="Center"
+                       IsLightDismissEnabled="True"
+                       InheritsTransform="True"
+                       strata:PopupAnimationHelper.EnableOpenAnimation="True">
+                  <Border x:Name="PopupBorder"
+                          Background="{DynamicResource Brush.SurfaceOverlay}"
+                          BorderBrush="{DynamicResource Brush.BorderDefault}"
+                          BorderThickness="{DynamicResource Stroke.Thin}"
+                          CornerRadius="{DynamicResource Radius.Base}"
+                          Padding="4"
+                          Margin="16"
+                          MinWidth="{Binding Bounds.Width, RelativeSource={RelativeSource TemplatedParent}}"
+                          BoxShadow="0 16 48 -8 #30000000, 0 6 16 0 #18000000, 0 0 0 1 #0C000000">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                      <ItemsPresenter Name="PART_ItemsPresenter"
+                                      ItemsPanel="{TemplateBinding ItemsPanel}" />
+                    </ScrollViewer>
+                  </Border>
+                </Popup>
+              </Panel>
+            </DataValidationErrors>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Hover -->
+        <Style Selector="^:pointerover /template/ Border#Border">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+        </Style>
+
+        <!-- Pressed -->
+        <Style Selector="^:pressed /template/ Border#Border">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlPressed}" />
+        </Style>
+
+        <!-- Open -->
+        <Style Selector="^[IsDropDownOpen=True] /template/ Border#Border">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+        </Style>
+        <Style Selector="^[IsDropDownOpen=True] /template/ Path#DropDownGlyph">
+          <Setter Property="Stroke" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+
+        <!-- Focus -->
+        <Style Selector="^:focus-visible /template/ Border#Border">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+          <Setter Property="BorderThickness" Value="1,1,1,2" />
+        </Style>
+
+        <!-- Disabled -->
+        <Style Selector="^:disabled">
+          <Setter Property="Opacity" Value="0.5" />
+        </Style>
+      </ControlTheme>
+
+      <!-- ComboBoxItem -->
+      <ControlTheme x:Key="{x:Type ComboBoxItem}" TargetType="ComboBoxItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="Margin" Value="2,1" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border x:Name="LayoutRoot"
+                    Background="{TemplateBinding Background}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    Padding="{TemplateBinding Padding}">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="Background" Duration="0:0:0.12" />
+                </Transitions>
+              </Border.Transitions>
+              <ContentPresenter x:Name="PART_ContentPresenter"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                VerticalAlignment="Center" />
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#LayoutRoot">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#LayoutRoot">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+        </Style>
+        <Style Selector="^:selected /template/ Border#LayoutRoot">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+        </Style>
+        <Style Selector="^:selected:pointerover /template/ Border#LayoutRoot">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtleHover}" />
+        </Style>
+      </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>
