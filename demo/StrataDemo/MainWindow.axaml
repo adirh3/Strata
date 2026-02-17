@@ -666,6 +666,13 @@
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
 
+                <!-- Assistant Markdown with inline code -->
+                <sc:StrataChatMessage Role="Assistant" IsEditable="True" Author="Strata" Timestamp="09:43" StatusText="inline code">
+                  <sc:StrataChatMessage.Content>
+                    <sc:StrataMarkdown IsInline="True" Markdown="The config lives in `appsettings.json` under the `Serializer` section. See the file `HotPathSerializer.cs` for the allocation site, and make sure `MaxBatchBytes` is set before deploying." />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+
                 <!-- Tool (not editable) -->
                 <sc:StrataChatMessage Role="Tool" IsEditable="False" Author="tool.search()" Timestamp="09:44" StatusText="3 hits">
                   <sc:StrataChatMessage.Content>

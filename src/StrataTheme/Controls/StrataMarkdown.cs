@@ -41,6 +41,7 @@ public class StrataMarkdown : ContentControl
     private readonly Border _surface;
     private readonly TextBlock _title;
     private readonly StackPanel _contentHost;
+    private IBrush? _inlineCodeBrush;
     private string _lastThemeVariant = string.Empty;
 
     /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
@@ -128,6 +129,7 @@ public class StrataMarkdown : ContentControl
             return;
 
         _lastThemeVariant = currentVariant;
+        _inlineCodeBrush = null;
         Rebuild();
     }
 
@@ -326,29 +328,11 @@ public class StrataMarkdown : ContentControl
             if (match.Groups["code"].Success)
             {
                 var codeText = match.Value[1..^1]; // strip backticks
-                var codeRun = new Run(codeText)
+                target.Inlines?.Add(new Run(" " + codeText + " ")
                 {
                     FontFamily = ResolveMonoFont(),
-                    FontSize = target.FontSize > 1 ? target.FontSize - 1 : target.FontSize
-                };
-                var codeBorder = new Border
-                {
-                    Child = new TextBlock
-                    {
-                        FontFamily = ResolveMonoFont(),
-                        FontSize = target.FontSize > 1 ? target.FontSize - 1 : target.FontSize,
-                        Text = codeText,
-                        VerticalAlignment = VerticalAlignment.Center
-                    },
-                    Padding = new Thickness(5, 1, 5, 1),
-                    CornerRadius = new CornerRadius(4),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                codeBorder.Classes.Add("strata-md-inline-code");
-                target.Inlines?.Add(new InlineUIContainer
-                {
-                    Child = codeBorder,
-                    BaselineAlignment = BaselineAlignment.Center
+                    FontSize = target.FontSize > 1 ? target.FontSize - 1 : target.FontSize,
+                    Background = _inlineCodeBrush ??= ResolveInlineCodeBrush()
                 });
             }
             else if (match.Groups["bolditalic"].Success)
@@ -601,6 +585,18 @@ public class StrataMarkdown : ContentControl
         }
 
         return FontFamily.Default;
+    }
+
+    private static IBrush ResolveInlineCodeBrush()
+    {
+        if (Application.Current is not null &&
+            Application.Current.TryGetResource("Brush.AccentSubtle", Application.Current.ActualThemeVariant, out var res) &&
+            res is IBrush brush)
+        {
+            return brush;
+        }
+
+        return Brushes.LightGray;
     }
 
     private static bool TryParseHeading(string line, out int level, out string text)
