@@ -72,6 +72,23 @@ public class MainViewModel : INotifyPropertyChanged
         "Option Delta"
     };
 
+    public ObservableCollection<string> AiModels { get; } = new()
+    {
+        "GPT-5.3-Codex",
+        "GPT-4o",
+        "GPT-4o-mini",
+        "o3",
+        "Claude Opus 4.6"
+    };
+
+    public ObservableCollection<string> AiQualityLevels { get; } = new()
+    {
+        "Low",
+        "Medium",
+        "High",
+        "Extra High"
+    };
+
     protected void OnPropertyChanged([CallerMemberName] string? name = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

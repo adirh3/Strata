@@ -1,0 +1,143 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataAiSkill}" TargetType="controls:StrataAiSkill">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <Border Name="PART_FocusRing"
+                      CornerRadius="12"
+                      BorderThickness="2"
+                      BorderBrush="Transparent"
+                      Margin="-2"
+                      IsHitTestVisible="False" />
+
+              <Border Name="PART_Root"
+                      Background="{DynamicResource Brush.SurfaceCard}"
+                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                      BorderThickness="1"
+                      CornerRadius="10"
+                      ClipToBounds="True">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                  </Transitions>
+                </Border.Transitions>
+
+                <StackPanel Spacing="0">
+                  <Border Name="PART_Stratum"
+                          Height="2.5"
+                          Background="{DynamicResource Brush.StratumLine}" />
+
+                  <Border Name="PART_Header"
+                          Cursor="Hand"
+                          Padding="12,10"
+                          Background="Transparent">
+                    <Grid ColumnDefinitions="Auto,10,*">
+                      <Border Width="30"
+                              Height="30"
+                              CornerRadius="8"
+                              Background="{DynamicResource Brush.AccentSubtle}">
+                        <TextBlock Text="{TemplateBinding IconGlyph}"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brush.AccentDefault}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                      </Border>
+
+                      <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="{TemplateBinding SkillName}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Name="PART_Description"
+                                   Text="{TemplateBinding Description}"
+                                   FontSize="11.5"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   MaxLines="2"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+
+                  <Border Name="PART_Detail"
+                          ClipToBounds="True"
+                          MaxHeight="0"
+                          Opacity="0"
+                          Padding="12,0,12,12"
+                          RenderTransformOrigin="0.5,0"
+                          RenderTransform="translateY(-6px) scaleY(0.96)">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="MaxHeight" Duration="0:0:0.3" Easing="CubicEaseOut" />
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.26" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Border.Transitions>
+
+                    <StackPanel Spacing="8">
+                      <TextBlock Name="PART_EmptyText"
+                                 IsVisible="False"
+                                 Text="No skill detail is available."
+                                 FontSize="12"
+                                 Foreground="{DynamicResource Brush.TextTertiary}" />
+
+                      <controls:StrataMarkdown Name="PART_Markdown"
+                                               ShowTitle="False"
+                                               Markdown="{TemplateBinding DetailMarkdown}" />
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+              </Border>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:expanded /template/ Border#PART_Detail">
+          <Setter Property="MaxHeight" Value="720" />
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
+        </Style>
+
+        <Style Selector="^:not(:has-description) /template/ TextBlock#PART_Description">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:not(:has-detail) /template/ TextBlock#PART_EmptyText">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:not(:has-detail) /template/ controls|StrataMarkdown#PART_Markdown">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:expanded /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="BoxShadow" Value="0 4 16 0 #14000000" />
+        </Style>
+
+        <Style Selector="^:expanded /template/ Border#PART_Stratum">
+          <Setter Property="Height" Value="3" />
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Root">
+          <Setter Property="Background" Value="{DynamicResource Brush.SurfaceCardHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+        </Style>
+
+        <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

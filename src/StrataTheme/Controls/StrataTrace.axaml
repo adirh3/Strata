@@ -41,9 +41,7 @@
                       CornerRadius="{DynamicResource Radius.Base}"
                       Padding="10,8"
                       Margin="0,4,0,0"
-                      HorizontalAlignment="Left"
-                      MinWidth="200"
-                      MaxWidth="320">
+                      HorizontalAlignment="Stretch">
                 <Border.Transitions>
                   <Transitions>
                     <DoubleTransition Property="MaxHeight" Duration="0:0:0.22" Easing="CubicEaseOut" />

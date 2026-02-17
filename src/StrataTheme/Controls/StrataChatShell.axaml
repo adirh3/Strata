@@ -1,0 +1,186 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       StrataChatShell
+       Minimal chrome: scrollable transcript + docked composer.
+       Optional top row for header/presence.
+       ═══════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataChatShell}" TargetType="controls:StrataChatShell">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Name="PART_Root"
+                    Background="{DynamicResource Brush.SurfaceCard}"
+                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                  BorderThickness="1"
+                  Padding="1"
+                    CornerRadius="12"
+                    ClipToBounds="True"
+                    BoxShadow="0 2 8 0 #0C000000">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="Background" Duration="0:0:0.14" />
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                </Transitions>
+              </Border.Transitions>
+
+              <DockPanel>
+
+                <Border Name="PART_HeaderChrome"
+                        DockPanel.Dock="Top"
+                  IsVisible="False"
+                  CornerRadius="11,11,0,0"
+                        ClipToBounds="True">
+                  <StackPanel Spacing="0">
+                    <!-- Optional top row (header + presence) -->
+                    <Border Name="PART_HeaderContainer"
+                            IsVisible="False"
+                            Background="{DynamicResource Brush.Surface1}"
+                      Padding="12,10,12,8"
+                      CornerRadius="0">
+                      <Border.Transitions>
+                        <Transitions>
+                          <BrushTransition Property="Background" Duration="0:0:0.14" />
+                          <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                        </Transitions>
+                      </Border.Transitions>
+
+                      <DockPanel Name="PART_HeaderRow" LastChildFill="False">
+                        <ContentPresenter Name="PART_HeaderPresenter"
+                                          Content="{TemplateBinding Header}"
+                                          VerticalAlignment="Center" />
+
+                        <Border Name="PART_PresencePill"
+                                IsVisible="False"
+                                DockPanel.Dock="Right"
+                          HorizontalAlignment="Right"
+                                Padding="8,3"
+                                CornerRadius="999"
+                              Background="{DynamicResource Brush.Surface2}"
+                              BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                              BorderThickness="1">
+                          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Border Name="PART_PresenceDot"
+                                    Width="6"
+                                    Height="6"
+                                    CornerRadius="3"
+                                    Background="{DynamicResource Brush.SuccessDefault}" />
+                            <TextBlock Text="{TemplateBinding PresenceText}"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brush.TextSecondary}" />
+                          </StackPanel>
+                        </Border>
+                      </DockPanel>
+                    </Border>
+
+                    <Border Name="PART_HeaderSeparator"
+                            IsVisible="False"
+                            Height="1"
+                      Background="{DynamicResource Brush.BorderSubtle}"
+                      Opacity="0.8">
+                      <Border.Transitions>
+                        <Transitions>
+                          <BrushTransition Property="Background" Duration="0:0:0.2" />
+                          <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+                        </Transitions>
+                      </Border.Transitions>
+                    </Border>
+                  </StackPanel>
+                </Border>
+
+                <!-- Composer docked at bottom -->
+                <Border DockPanel.Dock="Bottom"
+                  Padding="12,8,12,10"
+                  CornerRadius="0,0,11,11"
+                  Background="{DynamicResource Brush.Surface1}">
+                  <ContentPresenter Content="{TemplateBinding Composer}" />
+                </Border>
+
+                <!-- Thin separator above composer -->
+                <Border DockPanel.Dock="Bottom"
+                        Height="1"
+                        Background="{DynamicResource Brush.StratumLine}"
+                        Opacity="0.34" />
+
+                <!-- Scrollable transcript fills remaining space -->
+                <Border Name="PART_TranscriptHost"
+                        Background="{DynamicResource Brush.Surface0}">
+                  <ScrollViewer Name="PART_TranscriptScroll"
+                                VerticalScrollBarVisibility="Auto"
+                                HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="16,12,16,12">
+                      <ContentPresenter Content="{TemplateBinding Transcript}" />
+                    </StackPanel>
+                  </ScrollViewer>
+                </Border>
+              </DockPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ Border#PART_Root:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.SurfaceCardHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+          <Setter Property="BoxShadow" Value="0 4 14 0 #12000000" />
+        </Style>
+
+        <Style Selector="^:focus-within /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="BoxShadow" Value="0 0 0 1 #30818CF8, 0 6 18 0 #15000000" />
+        </Style>
+
+        <Style Selector="^:has-header /template/ DockPanel#PART_HeaderRow">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-header /template/ Border#PART_HeaderChrome">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-header /template/ Border#PART_HeaderContainer">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-header /template/ Border#PART_HeaderSeparator">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
+          <Setter Property="Opacity" Value="0.8" />
+        </Style>
+
+        <Style Selector="^:has-presence /template/ Border#PART_HeaderContainer">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-presence /template/ Border#PART_HeaderChrome">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-presence /template/ Border#PART_HeaderSeparator">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
+          <Setter Property="Opacity" Value="0.8" />
+        </Style>
+        <Style Selector="^:has-presence /template/ Border#PART_PresencePill">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:online /template/ Border#PART_PresencePill">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentSubtleHover}" />
+        </Style>
+        <Style Selector="^:offline /template/ Border#PART_PresencePill">
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+        </Style>
+
+        <Style Selector="^:online /template/ Border#PART_PresenceDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
+        </Style>
+        <Style Selector="^:offline /template/ Border#PART_PresenceDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

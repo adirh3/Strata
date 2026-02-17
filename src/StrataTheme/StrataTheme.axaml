@@ -54,8 +54,10 @@
   <StyleInclude Source="avares://StrataTheme/Controls/Window.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/TextBlock.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/ScrollBar.axaml" />
+  <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/DataGrid.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/Separator.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/Markdown.axaml" />
 
   <!-- Strata custom controls -->
   <StyleInclude Source="avares://StrataTheme/Controls/StrataLens.axaml" />
@@ -72,5 +74,12 @@
   <StyleInclude Source="avares://StrataTheme/Controls/StrataThink.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataTrace.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataPulse.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataAiToolCall.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataAiSkill.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataAiAgent.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataChatMessage.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataTypingIndicator.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataChatComposer.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataChatShell.axaml" />
 
 </Styles>

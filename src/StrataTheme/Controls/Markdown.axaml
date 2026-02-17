@@ -1,0 +1,168 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+        xmlns:ctxt="clr-namespace:ColorTextBlock.Avalonia;assembly=ColorTextBlock.Avalonia"
+        xmlns:avedit="https://github.com/avaloniaui/avaloniaedit">
+
+  <Style Selector="TextBlock.strata-md-title">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="Margin" Value="2,0,0,0" />
+  </Style>
+
+  <Style Selector="TextBlock.strata-md-paragraph">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="SelectableTextBlock.strata-md-paragraph">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+
+  <Style Selector="TextBlock.strata-md-heading">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="SelectableTextBlock.strata-md-heading">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+
+  <Style Selector="Border.strata-md-bullet-dot">
+    <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+
+  <Style Selector="TextBlock.strata-md-bullet-text">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="SelectableTextBlock.strata-md-bullet-text">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+
+  <Style Selector="Button.strata-md-link">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="2,0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+  </Style>
+
+  <Style Selector="TextBlock.strata-md-link-text">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="TextDecorations" Value="Underline" />
+  </Style>
+
+  <Style Selector="Button.strata-md-link:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+
+  <Style Selector="Button.strata-md-link:pointerover TextBlock.strata-md-link-text">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentHover}" />
+  </Style>
+
+  <Style Selector="Button.strata-md-link:focus-visible">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="TextBlock.strata-md-code-text">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="SelectableTextBlock.strata-md-code-text">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+
+  <Style Selector="Border.strata-md-surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="12,10" />
+  </Style>
+
+  <Style Selector="Border.strata-md-surface:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+  </Style>
+
+  <Style Selector="Border.strata-md-surface-inline">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="md|MarkdownScrollViewer.strata-md-block">
+    <Setter Property="Margin" Value="0,0,0,2" />
+  </Style>
+
+  <Style Selector="Border.strata-md-code-block">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="TextBlock.strata-md-code-lang">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+
+  <Style Selector="ctxt|CCode">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="MonospaceFontFamily" Value="{DynamicResource Font.FamilyMono}" />
+    <Setter Property="Padding" Value="5,2" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+
+  <Style Selector="Border.CodeBlock">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="12,10" />
+    <Setter Property="Margin" Value="0,10,0,10" />
+  </Style>
+
+  <Style Selector="TextBlock.CodeBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="LineHeight" Value="19" />
+  </Style>
+
+  <Style Selector="avedit|TextEditor.strata-md-code-editor">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+    <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+  </Style>
+
+  <Style Selector="avedit|TextEditor.strata-md-code-editor ScrollBar:horizontal">
+    <Setter Property="Margin" Value="0,8,0,0" />
+    <Setter Property="Height" Value="7" />
+  </Style>
+
+  <Style Selector="avedit|TextEditor.strata-md-code-editor ScrollBar:horizontal /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderStrong}" />
+  </Style>
+
+  <Style Selector="avedit|TextEditor.strata-md-code-editor ScrollBar:horizontal:pointerover /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentHover}" />
+  </Style>
+
+  <Style Selector="avedit|TextArea">
+    <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+
+</Styles>

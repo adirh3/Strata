@@ -125,9 +125,16 @@ public class StrataThink : TemplatedControl
         if (_pill is null || _headerRow is null || IsExpanded)
             return;
 
-        _headerRow.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        var width = Math.Max(56, _headerRow.DesiredSize.Width + 14);
-        _pill.Width = width;
+        // Post to next layout pass so the header row has settled its size
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_pill is null || _headerRow is null || IsExpanded)
+                return;
+
+            _headerRow.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var width = Math.Max(56, _headerRow.DesiredSize.Width + 14);
+            _pill.Width = width;
+        }, DispatcherPriority.Loaded);
     }
 
     private void ApplyExpandedWidth()

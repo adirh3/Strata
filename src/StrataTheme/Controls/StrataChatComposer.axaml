@@ -1,0 +1,274 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       StrataChatComposer
+       Clean bottom composer: borderless text area on top, toolbar
+       below with attach +, real ComboBox selectors for model/quality,
+       suggestion chips, and circular accent send button.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataChatComposer}" TargetType="controls:StrataChatComposer">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Name="PART_Root"
+                    Background="{DynamicResource Brush.Surface0}"
+                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="0"
+                    BoxShadow="0 1 4 0 #0A000000">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                </Transitions>
+              </Border.Transitions>
+
+              <StackPanel>
+
+                <!-- Text input -->
+                <TextBox Name="PART_Input"
+                         Classes="composer-embed"
+                         Text="{Binding PromptText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                         Watermark="{TemplateBinding Placeholder}"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         MinHeight="40" MaxHeight="180"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         Padding="14,12,14,6"
+                         VerticalContentAlignment="Top"
+                         FontSize="13"
+                         CornerRadius="0"
+                         MinWidth="0" />
+
+                <!-- Toolbar row -->
+                <Grid Margin="8,4,8,8" ColumnDefinitions="*,Auto">
+
+                  <!-- Left: attach + selectors + chips (wrap to stay responsive) -->
+                  <WrapPanel Grid.Column="0"
+                             Orientation="Horizontal"
+                             Margin="0,0,8,0"
+                             VerticalAlignment="Center">
+
+                    <!-- Attach button -->
+                    <Button Name="PART_AttachButton"
+                            Classes="subtle"
+                            Width="28" Height="28"
+                            Padding="0" MinHeight="0" MinWidth="0"
+                            CornerRadius="6"
+                            ToolTip.Tip="Attach">
+                      <TextBlock Text="+" FontSize="16" FontWeight="SemiBold"
+                                 Foreground="{DynamicResource Brush.TextSecondary}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+
+                    <!-- Model ComboBox -->
+                    <ComboBox Name="PART_ModelCombo"
+                              Classes="composer-select"
+                              ItemsSource="{TemplateBinding Models}"
+                              SelectedItem="{Binding SelectedModel, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                              MinWidth="100"
+                              MinHeight="0" Padding="8,4,6,4"
+                              FontSize="12"
+                              CornerRadius="6"
+                              Background="{DynamicResource Brush.Surface2}"
+                              BorderThickness="0"
+                              VerticalAlignment="Center"
+                              Margin="0,0,6,6" />
+
+                    <!-- Quality ComboBox -->
+                    <ComboBox Name="PART_QualityCombo"
+                              Classes="composer-select"
+                              ItemsSource="{TemplateBinding QualityLevels}"
+                              SelectedItem="{Binding SelectedQuality, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                              MinWidth="82"
+                              MinHeight="0" Padding="8,4,6,4"
+                              FontSize="12"
+                              CornerRadius="6"
+                              Background="{DynamicResource Brush.Surface2}"
+                              BorderThickness="0"
+                              VerticalAlignment="Center"
+                              Margin="0,0,6,6" />
+
+                    <!-- Suggestion chips -->
+                    <Button Name="PART_ActionA" Classes="subtle"
+                            Content="{TemplateBinding SuggestionA}"
+                          Padding="8,4" MinHeight="0" MaxWidth="170"
+                            CornerRadius="6" FontSize="12"
+                          Margin="0,0,6,6"
+                            Foreground="{DynamicResource Brush.TextSecondary}" />
+                    <Button Name="PART_ActionB" Classes="subtle"
+                            Content="{TemplateBinding SuggestionB}"
+                          Padding="8,4" MinHeight="0" MaxWidth="170"
+                            CornerRadius="6" FontSize="12"
+                          Margin="0,0,6,6"
+                            Foreground="{DynamicResource Brush.TextSecondary}" />
+                    <Button Name="PART_ActionC" Classes="subtle"
+                            Content="{TemplateBinding SuggestionC}"
+                          Padding="8,4" MinHeight="0" MaxWidth="170"
+                            CornerRadius="6" FontSize="12"
+                          Margin="0,0,6,6"
+                            Foreground="{DynamicResource Brush.TextSecondary}" />
+                      </WrapPanel>
+
+                  <!-- Right: voice + send -->
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                    <Button Name="PART_VoiceButton"
+                            Classes="subtle"
+                            Width="28" Height="28"
+                            Padding="0" MinHeight="0" MinWidth="0"
+                            CornerRadius="6"
+                            ToolTip.Tip="Voice">
+                      <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Path Stretch="Uniform"
+                              Width="16" Height="16"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Fill="{DynamicResource Brush.TextTertiary}"
+                              Data="M8,1.8 C9.3,1.8 10.4,2.9 10.4,4.2 L10.4,7.3 C10.4,8.6 9.3,9.7 8,9.7 C6.7,9.7 5.6,8.6 5.6,7.3 L5.6,4.2 C5.6,2.9 6.7,1.8 8,1.8 Z M3.6,7.2 L4.8,7.2 C4.8,9.1 6.1,10.7 8,11 C9.9,10.7 11.2,9.1 11.2,7.2 L12.4,7.2 C12.4,9.6 10.7,11.7 8.6,12.2 L8.6,14.2 L7.4,14.2 L7.4,12.2 C5.3,11.7 3.6,9.6 3.6,7.2 Z" />
+                      </Viewbox>
+                    </Button>
+
+                    <Button Name="PART_SendButton"
+                            Width="34" Height="34"
+                            Padding="0" MinHeight="0" MinWidth="0"
+                            CornerRadius="999"
+                            Background="{DynamicResource Brush.AccentGradient}"
+                            Foreground="{DynamicResource Brush.TextOnAccent}"
+                            VerticalAlignment="Bottom"
+                            ToolTip.Tip="Send (Enter)"
+                            RenderTransformOrigin="0.5,0.5">
+                      <Button.Transitions>
+                        <Transitions>
+                          <BrushTransition Property="Background" Duration="0:0:0.1" />
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.08" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </Button.Transitions>
+                      <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Grid Width="16" Height="16">
+                          <Path Name="PART_SendIcon"
+                                Stretch="Uniform"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Fill="{TemplateBinding Foreground}"
+                                Data="M8,1.5 L13,6.5 H10.2 V14.5 H5.8 V6.5 H3 Z" />
+                          <Path Name="PART_StopIcon"
+                                IsVisible="False"
+                                Stretch="Uniform"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Fill="{TemplateBinding Foreground}"
+                                Data="M4.5,4.5 H11.5 V11.5 H4.5 Z" />
+                        </Grid>
+                      </Viewbox>
+                    </Button>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ Border#PART_Root:pointerover">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+          <Setter Property="BoxShadow" Value="0 2 8 0 #11000000" />
+        </Style>
+
+        <!-- Focus ring on the outer container -->
+        <Style Selector="^:focus-within /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+          <Setter Property="BoxShadow" Value="0 0 0 1 #28818CF8, 0 2 8 0 #11000000" />
+        </Style>
+
+        <!-- Send button hover/press -->
+        <Style Selector="^ /template/ Button#PART_SendButton:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+          <Setter Property="RenderTransform" Value="scale(1.05)" />
+        </Style>
+        <Style Selector="^ /template/ Button#PART_SendButton:pressed">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientPressed}" />
+          <Setter Property="RenderTransform" Value="scale(0.93)" />
+        </Style>
+
+        <!-- Busy: stop mode -->
+        <Style Selector="^:busy /template/ Button#PART_SendButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+        <Style Selector="^:busy /template/ Button#PART_SendButton:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerHover}" />
+        </Style>
+        <Style Selector="^:busy /template/ Path#PART_SendIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:busy /template/ Path#PART_StopIcon">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- Empty: dim send -->
+        <Style Selector="^:empty:not(:busy) /template/ Button#PART_SendButton">
+          <Setter Property="Opacity" Value="0.35" />
+        </Style>
+
+        <!-- Hide chips when empty -->
+        <Style Selector="^:a-empty /template/ Button#PART_ActionA">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:b-empty /template/ Button#PART_ActionB">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:c-empty /template/ Button#PART_ActionC">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- Hide attach when disabled -->
+        <Style Selector="^:not(:can-attach) /template/ Button#PART_AttachButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- Hide selectors if no sources are provided -->
+        <Style Selector="^:not(:has-models) /template/ ComboBox#PART_ModelCombo">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:has-quality) /template/ ComboBox#PART_QualityCombo">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Embedded TextBox chrome removal (regular styles, outside ControlTheme) -->
+  <Style Selector="TextBox.composer-embed /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="TextBox.composer-embed:focus /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+  <Style Selector="TextBox.composer-embed:pointerover /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+
+  <Style Selector="ComboBox.composer-select /template/ Border#Border">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="ComboBox.composer-select:pointerover /template/ Border#Border">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+  </Style>
+  <Style Selector="ComboBox.composer-select:focus-visible /template/ Border#Border">
+    <Setter Property="BoxShadow" Value="0 0 0 1 #28818CF8" />
+  </Style>
+
+</Styles>

@@ -7,16 +7,31 @@
 
   <Style Selector="ScrollViewer">
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <Style Selector="ScrollViewer /template/ ScrollBar#PART_VerticalScrollBar">
+    <Setter Property="Margin" Value="0,4,4,4" />
+  </Style>
+
+  <Style Selector="ScrollViewer /template/ ScrollBar#PART_HorizontalScrollBar">
+    <Setter Property="Margin" Value="4,0,4,4" />
+  </Style>
+
+  <Style Selector="ScrollViewer /template/ Panel">
+    <Setter Property="Background" Value="Transparent" />
   </Style>
 
   <!-- Style scrollbar thumb appearance via property overrides
        (avoids replacing internal track/thumb template fully) -->
   <Style Selector="ScrollBar">
     <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Opacity" Value="0.5" />
+    <Setter Property="Opacity" Value="0.78" />
+    <Setter Property="MinWidth" Value="8" />
+    <Setter Property="MinHeight" Value="8" />
     <Setter Property="Transitions">
       <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.25" Easing="CubicEaseOut" />
+        <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
       </Transitions>
     </Setter>
   </Style>
@@ -25,17 +40,54 @@
   </Style>
 
   <Style Selector="ScrollBar:vertical">
-    <Setter Property="Width" Value="{DynamicResource Size.ScrollbarThick}" />
+    <Setter Property="Width" Value="8" />
+    <Setter Property="Margin" Value="1,0,1,0" />
   </Style>
 
   <Style Selector="ScrollBar:horizontal">
-    <Setter Property="Height" Value="{DynamicResource Size.ScrollbarThick}" />
+    <Setter Property="Height" Value="8" />
+    <Setter Property="Margin" Value="0,1,0,1" />
   </Style>
 
-  <Style Selector="ScrollBar /template/ Thumb">
-    <Setter Property="Background" Value="{DynamicResource Brush.BorderStrong}" />
+  <Style Selector="ScrollBar /template/ Border">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
     <Setter Property="CornerRadius" Value="{DynamicResource Radius.Full}" />
-    <Setter Property="Opacity" Value="0.7" />
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+
+  <Style Selector="ScrollBar:pointerover /template/ Border">
+    <Setter Property="Opacity" Value="0.65" />
+  </Style>
+
+  <Style Selector="ScrollBar /template/ RepeatButton">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <Style Selector="ScrollBar /template/ RepeatButton.repeat">
+    <Setter Property="IsVisible" Value="False" />
+    <Setter Property="Width" Value="0" />
+    <Setter Property="Height" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+
+  <Style Selector="ScrollBar /template/ RepeatButton.repeattrack">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+
+  <Style Selector="ScrollBar /template/ Thumb#thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderDefault}" />
+    <Setter Property="Margin" Value="1" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="{DynamicResource Radius.Full}" />
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Full}" />
+    <Setter Property="Opacity" Value="0.92" />
     <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
     <Setter Property="Transitions">
       <Transitions>
@@ -46,16 +98,23 @@
     </Setter>
   </Style>
 
-  <Style Selector="ScrollBar:pointerover /template/ Thumb">
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
-    <Setter Property="Opacity" Value="0.95" />
-    <Setter Property="RenderTransform" Value="scaleX(1.05) scaleY(1.05)" />
+  <Style Selector="ScrollBar:pointerover /template/ Thumb#thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderStrong}" />
+    <Setter Property="Opacity" Value="1" />
   </Style>
 
-  <Style Selector="ScrollBar:pressed /template/ Thumb">
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentHover}" />
+  <Style Selector="ScrollBar:pressed /template/ Thumb#thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
     <Setter Property="Opacity" Value="1" />
-    <Setter Property="RenderTransform" Value="scaleX(1.08) scaleY(1.08)" />
+    <Setter Property="RenderTransform" Value="scaleX(1.04) scaleY(1.04)" />
+  </Style>
+
+  <Style Selector="ScrollBar:vertical:pointerover /template/ Thumb#thumb">
+    <Setter Property="RenderTransform" Value="scaleX(1.08)" />
+  </Style>
+
+  <Style Selector="ScrollBar:horizontal:pointerover /template/ Thumb#thumb">
+    <Setter Property="RenderTransform" Value="scaleY(1.08)" />
   </Style>
 
 </Styles>

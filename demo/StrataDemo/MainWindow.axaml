@@ -3,19 +3,41 @@
         xmlns:local="using:StrataDemo"
         xmlns:sc="using:StrataTheme.Controls"
         x:Class="StrataDemo.MainWindow"
+  x:CompileBindings="False"
         Title="Strata UI – Design System Preview"
         Width="1280" Height="860"
-        MinWidth="960" MinHeight="640"
+          MinWidth="760" MinHeight="560"
         WindowStartupLocation="CenterScreen">
 
   <Window.DataContext>
     <local:MainViewModel />
   </Window.DataContext>
 
+  <Window.Styles>
+    <Style Selector="StackPanel.page-shell, Grid.page-shell">
+      <Setter Property="Margin" Value="32,24,32,28" />
+    </Style>
+    <Style Selector="Window.compact StackPanel.page-shell, Window.compact Grid.page-shell">
+      <Setter Property="Margin" Value="20,16,20,20" />
+    </Style>
+    <Style Selector="Window.narrow StackPanel.page-shell, Window.narrow Grid.page-shell">
+      <Setter Property="Margin" Value="12,10,12,12" />
+    </Style>
+
+    <Style Selector="Window.compact Border#SidebarRoot">
+      <Setter Property="Width" Value="220" />
+    </Style>
+    <Style Selector="Window.narrow Border#SidebarRoot">
+      <Setter Property="Width" Value="188" />
+    </Style>
+
+  </Window.Styles>
+
   <DockPanel>
 
     <!-- ═══════════════════ LEFT SIDEBAR ═══════════════════ -->
-    <Border DockPanel.Dock="Left"
+    <Border x:Name="SidebarRoot"
+            DockPanel.Dock="Left"
             Width="248"
             Background="{DynamicResource Brush.Surface0}"
             BorderBrush="{DynamicResource Brush.BorderSubtle}"
@@ -101,7 +123,14 @@
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <TextBlock Text="&#x25C8;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
-                  <TextBlock Text="Strata Controls" FontWeight="Medium" VerticalAlignment="Center" />
+                  <TextBlock Text="UX Controls" FontWeight="Medium" VerticalAlignment="Center" />
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="&#x2726;" FontSize="15" Width="18" TextAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+                  <TextBlock Text="AI Controls" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
               <ListBoxItem>
@@ -109,6 +138,13 @@
                   <TextBlock Text="&#x2699;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
                   <TextBlock Text="Settings" FontWeight="Medium" VerticalAlignment="Center" />
+                </StackPanel>
+              </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="&#x1F5E8;" FontSize="15" Width="18" TextAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+                  <TextBlock Text="Chat Experience" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
             </ListBox>
@@ -125,7 +161,7 @@
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="True">
-        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+        <StackPanel Classes="page-shell" Spacing="32" MaxWidth="920">
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
@@ -135,7 +171,7 @@
           </Border>
 
           <!-- Stat cards -->
-          <Grid ColumnDefinitions="*,16,*,16,*">
+          <Grid x:Name="DashboardCardsGrid" ColumnDefinitions="*,16,*,16,*">
             <Border Grid.Column="0" Classes="strata-card" Padding="0" ClipToBounds="True"
                     ToolTip.Tip="Revenue for the current billing period">
               <DockPanel>
@@ -210,7 +246,7 @@
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="False">
-        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+        <StackPanel Classes="page-shell" Spacing="32" MaxWidth="920">
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
@@ -225,7 +261,7 @@
                 <TextBlock Classes="subtitle" Text="Text Input" />
                 <TextBlock Classes="caption tertiary" Text="Click a field to see the focus indicator." />
               </StackPanel>
-              <Grid ColumnDefinitions="*,24,*">
+              <Grid x:Name="FormTextGrid" ColumnDefinitions="*,24,*">
                 <StackPanel Grid.Column="0" Spacing="6">
                   <TextBlock Classes="caption" FontWeight="Medium" Text="Full name" />
                   <TextBox Watermark="Enter your name..." Text="{Binding SampleText}" />
@@ -244,7 +280,7 @@
                 <TextBlock Classes="subtitle" Text="Selection" />
                 <TextBlock Classes="caption tertiary" Text="Dropdown menus and continuous value sliders." />
               </StackPanel>
-              <Grid ColumnDefinitions="*,24,*">
+              <Grid x:Name="FormSelectionGrid" ColumnDefinitions="*,24,*">
                 <StackPanel Grid.Column="0" Spacing="6">
                   <TextBlock Classes="caption" FontWeight="Medium" Text="Region" />
                   <ComboBox ItemsSource="{Binding ComboItems}"
@@ -261,7 +297,7 @@
             </StackPanel>
           </Border>
 
-          <Grid ColumnDefinitions="*,16,*">
+          <Grid x:Name="FormChecksGrid" ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card">
               <StackPanel Spacing="14">
                 <StackPanel Spacing="2">
@@ -290,7 +326,7 @@
             </Border>
           </Grid>
 
-          <Grid ColumnDefinitions="*,16,*">
+          <Grid x:Name="FormToggleGrid" ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card">
               <StackPanel Spacing="14">
                 <StackPanel Spacing="2">
@@ -327,7 +363,7 @@
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="False">
-        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+        <StackPanel Classes="page-shell" Spacing="32" MaxWidth="920">
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
@@ -359,7 +395,7 @@
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="False">
-        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+        <StackPanel Classes="page-shell" Spacing="32" MaxWidth="920">
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
@@ -417,7 +453,7 @@
             </StackPanel>
           </Border>
 
-          <Grid ColumnDefinitions="*,16,*">
+          <Grid x:Name="ComponentsPairGrid" ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card">
               <StackPanel Spacing="10">
                 <TextBlock Classes="subtitle" Text="ListBox" />
@@ -452,17 +488,17 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- ════════ Page 4: Strata Controls ════════ -->
+      <!-- ════════ Page 4: UX Controls ════════ -->
       <ScrollViewer x:Name="Page4"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="False">
-        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+        <StackPanel Classes="page-shell" Spacing="32" MaxWidth="920">
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
-              <TextBlock Classes="headline" Text="Strata Controls" />
-              <TextBlock Classes="secondary" Text="Purpose-built controls for real-time workflows." />
+              <TextBlock Classes="headline" Text="Custom UX Controls" />
+              <TextBlock Classes="secondary" Text="General-purpose interaction controls for product UX." />
             </StackPanel>
           </Border>
 
@@ -495,8 +531,378 @@
             </StackPanel>
           </Border>
 
+          <!-- ── StrataOrb ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataOrb" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Minimal status indicator for generic UX states." />
+              </StackPanel>
+              <StackPanel Spacing="10">
+                <sc:StrataOrb Label="Idle" State="Idle" />
+                <sc:StrataOrb Label="Active" State="Active" />
+                <sc:StrataOrb Label="Success" State="Success" />
+                <sc:StrataOrb Label="Warning" State="Warning" />
+                <sc:StrataOrb Label="Error" State="Error" />
+                <sc:StrataOrb Label="Interactive — click to cycle" State="Idle" IsInteractive="True" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataMarkdown ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataMarkdown" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Strata-native markdown surface for rich text + fenced code. Optimized for chat answers, runbooks, and technical guidance." />
+              </StackPanel>
+
+              <sc:StrataMarkdown ShowTitle="True"
+                                 Title="Incident Remediation Playbook"
+                                 Markdown="### Objective&#x0a;Stabilize latency during rollout while preserving customer experience.&#x0a;&#x0a;### Guardrail Logic&#x0a;```csharp&#x0a;public static bool ShouldRollback(double p95Ms, double gcPauseMs)&#x0a;{&#x0a;    var p95Breached = p95Ms &gt; 250;&#x0a;    var gcBreached = gcPauseMs &gt; 80;&#x0a;    return p95Breached || gcBreached;&#x0a;}&#x0a;```&#x0a;&#x0a;1. Roll out at **10%** traffic&#x0a;2. Validate p95 + GC for 30 minutes&#x0a;3. Expand to **50%** and then **100%** when healthy" />
+
+              <TextBlock Classes="caption tertiary"
+                         Text="Supports headings, lists, inline code, and fenced language blocks (e.g., csharp)." />
+            </StackPanel>
+          </Border>
+
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- ════════ Page 5: AI Controls ════════ -->
+      <ScrollViewer x:Name="Page5"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    IsVisible="False">
+        <StackPanel Classes="page-shell" Spacing="32" MaxWidth="920">
+
+          <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="headline" Text="AI Controls" />
+              <TextBlock Classes="secondary" Text="Specialized controls for generation, reasoning, provenance, and AI workflows." />
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataChatMessage ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataChatMessage" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Text-first messages with inline edit. Hover to see Copy | Edit | Retry toolbar. Click Edit to enter edit mode with Save/Cancel." />
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <!-- User (editable) -->
+                <sc:StrataChatMessage Role="User" IsEditable="True" Author="You" Timestamp="09:42" StatusText="sent">
+                  <sc:StrataChatMessage.Content>
+                    <TextBlock TextWrapping="Wrap" FontSize="13"
+                               Text="Review incident IR-4471 and recommend a mitigation plan." />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+
+                <!-- Assistant -->
+                <sc:StrataChatMessage Role="Assistant" IsEditable="True" Author="Strata" Timestamp="09:42" StatusText="grounded">
+                  <sc:StrataChatMessage.Content>
+                    <TextBlock TextWrapping="Wrap" FontSize="13"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
+                               Text="Allocation bursts in the serializer hot path caused GC pause inflation, degrading p95 latency by 340 ms during peak traffic windows." />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+
+                <sc:StrataChatMessage Role="Assistant" IsEditable="True" IsEditing="True" Author="Strata" Timestamp="09:43" StatusText="editing">
+                  <sc:StrataChatMessage.Content>
+                    <TextBlock TextWrapping="Wrap" FontSize="13"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
+                               Text="I'm now comparing against pre-change baselines to isolate regressions introduced by this patch." />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+
+                <!-- Assistant Markdown + C# code -->
+                <sc:StrataChatMessage Role="Assistant" IsEditable="True" Author="Strata" Timestamp="09:43" StatusText="markdown">
+                  <sc:StrataChatMessage.Content>
+                    <sc:StrataMarkdown IsInline="True" Markdown="# Suggested fix&#x0a;Use a staged rollout and cap payload size for hot serializer paths.&#x0a;&#x0a;```csharp&#x0a;public static bool ShouldRollback(double p95Ms, double gcPauseMs)&#x0a;{&#x0a;    if (p95Ms &gt; 250 || gcPauseMs &gt; 80)&#x0a;        return true;&#x0a;&#x0a;    return false;&#x0a;}&#x0a;```&#x0a;&#x0a;- Gate rollout at 10%, 50%, 100%&#x0a;- Roll back immediately on threshold breach" />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+
+                <!-- Tool (not editable) -->
+                <sc:StrataChatMessage Role="Tool" IsEditable="False" Author="tool.search()" Timestamp="09:44" StatusText="3 hits">
+                  <sc:StrataChatMessage.Content>
+                    <StackPanel Spacing="4">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Background="{DynamicResource Brush.DangerSubtle}" CornerRadius="4" Padding="6,2">
+                          <TextBlock Text="P2" FontSize="11" FontWeight="Bold"
+                                     Foreground="{DynamicResource Brush.DangerDefault}" />
+                        </Border>
+                        <TextBlock Text="Scale worker pool and cap batch payload" FontSize="12"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" />
+                      </StackPanel>
+                      <TextBlock TextWrapping="Wrap" FontSize="12"
+                                 Foreground="{DynamicResource Brush.TextTertiary}"
+                                 Text="Setting batch_max_bytes = 262144 reduces serializer pressure." />
+                    </StackPanel>
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+
+                <!-- Streaming (not editable while streaming) -->
+                <sc:StrataChatMessage Role="Assistant" IsStreaming="True" IsEditable="False" Author="Strata" Timestamp="09:45" StatusText="streaming">
+                  <sc:StrataChatMessage.Content>
+                    <TextBlock TextWrapping="Wrap" FontSize="13"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
+                               Text="Additionally, I'd recommend setting up an automated alert on the GC pause duration metric…" />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+
+                <!-- System -->
+                <sc:StrataChatMessage Role="System" Author="System" Timestamp="policy">
+                  <sc:StrataChatMessage.Content>
+                    <TextBlock FontSize="12" FontStyle="Italic"
+                               Foreground="{DynamicResource Brush.TextTertiary}"
+                               Text="Workspace policies loaded. Grounded citations enabled." />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataTypingIndicator ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataTypingIndicator" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Inline status: pulsing accent dot with label text. Active state animates, inactive dims." />
+              </StackPanel>
+
+              <StackPanel Spacing="12">
+                <sc:StrataTypingIndicator IsActive="True"
+                                         Label="Validating behavior with targeted tests next so findings are evidence-based" />
+                <sc:StrataTypingIndicator IsActive="True"
+                                         Label="Generating response…" />
+                <sc:StrataTypingIndicator IsActive="False"
+                                         Label="Paused" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataChatComposer ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataChatComposer" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Bottom-bar input with borderless text area, + attach, model/quality chips, and circular accent send button." />
+              </StackPanel>
+
+              <sc:StrataChatComposer Placeholder="Ask for follow-up changes"
+                                    Models="{Binding AiModels}"
+                                    SelectedModel="GPT-4o"
+                                    QualityLevels="{Binding AiQualityLevels}"
+                                    SelectedQuality="High" />
+
+              <sc:StrataChatComposer Placeholder="What would you like to know?"
+                                    Models="{Binding AiModels}"
+                                    SelectedModel="GPT-5.3-Codex"
+                                    QualityLevels="{Binding AiQualityLevels}"
+                                    SelectedQuality="Extra High"
+                                    SuggestionA="Summarize"
+                                    SuggestionB="Root cause"
+                                    SuggestionC="Action items" />
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataChatShell ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataChatShell" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Minimal container: scrollable transcript with docked composer. No heavy header chrome." />
+              </StackPanel>
+
+              <sc:StrataChatShell IsOnline="True" MinHeight="340">
+                <sc:StrataChatShell.Header>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="body-strong" Text="Incident Assistant" />
+                    <TextBlock Classes="caption tertiary" Text="workspace / prod" VerticalAlignment="Center" />
+                  </StackPanel>
+                </sc:StrataChatShell.Header>
+                <sc:StrataChatShell.PresenceText>Connected</sc:StrataChatShell.PresenceText>
+                <sc:StrataChatShell.Transcript>
+                  <StackPanel Spacing="4">
+                    <sc:StrataChatMessage Role="User" Author="You" Timestamp="09:49" StatusText="sent">
+                      <sc:StrataChatMessage.Content>
+                        <TextBlock TextWrapping="Wrap" FontSize="13"
+                                   Text="What caused the latency spike?" />
+                      </sc:StrataChatMessage.Content>
+                    </sc:StrataChatMessage>
+                    <sc:StrataChatMessage Role="Assistant" Author="Strata" Timestamp="09:49" StatusText="grounded">
+                      <sc:StrataChatMessage.Content>
+                        <TextBlock TextWrapping="Wrap" FontSize="13"
+                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                   Text="GC pause inflation from allocation bursts in the serializer hot path during peak traffic." />
+                      </sc:StrataChatMessage.Content>
+                    </sc:StrataChatMessage>
+                    <sc:StrataTypingIndicator IsActive="True" Label="Checking deployment logs…" />
+                  </StackPanel>
+                </sc:StrataChatShell.Transcript>
+                <sc:StrataChatShell.Composer>
+                  <sc:StrataChatComposer Placeholder="Follow up…"
+                                        Models="{Binding AiModels}"
+                                        SelectedModel="GPT-4o"
+                                        QualityLevels="{Binding AiQualityLevels}"
+                                        SelectedQuality="High" />
+                </sc:StrataChatShell.Composer>
+              </sc:StrataChatShell>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="18">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="AI Concepts: Tool • Skill • Agent" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Composable building blocks aligned with modern agent workflows: tool calls, reusable skills, and custom agents." />
+              </StackPanel>
+
+              <!-- Tool Calls -->
+              <StackPanel Spacing="10">
+                <TextBlock Classes="caption tertiary" Text="Tool Calls" />
+                <Grid ColumnDefinitions="*,10,*">
+                  <StackPanel Grid.Column="0" Spacing="8">
+                    <sc:StrataAiToolCall ToolName="search_incident_logs"
+                                        Status="Completed"
+                                        DurationMs="412"
+                                        InputParameters="{}{ incident: IR-4471, range: last_24h }"
+                                        MoreInfo="Found 3 correlated spikes near serializer allocation bursts." />
+                    <sc:StrataAiToolCall ToolName="validate_policy_guardrails"
+                                        Status="InProgress"
+                                        DurationMs="236"
+                                        InputParameters="{}{ policy: rollout.guardrail.v2 }"
+                                        MoreInfo="Checking compliance constraints before continue." />
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Spacing="8">
+                    <sc:StrataAiToolCall ToolName="execute_rollout_stage"
+                                        Status="Failed"
+                                        DurationMs="1883"
+                                        InputParameters="{}{ stage: 50_percent, gate: p95_lt_250 }"
+                                        MoreInfo="Gate failed: p95=312ms; rollback signal emitted." />
+                    <sc:StrataAiToolCall ToolName="publish_status_update"
+                                        Status="InProgress"
+                                        DurationMs="141"
+                                        InputParameters="{}{ channel: incident-room }"
+                                        MoreInfo="Posting interim status to responders and stakeholders." />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+
+              <!-- Skills -->
+              <StackPanel Spacing="10">
+                <TextBlock Classes="caption tertiary" Text="Skills" />
+                <sc:StrataAiSkill SkillName="Incident Summarization"
+                                  IconGlyph="Σ"
+                                  Description="Turns incident traces into concise summaries with action-ready recommendations."
+                                  DetailMarkdown="## Incident Summarization&#10;Creates an executive-ready incident brief from logs, traces and runbooks.&#10;&#10;### Produces&#10;- Situation summary&#10;- Root-cause hypotheses&#10;- Recommended next actions&#10;&#10;### Guardrails&#10;- Avoid speculative claims&#10;- Always include confidence qualifiers" />
+
+                <sc:StrataAiSkill SkillName="Change Request Executor"
+                                  IconGlyph="⚙"
+                                  Description="Executes approved runbook actions through policy-gated workflows."
+                                  DetailMarkdown="## Change Request Executor&#10;Runs approved actions only after policy and approval checks pass.&#10;&#10;### Inputs&#10;`change_id`, `approval_token`&#10;&#10;### Outputs&#10;`execution_id`, `status`, `audit_ref`" />
+              </StackPanel>
+
+              <!-- Agents -->
+              <StackPanel Spacing="10">
+                <TextBlock Classes="caption tertiary" Text="Agents" />
+                <sc:StrataAiAgent AgentName="Remediation Planner"
+                                  IconGlyph="R"
+                                  Description="Coordinates tool calls and skills to draft mitigation plans with rollback gates."
+                                  ToolsCount="6"
+                                  SkillsCount="5"
+                                  DetailMarkdown="## Remediation Planner&#10;Synthesizes incidents into mitigation plans with staged rollout + rollback checkpoints.&#10;&#10;### Output&#10;- Mitigation plan&#10;- Rollback gates&#10;- Stakeholder comms summary">
+                  <sc:StrataAiAgent.SkillsContent>
+                    <StackPanel Spacing="8">
+                      <sc:StrataAiSkill SkillName="Incident Summarization"
+                                        IconGlyph="Σ"
+                                        Description="Turns incident traces into concise summaries with action-ready recommendations."
+                                        DetailMarkdown="## Incident Summarization&#10;Summarizes incidents with confidence qualifiers and next actions." />
+                    </StackPanel>
+                  </sc:StrataAiAgent.SkillsContent>
+                  <sc:StrataAiAgent.ToolsContent>
+                    <Grid ColumnDefinitions="*,10,*">
+                      <StackPanel Grid.Column="0" Spacing="8">
+                        <sc:StrataAiToolCall ToolName="monitor.query"
+                                            Status="Completed"
+                                            DurationMs="93"
+                                            InputParameters="{}{ query: p95, window: 30m }"
+                                            MoreInfo="Fetched telemetry for service cluster C." />
+                        <sc:StrataAiToolCall ToolName="runbook.fetch"
+                                            Status="Completed"
+                                            DurationMs="81"
+                                            InputParameters="{}{ id: autoscale.md }"
+                                            MoreInfo="Loaded remediation runbook and rollback procedure." />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" Spacing="8">
+                        <sc:StrataAiToolCall ToolName="rollout.execute"
+                                            Status="InProgress"
+                                            DurationMs="148"
+                                            InputParameters="{}{ stage: 25_percent }"
+                                            MoreInfo="Executing canary stage with rollback gate checks." />
+                        <sc:StrataAiToolCall ToolName="risk.score"
+                                            Status="InProgress"
+                                            DurationMs="122"
+                                            InputParameters="{}{ candidate_plan: plan_19 }"
+                                            MoreInfo="Scoring blast-radius and dependency impacts." />
+                      </StackPanel>
+                    </Grid>
+                  </sc:StrataAiAgent.ToolsContent>
+                </sc:StrataAiAgent>
+
+                <sc:StrataAiAgent AgentName="Postmortem Drafter"
+                                  IconGlyph="P"
+                                  Description="Converts traces and timeline artifacts into structured incident reports."
+                                  ToolsCount="2"
+                                  SkillsCount="3"
+                                  DetailMarkdown="## Postmortem Drafter&#10;Transforms evidence into a clear postmortem format for engineering and leadership.&#10;&#10;### Sections&#10;- Timeline&#10;- Detection &amp; response&#10;- Root cause and contributing factors&#10;- Follow-up actions">
+                  <sc:StrataAiAgent.SkillsContent>
+                    <StackPanel Spacing="8">
+                      <sc:StrataAiSkill SkillName="Narrative Composer"
+                                        IconGlyph="N"
+                                        Description="Builds a coherent timeline and technical narrative from raw evidence."
+                                        DetailMarkdown="## Narrative Composer&#10;Converts incident events into a readable postmortem storyline." />
+                    </StackPanel>
+                  </sc:StrataAiAgent.SkillsContent>
+                  <sc:StrataAiAgent.ToolsContent>
+                    <StackPanel Spacing="8">
+                      <sc:StrataAiToolCall ToolName="timeline.fetch"
+                                          Status="Completed"
+                                          DurationMs="71"
+                                          InputParameters="{}{ incident: IR-4471 }"
+                                          MoreInfo="Loaded event timeline with 63 entries." />
+                    </StackPanel>
+                  </sc:StrataAiAgent.ToolsContent>
+                </sc:StrataAiAgent>
+              </StackPanel>
+
+              <!-- Embedded in chat -->
+              <StackPanel Spacing="6">
+                <TextBlock Classes="caption tertiary" Text="Embedded in chat" />
+                <sc:StrataChatMessage Role="Tool" Author="tool.call" Timestamp="10:08" StatusText="embedded concept">
+                  <sc:StrataChatMessage.Content>
+                    <sc:StrataAiToolCall ToolName="fetch_runbook"
+                                        Status="InProgress"
+                                        DurationMs="128"
+                                        InputParameters="{}{ id: autoscale.md }"
+                                        MoreInfo="Retrieving autoscale policy and rollback section..." />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
           <!-- ── StrataFork + StrataConfidence ── -->
-          <Grid ColumnDefinitions="*,16,*">
+          <Grid x:Name="AiForkGrid" ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card" Padding="24,20">
               <StackPanel Spacing="14">
                 <StackPanel Spacing="3">
@@ -599,7 +1005,7 @@
           </Border>
 
           <!-- ── StrataTrace + StrataPulse ── -->
-          <Grid ColumnDefinitions="*,16,*">
+          <Grid x:Name="AiTraceGrid" ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card" Padding="24,20">
               <StackPanel Spacing="14">
                 <StackPanel Spacing="3">
@@ -643,7 +1049,7 @@
           </Grid>
 
           <!-- ── StrataStepFlow + StrataPromptBar ── -->
-          <Grid ColumnDefinitions="*,16,*">
+          <Grid x:Name="AiStepGrid" ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card" Padding="24,20">
               <StackPanel Spacing="14">
                 <StackPanel Spacing="3">
@@ -698,39 +1104,27 @@
             </Border>
           </Grid>
 
-          <!-- ── Micro Indicators ── -->
+          <!-- ── AI Micro Indicators ── -->
           <Border Classes="strata-card" Padding="24,20">
             <StackPanel Spacing="16">
               <StackPanel Spacing="3">
-                <TextBlock Classes="subtitle" Text="Micro Indicators" />
+                <TextBlock Classes="subtitle" Text="AI Micro Indicators" />
                 <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
-                           Text="Status dots, provenance cues, and token budget chips." />
+                           Text="Provenance mode and token budget helpers." />
               </StackPanel>
-
-              <Grid ColumnDefinitions="*,24,*">
-                <StackPanel Grid.Column="0" Spacing="10">
-                  <TextBlock Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextSecondary}" Text="StrataOrb" />
-                  <sc:StrataOrb Label="Idle" State="Idle" />
-                  <sc:StrataOrb Label="Active" State="Active" />
-                  <sc:StrataOrb Label="Success" State="Success" />
-                  <sc:StrataOrb Label="Warning" State="Warning" />
-                  <sc:StrataOrb Label="Error" State="Error" />
-                  <sc:StrataOrb Label="Interactive — click to cycle" State="Idle" IsInteractive="True" />
+              <Grid x:Name="AiMicroGrid" ColumnDefinitions="*,24,*">
+                <StackPanel Grid.Column="0" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextSecondary}" Text="StrataCueSwitch" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <sc:StrataCueSwitch Mode="Memory" />
+                    <sc:StrataCueSwitch Mode="Grounded" />
+                    <sc:StrataCueSwitch Mode="Tool" />
+                  </StackPanel>
                 </StackPanel>
-                <StackPanel Grid.Column="2" Spacing="12">
-                  <StackPanel Spacing="6">
-                    <TextBlock Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextSecondary}" Text="StrataCueSwitch" />
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                      <sc:StrataCueSwitch Mode="Memory" />
-                      <sc:StrataCueSwitch Mode="Grounded" />
-                      <sc:StrataCueSwitch Mode="Tool" />
-                    </StackPanel>
-                  </StackPanel>
-                  <StackPanel Spacing="6">
-                    <TextBlock Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextSecondary}" Text="StrataBudgetChip" />
-                    <sc:StrataBudgetChip UsedTokens="2480" MaxTokens="8000" />
-                    <sc:StrataBudgetChip UsedTokens="7620" MaxTokens="8000" IsEditable="False" />
-                  </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextSecondary}" Text="StrataBudgetChip" />
+                  <sc:StrataBudgetChip UsedTokens="2480" MaxTokens="8000" />
+                  <sc:StrataBudgetChip UsedTokens="7620" MaxTokens="8000" IsEditable="False" />
                 </StackPanel>
               </Grid>
             </StackPanel>
@@ -739,12 +1133,12 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- ════════ Page 5: Settings ════════ -->
-      <ScrollViewer x:Name="Page5"
+      <!-- ════════ Page 6: Settings ════════ -->
+      <ScrollViewer x:Name="Page6"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     IsVisible="False">
-        <StackPanel Margin="56,44,56,48" Spacing="32" MaxWidth="920">
+        <StackPanel Classes="page-shell" Spacing="32" MaxWidth="920">
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
@@ -782,7 +1176,7 @@
                 <TextBlock Classes="subtitle" Text="Region &amp; Language" />
                 <TextBlock Classes="caption tertiary" Text="Set your locale and display preferences." />
               </StackPanel>
-              <Grid ColumnDefinitions="*,24,*">
+              <Grid x:Name="SettingsRegionGrid" ColumnDefinitions="*,24,*">
                 <StackPanel Grid.Column="0" Spacing="6">
                   <TextBlock Classes="caption" FontWeight="Medium" Text="Language" />
                   <ComboBox ItemsSource="{Binding ComboItems}"
@@ -806,6 +1200,142 @@
           </Border>
         </StackPanel>
       </ScrollViewer>
+
+      <!-- ════════ Page 7: Chat Experience ════════ -->
+      <Grid x:Name="Page7"
+            IsVisible="False"
+            Classes="page-shell"
+            MaxWidth="1240"
+            RowDefinitions="Auto,16,*">
+
+        <Border Grid.Row="0"
+                BorderBrush="{DynamicResource Brush.AccentDefault}"
+                BorderThickness="3,0,0,0"
+                Padding="16,0,0,0">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="headline" Text="Chat Experience" />
+            <TextBlock Classes="secondary" Text="Full mocked conversation surface with streaming, tools, context, and follow-up composer." />
+          </StackPanel>
+        </Border>
+
+        <Grid x:Name="ChatLayout" Grid.Row="2" ColumnDefinitions="2.6*,16,1.4*" RowDefinitions="*">
+
+          <!-- Primary conversation surface -->
+          <Border x:Name="ChatMainCard"
+                  Grid.Column="0"
+              Background="Transparent"
+              BorderBrush="Transparent"
+              BorderThickness="0"
+              CornerRadius="0"
+                  Padding="0"
+                  ClipToBounds="True">
+            <sc:StrataChatShell x:Name="MainChatShell"
+                               IsOnline="True"
+                               PresenceText="Connected"
+                               VerticalAlignment="Stretch">
+
+              <sc:StrataChatShell.Header>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                  <Border Width="24" Height="24" CornerRadius="7"
+                          Background="{DynamicResource Brush.AccentGradient}">
+                    <TextBlock Text="S" FontSize="12" FontWeight="Bold"
+                               Foreground="{DynamicResource Brush.TextOnAccent}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Spacing="0">
+                    <TextBlock Classes="body-strong" Text="Strata Assistant" />
+                    <TextBlock Classes="caption tertiary" Text="incident-room / prod / IR-4471" />
+                  </StackPanel>
+                </StackPanel>
+              </sc:StrataChatShell.Header>
+
+              <sc:StrataChatShell.Transcript>
+                <StackPanel x:Name="LiveTranscript" Spacing="8" />
+              </sc:StrataChatShell.Transcript>
+
+              <sc:StrataChatShell.Composer>
+                <sc:StrataChatComposer x:Name="LiveComposer"
+                                      Placeholder="Send a message to start the conversation…"
+                                      Models="{Binding AiModels}"
+                                      SelectedModel="GPT-5.3-Codex"
+                                      QualityLevels="{Binding AiQualityLevels}"
+                                      SelectedQuality="Extra High"
+                                      SuggestionA="Summarize incident"
+                                      SuggestionB="Draft status update"
+                                      SuggestionC="Create rollout checklist" />
+              </sc:StrataChatShell.Composer>
+
+            </sc:StrataChatShell>
+          </Border>
+
+          <!-- Context / side intelligence -->
+          <ScrollViewer x:Name="ChatSideHost"
+                        Grid.Column="2"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="ChatSidePanel" Spacing="16">
+
+              <Border Classes="strata-card" Padding="20,16">
+                <StackPanel Spacing="12">
+                  <TextBlock Classes="subtitle" Text="Session Context" />
+                  <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.TextTertiary}" Text="Workspace" />
+                  <TextBlock Text="incident-room / prod" />
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.TextTertiary}" Text="Conversation" />
+                  <TextBlock Text="IR-4471 remediation thread" />
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.TextTertiary}" Text="Grounding" />
+                  <TextBlock Text="Enabled (4 linked sources)" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="strata-card" Padding="20,16">
+                <StackPanel Spacing="12">
+                  <TextBlock Classes="subtitle" Text="Confidence" />
+                  <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
+                  <sc:StrataConfidence x:Name="LiveConfRootCause" Label="Root Cause" Confidence="88" />
+                  <sc:StrataConfidence x:Name="LiveConfMitigation" Label="Mitigation Plan" Confidence="81" />
+                  <sc:StrataConfidence x:Name="LiveConfImpact" Label="Customer Impact" Confidence="74" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="strata-card" Padding="20,16">
+                <StackPanel Spacing="12">
+                  <TextBlock Classes="subtitle" Text="Live Signals" />
+                  <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
+                  <sc:StrataPulse x:Name="LivePulse" Label="Token Throughput" Rate="0" IsLive="True" />
+                  <sc:StrataBudgetChip x:Name="LiveBudget" UsedTokens="0" MaxTokens="12000" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="strata-card" Padding="20,16">
+                <StackPanel Spacing="12">
+                  <TextBlock Classes="subtitle" Text="Evidence" />
+                  <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
+                  <sc:StrataTrace Index="1" Title="IR-4471 Summary"
+                                  Snippet="Latency spike correlated with serializer allocation bursts in worker pool C."
+                                  Origin="incidents/IR-4471.md"
+                                  Relevance="93" />
+                  <sc:StrataTrace Index="2" Title="Autoscale Runbook"
+                                  Snippet="Enable staged rollout with p95 + GC pause rollback thresholds."
+                                  Origin="runbooks/infra/autoscale.md"
+                                  Relevance="87" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="strata-card" Padding="20,16">
+                <StackPanel Spacing="12">
+                  <TextBlock Classes="subtitle" Text="Suggested Next" />
+                  <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
+                  <Button Classes="subtle" Content="Create rollout checklist" HorizontalAlignment="Stretch" />
+                  <Button Classes="subtle" Content="Generate stakeholder email" HorizontalAlignment="Stretch" />
+                  <Button Classes="subtle" Content="Export conversation" HorizontalAlignment="Stretch" />
+                </StackPanel>
+              </Border>
+
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Grid>
 
     </Panel>
   </DockPanel>

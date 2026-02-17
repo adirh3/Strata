@@ -1,0 +1,310 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       StrataChatMessage
+       Text-first message layout with inline edit support.
+       Hover shows Copy | Edit | Retry toolbar.
+       Edit mode swaps content for a TextBox with Save/Cancel.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataChatMessage}" TargetType="controls:StrataChatMessage">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel Name="PART_Root" Spacing="0" HorizontalAlignment="Stretch">
+
+              <!-- Optional metadata row -->
+              <DockPanel Name="PART_MetaRow" IsVisible="False" Margin="0,0,0,2">
+                <TextBlock Text="{TemplateBinding Author}"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource Brush.TextTertiary}" />
+                <TextBlock DockPanel.Dock="Right"
+                           Text="{TemplateBinding Timestamp}"
+                           FontSize="11"
+                           Foreground="{DynamicResource Brush.TextTertiary}" />
+              </DockPanel>
+
+              <!-- Read mode: content display -->
+              <Border Name="PART_Bubble"
+                      Background="Transparent"
+                      Padding="0,6,0,4"
+                      RenderTransformOrigin="0.5,0.5"
+                      RenderTransform="scale(1)">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="CubicEaseOut" />
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                  </Transitions>
+                </Border.Transitions>
+                <ContentPresenter Content="{TemplateBinding Content}" />
+              </Border>
+
+              <!-- Edit mode: TextBox with save/cancel -->
+              <Border Name="PART_EditArea"
+                      IsVisible="False"
+                      Background="{DynamicResource Brush.Surface1}"
+                      BorderBrush="{DynamicResource Brush.AccentDefault}"
+                      BorderThickness="1"
+                      CornerRadius="8"
+                      Padding="4">
+                <StackPanel Spacing="6">
+                  <TextBox Name="PART_EditBox"
+                           Classes="message-edit-embed"
+                           Text="{Binding EditText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                           AcceptsReturn="True"
+                           TextWrapping="Wrap"
+                           MinHeight="32" MaxHeight="200"
+                           BorderThickness="0"
+                           Background="Transparent"
+                           Padding="10,8"
+                           FontSize="13" />
+                  <StackPanel Orientation="Horizontal" Spacing="6"
+                              HorizontalAlignment="Right" Margin="0,0,4,2">
+                    <Button Name="PART_CancelButton" Classes="subtle"
+                            Padding="10,4" MinHeight="0" CornerRadius="6"
+                            FontSize="11">
+                      <TextBlock Text="Cancel"
+                                 Foreground="{DynamicResource Brush.TextTertiary}" />
+                    </Button>
+                    <Button Name="PART_SaveButton"
+                            Padding="10,4" MinHeight="0" CornerRadius="6"
+                            FontSize="11"
+                            Background="{DynamicResource Brush.AccentDefault}"
+                            Foreground="{DynamicResource Brush.TextOnAccent}">
+                      <TextBlock Text="Save" />
+                    </Button>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <DockPanel Name="PART_FooterRow"
+                         IsVisible="False"
+                         Margin="0,2,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                  <Border Name="PART_FooterDot"
+                          Width="5" Height="5" CornerRadius="2.5"
+                          Background="{DynamicResource Brush.TextTertiary}"
+                          VerticalAlignment="Center" />
+                  <TextBlock Name="PART_FooterStatus"
+                             Text="{TemplateBinding StatusText}"
+                             FontSize="11"
+                             Foreground="{DynamicResource Brush.TextTertiary}" />
+                </StackPanel>
+              </DockPanel>
+
+              <!-- Streaming accent line -->
+              <Border Name="PART_StreamBar"
+                      Height="2" CornerRadius="1"
+                      Background="{DynamicResource Brush.AccentGradient}"
+                      HorizontalAlignment="Left"
+                      Width="60" Opacity="0"
+                      Margin="0,2,0,0">
+                <Border.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.25" />
+                  </Transitions>
+                </Border.Transitions>
+              </Border>
+
+              <!-- Hover action toolbar -->
+                    <Border Name="PART_ActionLayer"
+                      Background="Transparent"
+                      Margin="0,2,0,0"
+                      Padding="0,2,0,0"
+                      MinHeight="28">
+                <StackPanel Name="PART_ActionBar"
+                      Orientation="Horizontal"
+                      Spacing="0"
+                      IsVisible="False"
+                      Opacity="0">
+                  <StackPanel.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.1" />
+                    </Transitions>
+                  </StackPanel.Transitions>
+                  <Border Background="{DynamicResource Brush.Surface1}"
+                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="2,1">
+                    <StackPanel Orientation="Horizontal" Spacing="0">
+                      <Button Name="PART_CopyButton" Classes="subtle"
+                        Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
+                  <TextBlock Text="Copy" FontSize="11"
+                       Foreground="{DynamicResource Brush.TextTertiary}" />
+                      </Button>
+                      <Border Name="PART_EditSep" Width="1" Margin="2,3"
+                        Background="{DynamicResource Brush.BorderSubtle}" />
+                      <Button Name="PART_EditButton" Classes="subtle"
+                        Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
+                  <TextBlock Text="Edit" FontSize="11"
+                       Foreground="{DynamicResource Brush.TextTertiary}" />
+                      </Button>
+                      <Border Width="1" Margin="2,3"
+                        Background="{DynamicResource Brush.BorderSubtle}" />
+                      <Button Name="PART_RegenerateButton" Classes="subtle"
+                        Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
+                  <TextBlock Text="Retry" FontSize="11"
+                       Foreground="{DynamicResource Brush.TextTertiary}" />
+                      </Button>
+                    </StackPanel>
+                  </Border>
+
+                  <TextBlock Name="PART_StatusText"
+                       IsVisible="False"
+                       Text="{TemplateBinding StatusText}"
+                       FontSize="11"
+                       Foreground="{DynamicResource Brush.TextTertiary}"
+                       VerticalAlignment="Center"
+                       Margin="8,0,0,0" />
+                </StackPanel>
+                    </Border>
+
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ Border#PART_Bubble:pointerover">
+          <Setter Property="BoxShadow" Value="0 1 6 0 #14000000" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#PART_Bubble">
+          <Setter Property="RenderTransform" Value="scale(0.995)" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ StackPanel#PART_ActionBar">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:focus-within /template/ StackPanel#PART_ActionBar">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^ /template/ Border#PART_ActionLayer:pointerover StackPanel#PART_ActionBar">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+
+        <!-- Meta + status visibility -->
+        <Style Selector="^:has-meta /template/ DockPanel#PART_MetaRow">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:assistant:has-status /template/ DockPanel#PART_FooterRow">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:assistant:has-status /template/ Border#PART_FooterDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
+        </Style>
+        <Style Selector="^:tool:has-status /template/ DockPanel#PART_FooterRow">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- ── Edit mode: show edit area, hide content + action bar ── -->
+        <Style Selector="^:editing /template/ Border#PART_Bubble">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:editing /template/ Border#PART_EditArea">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:editing /template/ StackPanel#PART_ActionBar">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:editing /template/ Border#PART_StreamBar">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:editing /template/ DockPanel#PART_FooterRow">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- Hide Edit button when not editable -->
+        <Style Selector="^:not(:editable) /template/ Button#PART_EditButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:editable) /template/ Border#PART_EditSep">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- ══ ASSISTANT ══ -->
+        <Style Selector="^:assistant /template/ Border#PART_Bubble">
+          <Setter Property="Padding" Value="0,6,0,4" />
+        </Style>
+
+        <!-- ══ USER: right-aligned subtle pill ══ -->
+        <Style Selector="^:user /template/ StackPanel#PART_Root">
+          <Setter Property="HorizontalAlignment" Value="Right" />
+          <Setter Property="MaxWidth" Value="600" />
+        </Style>
+        <Style Selector="^:user /template/ Border#PART_Bubble">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="CornerRadius" Value="14" />
+          <Setter Property="Padding" Value="16,10,16,10" />
+        </Style>
+        <Style Selector="^:user /template/ DockPanel#PART_MetaRow TextBlock">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        </Style>
+        <Style Selector="^:user /template/ Button#PART_RegenerateButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- ══ SYSTEM ══ -->
+        <Style Selector="^:system /template/ StackPanel#PART_Root">
+          <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="^:system /template/ Border#PART_Bubble">
+          <Setter Property="Padding" Value="0,4,0,4" />
+        </Style>
+        <Style Selector="^:system /template/ StackPanel#PART_ActionBar">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- ══ TOOL ══ -->
+        <Style Selector="^:tool /template/ Border#PART_Bubble">
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+          <Setter Property="CornerRadius" Value="8" />
+          <Setter Property="Padding" Value="12,8" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+          <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <!-- ══ STREAMING ══ -->
+        <Style Selector="^:streaming /template/ Border#PART_StreamBar">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:streaming /template/ Button#PART_RegenerateButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- ══ Focus ══ -->
+        <Style Selector="^:focus-visible /template/ Border#PART_Bubble">
+          <Setter Property="BoxShadow" Value="0 0 0 2 #30818CF8" />
+          <Setter Property="CornerRadius" Value="6" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Embedded edit TextBox chrome removal (regular styles, outside ControlTheme) -->
+  <Style Selector="TextBox.message-edit-embed /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="TextBox.message-edit-embed:focus /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+  <Style Selector="TextBox.message-edit-embed:pointerover /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+
+</Styles>
