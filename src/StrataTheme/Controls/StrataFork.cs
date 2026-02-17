@@ -17,6 +17,19 @@ namespace StrataTheme.Controls;
 /// It preserves continuity by animating an indicator rail and cross-fading
 /// branch content instead of hard switching.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataFork OptionATitle="Plan A" OptionBTitle="Plan B" SelectedIndex="0"&gt;
+///     &lt;controls:StrataFork.OptionAContent&gt;&lt;TextBlock Text="Conservative approach" /&gt;&lt;/controls:StrataFork.OptionAContent&gt;
+///     &lt;controls:StrataFork.OptionBContent&gt;&lt;TextBlock Text="Aggressive refactor" /&gt;&lt;/controls:StrataFork.OptionBContent&gt;
+/// &lt;/controls:StrataFork&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_TabHost (Border), PART_Indicator (Border),
+/// PART_OptionA (Button), PART_OptionB (Button),
+/// PART_OptionAContent (ContentPresenter), PART_OptionBContent (ContentPresenter).</para>
+/// <para><b>Pseudo-classes:</b> :a, :b.</para>
+/// </remarks>
 public class StrataFork : TemplatedControl
 {
     private Border? _tabHost;

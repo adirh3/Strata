@@ -13,17 +13,28 @@ namespace StrataTheme.Controls;
 /// A clean status indicator dot with state-specific color and a subtle
 /// breathe animation for the Active state.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataOrb State="Active" Label="Processing" IsInteractive="True" /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Orb (Border).</para>
+/// <para><b>Pseudo-classes:</b> :active, :idle, :success, :warning, :error, :interactive.</para>
+/// </remarks>
 public class StrataOrb : TemplatedControl
 {
     private Border? _orb;
     private CompositionVisual? _orbVisual;
 
+    /// <summary>Current visual state of the orb.</summary>
     public static readonly StyledProperty<OrbState> StateProperty =
         AvaloniaProperty.Register<StrataOrb, OrbState>(nameof(State), OrbState.Idle);
 
+    /// <summary>Optional text label displayed next to the dot.</summary>
     public static readonly StyledProperty<string?> LabelProperty =
         AvaloniaProperty.Register<StrataOrb, string?>(nameof(Label));
 
+    /// <summary>When true, clicking or pressing Enter/Space cycles through states.</summary>
     public static readonly StyledProperty<bool> IsInteractiveProperty =
         AvaloniaProperty.Register<StrataOrb, bool>(nameof(IsInteractive));
 

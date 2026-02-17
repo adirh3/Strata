@@ -9,33 +9,60 @@ using System;
 
 namespace StrataTheme.Controls;
 
+/// <summary>Execution status of a tool call.</summary>
 public enum StrataAiToolCallStatus
 {
+    /// <summary>Tool is currently executing.</summary>
     InProgress,
+    /// <summary>Tool finished successfully.</summary>
     Completed,
+    /// <summary>Tool encountered an error.</summary>
     Failed
 }
 
+/// <summary>
+/// Displays a compact, expandable card representing a single AI tool invocation.
+/// Shows a status dot, tool name, and a status pill. Clicking the header reveals
+/// optional input parameters, extra info, and duration.
+/// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataAiToolCall ToolName="search_code"
+///                             Status="Completed"
+///                             DurationMs="340"
+///                             InputParameters='{"query": "hello"}'
+///                             MoreInfo="Found 12 results" /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Header (Border), PART_StateDot (Border), PART_Detail (Border).</para>
+/// <para><b>Pseudo-classes:</b> :expanded, :inprogress, :completed, :failed, :has-params, :has-info.</para>
+/// </remarks>
 public class StrataAiToolCall : TemplatedControl
 {
     private Border? _header;
     private Border? _stateDot;
 
+    /// <summary>Name of the tool being invoked (e.g. "search_code").</summary>
     public static readonly StyledProperty<string> ToolNameProperty =
         AvaloniaProperty.Register<StrataAiToolCall, string>(nameof(ToolName), "tool.call");
 
+    /// <summary>Optional JSON or plain-text input parameters shown in the detail pane.</summary>
     public static readonly StyledProperty<string?> InputParametersProperty =
         AvaloniaProperty.Register<StrataAiToolCall, string?>(nameof(InputParameters));
 
+    /// <summary>Optional extra information displayed below the parameters.</summary>
     public static readonly StyledProperty<string?> MoreInfoProperty =
         AvaloniaProperty.Register<StrataAiToolCall, string?>(nameof(MoreInfo));
 
+    /// <summary>Execution duration in milliseconds. Formatted automatically as ms or seconds.</summary>
     public static readonly StyledProperty<double> DurationMsProperty =
         AvaloniaProperty.Register<StrataAiToolCall, double>(nameof(DurationMs), 0);
 
+    /// <summary>Current execution status. Drives the status pill colour and animation.</summary>
     public static readonly StyledProperty<StrataAiToolCallStatus> StatusProperty =
         AvaloniaProperty.Register<StrataAiToolCall, StrataAiToolCallStatus>(nameof(Status), StrataAiToolCallStatus.InProgress);
 
+    /// <summary>Whether the detail pane (parameters, info, duration) is visible.</summary>
     public static readonly StyledProperty<bool> IsExpandedProperty =
         AvaloniaProperty.Register<StrataAiToolCall, bool>(nameof(IsExpanded), false);
 

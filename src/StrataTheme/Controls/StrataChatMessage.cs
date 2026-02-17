@@ -13,41 +13,82 @@ using Avalonia.Threading;
 
 namespace StrataTheme.Controls;
 
-public enum StrataChatRole { Assistant, User, System, Tool }
+/// <summary>The role of a chat message sender.</summary>
+public enum StrataChatRole
+{
+    /// <summary>Message from the AI assistant.</summary>
+    Assistant,
+    /// <summary>Message from the human user.</summary>
+    User,
+    /// <summary>System-level instruction or notice.</summary>
+    System,
+    /// <summary>Tool-call result output.</summary>
+    Tool
+}
 
+/// <summary>
+/// A chat message bubble with role-dependent styling, hover toolbar (Copy / Edit / Retry),
+/// inline edit mode, and streaming indicator. Supports any content (text, markdown, controls).
+/// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataChatMessage Role="User"&gt;
+///     &lt;TextBlock Text="Hello, world!" TextWrapping="Wrap" /&gt;
+/// &lt;/controls:StrataChatMessage&gt;
+///
+/// &lt;controls:StrataChatMessage Role="Assistant" IsStreaming="True"&gt;
+///     &lt;controls:StrataMarkdown Markdown="{Binding ResponseMarkdown}" IsInline="True" /&gt;
+/// &lt;/controls:StrataChatMessage&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Bubble (Border), PART_EditArea (Border), PART_EditBox (TextBox),
+/// PART_StreamBar (Border), PART_ActionBar (StackPanel), PART_CopyButton (Button),
+/// PART_EditButton (Button), PART_RegenerateButton (Button), PART_SaveButton (Button), PART_CancelButton (Button).</para>
+/// <para><b>Pseudo-classes:</b> :assistant, :user, :system, :tool, :streaming, :editing, :editable, :has-meta, :has-status.</para>
+/// </remarks>
 public class StrataChatMessage : TemplatedControl
 {
     private Border? _streamBar;
     private Border? _bubble;
     private TextBox? _editBox;
 
+    /// <summary>Message role. Controls alignment, colour, and available actions.</summary>
     public static readonly StyledProperty<StrataChatRole> RoleProperty =
         AvaloniaProperty.Register<StrataChatMessage, StrataChatRole>(nameof(Role), StrataChatRole.Assistant);
 
+    /// <summary>Optional author name displayed in the metadata row.</summary>
     public static readonly StyledProperty<string> AuthorProperty =
         AvaloniaProperty.Register<StrataChatMessage, string>(nameof(Author), string.Empty);
 
+    /// <summary>Optional timestamp displayed in the metadata row.</summary>
     public static readonly StyledProperty<string> TimestampProperty =
         AvaloniaProperty.Register<StrataChatMessage, string>(nameof(Timestamp), string.Empty);
 
+    /// <summary>Status text shown below assistant messages (e.g. "Took 1.2 s").</summary>
     public static readonly StyledProperty<string> StatusTextProperty =
         AvaloniaProperty.Register<StrataChatMessage, string>(nameof(StatusText), string.Empty);
 
+    /// <summary>Message content. Can be any control, TextBlock, or StrataMarkdown.</summary>
     public static readonly StyledProperty<object?> ContentProperty =
         AvaloniaProperty.Register<StrataChatMessage, object?>(nameof(Content));
 
+    /// <summary>When true, shows a pulsing accent bar indicating content is still arriving.</summary>
     public static readonly StyledProperty<bool> IsStreamingProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsStreaming));
 
+    /// <summary>Whether the Edit button appears in the hover toolbar.</summary>
     public static readonly StyledProperty<bool> IsEditableProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsEditable), true);
 
+    /// <summary>Whether the message is currently in inline-edit mode.</summary>
     public static readonly StyledProperty<bool> IsEditingProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsEditing));
 
+    /// <summary>Text value of the edit box when editing.</summary>
     public static readonly StyledProperty<string?> EditTextProperty =
         AvaloniaProperty.Register<StrataChatMessage, string?>(nameof(EditText));
 
+    /// <summary>When true (default), confirming an edit writes EditText back into Content.</summary>
     public static readonly StyledProperty<bool> ApplyEditToContentProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(ApplyEditToContent), true);
 

@@ -11,6 +11,15 @@ namespace StrataTheme.Controls;
 /// Confidence visualization for generated outputs.
 /// Presents calibrated confidence with a smooth meter and qualitative band.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataConfidence Label="Answer quality" Confidence="85" IsEditable="True" /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Track (Border), PART_Fill (Border),
+/// PART_PercentText (TextBlock), PART_BandText (TextBlock).</para>
+/// <para><b>Pseudo-classes:</b> :high, :medium, :low, :editable.</para>
+/// </remarks>
 public class StrataConfidence : TemplatedControl
 {
     private Border? _track;

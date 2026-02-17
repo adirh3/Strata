@@ -17,6 +17,17 @@ public enum PromptIntent
 /// UX-first AI composer surface with intent switching, busy state, and send trigger.
 /// Built for fast prompt iteration in real-time workflows.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataPromptBar PromptText="{Binding Query, Mode=TwoWay}"
+///                            Intent="Summary"
+///                            SendRequested="OnGenerate" /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Input (TextBox), PART_SendButton (Button),
+/// PART_IntentSummary (Button), PART_IntentReport (Button), PART_IntentAction (Button).</para>
+/// <para><b>Pseudo-classes:</b> :summary, :report, :action, :busy, :empty.</para>
+/// </remarks>
 public class StrataPromptBar : TemplatedControl
 {
     private TextBox? _input;

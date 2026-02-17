@@ -5,22 +5,42 @@ using Avalonia.Input;
 
 namespace StrataTheme.Controls;
 
+/// <summary>
+/// An expandable card that represents an AI skill. Displays an icon, name, and
+/// optional description in collapsed form. Expanding reveals a markdown detail panel.
+/// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataAiSkill SkillName="Code Review"
+///                          IconGlyph="✦"
+///                          Description="Analyses pull requests for defects."
+///                          DetailMarkdown="## How it works\n- Reads the diff..." /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Header (Border), PART_Detail (Border), PART_Markdown (StrataMarkdown).</para>
+/// <para><b>Pseudo-classes:</b> :expanded, :has-description, :has-detail.</para>
+/// </remarks>
 public class StrataAiSkill : TemplatedControl
 {
     private Border? _header;
 
+    /// <summary>Single-character glyph displayed in the icon badge.</summary>
     public static readonly StyledProperty<string> IconGlyphProperty =
         AvaloniaProperty.Register<StrataAiSkill, string>(nameof(IconGlyph), "✦");
 
+    /// <summary>Display name of the skill.</summary>
     public static readonly StyledProperty<string> SkillNameProperty =
         AvaloniaProperty.Register<StrataAiSkill, string>(nameof(SkillName), "Skill");
 
+    /// <summary>Short description shown below the name (max 2 lines).</summary>
     public static readonly StyledProperty<string> DescriptionProperty =
         AvaloniaProperty.Register<StrataAiSkill, string>(nameof(Description), string.Empty);
 
+    /// <summary>Markdown content displayed in the expanded detail pane.</summary>
     public static readonly StyledProperty<string?> DetailMarkdownProperty =
         AvaloniaProperty.Register<StrataAiSkill, string?>(nameof(DetailMarkdown));
 
+    /// <summary>Whether the detail pane is expanded.</summary>
     public static readonly StyledProperty<bool> IsExpandedProperty =
         AvaloniaProperty.Register<StrataAiSkill, bool>(nameof(IsExpanded));
 

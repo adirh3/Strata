@@ -17,6 +17,18 @@ namespace StrataTheme.Controls;
 /// gradient fade-out. Click "Read more" and the content smoothly expands
 /// with an animated height transition. The fade overlay dissolves during reveal.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataPeek CollapsedHeight="80" PeekText="Show more" CollapseText="Show less"&gt;
+///     &lt;controls:StrataPeek.Content&gt;
+///         &lt;TextBlock TextWrapping="Wrap" Text="Very long text that gets clipped..." /&gt;
+///     &lt;/controls:StrataPeek.Content&gt;
+/// &lt;/controls:StrataPeek&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_FadeOverlay (Border), PART_ContentHost (Border),
+/// PART_ContentPresenter (ContentPresenter), PART_ToggleButton (Button).</para>
+/// </remarks>
 public class StrataPeek : TemplatedControl
 {
     private Border? _fadeOverlay;

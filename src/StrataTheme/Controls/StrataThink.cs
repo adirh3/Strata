@@ -15,6 +15,18 @@ namespace StrataTheme.Controls;
 /// click morphs the pill into a card with animated height, corner radius,
 /// and opacity — all via XAML transitions. C# only handles toggle + dot pulse.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataThink Label="Reasoning…" IsActive="True"&gt;
+///     &lt;controls:StrataThink.Content&gt;
+///         &lt;TextBlock TextWrapping="Wrap" Text="Step 1: analyse the query..." /&gt;
+///     &lt;/controls:StrataThink.Content&gt;
+/// &lt;/controls:StrataThink&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Dot (Border), PART_Pill (Border), PART_HeaderRow (StackPanel).</para>
+/// <para><b>Pseudo-classes:</b> :active.</para>
+/// </remarks>
 public class StrataThink : TemplatedControl
 {
     private Border? _dot;

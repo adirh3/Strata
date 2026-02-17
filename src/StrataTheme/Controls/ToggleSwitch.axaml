@@ -48,7 +48,7 @@
                       <BrushTransition Duration="0:0:0.15" Property="BorderBrush" />
                       <BrushTransition Duration="0:0:0.15" Property="Background" />
                       <DoubleTransition Duration="0:0:0.15" Property="Opacity" />
-                      <TransformOperationsTransition Duration="0:0:0.18" Property="RenderTransform" Easing="0.2,0 0,1" />
+                      <TransformOperationsTransition Duration="0:0:0.4" Property="RenderTransform" Easing="0.34,1.56,0.64,1" />
                       <BoxShadowsTransition Duration="0:0:0.2" Property="BoxShadow" />
                     </Transitions>
                   </Border.Transitions>
@@ -66,7 +66,7 @@
                   <Border.Transitions>
                     <Transitions>
                       <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
-                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="0.2,0 0,1" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.35" Easing="0.34,1.56,0.64,1" />
                     </Transitions>
                   </Border.Transitions>
                 </Border>
@@ -83,7 +83,7 @@
                     <Grid.Transitions>
                       <Transitions>
                         <DoubleTransition Property="Canvas.Left" Duration="0:0:0.28" Easing="0.2,0 0,1" />
-                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.45" Easing="0.34,1.56,0.64,1" />
                       </Transitions>
                     </Grid.Transitions>
                     <Ellipse x:Name="SwitchKnobOff"
@@ -155,7 +155,7 @@
           <Setter Property="Transitions">
             <Transitions>
               <DoubleTransition Property="Canvas.Left" Duration="0:0:0.3" Easing="0.2,0 0,1" />
-              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
+              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.45" Easing="0.34,1.56,0.64,1" />
             </Transitions>
           </Setter>
         </Style>
@@ -203,7 +203,7 @@
           </Style>
         </Style>
 
-        <!-- Checked: swap track visibility -->
+        <!-- Checked: swap track visibility + flash pop -->
         <Style Selector="^:checked">
           <Style Selector="^ /template/ Border#OuterBorder">
             <Setter Property="Opacity" Value="0" />
@@ -214,8 +214,20 @@
             <Setter Property="BoxShadow" Value="0 0 0 1 #1E4F46E5" />
           </Style>
           <Style Selector="^ /template/ Border#SwitchFlash">
-            <Setter Property="Opacity" Value="0.28" />
             <Setter Property="RenderTransform" Value="scaleX(1)" />
+            <Style.Animations>
+              <Animation Duration="0:0:0.5" FillMode="Forward">
+                <KeyFrame Cue="0%">
+                  <Setter Property="Opacity" Value="0.55" />
+                </KeyFrame>
+                <KeyFrame Cue="35%">
+                  <Setter Property="Opacity" Value="0.28" />
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                  <Setter Property="Opacity" Value="0" />
+                </KeyFrame>
+              </Animation>
+            </Style.Animations>
           </Style>
           <Style Selector="^ /template/ Grid#PART_MovingKnobs">
             <Setter Property="RenderTransform" Value="scaleX(1.06) scaleY(1.06)" />
@@ -229,10 +241,30 @@
           </Style>
           <Style Selector="^ /template/ Ellipse#SwitchKnobOn">
             <Setter Property="Opacity" Value="1" />
+            <Style.Animations>
+              <Animation Duration="0:0:0.4" FillMode="Forward">
+                <KeyFrame Cue="0%">
+                  <Setter Property="Width" Value="10" />
+                  <Setter Property="Height" Value="10" />
+                </KeyFrame>
+                <KeyFrame Cue="45%">
+                  <Setter Property="Width" Value="15" />
+                  <Setter Property="Height" Value="15" />
+                </KeyFrame>
+                <KeyFrame Cue="75%">
+                  <Setter Property="Width" Value="11" />
+                  <Setter Property="Height" Value="11" />
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                  <Setter Property="Width" Value="12" />
+                  <Setter Property="Height" Value="12" />
+                </KeyFrame>
+              </Animation>
+            </Style.Animations>
           </Style>
         </Style>
 
-        <!-- Unchecked: ensure correct visibility -->
+        <!-- Unchecked: settle + flash fade -->
         <Style Selector="^:unchecked">
           <Style Selector="^ /template/ Border#OuterBorder">
             <Setter Property="Opacity" Value="1" />
@@ -242,8 +274,17 @@
             <Setter Property="RenderTransform" Value="scaleX(0.96) scaleY(0.96)" />
           </Style>
           <Style Selector="^ /template/ Border#SwitchFlash">
-            <Setter Property="Opacity" Value="0" />
             <Setter Property="RenderTransform" Value="scaleX(0.7)" />
+            <Style.Animations>
+              <Animation Duration="0:0:0.35" FillMode="Forward">
+                <KeyFrame Cue="0%">
+                  <Setter Property="Opacity" Value="0.3" />
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                  <Setter Property="Opacity" Value="0" />
+                </KeyFrame>
+              </Animation>
+            </Style.Animations>
           </Style>
           <Style Selector="^ /template/ Grid#PART_MovingKnobs">
             <Setter Property="RenderTransform" Value="scaleX(1) scaleY(1)" />
@@ -254,6 +295,22 @@
           </Style>
           <Style Selector="^ /template/ Ellipse#SwitchKnobOff">
             <Setter Property="Opacity" Value="1" />
+            <Style.Animations>
+              <Animation Duration="0:0:0.35" FillMode="Forward">
+                <KeyFrame Cue="0%">
+                  <Setter Property="Width" Value="14" />
+                  <Setter Property="Height" Value="14" />
+                </KeyFrame>
+                <KeyFrame Cue="50%">
+                  <Setter Property="Width" Value="10" />
+                  <Setter Property="Height" Value="10" />
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                  <Setter Property="Width" Value="12" />
+                  <Setter Property="Height" Value="12" />
+                </KeyFrame>
+              </Animation>
+            </Style.Animations>
           </Style>
           <Style Selector="^ /template/ Ellipse#SwitchKnobOn">
             <Setter Property="Opacity" Value="0" />

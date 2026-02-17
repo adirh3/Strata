@@ -16,6 +16,13 @@ public enum CueMode
 /// Tiny provenance switch for generated outputs.
 /// Click to cycle Memory → Grounded → Tool.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataCueSwitch Mode="Grounded" IsLocked="False" /&gt;
+/// </code>
+/// <para><b>Pseudo-classes:</b> :memory, :grounded, :tool, :locked.</para>
+/// </remarks>
 public class StrataCueSwitch : TemplatedControl
 {
     public static readonly StyledProperty<CueMode> ModeProperty =

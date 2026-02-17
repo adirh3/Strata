@@ -5,34 +5,60 @@ using Avalonia.Input;
 
 namespace StrataTheme.Controls;
 
+/// <summary>
+/// A rich agent identity card with an icon, name, description, tool/skill counts,
+/// and an expandable detail area with tabbed content (Overview, Skills, Tools).
+/// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataAiAgent AgentName="Code Reviewer"
+///                          IconGlyph="◉"
+///                          Description="Reviews PRs for quality."
+///                          ToolsCount="5" SkillsCount="3"
+///                          DetailMarkdown="## Overview ..." /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Header (Border), PART_Detail (Border),
+/// PART_Markdown (StrataMarkdown), PART_TabHost (TabControl).</para>
+/// <para><b>Pseudo-classes:</b> :expanded, :has-description, :has-detail, :has-tools, :has-skills.</para>
+/// </remarks>
 public class StrataAiAgent : TemplatedControl
 {
     private Border? _header;
 
+    /// <summary>Single-character glyph displayed in the icon badge.</summary>
     public static readonly StyledProperty<string> IconGlyphProperty =
         AvaloniaProperty.Register<StrataAiAgent, string>(nameof(IconGlyph), "◉");
 
+    /// <summary>Display name of the agent.</summary>
     public static readonly StyledProperty<string> AgentNameProperty =
         AvaloniaProperty.Register<StrataAiAgent, string>(nameof(AgentName), "Custom Agent");
 
+    /// <summary>Short description shown below the agent name (max 2 lines).</summary>
     public static readonly StyledProperty<string> DescriptionProperty =
         AvaloniaProperty.Register<StrataAiAgent, string>(nameof(Description), string.Empty);
 
+    /// <summary>Number of tools available to this agent. Shown as a badge.</summary>
     public static readonly StyledProperty<int> ToolsCountProperty =
         AvaloniaProperty.Register<StrataAiAgent, int>(nameof(ToolsCount), 0);
 
+    /// <summary>Number of skills available to this agent. Shown as a badge.</summary>
     public static readonly StyledProperty<int> SkillsCountProperty =
         AvaloniaProperty.Register<StrataAiAgent, int>(nameof(SkillsCount), 0);
 
+    /// <summary>Markdown content for the Overview tab in the expanded area.</summary>
     public static readonly StyledProperty<string?> DetailMarkdownProperty =
         AvaloniaProperty.Register<StrataAiAgent, string?>(nameof(DetailMarkdown));
 
+    /// <summary>Content for the Tools tab. Set to any UI element or ItemsControl.</summary>
     public static readonly StyledProperty<object?> ToolsContentProperty =
         AvaloniaProperty.Register<StrataAiAgent, object?>(nameof(ToolsContent));
 
+    /// <summary>Content for the Skills tab. Set to any UI element or ItemsControl.</summary>
     public static readonly StyledProperty<object?> SkillsContentProperty =
         AvaloniaProperty.Register<StrataAiAgent, object?>(nameof(SkillsContent));
 
+    /// <summary>Whether the detail area (tabs) is expanded.</summary>
     public static readonly StyledProperty<bool> IsExpandedProperty =
         AvaloniaProperty.Register<StrataAiAgent, bool>(nameof(IsExpanded));
 

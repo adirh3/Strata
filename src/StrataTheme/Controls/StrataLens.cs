@@ -10,6 +10,16 @@ namespace StrataTheme.Controls;
 /// Toggling reveals the full detail content below with animated MaxHeight.
 /// Chevron and detail animations are driven purely by XAML transitions.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataLens Header="Analysis" ExpandText="Details" CollapseText="Hide"&gt;
+///     &lt;controls:StrataLens.Summary&gt;&lt;TextBlock Text="Everything looks good." /&gt;&lt;/controls:StrataLens.Summary&gt;
+///     &lt;controls:StrataLens.Detail&gt;&lt;TextBlock Text="Full analysis..." /&gt;&lt;/controls:StrataLens.Detail&gt;
+/// &lt;/controls:StrataLens&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_ToggleButton (Button).</para>
+/// </remarks>
 public class StrataLens : TemplatedControl
 {
     public static readonly StyledProperty<object?> HeaderProperty =

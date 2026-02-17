@@ -9,53 +9,86 @@ using Avalonia.Threading;
 
 namespace StrataTheme.Controls;
 
+/// <summary>
+/// Chat composer with borderless text input, model/quality selectors, suggestion chips,
+/// and a circular accent send button. Enter sends; Shift+Enter inserts a newline.
+/// When <see cref="IsBusy"/> is true, the send button turns into a stop button.
+/// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataChatComposer Placeholder="Ask anything…"
+///                                SuggestionA="Explain this code"
+///                                SuggestionB="Fix the bug"
+///                                SendRequested="OnSend"
+///                                StopRequested="OnStop" /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Input (TextBox), PART_SendButton (Button),
+/// PART_AttachButton (Button), PART_VoiceButton (Button),
+/// PART_ModelCombo (ComboBox), PART_QualityCombo (ComboBox),
+/// PART_ActionA (Button), PART_ActionB (Button), PART_ActionC (Button).</para>
+/// <para><b>Pseudo-classes:</b> :busy, :empty, :can-attach,
+/// :a-empty, :b-empty, :c-empty, :has-models, :has-quality.</para>
+/// </remarks>
 public class StrataChatComposer : TemplatedControl
 {
     private TextBox? _input;
     private static readonly string[] DefaultModels = ["GPT-5.3-Codex", "GPT-4o", "o3"];
     private static readonly string[] DefaultQualityLevels = ["Medium", "High", "Extra High"];
 
+    /// <summary>Two-way bound text of the prompt input.</summary>
     public static readonly StyledProperty<string?> PromptTextProperty =
         AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(PromptText));
 
+    /// <summary>Watermark text shown when the input is empty.</summary>
     public static readonly StyledProperty<string> PlaceholderProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(Placeholder), "Ask for follow-up changes");
 
-    // Model selector
+    /// <summary>Items source for the model selector ComboBox.</summary>
     public static readonly StyledProperty<IEnumerable?> ModelsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(Models));
 
+    /// <summary>Currently selected model from <see cref="Models"/>.</summary>
     public static readonly StyledProperty<object?> SelectedModelProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SelectedModel));
 
-    // Quality selector
+    /// <summary>Items source for the quality/effort selector ComboBox.</summary>
     public static readonly StyledProperty<IEnumerable?> QualityLevelsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(QualityLevels));
 
+    /// <summary>Currently selected quality level from <see cref="QualityLevels"/>.</summary>
     public static readonly StyledProperty<object?> SelectedQualityProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SelectedQuality));
 
+    /// <summary>When true, the send button becomes a stop button.</summary>
     public static readonly StyledProperty<bool> IsBusyProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsBusy));
 
+    /// <summary>Whether to show the attach (+) button.</summary>
     public static readonly StyledProperty<bool> CanAttachProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanAttach), true);
 
+    /// <summary>Text for the first quick-suggestion chip. Empty hides the chip.</summary>
     public static readonly StyledProperty<string> SuggestionAProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(SuggestionA), string.Empty);
 
+    /// <summary>Text for the second quick-suggestion chip. Empty hides the chip.</summary>
     public static readonly StyledProperty<string> SuggestionBProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(SuggestionB), string.Empty);
 
+    /// <summary>Text for the third quick-suggestion chip. Empty hides the chip.</summary>
     public static readonly StyledProperty<string> SuggestionCProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(SuggestionC), string.Empty);
 
+    /// <summary>Raised when the user sends a prompt (Enter key or send button click).</summary>
     public static readonly RoutedEvent<RoutedEventArgs> SendRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(SendRequested), RoutingStrategies.Bubble);
 
+    /// <summary>Raised when the user clicks the stop button during a busy state.</summary>
     public static readonly RoutedEvent<RoutedEventArgs> StopRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(StopRequested), RoutingStrategies.Bubble);
 
+    /// <summary>Raised when the user clicks the attach (+) button.</summary>
     public static readonly RoutedEvent<RoutedEventArgs> AttachRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(AttachRequested), RoutingStrategies.Bubble);
 

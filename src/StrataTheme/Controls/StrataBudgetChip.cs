@@ -15,6 +15,14 @@ public enum BudgetDisplayMode
 /// <summary>
 /// Compact budget chip with one-tap display mode toggle (tokens/percent).
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataBudgetChip UsedTokens="4200" MaxTokens="8000" IsEditable="True" /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Track (Border), PART_Fill (Border), PART_Label (TextBlock).</para>
+/// <para><b>Pseudo-classes:</b> :safe, :warn, :danger, :editable.</para>
+/// </remarks>
 public class StrataBudgetChip : TemplatedControl
 {
     private Border? _track;

@@ -9,6 +9,34 @@ using Avalonia.Threading;
 
 namespace StrataTheme.Controls;
 
+/// <summary>
+/// Full chat shell: a scrollable transcript area stacked above a docked composer,
+/// with an optional header row and presence indicator. Provides smart auto-scroll
+/// that pauses when the user scrolls up to read history.
+/// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataChatShell IsOnline="True" PresenceText="Online"&gt;
+///     &lt;controls:StrataChatShell.Header&gt;
+///         &lt;TextBlock Text="Support Chat" FontWeight="Bold" /&gt;
+///     &lt;/controls:StrataChatShell.Header&gt;
+///     &lt;controls:StrataChatShell.Transcript&gt;
+///         &lt;StackPanel Spacing="12"&gt;
+///             &lt;!-- StrataChatMessage items here --&gt;
+///         &lt;/StackPanel&gt;
+///     &lt;/controls:StrataChatShell.Transcript&gt;
+///     &lt;controls:StrataChatShell.Composer&gt;
+///         &lt;controls:StrataChatComposer /&gt;
+///     &lt;/controls:StrataChatShell.Composer&gt;
+/// &lt;/controls:StrataChatShell&gt;
+/// </code>
+/// <para>Call <see cref="ScrollToEnd"/> during streaming to auto-scroll.
+/// Call <see cref="ResetAutoScroll"/> when the user sends a new message.</para>
+/// <para><b>Template parts:</b> PART_Root (Border), PART_TranscriptScroll (ScrollViewer),
+/// PART_HeaderPresenter (ContentPresenter), PART_PresenceDot (Border), PART_PresencePill (Border).</para>
+/// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence.</para>
+/// </remarks>
 public class StrataChatShell : TemplatedControl
 {
     private Border? _presenceDot;
@@ -16,18 +44,23 @@ public class StrataChatShell : TemplatedControl
     private bool _userScrolledAway;
     private bool _isAutoScrolling;
 
+    /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
         AvaloniaProperty.Register<StrataChatShell, object?>(nameof(Header));
 
+    /// <summary>Scrollable transcript content (typically a StackPanel of StrataChatMessage).</summary>
     public static readonly StyledProperty<object?> TranscriptProperty =
         AvaloniaProperty.Register<StrataChatShell, object?>(nameof(Transcript));
 
+    /// <summary>Composer content docked at the bottom (typically a StrataChatComposer).</summary>
     public static readonly StyledProperty<object?> ComposerProperty =
         AvaloniaProperty.Register<StrataChatShell, object?>(nameof(Composer));
 
+    /// <summary>Whether the agent/service is online. Drives the presence dot colour.</summary>
     public static readonly StyledProperty<bool> IsOnlineProperty =
         AvaloniaProperty.Register<StrataChatShell, bool>(nameof(IsOnline), true);
 
+    /// <summary>Text shown next to the presence dot (e.g. "Online", "Away").</summary>
     public static readonly StyledProperty<string> PresenceTextProperty =
         AvaloniaProperty.Register<StrataChatShell, string>(nameof(PresenceText), string.Empty);
 

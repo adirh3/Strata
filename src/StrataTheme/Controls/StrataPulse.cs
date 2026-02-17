@@ -17,6 +17,15 @@ namespace StrataTheme.Controls;
 /// representing recent activity intensity. Bars animate in height
 /// on update and the active bar pulses. Conveys "the system is alive."
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataPulse Label="Token rate" IsLive="True" Rate="28.4" /&gt;
+/// </code>
+/// <para>Call <see cref="Push"/> to feed new activity samples.</para>
+/// <para><b>Template parts:</b> PART_BarHost (StackPanel), PART_RateText (TextBlock), PART_StatusDot (Border).</para>
+/// <para><b>Pseudo-classes:</b> :live, :paused.</para>
+/// </remarks>
 public class StrataPulse : TemplatedControl
 {
     private StackPanel? _barHost;

@@ -16,6 +16,19 @@ namespace StrataTheme.Controls;
 /// Interactive generation pipeline control.
 /// Users can click stages to inspect progress and output per step.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataStepFlow CurrentStep="1"
+///                           Step0Title="Draft" Step1Title="Review"
+///                           Step2Title="Refine" Step3Title="Done"&gt;
+///     &lt;controls:StrataStepFlow.Step0Content&gt;&lt;TextBlock Text="..." /&gt;&lt;/controls:StrataStepFlow.Step0Content&gt;
+/// &lt;/controls:StrataStepFlow&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Track (Border), PART_Fill (Border), PART_Head (Border),
+/// PART_Content0–PART_Content3 (ContentPresenter), PART_Step0–PART_Step3 (Button).</para>
+/// <para><b>Pseudo-classes:</b> :s0, :s1, :s2, :s3.</para>
+/// </remarks>
 public class StrataStepFlow : TemplatedControl
 {
     private Border? _track;

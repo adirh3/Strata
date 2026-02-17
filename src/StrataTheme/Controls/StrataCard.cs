@@ -18,6 +18,18 @@ namespace StrataTheme.Controls;
 /// smoothly expands to reveal full content with animated height, cross-fading
 /// content, and a pulsing stratum accent line.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataCard&gt;
+///     &lt;controls:StrataCard.Header&gt;&lt;TextBlock Text="Result" /&gt;&lt;/controls:StrataCard.Header&gt;
+///     &lt;controls:StrataCard.Summary&gt;&lt;TextBlock Text="3 items found" /&gt;&lt;/controls:StrataCard.Summary&gt;
+///     &lt;controls:StrataCard.Detail&gt;&lt;TextBlock Text="Item 1, 2, 3 details..." /&gt;&lt;/controls:StrataCard.Detail&gt;
+/// &lt;/controls:StrataCard&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_StratumLine (Border), PART_ContentHost (Border),
+/// PART_SummaryPresenter (ContentPresenter), PART_DetailPresenter (ContentPresenter).</para>
+/// </remarks>
 public class StrataCard : TemplatedControl
 {
     private Border? _stratumLine;

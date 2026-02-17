@@ -18,6 +18,21 @@ using System.Threading.Tasks;
 
 namespace StrataTheme.Controls;
 
+/// <summary>
+/// Lightweight markdown renderer. Supports headings, bullet lists, paragraphs,
+/// inline links, and fenced code blocks with syntax highlighting (via TextMate).
+/// </summary>
+/// <remarks>
+/// <para><b>XAML usage (standalone card):</b></para>
+/// <code>
+/// &lt;controls:StrataMarkdown Markdown="## Hello\nSome **text** here."
+///                            ShowTitle="True" Title="Response" /&gt;
+/// </code>
+/// <para><b>XAML usage (inline in a chat message):</b></para>
+/// <code>
+/// &lt;controls:StrataMarkdown Markdown="{Binding Text}" IsInline="True" /&gt;
+/// </code>
+/// </remarks>
 public class StrataMarkdown : ContentControl
 {
     private static readonly Regex LinkRegex = new(@"\[(?<text>[^\]]+)\]\((?<url>[^)]+)\)", RegexOptions.Compiled);
@@ -28,15 +43,19 @@ public class StrataMarkdown : ContentControl
     private readonly StackPanel _contentHost;
     private string _lastThemeVariant = string.Empty;
 
+    /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
     public static readonly StyledProperty<string?> MarkdownProperty =
         AvaloniaProperty.Register<StrataMarkdown, string?>(nameof(Markdown));
 
+    /// <summary>Title text shown above the rendered content when <see cref="ShowTitle"/> is true.</summary>
     public static readonly StyledProperty<string> TitleProperty =
         AvaloniaProperty.Register<StrataMarkdown, string>(nameof(Title), "Markdown");
 
+    /// <summary>Whether to display the <see cref="Title"/> header above the content.</summary>
     public static readonly StyledProperty<bool> ShowTitleProperty =
         AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(ShowTitle));
 
+    /// <summary>When true, strips the card-like surface border for embedding inside other controls.</summary>
     public static readonly StyledProperty<bool> IsInlineProperty =
         AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(IsInline));
 

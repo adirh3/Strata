@@ -10,6 +10,14 @@ namespace StrataTheme.Controls;
 /// that reveals source details on hover or click. Used to ground AI-generated
 /// text with provenance links.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataTrace Index="1" Title="Wikipedia" Origin="https://en.wikipedia.org"
+///                         Snippet="Relevant excerpt..." Relevance="0.92" /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Badge (Border).</para>
+/// </remarks>
 public class StrataTrace : TemplatedControl
 {
     public static readonly StyledProperty<int> IndexProperty =

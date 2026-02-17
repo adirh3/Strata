@@ -8,15 +8,29 @@ using Avalonia.Threading;
 
 namespace StrataTheme.Controls;
 
+/// <summary>
+/// Animated three-dot typing indicator with a configurable label.
+/// The dots pulse with staggered timing when <see cref="IsActive"/> is true.
+/// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataTypingIndicator Label="Agent is thinking…" IsActive="True" /&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_Dot1 (Border), PART_Dot2 (Border), PART_Dot3 (Border).</para>
+/// <para><b>Pseudo-classes:</b> :active.</para>
+/// </remarks>
 public class StrataTypingIndicator : TemplatedControl
 {
     private Border? _dot1;
     private Border? _dot2;
     private Border? _dot3;
 
+    /// <summary>Text displayed next to the dots (e.g. "Thinking…", "Typing…").</summary>
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<StrataTypingIndicator, string>(nameof(Label), "Thinking…");
 
+    /// <summary>Whether the indicator is animating. When false, the dots are static and the control is dimmed.</summary>
     public static readonly StyledProperty<bool> IsActiveProperty =
         AvaloniaProperty.Register<StrataTypingIndicator, bool>(nameof(IsActive), true);
 

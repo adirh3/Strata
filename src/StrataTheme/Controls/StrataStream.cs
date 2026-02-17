@@ -15,6 +15,16 @@ namespace StrataTheme.Controls;
 /// Shows a live stream rail, generation status, and token-rate telemetry.
 /// Built for real-time AI interactions.
 /// </summary>
+/// <remarks>
+/// <para><b>XAML usage:</b></para>
+/// <code>
+/// &lt;controls:StrataStream IsStreaming="True" StageText="Generating" TokensPerSecond="34.2"&gt;
+///     &lt;controls:StrataStream.Content&gt;&lt;TextBlock Text="..." /&gt;&lt;/controls:StrataStream.Content&gt;
+/// &lt;/controls:StrataStream&gt;
+/// </code>
+/// <para><b>Template parts:</b> PART_StreamTrack (Border), PART_StreamBar (Border), PART_StatusArea (Border).</para>
+/// <para><b>Pseudo-classes:</b> :streaming, :ready.</para>
+/// </remarks>
 public class StrataStream : TemplatedControl
 {
     private Border? _streamTrack;
