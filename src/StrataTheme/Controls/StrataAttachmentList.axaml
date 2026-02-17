@@ -1,0 +1,67 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataAttachmentList}" TargetType="controls:StrataAttachmentList">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel Spacing="8">
+              <!-- Wrapping items host -->
+              <ItemsPresenter>
+                <ItemsPresenter.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Name="PART_ItemsHost" Orientation="Horizontal">
+                      <WrapPanel.Styles>
+                        <Style Selector="WrapPanel > :is(Control)">
+                          <Setter Property="Margin" Value="0,0,8,8" />
+                        </Style>
+                      </WrapPanel.Styles>
+                    </WrapPanel>
+                  </ItemsPanelTemplate>
+                </ItemsPresenter.ItemsPanel>
+              </ItemsPresenter>
+
+              <!-- Add button -->
+              <Button Name="PART_AddButton"
+                      IsVisible="{TemplateBinding ShowAddButton}"
+                      HorizontalAlignment="Left"
+                      Padding="12,6"
+                      Background="{DynamicResource Brush.Surface1}"
+                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                      BorderThickness="1"
+                      CornerRadius="6"
+                      Cursor="Hand">
+                <Button.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                  </Transitions>
+                </Button.Transitions>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Text="+"
+                             FontSize="14"
+                             FontWeight="Bold"
+                             Foreground="{DynamicResource Brush.AccentDefault}"
+                             VerticalAlignment="Center" />
+                  <TextBlock Text="{TemplateBinding AddButtonText}"
+                             FontSize="12"
+                             FontWeight="Medium"
+                             Foreground="{DynamicResource Brush.TextSecondary}"
+                             VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Add button hover -->
+        <Style Selector="^ /template/ Button#PART_AddButton:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

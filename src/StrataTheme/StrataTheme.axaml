@@ -81,5 +81,7 @@
   <StyleInclude Source="avares://StrataTheme/Controls/StrataTypingIndicator.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataChatComposer.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataChatShell.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataFileAttachment.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataAttachmentList.axaml" />
 
 </Styles>

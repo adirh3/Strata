@@ -569,6 +569,44 @@
             </StackPanel>
           </Border>
 
+          <!-- ── StrataFileAttachment ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataFileAttachment" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Compact file chips with auto-detected icon, status dot, and remove button. Click to open; shows upload pulse animation when uploading." />
+              </StackPanel>
+
+              <StackPanel Spacing="8">
+                <sc:StrataFileAttachment FileName="quarterly-report.pdf" FileSize="2.4 MB" Status="Completed" />
+                <sc:StrataFileAttachment FileName="budget-forecast.xlsx" FileSize="890 KB" Status="Completed" />
+                <sc:StrataFileAttachment FileName="architecture-diagram.png" FileSize="1.1 MB" Status="Uploading" Progress="64" />
+                <sc:StrataFileAttachment FileName="meeting-notes.md" FileSize="12 KB" Status="Pending" />
+                <sc:StrataFileAttachment FileName="deploy-script.cs" FileSize="3.2 KB" Status="Failed" />
+                <sc:StrataFileAttachment FileName="logs-archive.zip" FileSize="48 MB" Status="Completed" IsRemovable="False" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataAttachmentList ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataAttachmentList" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Wrapping container for multiple attachments with an add button. Used in message composers and form surfaces." />
+              </StackPanel>
+
+              <sc:StrataAttachmentList ShowAddButton="True" AddButtonText="Attach file">
+                <sc:StrataFileAttachment FileName="incident-summary.pdf" FileSize="1.8 MB" Status="Completed" />
+                <sc:StrataFileAttachment FileName="metrics-export.csv" FileSize="240 KB" Status="Completed" />
+                <sc:StrataFileAttachment FileName="rollout-plan.docx" FileSize="56 KB" Status="Uploading" Progress="30" />
+                <sc:StrataFileAttachment FileName="screenshot.png" FileSize="480 KB" Status="Completed" />
+              </sc:StrataAttachmentList>
+            </StackPanel>
+          </Border>
+
         </StackPanel>
       </ScrollViewer>
 

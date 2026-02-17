@@ -72,6 +72,14 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
+  <Style Selector="Border.strata-md-inline-code">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+
+  <Style Selector="Border.strata-md-inline-code TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+
   <Style Selector="Border.strata-md-surface">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />

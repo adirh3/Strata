@@ -300,66 +300,113 @@ public class StrataMarkdown : ContentControl
         return textBlock;
     }
 
+    private static readonly Regex InlineRegex = new(
+        @"(?<code>`[^`]+`)|(?<bolditalic>\*\*\*(?<bi_text>.+?)\*\*\*)|(?<bold>\*\*(?<b_text>.+?)\*\*)|(?<italic>\*(?<i_text>.+?)\*)|(?<link>\[(?<l_text>[^\]]+)\]\((?<l_url>[^)]+)\))",
+        RegexOptions.Compiled | RegexOptions.Singleline);
+
     private void AppendFormattedInlines(SelectableTextBlock target, string text)
     {
         if (string.IsNullOrEmpty(text))
             return;
 
-        var lastIndex = 0;
-        var hasLink = false;
-
-        foreach (Match match in LinkRegex.Matches(text))
-        {
-            if (!match.Success)
-                continue;
-
-            hasLink = true;
-
-            if (match.Index > lastIndex)
-            {
-                target.Inlines?.Add(new Run(text[lastIndex..match.Index]));
-            }
-
-            var linkLabel = match.Groups["text"].Value;
-            var linkTarget = match.Groups["url"].Value.Trim();
-
-            var linkText = new TextBlock
-            {
-                Text = linkLabel,
-                FontSize = target.FontSize,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            linkText.Classes.Add("strata-md-link-text");
-
-            var linkButton = new Button
-            {
-                Content = linkText,
-                Padding = new Thickness(2, 0),
-                Margin = new Thickness(0),
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Center,
-                Cursor = new Cursor(StandardCursorType.Hand)
-            };
-            linkButton.Classes.Add("strata-md-link");
-            ToolTip.SetTip(linkButton, BuildLinkTooltip(linkTarget));
-
-            linkButton.Click += (_, _) => OpenLink(linkTarget);
-
-            var inlineContainer = new InlineUIContainer
-            {
-                Child = linkButton,
-                BaselineAlignment = BaselineAlignment.Center
-            };
-
-            target.Inlines?.Add(inlineContainer);
-
-            lastIndex = match.Index + match.Length;
-        }
-
-        if (!hasLink)
+        var matches = InlineRegex.Matches(text);
+        if (matches.Count == 0)
         {
             target.Text = text;
             return;
+        }
+
+        var lastIndex = 0;
+
+        foreach (Match match in matches)
+        {
+            if (match.Index > lastIndex)
+                target.Inlines?.Add(new Run(text[lastIndex..match.Index]));
+
+            if (match.Groups["code"].Success)
+            {
+                var codeText = match.Value[1..^1]; // strip backticks
+                var codeRun = new Run(codeText)
+                {
+                    FontFamily = ResolveMonoFont(),
+                    FontSize = target.FontSize > 1 ? target.FontSize - 1 : target.FontSize
+                };
+                var codeBorder = new Border
+                {
+                    Child = new TextBlock
+                    {
+                        FontFamily = ResolveMonoFont(),
+                        FontSize = target.FontSize > 1 ? target.FontSize - 1 : target.FontSize,
+                        Text = codeText,
+                        VerticalAlignment = VerticalAlignment.Center
+                    },
+                    Padding = new Thickness(5, 1, 5, 1),
+                    CornerRadius = new CornerRadius(4),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                codeBorder.Classes.Add("strata-md-inline-code");
+                target.Inlines?.Add(new InlineUIContainer
+                {
+                    Child = codeBorder,
+                    BaselineAlignment = BaselineAlignment.Center
+                });
+            }
+            else if (match.Groups["bolditalic"].Success)
+            {
+                target.Inlines?.Add(new Run(match.Groups["bi_text"].Value)
+                {
+                    FontWeight = FontWeight.Bold,
+                    FontStyle = FontStyle.Italic
+                });
+            }
+            else if (match.Groups["bold"].Success)
+            {
+                target.Inlines?.Add(new Run(match.Groups["b_text"].Value)
+                {
+                    FontWeight = FontWeight.Bold
+                });
+            }
+            else if (match.Groups["italic"].Success)
+            {
+                target.Inlines?.Add(new Run(match.Groups["i_text"].Value)
+                {
+                    FontStyle = FontStyle.Italic
+                });
+            }
+            else if (match.Groups["link"].Success)
+            {
+                var linkLabel = match.Groups["l_text"].Value;
+                var linkTarget = match.Groups["l_url"].Value.Trim();
+
+                var linkText = new TextBlock
+                {
+                    Text = linkLabel,
+                    FontSize = target.FontSize,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                linkText.Classes.Add("strata-md-link-text");
+
+                var linkButton = new Button
+                {
+                    Content = linkText,
+                    Padding = new Thickness(2, 0),
+                    Margin = new Thickness(0),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Cursor = new Cursor(StandardCursorType.Hand)
+                };
+                linkButton.Classes.Add("strata-md-link");
+                ToolTip.SetTip(linkButton, BuildLinkTooltip(linkTarget));
+                linkButton.Click += (_, _) => OpenLink(linkTarget);
+
+                target.Inlines?.Add(new InlineUIContainer
+                {
+                    Child = linkButton,
+                    BaselineAlignment = BaselineAlignment.Center
+                });
+            }
+
+            lastIndex = match.Index + match.Length;
         }
 
         if (lastIndex < text.Length)
