@@ -4,7 +4,8 @@
         xmlns:sc="using:StrataTheme.Controls"
         x:Class="StrataDemo.MainWindow"
   x:CompileBindings="False"
-        Title="Strata UI – Design System Preview"
+        Title="{Binding Strings[AppTitle]}"
+        FlowDirection="{Binding Strings.FlowDirection}"
         Width="1280" Height="860"
           MinWidth="760" MinHeight="560"
         WindowStartupLocation="CenterScreen">
@@ -60,7 +61,7 @@
                 <StackPanel VerticalAlignment="Center" Spacing="1">
                   <TextBlock Text="Strata" FontSize="18" FontWeight="SemiBold" />
                   <TextBlock Classes="caption" Foreground="{DynamicResource Brush.TextTertiary}"
-                             Text="Design System" FontWeight="Medium" />
+                             Text="{Binding Strings[DesignSystem]}" FontWeight="Medium" />
                 </StackPanel>
               </StackPanel>
             </StackPanel>
@@ -71,10 +72,10 @@
         <!-- Bottom: Theme controls -->
         <StackPanel DockPanel.Dock="Bottom" Margin="20,12,20,20" Spacing="6">
           <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,0,0,6" />
-          <ToggleSwitch Content="Dark Mode"
+          <ToggleSwitch Content="{Binding Strings[DarkMode]}"
                         IsChecked="{Binding IsDarkTheme}"
                         x:Name="ThemeToggle" />
-          <ToggleSwitch Content="Compact"
+          <ToggleSwitch Content="{Binding Strings[Compact]}"
                         IsChecked="{Binding IsCompactDensity}"
                         x:Name="DensityToggle" />
         </StackPanel>
@@ -83,7 +84,7 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="12,16,12,0" Spacing="1">
-            <TextBlock Classes="caption" Text="PAGES" Margin="12,4,0,10"
+            <TextBlock Classes="caption" Text="{Binding Strings[Pages]}" Margin="12,4,0,10"
                        FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextTertiary}"
                        LetterSpacing="1.2" FontSize="10" />
             <ListBox x:Name="NavList"
@@ -95,56 +96,56 @@
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <TextBlock Text="&#x25A3;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
-                  <TextBlock Text="Dashboard" FontWeight="Medium" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Strings[Nav.Dashboard]}" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
               <ListBoxItem>
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <TextBlock Text="&#x2630;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
-                  <TextBlock Text="Form Controls" FontWeight="Medium" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Strings[Nav.FormControls]}" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
               <ListBoxItem>
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <TextBlock Text="&#x229E;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
-                  <TextBlock Text="Data Grid" FontWeight="Medium" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Strings[Nav.DataGrid]}" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
               <ListBoxItem>
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <TextBlock Text="&#x25C7;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
-                  <TextBlock Text="Components" FontWeight="Medium" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Strings[Nav.Components]}" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
               <ListBoxItem>
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <TextBlock Text="&#x25C8;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
-                  <TextBlock Text="UX Controls" FontWeight="Medium" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Strings[Nav.UxControls]}" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
               <ListBoxItem>
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <TextBlock Text="&#x2726;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
-                  <TextBlock Text="AI Controls" FontWeight="Medium" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Strings[Nav.AiControls]}" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
               <ListBoxItem>
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <TextBlock Text="&#x2699;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
-                  <TextBlock Text="Settings" FontWeight="Medium" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Strings[Nav.Settings]}" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
               <ListBoxItem>
                 <StackPanel Orientation="Horizontal" Spacing="12">
                   <TextBlock Text="&#x1F5E8;" FontSize="15" Width="18" TextAlignment="Center"
                              Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
-                  <TextBlock Text="Chat Experience" FontWeight="Medium" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Strings[Nav.ChatExperience]}" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
             </ListBox>
@@ -165,8 +166,8 @@
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
-              <TextBlock Classes="headline" Text="Dashboard" />
-              <TextBlock Classes="secondary" Text="System metrics, type hierarchy, and control quality at a glance." />
+              <TextBlock Classes="headline" Text="{Binding Strings[Dashboard]}" />
+              <TextBlock Classes="secondary" Text="{Binding Strings[Dashboard.Subtitle]}" />
             </StackPanel>
           </Border>
 
@@ -177,9 +178,9 @@
               <DockPanel>
                 <Border DockPanel.Dock="Top" Height="2.5" Background="{DynamicResource Brush.StratumLine}" />
                 <StackPanel Spacing="6" Margin="20,16,20,18">
-                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="TOTAL REVENUE" FontWeight="SemiBold" LetterSpacing="0.5" />
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="{Binding Strings[TotalRevenue]}" FontWeight="SemiBold" LetterSpacing="0.5" />
                   <TextBlock FontSize="28" FontWeight="SemiBold" Text="$84,250" Margin="0,2,0,0" />
-                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.SuccessDefault}" Text="↑ 12.5% from last month" />
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.SuccessDefault}" Text="{Binding Strings[RevenueUp]}" />
                 </StackPanel>
               </DockPanel>
             </Border>
@@ -188,9 +189,9 @@
               <DockPanel>
                 <Border DockPanel.Dock="Top" Height="2.5" Background="{DynamicResource Brush.StratumLine}" />
                 <StackPanel Spacing="6" Margin="20,16,20,18">
-                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="ACTIVE CLIENTS" FontWeight="SemiBold" LetterSpacing="0.5" />
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="{Binding Strings[ActiveClients]}" FontWeight="SemiBold" LetterSpacing="0.5" />
                   <TextBlock FontSize="28" FontWeight="SemiBold" Text="38" Margin="0,2,0,0" />
-                  <TextBlock Classes="caption secondary" Text="4 new this week" />
+                  <TextBlock Classes="caption secondary" Text="{Binding Strings[NewThisWeek]}" />
                 </StackPanel>
               </DockPanel>
             </Border>
@@ -199,7 +200,7 @@
               <DockPanel>
                 <Border DockPanel.Dock="Top" Height="2.5" Background="{DynamicResource Brush.StratumLine}" />
                 <StackPanel Spacing="6" Margin="20,16,20,18">
-                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="COMPLETION" FontWeight="SemiBold" LetterSpacing="0.5" />
+                  <TextBlock Classes="caption" Foreground="{DynamicResource Brush.AccentDefault}" Text="{Binding Strings[Completion]}" FontWeight="SemiBold" LetterSpacing="0.5" />
                   <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding ProgressValue, StringFormat='{}{0:F0}%'}" Margin="0,2,0,0" />
                   <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}" Margin="0,2,0,0" />
                 </StackPanel>
@@ -210,7 +211,7 @@
           <!-- Type scale -->
           <Border Classes="strata-card">
             <StackPanel Spacing="8">
-              <TextBlock Classes="subtitle" Text="Type Scale" Margin="0,0,0,6" />
+              <TextBlock Classes="subtitle" Text="{Binding Strings[TypeScale]}" Margin="0,0,0,6" />
               <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,0,0,4" />
               <TextBlock Classes="display" Text="Display — 32px" />
               <TextBlock Classes="headline" Text="Headline — 24px" />
@@ -226,15 +227,15 @@
           <Border Classes="strata-card">
             <StackPanel Spacing="16">
               <StackPanel Spacing="2">
-                <TextBlock Classes="subtitle" Text="Buttons" />
-                <TextBlock Classes="caption tertiary" Text="Action hierarchy: primary, secondary, subtle, and destructive." />
+                <TextBlock Classes="subtitle" Text="{Binding Strings[Buttons]}" />
+                <TextBlock Classes="caption tertiary" Text="{Binding Strings[Buttons.Subtitle]}" />
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Classes="accent" Content="Primary" ToolTip.Tip="High-emphasis primary action" />
-                <Button Content="Default" ToolTip.Tip="Standard secondary action" />
-                <Button Classes="subtle" Content="Subtle" ToolTip.Tip="Low-emphasis inline action" />
-                <Button Classes="danger" Content="Delete" ToolTip.Tip="Destructive action" />
-                <Button Content="Disabled" IsEnabled="False" />
+                <Button Classes="accent" Content="{Binding Strings[Primary]}" ToolTip.Tip="High-emphasis primary action" />
+                <Button Content="{Binding Strings[Default]}" ToolTip.Tip="Standard secondary action" />
+                <Button Classes="subtle" Content="{Binding Strings[Subtle]}" ToolTip.Tip="Low-emphasis inline action" />
+                <Button Classes="danger" Content="{Binding Strings[Delete]}" ToolTip.Tip="Destructive action" />
+                <Button Content="{Binding Strings[Disabled]}" IsEnabled="False" />
               </StackPanel>
             </StackPanel>
           </Border>
@@ -250,25 +251,25 @@
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
-              <TextBlock Classes="headline" Text="Form Controls" />
-              <TextBlock Classes="secondary" Text="Inputs, selections, toggles, and progress indicators." />
+              <TextBlock Classes="headline" Text="{Binding Strings[FormControls]}" />
+              <TextBlock Classes="secondary" Text="{Binding Strings[FormControls.Subtitle]}" />
             </StackPanel>
           </Border>
 
           <Border Classes="strata-card">
             <StackPanel Spacing="16">
               <StackPanel Spacing="2">
-                <TextBlock Classes="subtitle" Text="Text Input" />
-                <TextBlock Classes="caption tertiary" Text="Click a field to see the focus indicator." />
+                <TextBlock Classes="subtitle" Text="{Binding Strings[TextInput]}" />
+                <TextBlock Classes="caption tertiary" Text="{Binding Strings[TextInput.Subtitle]}" />
               </StackPanel>
               <Grid x:Name="FormTextGrid" ColumnDefinitions="*,24,*">
                 <StackPanel Grid.Column="0" Spacing="6">
-                  <TextBlock Classes="caption" FontWeight="Medium" Text="Full name" />
-                  <TextBox Watermark="Enter your name..." Text="{Binding SampleText}" />
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[FullName]}" />
+                  <TextBox Watermark="{Binding Strings[EnterYourName]}" Text="{Binding SampleText}" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Spacing="6">
-                  <TextBlock Classes="caption" FontWeight="Medium" Text="Email (disabled)" />
-                  <TextBox Watermark="Disabled input" IsEnabled="False" Text="user@example.com" />
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[EmailDisabled]}" />
+                  <TextBox Watermark="{Binding Strings[DisabledInput]}" IsEnabled="False" Text="user@example.com" />
                 </StackPanel>
               </Grid>
             </StackPanel>
@@ -277,19 +278,19 @@
           <Border Classes="strata-card">
             <StackPanel Spacing="16">
               <StackPanel Spacing="2">
-                <TextBlock Classes="subtitle" Text="Selection" />
-                <TextBlock Classes="caption tertiary" Text="Dropdown menus and continuous value sliders." />
+                <TextBlock Classes="subtitle" Text="{Binding Strings[Selection]}" />
+                <TextBlock Classes="caption tertiary" Text="{Binding Strings[Selection.Subtitle]}" />
               </StackPanel>
               <Grid x:Name="FormSelectionGrid" ColumnDefinitions="*,24,*">
                 <StackPanel Grid.Column="0" Spacing="6">
-                  <TextBlock Classes="caption" FontWeight="Medium" Text="Region" />
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[Region]}" />
                   <ComboBox ItemsSource="{Binding ComboItems}"
                             SelectedIndex="0"
-                            PlaceholderText="Choose an option..."
+                            PlaceholderText="{Binding Strings[ChooseOption]}"
                             HorizontalAlignment="Stretch" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Spacing="6">
-                  <TextBlock Classes="caption" FontWeight="Medium" Text="Volume" />
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[Volume]}" />
                   <Slider Minimum="0" Maximum="100" Value="{Binding SliderValue}" />
                   <TextBlock Classes="caption tertiary" Text="{Binding SliderValue, StringFormat='Value: {0:F0}'}" />
                 </StackPanel>
@@ -305,9 +306,9 @@
                   <TextBlock Classes="caption tertiary" Text="Binary and tri-state toggles." />
                 </StackPanel>
                 <StackPanel Spacing="8">
-                  <CheckBox Content="Enable notifications" IsChecked="True" />
-                  <CheckBox Content="Auto-save drafts" />
-                  <CheckBox Content="Indeterminate" IsThreeState="True" IsChecked="{x:Null}" />
+                  <CheckBox Content="{Binding Strings[EnableNotifications]}" IsChecked="True" />
+                  <CheckBox Content="{Binding Strings[AutoSaveDrafts]}" />
+                  <CheckBox Content="{Binding Strings[Indeterminate]}" IsThreeState="True" IsChecked="{x:Null}" />
                 </StackPanel>
               </StackPanel>
             </Border>
@@ -318,9 +319,9 @@
                   <TextBlock Classes="caption tertiary" Text="Mutually exclusive single-select." />
                 </StackPanel>
                 <StackPanel Spacing="8">
-                  <RadioButton Content="Small" GroupName="Size" IsChecked="True" />
-                  <RadioButton Content="Medium" GroupName="Size" />
-                  <RadioButton Content="Large" GroupName="Size" />
+                  <RadioButton Content="{Binding Strings[Small]}" GroupName="Size" IsChecked="True" />
+                  <RadioButton Content="{Binding Strings[Medium]}" GroupName="Size" />
+                  <RadioButton Content="{Binding Strings[Large]}" GroupName="Size" />
                 </StackPanel>
               </StackPanel>
             </Border>
@@ -334,9 +335,9 @@
                   <TextBlock Classes="caption tertiary" Text="On/off switches for boolean settings." />
                 </StackPanel>
                 <StackPanel Spacing="8">
-                  <ToggleSwitch Content="Wi-Fi" IsChecked="True" />
-                  <ToggleSwitch Content="Bluetooth" />
-                  <ToggleSwitch Content="Disabled" IsEnabled="False" />
+                  <ToggleSwitch Content="{Binding Strings[WiFi]}" IsChecked="True" />
+                  <ToggleSwitch Content="{Binding Strings[Bluetooth]}" />
+                  <ToggleSwitch Content="{Binding Strings[Disabled]}" IsEnabled="False" />
                 </StackPanel>
               </StackPanel>
             </Border>
@@ -367,8 +368,8 @@
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
-              <TextBlock Classes="headline" Text="DataGrid" />
-              <TextBlock Classes="secondary" Text="Tabular data with sorting, selection, and resizable columns." />
+              <TextBlock Classes="headline" Text="{Binding Strings[DataGrid]}" />
+              <TextBlock Classes="secondary" Text="{Binding Strings[DataGrid.Subtitle]}" />
             </StackPanel>
           </Border>
 
@@ -399,31 +400,31 @@
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
-              <TextBlock Classes="headline" Text="Components" />
-              <TextBlock Classes="secondary" Text="Navigation patterns, disclosure controls, and layered interaction surfaces." />
+              <TextBlock Classes="headline" Text="{Binding Strings[Components]}" />
+              <TextBlock Classes="secondary" Text="{Binding Strings[Components.Subtitle]}" />
             </StackPanel>
           </Border>
 
           <Border Classes="strata-card">
             <StackPanel Spacing="10">
-              <TextBlock Classes="subtitle" Text="TabControl" />
-              <TextBlock Classes="caption tertiary" Text="Organize content into switchable views." Margin="0,0,0,2" />
+              <TextBlock Classes="subtitle" Text="{Binding Strings[TabControl]}" />
+              <TextBlock Classes="caption tertiary" Text="{Binding Strings[TabControl.Subtitle]}" Margin="0,0,0,2" />
               <TabControl>
-                <TabItem Header="Overview">
+                <TabItem Header="{Binding Strings[Overview]}">
                   <StackPanel Margin="4,14" Spacing="6">
                     <TextBlock Classes="body-strong" Text="Unified design language" />
                     <TextBlock Classes="secondary" TextWrapping="Wrap"
                                Text="Every control in Strata shares the same spacing, radius, and color tokens — creating a cohesive visual rhythm across dashboards, forms, and data views." />
                   </StackPanel>
                 </TabItem>
-                <TabItem Header="Activity">
+                <TabItem Header="{Binding Strings[Activity]}">
                   <StackPanel Margin="4,14" Spacing="6">
                     <TextBlock Classes="body-strong" Text="Recent changes" />
                     <TextBlock Classes="secondary" TextWrapping="Wrap"
                                Text="Activity feeds, notifications, and real-time updates can be displayed here with consistent styling and clear visual hierarchy." />
                   </StackPanel>
                 </TabItem>
-                <TabItem Header="Analytics">
+                <TabItem Header="{Binding Strings[Analytics]}">
                   <StackPanel Margin="4,14" Spacing="6">
                     <TextBlock Classes="body-strong" Text="Insights at a glance" />
                     <TextBlock Classes="secondary" TextWrapping="Wrap"
@@ -436,16 +437,16 @@
 
           <Border Classes="strata-card">
             <StackPanel Spacing="10">
-              <TextBlock Classes="subtitle" Text="Expander" />
-              <TextBlock Classes="caption tertiary" Text="Progressive disclosure — reveal details on demand." Margin="0,0,0,2" />
-              <Expander Header="Advanced Settings">
+              <TextBlock Classes="subtitle" Text="{Binding Strings[Expander]}" />
+              <TextBlock Classes="caption tertiary" Text="{Binding Strings[Expander.Subtitle]}" Margin="0,0,0,2" />
+              <Expander Header="{Binding Strings[AdvancedSettings]}">
                 <StackPanel Spacing="8" Margin="0,4">
-                  <CheckBox Content="Enable experimental features" />
-                  <CheckBox Content="Verbose logging" />
-                  <TextBox Watermark="Custom endpoint URL..." />
+                  <CheckBox Content="{Binding Strings[EnableExperimental]}" />
+                  <CheckBox Content="{Binding Strings[VerboseLogging]}" />
+                  <TextBox Watermark="{Binding Strings[CustomEndpoint]}" />
                 </StackPanel>
               </Expander>
-              <Expander Header="About" IsExpanded="True">
+              <Expander Header="{Binding Strings[About]}" IsExpanded="True">
                 <TextBlock Classes="secondary"
                            TextWrapping="Wrap"
                            Text="Strata UI is a token-driven Avalonia theme for modern professional desktop applications. It prioritizes readability, consistency, and accessible contrast across light, dark, and high-contrast variants." />
@@ -456,8 +457,8 @@
           <Grid x:Name="ComponentsPairGrid" ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card">
               <StackPanel Spacing="10">
-                <TextBlock Classes="subtitle" Text="ListBox" />
-                <TextBlock Classes="caption tertiary" Text="Scrollable single-select item list." Margin="0,0,0,2" />
+                <TextBlock Classes="subtitle" Text="{Binding Strings[ListBox]}" />
+                <TextBlock Classes="caption tertiary" Text="{Binding Strings[ListBox.Subtitle]}" Margin="0,0,0,2" />
                 <ListBox Height="200">
                   <ListBoxItem Content="Dashboard" />
                   <ListBoxItem Content="Analytics" />
@@ -469,16 +470,16 @@
             </Border>
             <Border Grid.Column="2" Classes="strata-card">
               <StackPanel Spacing="10">
-                <TextBlock Classes="subtitle" Text="Overlay Panel" />
-                <TextBlock Classes="caption tertiary" Text="Elevated dialog surface for confirmations." Margin="0,0,0,2" />
+                <TextBlock Classes="subtitle" Text="{Binding Strings[OverlayPanel]}" />
+                <TextBlock Classes="caption tertiary" Text="{Binding Strings[OverlayPanel.Subtitle]}" Margin="0,0,0,2" />
                 <Border Classes="strata-dialog" HorizontalAlignment="Stretch">
                   <StackPanel Spacing="12">
-                    <TextBlock Classes="subtitle" Text="Confirm Action" />
+                    <TextBlock Classes="subtitle" Text="{Binding Strings[ConfirmAction]}" />
                     <TextBlock Classes="secondary" TextWrapping="Wrap"
-                               Text="This action cannot be undone. Are you sure?" />
+                               Text="{Binding Strings[ConfirmAction.Body]}" />
                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                      <Button Content="Cancel" />
-                      <Button Classes="accent" Content="Confirm" />
+                      <Button Content="{Binding Strings[Cancel]}" />
+                      <Button Classes="accent" Content="{Binding Strings[Confirm]}" />
                     </StackPanel>
                   </StackPanel>
                 </Border>
@@ -1142,51 +1143,51 @@
 
           <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
             <StackPanel Spacing="4">
-              <TextBlock Classes="headline" Text="Settings" />
-              <TextBlock Classes="secondary" Text="Appearance, notifications, and regional configuration." />
+              <TextBlock Classes="headline" Text="{Binding Strings[Settings]}" />
+              <TextBlock Classes="secondary" Text="{Binding Strings[Settings.Subtitle]}" />
             </StackPanel>
           </Border>
 
           <Border Classes="strata-card">
             <StackPanel Spacing="16">
               <StackPanel Spacing="2">
-                <TextBlock Classes="subtitle" Text="Appearance" />
-                <TextBlock Classes="caption tertiary" Text="Choose your preferred visual style." />
+                <TextBlock Classes="subtitle" Text="{Binding Strings[Appearance]}" />
+                <TextBlock Classes="caption tertiary" Text="{Binding Strings[Appearance.Subtitle]}" />
               </StackPanel>
-              <ToggleSwitch Content="Dark Mode" IsChecked="{Binding IsDarkTheme}" x:Name="ThemeToggle2" />
-              <ToggleSwitch Content="Compact Density" IsChecked="{Binding IsCompactDensity}" x:Name="DensityToggle2" />
+              <ToggleSwitch Content="{Binding Strings[DarkMode]}" IsChecked="{Binding IsDarkTheme}" x:Name="ThemeToggle2" />
+              <ToggleSwitch Content="{Binding Strings[CompactDensity]}" IsChecked="{Binding IsCompactDensity}" x:Name="DensityToggle2" />
             </StackPanel>
           </Border>
 
           <Border Classes="strata-card">
             <StackPanel Spacing="16">
               <StackPanel Spacing="2">
-                <TextBlock Classes="subtitle" Text="Notifications" />
-                <TextBlock Classes="caption tertiary" Text="Manage how you receive alerts and updates." />
+                <TextBlock Classes="subtitle" Text="{Binding Strings[Notifications]}" />
+                <TextBlock Classes="caption tertiary" Text="{Binding Strings[Notifications.Subtitle]}" />
               </StackPanel>
-              <CheckBox Content="Enable email notifications" IsChecked="True" />
-              <CheckBox Content="Enable push notifications" />
-              <CheckBox Content="Weekly digest" IsChecked="True" />
+              <CheckBox Content="{Binding Strings[EnableEmailNotifications]}" IsChecked="True" />
+              <CheckBox Content="{Binding Strings[EnablePushNotifications]}" />
+              <CheckBox Content="{Binding Strings[WeeklyDigest]}" IsChecked="True" />
             </StackPanel>
           </Border>
 
           <Border Classes="strata-card">
             <StackPanel Spacing="16">
               <StackPanel Spacing="2">
-                <TextBlock Classes="subtitle" Text="Region &amp; Language" />
-                <TextBlock Classes="caption tertiary" Text="Set your locale and display preferences." />
+                <TextBlock Classes="subtitle" Text="{Binding Strings[RegionLanguage]}" />
+                <TextBlock Classes="caption tertiary" Text="{Binding Strings[RegionLanguage.Subtitle]}" />
               </StackPanel>
               <Grid x:Name="SettingsRegionGrid" ColumnDefinitions="*,24,*">
                 <StackPanel Grid.Column="0" Spacing="6">
-                  <TextBlock Classes="caption" FontWeight="Medium" Text="Language" />
-                  <ComboBox ItemsSource="{Binding ComboItems}"
-                            SelectedIndex="0"
-                            PlaceholderText="Select language..."
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[Language]}" />
+                  <ComboBox ItemsSource="{Binding Languages}"
+                            SelectedIndex="{Binding SelectedLanguageIndex}"
+                            PlaceholderText="{Binding Strings[SelectLanguage]}"
                             HorizontalAlignment="Stretch" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Spacing="6">
-                  <TextBlock Classes="caption" FontWeight="Medium" Text="Timezone" />
-                  <ComboBox PlaceholderText="Select timezone..."
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[Timezone]}" />
+                  <ComboBox PlaceholderText="{Binding Strings[SelectTimezone]}"
                             HorizontalAlignment="Stretch">
                     <ComboBoxItem Content="UTC-8 Pacific" />
                     <ComboBoxItem Content="UTC-5 Eastern" />

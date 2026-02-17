@@ -1,12 +1,22 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
+using StrataDemo.Localization;
 
 namespace StrataDemo;
 
 public class MainViewModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Localized string proxy for XAML bindings. New reference each language switch.</summary>
+    private StringsProxy _strings = Localization.Strings.Instance.CreateProxy();
+    public StringsProxy Strings
+    {
+        get => _strings;
+        private set { _strings = value; OnPropertyChanged(); }
+    }
 
     private bool _isDarkTheme;
     public bool IsDarkTheme
@@ -20,6 +30,36 @@ public class MainViewModel : INotifyPropertyChanged
     {
         get => _isCompactDensity;
         set { _isCompactDensity = value; OnPropertyChanged(); }
+    }
+
+    private int _selectedLanguageIndex;
+    public int SelectedLanguageIndex
+    {
+        get => _selectedLanguageIndex;
+        set
+        {
+            if (_selectedLanguageIndex == value) return;
+            _selectedLanguageIndex = value;
+            OnPropertyChanged();
+            ApplyLanguage(value);
+        }
+    }
+
+    public ObservableCollection<string> Languages { get; } = new()
+    {
+        "English",
+        "עברית (Hebrew)"
+    };
+
+    private void ApplyLanguage(int index)
+    {
+        var culture = index switch
+        {
+            1 => new CultureInfo("he-IL"),
+            _ => new CultureInfo("en-US")
+        };
+        Localization.Strings.Instance.Culture = culture;
+        Strings = Localization.Strings.Instance.CreateProxy();
     }
 
     private string _sampleText = "Sample input text";
