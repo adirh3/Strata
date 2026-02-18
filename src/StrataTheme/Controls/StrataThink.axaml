@@ -63,7 +63,11 @@
                   </Border.Transitions>
                   <StackPanel>
                     <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,6,0,6" />
-                    <ContentPresenter Content="{TemplateBinding Content}" />
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto"
+                                  MaxHeight="480">
+                      <ContentPresenter Content="{TemplateBinding Content}" />
+                    </ScrollViewer>
                   </StackPanel>
                 </Border>
               </StackPanel>
@@ -78,7 +82,7 @@
           <Setter Property="BoxShadow" Value="0 4 16 0 #14000000" />
         </Style>
         <Style Selector="^[IsExpanded=True] /template/ Border#PART_ContentHost">
-          <Setter Property="MaxHeight" Value="500" />
+          <Setter Property="MaxHeight" Value="520" />
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
         </Style>
