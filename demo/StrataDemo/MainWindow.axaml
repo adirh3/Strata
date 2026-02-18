@@ -1180,72 +1180,154 @@
       </ScrollViewer>
 
       <!-- ════════ Page 6: Settings ════════ -->
-      <ScrollViewer x:Name="Page6"
-                    HorizontalScrollBarVisibility="Disabled"
-                    VerticalScrollBarVisibility="Auto"
-                    IsVisible="False">
-        <StackPanel Classes="page-shell" Spacing="32" MaxWidth="920">
+      <sc:StrataSettingPage x:Name="Page6"
+                            IsVisible="False"
+                            MaxWidth="920"
+                            Classes="page-shell"
+                            Header="{Binding Strings[Settings]}"
+                            Description="{Binding Strings[Settings.Subtitle]}">
 
-          <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
-            <StackPanel Spacing="4">
-              <TextBlock Classes="headline" Text="{Binding Strings[Settings]}" />
-              <TextBlock Classes="secondary" Text="{Binding Strings[Settings.Subtitle]}" />
-            </StackPanel>
-          </Border>
+        <!-- ── Appearance tab ── -->
+        <TabItem Header="{Binding Strings[Appearance]}">
+          <StackPanel Spacing="16" Margin="0,4">
 
-          <Border Classes="strata-card">
-            <StackPanel Spacing="16">
-              <StackPanel Spacing="2">
-                <TextBlock Classes="subtitle" Text="{Binding Strings[Appearance]}" />
-                <TextBlock Classes="caption tertiary" Text="{Binding Strings[Appearance.Subtitle]}" />
-              </StackPanel>
-              <ToggleSwitch Content="{Binding Strings[DarkMode]}" IsChecked="{Binding IsDarkTheme}" x:Name="ThemeToggle2" />
-              <ToggleSwitch Content="{Binding Strings[CompactDensity]}" IsChecked="{Binding IsCompactDensity}" x:Name="DensityToggle2" />
-            </StackPanel>
-          </Border>
+            <!-- Group 1: Theme -->
+            <sc:StrataSettingGroup Header="{Binding Strings[Appearance]}"
+                                  Description="{Binding Strings[Appearance.Subtitle]}">
+              <sc:StrataSetting Header="{Binding Strings[DarkMode]}"
+                                Description="{Binding Strings[DarkMode.Desc]}"
+                                IsModified="{Binding IsDarkTheme}">
+                <ToggleSwitch IsChecked="{Binding IsDarkTheme}" x:Name="ThemeToggle2" />
+              </sc:StrataSetting>
+              <sc:StrataSetting Header="{Binding Strings[CompactDensity]}"
+                                Description="{Binding Strings[CompactDensity.Desc]}"
+                                IsModified="{Binding IsCompactDensity}">
+                <ToggleSwitch IsChecked="{Binding IsCompactDensity}" x:Name="DensityToggle2" />
+              </sc:StrataSetting>
+            </sc:StrataSettingGroup>
 
-          <Border Classes="strata-card">
-            <StackPanel Spacing="16">
-              <StackPanel Spacing="2">
-                <TextBlock Classes="subtitle" Text="{Binding Strings[Notifications]}" />
-                <TextBlock Classes="caption tertiary" Text="{Binding Strings[Notifications.Subtitle]}" />
-              </StackPanel>
-              <CheckBox Content="{Binding Strings[EnableEmailNotifications]}" IsChecked="True" />
-              <CheckBox Content="{Binding Strings[EnablePushNotifications]}" />
-              <CheckBox Content="{Binding Strings[WeeklyDigest]}" IsChecked="True" />
-            </StackPanel>
-          </Border>
+            <!-- Group 2: Accessibility -->
+            <sc:StrataSettingGroup Header="{Binding Strings[Accessibility]}"
+                                  Description="{Binding Strings[Accessibility.Subtitle]}">
+              <sc:StrataSetting Header="{Binding Strings[HighContrast]}"
+                                Description="{Binding Strings[HighContrast.Desc]}">
+                <ToggleSwitch x:Name="HighContrastToggle" />
+              </sc:StrataSetting>
+              <sc:StrataSetting Header="{Binding Strings[ReduceMotion]}"
+                                Description="{Binding Strings[ReduceMotion.Desc]}">
+                <ToggleSwitch x:Name="ReduceMotionToggle" />
+              </sc:StrataSetting>
+              <sc:StrataSetting Header="{Binding Strings[FontSize]}"
+                                Description="{Binding Strings[FontSize.Desc]}">
+                <ComboBox MinWidth="140" SelectedIndex="1">
+                  <ComboBoxItem Content="Small" />
+                  <ComboBoxItem Content="Medium" />
+                  <ComboBoxItem Content="Large" />
+                </ComboBox>
+              </sc:StrataSetting>
+            </sc:StrataSettingGroup>
+          </StackPanel>
+        </TabItem>
 
-          <Border Classes="strata-card">
-            <StackPanel Spacing="16">
-              <StackPanel Spacing="2">
-                <TextBlock Classes="subtitle" Text="{Binding Strings[RegionLanguage]}" />
-                <TextBlock Classes="caption tertiary" Text="{Binding Strings[RegionLanguage.Subtitle]}" />
-              </StackPanel>
-              <Grid x:Name="SettingsRegionGrid" ColumnDefinitions="*,24,*">
-                <StackPanel Grid.Column="0" Spacing="6">
-                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[Language]}" />
-                  <ComboBox ItemsSource="{Binding Languages}"
-                            SelectedIndex="{Binding SelectedLanguageIndex}"
-                            PlaceholderText="{Binding Strings[SelectLanguage]}"
-                            HorizontalAlignment="Stretch" />
-                </StackPanel>
-                <StackPanel Grid.Column="2" Spacing="6">
-                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[Timezone]}" />
-                  <ComboBox PlaceholderText="{Binding Strings[SelectTimezone]}"
-                            HorizontalAlignment="Stretch">
-                    <ComboBoxItem Content="UTC-8 Pacific" />
-                    <ComboBoxItem Content="UTC-5 Eastern" />
-                    <ComboBoxItem Content="UTC+0 London" />
-                    <ComboBoxItem Content="UTC+1 Berlin" />
-                    <ComboBoxItem Content="UTC+9 Tokyo" />
-                  </ComboBox>
-                </StackPanel>
-              </Grid>
-            </StackPanel>
-          </Border>
-        </StackPanel>
-      </ScrollViewer>
+        <!-- ── Notifications tab ── -->
+        <TabItem Header="{Binding Strings[Notifications]}">
+          <StackPanel Spacing="16" Margin="0,4">
+
+            <!-- Group 1: Alerts -->
+            <sc:StrataSettingGroup Header="{Binding Strings[Notifications]}"
+                                  Description="{Binding Strings[Notifications.Subtitle]}">
+              <sc:StrataSetting x:Name="EmailNotifSetting"
+                                Header="{Binding Strings[EnableEmailNotifications]}"
+                                Description="{Binding Strings[EnableEmailNotifications.Desc]}"
+                                IsModified="True">
+                <CheckBox x:Name="EmailNotifCheck" IsChecked="True" />
+              </sc:StrataSetting>
+              <sc:StrataSetting Header="{Binding Strings[EnablePushNotifications]}"
+                                Description="{Binding Strings[EnablePushNotifications.Desc]}">
+                <CheckBox />
+              </sc:StrataSetting>
+              <sc:StrataSetting Header="{Binding Strings[WeeklyDigest]}"
+                                Description="{Binding Strings[WeeklyDigest.Desc]}">
+                <CheckBox IsChecked="True" />
+              </sc:StrataSetting>
+            </sc:StrataSettingGroup>
+
+            <!-- Group 2: Data & Privacy -->
+            <sc:StrataSettingGroup Header="{Binding Strings[DataPrivacy]}"
+                                  Description="{Binding Strings[DataPrivacy.Subtitle]}">
+              <sc:StrataSetting x:Name="DiagnosticsSetting"
+                                Header="{Binding Strings[SendDiagnostics]}"
+                                Description="{Binding Strings[SendDiagnostics.Desc]}"
+                                IsModified="True">
+                <ToggleSwitch x:Name="DiagnosticsToggle" IsChecked="True" />
+              </sc:StrataSetting>
+              <sc:StrataSetting Header="{Binding Strings[PersonalisedAds]}"
+                                Description="{Binding Strings[PersonalisedAds.Desc]}">
+                <ToggleSwitch />
+              </sc:StrataSetting>
+            </sc:StrataSettingGroup>
+          </StackPanel>
+        </TabItem>
+
+        <!-- ── Region & Language tab ── -->
+        <TabItem Header="{Binding Strings[RegionLanguage]}">
+          <StackPanel Spacing="16" Margin="0,4">
+
+            <!-- Group 1: Locale -->
+            <sc:StrataSettingGroup Header="{Binding Strings[RegionLanguage]}"
+                                  Description="{Binding Strings[RegionLanguage.Subtitle]}">
+              <sc:StrataSetting Header="{Binding Strings[Language]}"
+                                Description="{Binding Strings[Language.Desc]}">
+                <ComboBox ItemsSource="{Binding Languages}"
+                          SelectedIndex="{Binding SelectedLanguageIndex}"
+                          PlaceholderText="{Binding Strings[SelectLanguage]}"
+                          MinWidth="200" />
+              </sc:StrataSetting>
+              <sc:StrataSetting Header="{Binding Strings[Timezone]}"
+                                Description="{Binding Strings[Timezone.Desc]}">
+                <ComboBox PlaceholderText="{Binding Strings[SelectTimezone]}"
+                          MinWidth="200">
+                  <ComboBoxItem Content="UTC-8 Pacific" />
+                  <ComboBoxItem Content="UTC-5 Eastern" />
+                  <ComboBoxItem Content="UTC+0 London" />
+                  <ComboBoxItem Content="UTC+1 Berlin" />
+                  <ComboBoxItem Content="UTC+9 Tokyo" />
+                </ComboBox>
+              </sc:StrataSetting>
+            </sc:StrataSettingGroup>
+
+            <!-- Group 2: Date & Time -->
+            <sc:StrataSettingGroup Header="{Binding Strings[DateTimeFormat]}"
+                                  Description="{Binding Strings[DateTimeFormat.Subtitle]}">
+              <sc:StrataSetting Header="{Binding Strings[DateFormat]}"
+                                Description="{Binding Strings[DateFormat.Desc]}">
+                <ComboBox MinWidth="180" SelectedIndex="0">
+                  <ComboBoxItem Content="MM/DD/YYYY" />
+                  <ComboBoxItem Content="DD/MM/YYYY" />
+                  <ComboBoxItem Content="YYYY-MM-DD" />
+                </ComboBox>
+              </sc:StrataSetting>
+              <sc:StrataSetting Header="{Binding Strings[Use24Hour]}"
+                                Description="{Binding Strings[Use24Hour.Desc]}">
+                <ToggleSwitch />
+              </sc:StrataSetting>
+            </sc:StrataSettingGroup>
+
+            <!-- Group 3: Startup -->
+            <sc:StrataSettingGroup Header="{Binding Strings[Startup]}"
+                                  Description="{Binding Strings[Startup.Subtitle]}">
+              <sc:StrataSetting Header="{Binding Strings[RestoreSession]}"
+                                Description="{Binding Strings[RestoreSession.Desc]}">
+                <ToggleSwitch IsChecked="True" />
+              </sc:StrataSetting>
+              <sc:StrataSetting Header="{Binding Strings[CheckUpdates]}"
+                                Description="{Binding Strings[CheckUpdates.Desc]}">
+                <CheckBox IsChecked="True" />
+              </sc:StrataSetting>
+            </sc:StrataSettingGroup>
+          </StackPanel>
+        </TabItem>
+      </sc:StrataSettingPage>
 
       <!-- ════════ Page 7: Chat Experience ════════ -->
       <Grid x:Name="Page7"

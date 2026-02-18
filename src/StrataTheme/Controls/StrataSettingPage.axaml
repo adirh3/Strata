@@ -1,0 +1,70 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls"
+        xmlns:strata="using:StrataTheme">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataSettingPage}" TargetType="controls:StrataSettingPage">
+        <Setter Property="(strata:SelectionIndicatorAnimationHelper.Enable)" Value="True" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="Padding" Value="0,20,0,0" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <DockPanel>
+              <!-- Page header -->
+              <Border Name="PART_HeaderBorder"
+                      DockPanel.Dock="Top"
+                      BorderBrush="{DynamicResource Brush.AccentDefault}"
+                      BorderThickness="3,0,0,0"
+                      Padding="16,0,0,0"
+                      Margin="0,0,0,20"
+                      IsVisible="{TemplateBinding Header, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel Spacing="4">
+                  <ContentPresenter Name="PART_HeaderPresenter"
+                                    Content="{TemplateBinding Header}"
+                                    TextElement.FontSize="{DynamicResource Font.SizeHeadline}"
+                                    TextElement.FontWeight="SemiBold" />
+                  <TextBlock Name="PART_DescriptionText"
+                             Text="{TemplateBinding Description}"
+                             Classes="secondary"
+                             IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+              </Border>
+
+              <!-- Tab strip -->
+              <Border Name="TabStrip"
+                      DockPanel.Dock="Top"
+                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                      BorderThickness="0,0,0,1"
+                      Padding="4,0">
+                <ItemsPresenter Name="PART_ItemsPresenter"
+                                ItemsPanel="{TemplateBinding ItemsPanel}" />
+              </Border>
+
+              <!-- Scrollable content area -->
+              <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                            VerticalScrollBarVisibility="Auto">
+                <ContentPresenter Name="PART_SelectedContentHost"
+                                  Content="{TemplateBinding SelectedContent}"
+                                  ContentTemplate="{TemplateBinding SelectedContentTemplate}"
+                                  Margin="{TemplateBinding Padding}"
+                                  Opacity="1"
+                                  RenderTransformOrigin="0.5,0"
+                                  RenderTransform="translateY(0px)">
+                  <ContentPresenter.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="0.2,0 0,1" />
+                    </Transitions>
+                  </ContentPresenter.Transitions>
+                </ContentPresenter>
+              </ScrollViewer>
+            </DockPanel>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

@@ -1,0 +1,91 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataSetting}" TargetType="controls:StrataSetting">
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel>
+              <!-- Top separator (visible between items in a group) -->
+              <Border Name="PART_Separator"
+                      Height="1"
+                      Background="{DynamicResource Brush.BorderSubtle}"
+                      Margin="0,8,0,8"
+                      IsVisible="{TemplateBinding ShowSeparator}" />
+
+              <!-- Setting row -->
+              <Grid ColumnDefinitions="*,Auto"
+                    MinHeight="{DynamicResource Size.ControlHeightM}">
+                <!-- Header + description + inline revert -->
+                <StackPanel Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Spacing="2"
+                            Margin="0,0,16,0">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Name="PART_HeaderText"
+                               Text="{TemplateBinding Header}"
+                               FontWeight="Medium"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource Brush.TextPrimary}">
+                      <TextBlock.Transitions>
+                        <Transitions>
+                          <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+                        </Transitions>
+                      </TextBlock.Transitions>
+                    </TextBlock>
+                    <!-- Revert indicator (inline with header) -->
+                    <Button Name="PART_RevertButton"
+                            Classes="subtle"
+                            VerticalAlignment="Center"
+                            Padding="4,2"
+                            MinWidth="0"
+                            MinHeight="0"
+                            IsVisible="False"
+                            ToolTip.Tip="Revert to default"
+                            RenderTransformOrigin="0.5,0.5"
+                            RenderTransform="scale(0.85)"
+                            Opacity="0">
+                      <Button.Transitions>
+                        <Transitions>
+                          <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </Button.Transitions>
+                      <TextBlock Text="↺" FontSize="12" />
+                    </Button>
+                  </StackPanel>
+                  <TextBlock Name="PART_Description"
+                             Text="{TemplateBinding Description}"
+                             Classes="caption"
+                             Foreground="{DynamicResource Brush.TextTertiary}"
+                             TextWrapping="Wrap"
+                             IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+
+                <!-- Setting control -->
+                <ContentPresenter Grid.Column="1"
+                                  Content="{TemplateBinding SettingContent}"
+                                  VerticalAlignment="Center" />
+              </Grid>
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Modified: show revert button with scale-in -->
+        <Style Selector="^:modified /template/ Button#PART_RevertButton">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="scale(1)" />
+        </Style>
+
+        <!-- Modified: accent the header text -->
+        <Style Selector="^:modified /template/ TextBlock#PART_HeaderText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

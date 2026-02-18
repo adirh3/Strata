@@ -56,6 +56,10 @@ public partial class MainWindow : Window
         WireToggle("ThemeToggle2", OnThemeToggleChanged);
         WireToggle("DensityToggle2", OnDensityToggleChanged);
 
+        // Wire settings revert buttons
+        WireSettingRevert("EmailNotifSetting", "EmailNotifCheck");
+        WireSettingRevert("DiagnosticsSetting", "DiagnosticsToggle");
+
         // Show first page
         ShowPage(0);
 
@@ -102,8 +106,6 @@ public partial class MainWindow : Window
         ConfigureTwoColumnGrid("AiTraceGrid", compact, narrow, 16, 12, 12);
         ConfigureTwoColumnGrid("AiStepGrid", compact, narrow, 16, 12, 12);
         ConfigureTwoColumnGrid("AiMicroGrid", compact, narrow, 24, 12, 12);
-
-        ConfigureTwoColumnGrid("SettingsRegionGrid", compact, narrow, 24, 12, 12);
     }
 
     private void ConfigureTwoColumnGrid(string name, bool compact, bool narrow, int wideGap, int compactGap, int stackGap)
@@ -248,6 +250,26 @@ public partial class MainWindow : Window
         var toggle = this.FindControl<ToggleSwitch>(name);
         if (toggle is not null)
             toggle.IsCheckedChanged += handler;
+    }
+
+    private void WireSettingRevert(string settingName, string controlName)
+    {
+        var setting = this.FindControl<StrataSetting>(settingName);
+        if (setting is null) return;
+
+        setting.Reverted += (_, _) =>
+        {
+            var control = this.FindControl<Control>(controlName);
+            switch (control)
+            {
+                case ToggleSwitch toggle:
+                    toggle.IsChecked = false;
+                    break;
+                case CheckBox check:
+                    check.IsChecked = false;
+                    break;
+            }
+        };
     }
 
     private void OnNavSelectionChanged(object? sender, SelectionChangedEventArgs e)

@@ -160,6 +160,49 @@ public sealed class Strings
             ["SelectLanguage"] = "Select language...",
             ["Timezone"] = "Timezone",
             ["SelectTimezone"] = "Select timezone...",
+
+            // Settings descriptions
+            ["DarkMode.Desc"] = "Switch between light and dark color schemes",
+            ["CompactDensity.Desc"] = "Reduce spacing for information-dense layouts",
+            ["EnableEmailNotifications.Desc"] = "Receive updates and alerts via email",
+            ["EnablePushNotifications.Desc"] = "Get real-time browser push notifications",
+            ["WeeklyDigest.Desc"] = "Receive a weekly summary of activity",
+            ["Language.Desc"] = "Set the display language for the interface",
+            ["Timezone.Desc"] = "Choose your local timezone for timestamps",
+
+            // Settings – Accessibility group
+            ["Accessibility"] = "Accessibility",
+            ["Accessibility.Subtitle"] = "Enhance readability and interaction for all users.",
+            ["HighContrast"] = "High contrast",
+            ["HighContrast.Desc"] = "Increase contrast for better visibility",
+            ["ReduceMotion"] = "Reduce motion",
+            ["ReduceMotion.Desc"] = "Minimise animations throughout the interface",
+            ["FontSize"] = "Font size",
+            ["FontSize.Desc"] = "Adjust the base text size for the interface",
+
+            // Settings – Data & Privacy group
+            ["DataPrivacy"] = "Data & Privacy",
+            ["DataPrivacy.Subtitle"] = "Control telemetry and data sharing preferences.",
+            ["SendDiagnostics"] = "Send diagnostics",
+            ["SendDiagnostics.Desc"] = "Share crash reports and usage data to improve the product",
+            ["PersonalisedAds"] = "Personalised content",
+            ["PersonalisedAds.Desc"] = "Allow tailored suggestions based on usage patterns",
+
+            // Settings – Startup group
+            ["Startup"] = "Startup",
+            ["Startup.Subtitle"] = "Control what happens when the application launches.",
+            ["RestoreSession"] = "Restore previous session",
+            ["RestoreSession.Desc"] = "Reopen windows and tabs from the last session",
+            ["CheckUpdates"] = "Check for updates",
+            ["CheckUpdates.Desc"] = "Automatically check for new versions on startup",
+
+            // Settings – Date & Time group
+            ["DateTimeFormat"] = "Date & Time",
+            ["DateTimeFormat.Subtitle"] = "Configure how dates and times are displayed.",
+            ["DateFormat"] = "Date format",
+            ["DateFormat.Desc"] = "Choose the format for displaying dates",
+            ["Use24Hour"] = "Use 24-hour clock",
+            ["Use24Hour.Desc"] = "Display time in 24-hour format instead of AM/PM",
         },
 
         ["he"] = new()
@@ -276,6 +319,49 @@ public sealed class Strings
             ["SelectLanguage"] = "בחרו שפה...",
             ["Timezone"] = "אזור זמן",
             ["SelectTimezone"] = "בחרו אזור זמן...",
+
+            // Settings descriptions
+            ["DarkMode.Desc"] = "מעבר בין ערכות צבעים בהירה וכהה",
+            ["CompactDensity.Desc"] = "צמצום רווחים לממשקים צפופים",
+            ["EnableEmailNotifications.Desc"] = "קבלת עדכונים והתראות בדוא״ל",
+            ["EnablePushNotifications.Desc"] = "התראות Push בזמן אמת בדפדפן",
+            ["WeeklyDigest.Desc"] = "קבלת סיכום שבועי של הפעילות",
+            ["Language.Desc"] = "הגדרת שפת התצוגה של הממשק",
+            ["Timezone.Desc"] = "בחירת אזור הזמן המקומי לחותמות זמן",
+
+            // Settings – Accessibility group
+            ["Accessibility"] = "נגישות",
+            ["Accessibility.Subtitle"] = "שיפור קריאות ואינטראקציה לכלל המשתמשים.",
+            ["HighContrast"] = "ניגודיות גבוהה",
+            ["HighContrast.Desc"] = "הגברת הניגודיות לנראות טובה יותר",
+            ["ReduceMotion"] = "צמצום תנועה",
+            ["ReduceMotion.Desc"] = "הפחתת אנימציות בממשק",
+            ["FontSize"] = "גודל גופן",
+            ["FontSize.Desc"] = "התאמת גודל הטקסט הבסיסי בממשק",
+
+            // Settings – Data & Privacy group
+            ["DataPrivacy"] = "נתונים ופרטיות",
+            ["DataPrivacy.Subtitle"] = "שליטה בהעדפות טלמטריה ושיתוף נתונים.",
+            ["SendDiagnostics"] = "שליחת אבחון",
+            ["SendDiagnostics.Desc"] = "שיתוף דוחות קריסה ונתוני שימוש לשיפור המוצר",
+            ["PersonalisedAds"] = "תוכן מותאם אישית",
+            ["PersonalisedAds.Desc"] = "הצעות מותאמות על פי דפוסי שימוש",
+
+            // Settings – Startup group
+            ["Startup"] = "הפעלה",
+            ["Startup.Subtitle"] = "שליטה בהתנהגות בעת הפעלת היישום.",
+            ["RestoreSession"] = "שחזור הפעלה קודמת",
+            ["RestoreSession.Desc"] = "פתיחת חלונות ולשוניות מההפעלה האחרונה",
+            ["CheckUpdates"] = "בדיקת עדכונים",
+            ["CheckUpdates.Desc"] = "בדיקה אוטומטית של גרסאות חדשות בהפעלה",
+
+            // Settings – Date & Time group
+            ["DateTimeFormat"] = "תאריך ושעה",
+            ["DateTimeFormat.Subtitle"] = "הגדרת תצוגת תאריכים ושעות.",
+            ["DateFormat"] = "תבנית תאריך",
+            ["DateFormat.Desc"] = "בחירת התבנית להצגת תאריכים",
+            ["Use24Hour"] = "שעון 24 שעות",
+            ["Use24Hour.Desc"] = "הצגת שעה בתבנית 24 שעות במקום AM/PM",
         }
     };
 }
