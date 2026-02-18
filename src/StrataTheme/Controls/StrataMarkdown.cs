@@ -43,6 +43,7 @@ public class StrataMarkdown : ContentControl
     private readonly StackPanel _contentHost;
     private IBrush? _inlineCodeBrush;
     private string _lastThemeVariant = string.Empty;
+    private double _bodyFontSize = 14;
 
     /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
     public static readonly StyledProperty<string?> MarkdownProperty =
@@ -121,6 +122,12 @@ public class StrataMarkdown : ContentControl
     {
         base.OnPropertyChanged(change);
 
+        if (string.Equals(change.Property.Name, nameof(FontSize), StringComparison.Ordinal))
+        {
+            Rebuild();
+            return;
+        }
+
         if (!string.Equals(change.Property.Name, "ActualThemeVariant", StringComparison.Ordinal))
             return;
 
@@ -153,9 +160,23 @@ public class StrataMarkdown : ContentControl
         }
     }
 
+    /// <summary>Returns the effective body font size, using the inherited FontSize if &gt; 12, otherwise resolving Font.SizeBody.</summary>
+    private double GetBodyFontSize()
+    {
+        var fs = FontSize;
+        if (fs > 12) return fs;
+
+        // Try resolving from theme resources
+        if (this.TryFindResource("Font.SizeBody", ActualThemeVariant, out var res) && res is double d)
+            return d;
+
+        return 14; // Strata default
+    }
+
     private void Rebuild()
     {
         _contentHost.Children.Clear();
+        _bodyFontSize = GetBodyFontSize();
 
         var source = Markdown;
         if (string.IsNullOrWhiteSpace(source))
@@ -237,7 +258,7 @@ public class StrataMarkdown : ContentControl
         if (string.IsNullOrWhiteSpace(text))
             return;
 
-        var paragraph = CreateRichText(text, 12.5, 19, TextWrapping.Wrap);
+        var paragraph = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
         paragraph.Classes.Add("strata-md-paragraph");
         _contentHost.Children.Add(paragraph);
     }
@@ -248,11 +269,11 @@ public class StrataMarkdown : ContentControl
             text,
             level switch
             {
-                1 => 16,
-                2 => 14,
-                _ => 13
+                1 => _bodyFontSize * 1.28,
+                2 => _bodyFontSize * 1.12,
+                _ => _bodyFontSize * 1.04
             },
-            20,
+            _bodyFontSize * 1.6,
             TextWrapping.Wrap);
         heading.FontWeight = FontWeight.SemiBold;
         heading.Margin = new Thickness(0, level == 1 ? 6 : 2, 0, 2);
@@ -278,7 +299,7 @@ public class StrataMarkdown : ContentControl
         };
         dot.Classes.Add("strata-md-bullet-dot");
 
-        var textBlock = CreateRichText(text, 12.5, 19, TextWrapping.Wrap);
+        var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
         textBlock.Classes.Add("strata-md-bullet-text");
 
         Grid.SetColumn(dot, 0);
