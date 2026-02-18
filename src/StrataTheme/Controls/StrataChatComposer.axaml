@@ -30,21 +30,83 @@
 
               <StackPanel>
 
+                <!-- Agent & skill chips -->
+                <WrapPanel Name="PART_ChipsRow"
+                           Orientation="Horizontal"
+                           Margin="12,10,12,2">
+                  <!-- Agent chip (hidden via :has-agent pseudo-class) -->
+                  <Border Name="PART_AgentChip"
+                          CornerRadius="12"
+                          Padding="8,4,4,4"
+                          Margin="0,0,6,4"
+                          Background="{DynamicResource Brush.AccentSubtle}">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <TextBlock Text="{TemplateBinding AgentGlyph}"
+                                 FontSize="11"
+                                 Foreground="{DynamicResource Brush.AccentDefault}"
+                                 VerticalAlignment="Center" />
+                      <TextBlock Text="{TemplateBinding AgentName}"
+                                 FontSize="11"
+                                 FontWeight="SemiBold"
+                                 Foreground="{DynamicResource Brush.AccentDefault}"
+                                 VerticalAlignment="Center" />
+                      <Button Name="PART_AgentRemoveButton"
+                              Classes="subtle"
+                              Width="16" Height="16"
+                              Padding="0" MinHeight="0" MinWidth="0"
+                              CornerRadius="8"
+                              VerticalAlignment="Center"
+                              Cursor="Hand">
+                        <TextBlock Text="×" FontSize="11"
+                                   Foreground="{DynamicResource Brush.AccentDefault}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                  <!-- Skill chips are appended here programmatically -->
+                </WrapPanel>
+
                 <!-- Text input -->
-                <TextBox Name="PART_Input"
-                         Classes="composer-embed"
-                         Text="{Binding PromptText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
-                         Watermark="{TemplateBinding Placeholder}"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         MinHeight="40" MaxHeight="180"
-                         BorderThickness="0"
-                         Background="Transparent"
-                         Padding="14,12,14,6"
-                         VerticalContentAlignment="Top"
-                         FontSize="13"
-                         CornerRadius="0"
-                         MinWidth="0" />
+                <Panel>
+                  <TextBox Name="PART_Input"
+                           Classes="composer-embed"
+                           Text="{Binding PromptText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                           Watermark="{TemplateBinding Placeholder}"
+                           AcceptsReturn="True"
+                           TextWrapping="Wrap"
+                           MinHeight="40" MaxHeight="180"
+                           BorderThickness="0"
+                           Background="Transparent"
+                           Padding="14,12,14,6"
+                           VerticalContentAlignment="Top"
+                           FontSize="13"
+                           CornerRadius="0"
+                           MinWidth="0" />
+
+                  <!-- Inline autocomplete popup (anchored to TextBox via Panel) -->
+                  <Popup Name="PART_AutoCompletePopup"
+                         IsLightDismissEnabled="True"
+                         Placement="AnchorAndGravity"
+                         PlacementAnchor="BottomLeft"
+                         PlacementGravity="BottomRight"
+                         WindowManagerAddShadowHint="False">
+                    <Border Background="{DynamicResource Brush.Surface1}"
+                            BorderBrush="{DynamicResource Brush.BorderDefault}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="4"
+                            MinWidth="220"
+                            MaxWidth="330"
+                            BoxShadow="0 4 16 0 #1A000000">
+                      <ScrollViewer MaxHeight="260"
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                        <StackPanel Name="PART_AutoCompletePanel" Spacing="1" />
+                      </ScrollViewer>
+                    </Border>
+                  </Popup>
+                </Panel>
 
                 <!-- Toolbar row -->
                 <Grid Margin="8,4,8,8" ColumnDefinitions="*,Auto">
@@ -65,6 +127,26 @@
                       <TextBlock Text="+" FontSize="16" FontWeight="SemiBold"
                                  Foreground="{DynamicResource Brush.TextSecondary}"
                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+
+                    <!-- Mention: add agent or skill -->
+                    <Button Name="PART_MentionButton"
+                            Classes="subtle"
+                            Width="28" Height="28"
+                            Padding="0" MinHeight="0" MinWidth="0"
+                            CornerRadius="6"
+                            ToolTip.Tip="Mention agent or skill"
+                            Margin="0,0,6,6">
+                      <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Canvas Width="16" Height="16">
+                          <!-- Person silhouette -->
+                          <Path Fill="{DynamicResource Brush.TextSecondary}"
+                                Data="M6,8 C7.66,8 9,6.66 9,5 C9,3.34 7.66,2 6,2 C4.34,2 3,3.34 3,5 C3,6.66 4.34,8 6,8 Z M6,9.5 C3.33,9.5 0,10.84 0,12.5 L0,14 L12,14 L12,12.5 C12,10.84 8.67,9.5 6,9.5 Z" />
+                          <!-- Plus badge -->
+                          <Path Fill="{DynamicResource Brush.TextSecondary}"
+                                Data="M14,6 L14,4 L13,4 L13,6 L11,6 L11,7 L13,7 L13,9 L14,9 L14,7 L16,7 L16,6 Z" />
+                        </Canvas>
+                      </Viewbox>
                     </Button>
 
                     <!-- Model ComboBox -->
@@ -237,6 +319,16 @@
         <Style Selector="^:not(:has-quality) /template/ ComboBox#PART_QualityCombo">
           <Setter Property="IsVisible" Value="False" />
         </Style>
+
+        <!-- Hide chips row when no agent and no skills -->
+        <Style Selector="^:not(:has-chips) /template/ WrapPanel#PART_ChipsRow">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- Hide agent chip when no agent is set -->
+        <Style Selector="^:not(:has-agent) /template/ Border#PART_AgentChip">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
@@ -269,6 +361,78 @@
   </Style>
   <Style Selector="ComboBox.composer-select:focus-visible /template/ Border#Border">
     <Setter Property="BoxShadow" Value="0 0 0 1 #28818CF8" />
+  </Style>
+
+  <!-- Programmatic skill chip styles -->
+  <Style Selector="Border.composer-skill-chip">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="8,3,4,3" />
+    <Setter Property="Margin" Value="0,0,6,4" />
+  </Style>
+  <Style Selector="Border.composer-skill-chip TextBlock.chip-glyph">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.composer-skill-chip TextBlock.chip-name">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.composer-skill-chip TextBlock.chip-remove-icon">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Autocomplete popup item styles -->
+  <Style Selector="Border.autocomplete-item">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.1" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.autocomplete-item:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+  </Style>
+  <Style Selector="Border.autocomplete-item.selected">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+  <Style Selector="TextBlock.autocomplete-header">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="Margin" Value="8,6,8,2" />
+  </Style>
+  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-glyph">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Width" Value="18" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-name">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="6,0,0,0" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-kind">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="12,0,0,0" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
   </Style>
 
 </Styles>

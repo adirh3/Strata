@@ -1,13 +1,35 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
+
+/// <summary>Lightweight chip data for agent or skill display in the composer.</summary>
+/// <param name="Name">Display label.</param>
+/// <param name="Glyph">Single-character icon (default "✦").</param>
+public record StrataComposerChip(string Name, string Glyph = "✦");
+
+/// <summary>Event arguments carrying a removed skill chip item.</summary>
+public class ComposerChipRemovedEventArgs : RoutedEventArgs
+{
+    /// <summary>The skill item that was removed.</summary>
+    public object? Item { get; }
+
+    public ComposerChipRemovedEventArgs(RoutedEvent routedEvent, object? item) : base(routedEvent)
+    {
+        Item = item;
+    }
+}
 
 /// <summary>
 /// Chat composer with borderless text input, model/quality selectors, suggestion chips,
@@ -24,15 +46,28 @@ namespace StrataTheme.Controls;
 ///                                StopRequested="OnStop" /&gt;
 /// </code>
 /// <para><b>Template parts:</b> PART_Input (TextBox), PART_SendButton (Button),
-/// PART_AttachButton (Button), PART_VoiceButton (Button),
+/// PART_AttachButton (Button), PART_MentionButton (Button), PART_VoiceButton (Button),
 /// PART_ModelCombo (ComboBox), PART_QualityCombo (ComboBox),
-/// PART_ActionA (Button), PART_ActionB (Button), PART_ActionC (Button).</para>
+/// PART_ActionA (Button), PART_ActionB (Button), PART_ActionC (Button),
+/// PART_ChipsRow (WrapPanel), PART_AgentChip (Border),
+/// PART_AgentRemoveButton (Button), PART_AutoCompletePopup (Popup),
+/// PART_AutoCompletePanel (StackPanel).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :can-attach,
-/// :a-empty, :b-empty, :c-empty, :has-models, :has-quality.</para>
+/// :a-empty, :b-empty, :c-empty, :has-models, :has-quality,
+/// :has-agent, :has-skills, :has-chips.</para>
 /// </remarks>
 public class StrataChatComposer : TemplatedControl
 {
     private TextBox? _input;
+    private WrapPanel? _chipsRow;
+    private Popup? _autoCompletePopup;
+    private StackPanel? _autoCompletePanel;
+    private readonly List<(Border Control, StrataComposerChip Chip, bool IsAgent)> _autoCompleteEntries = new();
+    private int _autoCompleteSelectedIndex = -1;
+    private int _triggerIndex = -1;
+    private char _triggerChar;
+    private bool _suppressAutoComplete;
+    private INotifyCollectionChanged? _subscribedSkillCollection;
     private static readonly string[] DefaultModels = ["GPT-5.3-Codex", "GPT-4o", "o3"];
     private static readonly string[] DefaultQualityLevels = ["Medium", "High", "Extra High"];
 
@@ -80,6 +115,30 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<string> SuggestionCProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(SuggestionC), string.Empty);
 
+    /// <summary>Display name of the currently active agent. Empty or null hides the chip.</summary>
+    public static readonly StyledProperty<string?> AgentNameProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(AgentName));
+
+    /// <summary>Icon glyph shown in the agent chip.</summary>
+    public static readonly StyledProperty<string> AgentGlyphProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AgentGlyph), "◉");
+
+    /// <summary>
+    /// Items source for skill chips displayed in the composer.
+    /// Use <see cref="StrataComposerChip"/> items for icon+name display,
+    /// or any object whose <c>ToString()</c> provides the label.
+    /// </summary>
+    public static readonly StyledProperty<IEnumerable?> SkillItemsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(SkillItems));
+
+    /// <summary>Catalog of agents available for selection via @ autocomplete.</summary>
+    public static readonly StyledProperty<IEnumerable?> AvailableAgentsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableAgents));
+
+    /// <summary>Catalog of skills available for selection via / autocomplete.</summary>
+    public static readonly StyledProperty<IEnumerable?> AvailableSkillsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableSkills));
+
     /// <summary>Raised when the user sends a prompt (Enter key or send button click).</summary>
     public static readonly RoutedEvent<RoutedEventArgs> SendRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(SendRequested), RoutingStrategies.Bubble);
@@ -92,14 +151,34 @@ public class StrataChatComposer : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> AttachRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(AttachRequested), RoutingStrategies.Bubble);
 
+    /// <summary>Raised when the user removes the active agent chip.</summary>
+    public static readonly RoutedEvent<RoutedEventArgs> AgentRemovedEvent =
+        RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(AgentRemoved), RoutingStrategies.Bubble);
+
+    /// <summary>Raised when the user removes a skill chip. <see cref="ComposerChipRemovedEventArgs.Item"/> carries the removed item.</summary>
+    public static readonly RoutedEvent<ComposerChipRemovedEventArgs> SkillRemovedEvent =
+        RoutedEvent.Register<StrataChatComposer, ComposerChipRemovedEventArgs>(nameof(SkillRemoved), RoutingStrategies.Bubble);
+
+    /// <summary>Raised when the user clicks the mention (@) button to add agents or skills.</summary>
+    public static readonly RoutedEvent<RoutedEventArgs> MentionRequestedEvent =
+        RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(MentionRequested), RoutingStrategies.Bubble);
+
     static StrataChatComposer()
     {
-        PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
+        {
+            c.Sync();
+            // Defer so the TextBox has updated its CaretIndex
+            Dispatcher.UIThread.Post(() => c.CheckAutoComplete(), DispatcherPriority.Input);
+        });
         IsBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanAttachProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SuggestionAProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SuggestionBProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SuggestionCProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        AgentNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        AgentGlyphProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
         ModelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
         QualityLevelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
     }
@@ -121,6 +200,12 @@ public class StrataChatComposer : TemplatedControl
     { add => AddHandler(StopRequestedEvent, value); remove => RemoveHandler(StopRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? AttachRequested
     { add => AddHandler(AttachRequestedEvent, value); remove => RemoveHandler(AttachRequestedEvent, value); }
+    public event EventHandler<RoutedEventArgs>? AgentRemoved
+    { add => AddHandler(AgentRemovedEvent, value); remove => RemoveHandler(AgentRemovedEvent, value); }
+    public event EventHandler<ComposerChipRemovedEventArgs>? SkillRemoved
+    { add => AddHandler(SkillRemovedEvent, value); remove => RemoveHandler(SkillRemovedEvent, value); }
+    public event EventHandler<RoutedEventArgs>? MentionRequested
+    { add => AddHandler(MentionRequestedEvent, value); remove => RemoveHandler(MentionRequestedEvent, value); }
 
     public string? PromptText { get => GetValue(PromptTextProperty); set => SetValue(PromptTextProperty, value); }
     public string Placeholder { get => GetValue(PlaceholderProperty); set => SetValue(PlaceholderProperty, value); }
@@ -133,6 +218,11 @@ public class StrataChatComposer : TemplatedControl
     public string SuggestionA { get => GetValue(SuggestionAProperty); set => SetValue(SuggestionAProperty, value); }
     public string SuggestionB { get => GetValue(SuggestionBProperty); set => SetValue(SuggestionBProperty, value); }
     public string SuggestionC { get => GetValue(SuggestionCProperty); set => SetValue(SuggestionCProperty, value); }
+    public string? AgentName { get => GetValue(AgentNameProperty); set => SetValue(AgentNameProperty, value); }
+    public string AgentGlyph { get => GetValue(AgentGlyphProperty); set => SetValue(AgentGlyphProperty, value); }
+    public IEnumerable? SkillItems { get => GetValue(SkillItemsProperty); set => SetValue(SkillItemsProperty, value); }
+    public IEnumerable? AvailableAgents { get => GetValue(AvailableAgentsProperty); set => SetValue(AvailableAgentsProperty, value); }
+    public IEnumerable? AvailableSkills { get => GetValue(AvailableSkillsProperty); set => SetValue(AvailableSkillsProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -143,6 +233,21 @@ public class StrataChatComposer : TemplatedControl
 
         Wire(e, "PART_SendButton", () => HandleSendAction());
         Wire(e, "PART_AttachButton", () => RaiseEvent(new RoutedEventArgs(AttachRequestedEvent)));
+        Wire(e, "PART_MentionButton", () => ShowMentionPopup());
+        Wire(e, "PART_AgentRemoveButton", () => RaiseEvent(new RoutedEventArgs(AgentRemovedEvent)));
+        _chipsRow = e.NameScope.Find<WrapPanel>("PART_ChipsRow");
+        _autoCompletePopup = e.NameScope.Find<Popup>("PART_AutoCompletePopup");
+        _autoCompletePanel = e.NameScope.Find<StackPanel>("PART_AutoCompletePanel");
+        if (_autoCompletePopup is not null)
+        {
+            _autoCompletePopup.PlacementTarget = _input;
+            _autoCompletePopup.Closed += (_, _) =>
+            {
+                _triggerIndex = -1;
+                _autoCompleteSelectedIndex = -1;
+            };
+        }
+        RebuildSkillChips();
         Wire(e, "PART_ActionA", () => Fire(SuggestionA));
         Wire(e, "PART_ActionB", () => Fire(SuggestionB));
         Wire(e, "PART_ActionC", () => Fire(SuggestionC));
@@ -173,6 +278,34 @@ public class StrataChatComposer : TemplatedControl
 
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
+        if (_autoCompletePopup?.IsOpen == true)
+        {
+            switch (e.Key)
+            {
+                case Key.Down:
+                    MoveAutoCompleteSelection(1);
+                    e.Handled = true;
+                    return;
+                case Key.Up:
+                    MoveAutoCompleteSelection(-1);
+                    e.Handled = true;
+                    return;
+                case Key.Enter:
+                case Key.Tab:
+                    if (_autoCompleteEntries.Count > 0)
+                    {
+                        ConfirmAutoComplete();
+                        e.Handled = true;
+                        return;
+                    }
+                    break;
+                case Key.Escape:
+                    CloseAutoComplete();
+                    e.Handled = true;
+                    return;
+            }
+        }
+
         if (e.Key == Key.Enter && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         { e.Handled = true; HandleSendAction(); }
     }
@@ -182,6 +315,308 @@ public class StrataChatComposer : TemplatedControl
         if (IsBusy) { RaiseEvent(new RoutedEventArgs(StopRequestedEvent)); return; }
         if (string.IsNullOrWhiteSpace(PromptText)) return;
         RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
+    }
+
+    // ── Inline autocomplete ────────────────────────────────────────
+
+    private void ShowMentionPopup()
+    {
+        RaiseEvent(new RoutedEventArgs(MentionRequestedEvent));
+        if (_input is null) return;
+
+        var text = PromptText ?? "";
+        var caret = _input.CaretIndex;
+        var prefix = caret > 0 && caret <= text.Length && text[caret - 1] is not (' ' or '\n' or '\r')
+            ? " @" : "@";
+
+        _suppressAutoComplete = true;
+        PromptText = text.Insert(caret, prefix);
+        _suppressAutoComplete = false;
+
+        var newCaret = caret + prefix.Length;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_input is null) return;
+            _input.CaretIndex = newCaret;
+            _input.Focus();
+            _triggerIndex = newCaret - 1;
+            _triggerChar = '@';
+            ShowAutoCompleteItems("");
+        }, DispatcherPriority.Input);
+    }
+
+    private void CheckAutoComplete()
+    {
+        if (_suppressAutoComplete || _input is null || _autoCompletePopup is null)
+            return;
+
+        var text = PromptText ?? "";
+        var caret = _input.CaretIndex;
+
+        if (caret <= 0 || caret > text.Length)
+        {
+            CloseAutoComplete();
+            return;
+        }
+
+        for (var i = caret - 1; i >= 0; i--)
+        {
+            var ch = text[i];
+            if (ch is ' ' or '\n' or '\r')
+                break;
+
+            if (ch is '@' or '/')
+            {
+                if (i == 0 || text[i - 1] is ' ' or '\n' or '\r')
+                {
+                    _triggerIndex = i;
+                    _triggerChar = ch;
+                    var query = text.Substring(i + 1, caret - i - 1);
+                    ShowAutoCompleteItems(query);
+                    return;
+                }
+                break;
+            }
+        }
+
+        CloseAutoComplete();
+    }
+
+    private void ShowAutoCompleteItems(string query)
+    {
+        if (_autoCompletePanel is null || _autoCompletePopup is null)
+            return;
+
+        _autoCompletePanel.Children.Clear();
+        _autoCompleteEntries.Clear();
+        _autoCompleteSelectedIndex = -1;
+
+        var hasAgentSection = false;
+        var hasSkillSection = false;
+
+        if (_triggerChar == '@' && AvailableAgents is not null)
+        {
+            foreach (var item in AvailableAgents)
+            {
+                var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
+                if (!string.IsNullOrEmpty(query) &&
+                    !chip.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (chip.Name == AgentName) continue;
+
+                if (!hasAgentSection)
+                {
+                    _autoCompletePanel.Children.Add(CreateSectionHeader("Agents"));
+                    hasAgentSection = true;
+                }
+
+                var border = CreateAutoCompleteEntry(chip, true);
+                _autoCompletePanel.Children.Add(border);
+                _autoCompleteEntries.Add((border, chip, true));
+            }
+        }
+
+        if (_triggerChar == '/' && AvailableSkills is not null)
+        {
+            foreach (var item in AvailableSkills)
+            {
+                var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
+                if (!string.IsNullOrEmpty(query) &&
+                    !chip.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (IsAlreadyActiveSkill(chip)) continue;
+
+                if (!hasSkillSection)
+                {
+                    _autoCompletePanel.Children.Add(CreateSectionHeader("Skills"));
+                    hasSkillSection = true;
+                }
+
+                var border = CreateAutoCompleteEntry(chip, false);
+                _autoCompletePanel.Children.Add(border);
+                _autoCompleteEntries.Add((border, chip, false));
+            }
+        }
+
+        if (_autoCompleteEntries.Count == 0)
+        {
+            CloseAutoComplete();
+            return;
+        }
+
+        _autoCompleteSelectedIndex = 0;
+        UpdateAutoCompleteHighlight();
+        PositionPopupAtTrigger();
+        _autoCompletePopup.IsOpen = true;
+    }
+
+    private void PositionPopupAtTrigger()
+    {
+        if (_autoCompletePopup is null || _input is null || _triggerIndex < 0)
+            return;
+
+        var presenter = _input.GetVisualDescendants()
+            .OfType<TextPresenter>()
+            .FirstOrDefault();
+
+        if (presenter is null)
+            return;
+
+        try
+        {
+            var charRect = presenter.TextLayout.HitTestTextPosition(_triggerIndex);
+            // Translate from TextPresenter coords to the popup's PlacementTarget (_input)
+            var presenterOrigin = presenter.TranslatePoint(new Point(0, 0), _input);
+            var offsetX = (presenterOrigin?.X ?? 0) + charRect.Left;
+            var offsetY = (presenterOrigin?.Y ?? 0) + charRect.Bottom;
+            _autoCompletePopup.PlacementRect = new Rect(offsetX, offsetY, 1, 1);
+        }
+        catch
+        {
+            // Fallback: no custom placement, use default
+        }
+    }
+
+    private void CloseAutoComplete()
+    {
+        if (_autoCompletePopup is not null)
+            _autoCompletePopup.IsOpen = false;
+        _triggerIndex = -1;
+        _autoCompleteSelectedIndex = -1;
+    }
+
+    private void ConfirmAutoComplete()
+    {
+        if (_autoCompleteSelectedIndex < 0 || _autoCompleteSelectedIndex >= _autoCompleteEntries.Count)
+            return;
+
+        var (_, chip, isAgent) = _autoCompleteEntries[_autoCompleteSelectedIndex];
+
+        var text = PromptText ?? "";
+        var caret = _input?.CaretIndex ?? text.Length;
+        if (_triggerIndex >= 0 && _triggerIndex < text.Length && caret <= text.Length)
+        {
+            var removeLen = caret - _triggerIndex;
+            if (removeLen > 0)
+            {
+                var restoreCaret = _triggerIndex;
+                _suppressAutoComplete = true;
+                PromptText = text.Remove(_triggerIndex, removeLen);
+                if (_input is not null)
+                    _input.CaretIndex = restoreCaret;
+                _suppressAutoComplete = false;
+            }
+        }
+
+        if (isAgent)
+        {
+            AgentName = chip.Name;
+            AgentGlyph = chip.Glyph;
+        }
+        else
+        {
+            if (SkillItems is System.Collections.IList list && !IsAlreadyActiveSkill(chip))
+                list.Add(chip);
+        }
+
+        CloseAutoComplete();
+        _input?.Focus();
+    }
+
+    private void MoveAutoCompleteSelection(int delta)
+    {
+        if (_autoCompleteEntries.Count == 0) return;
+        _autoCompleteSelectedIndex = (_autoCompleteSelectedIndex + delta + _autoCompleteEntries.Count) % _autoCompleteEntries.Count;
+        UpdateAutoCompleteHighlight();
+    }
+
+    private void UpdateAutoCompleteHighlight()
+    {
+        for (var i = 0; i < _autoCompleteEntries.Count; i++)
+        {
+            var border = _autoCompleteEntries[i].Control;
+            if (i == _autoCompleteSelectedIndex)
+            {
+                if (!border.Classes.Contains("selected"))
+                    border.Classes.Add("selected");
+            }
+            else
+            {
+                border.Classes.Remove("selected");
+            }
+        }
+    }
+
+    private bool IsAlreadyActiveSkill(StrataComposerChip chip)
+    {
+        if (SkillItems is null) return false;
+        foreach (var item in SkillItems)
+        {
+            if (item is StrataComposerChip sc && sc.Name == chip.Name) return true;
+            if (item?.ToString() == chip.Name) return true;
+        }
+        return false;
+    }
+
+    private static Control CreateSectionHeader(string label)
+    {
+        var tb = new TextBlock { Text = label };
+        tb.Classes.Add("autocomplete-header");
+        return tb;
+    }
+
+    private Border CreateAutoCompleteEntry(StrataComposerChip chip, bool isAgent)
+    {
+        var glyph = new TextBlock { Text = chip.Glyph };
+        glyph.Classes.Add("autocomplete-glyph");
+
+        var name = new TextBlock { Text = chip.Name };
+        name.Classes.Add("autocomplete-name");
+
+        var kind = new TextBlock { Text = isAgent ? "Agent" : "Skill" };
+        kind.Classes.Add("autocomplete-kind");
+
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        panel.Children.Add(glyph);
+        panel.Children.Add(name);
+        panel.Children.Add(kind);
+
+        var border = new Border
+        {
+            Child = panel,
+            Cursor = new Cursor(StandardCursorType.Hand)
+        };
+        border.Classes.Add("autocomplete-item");
+
+        border.PointerPressed += (_, pe) =>
+        {
+            if (!pe.GetCurrentPoint(border).Properties.IsLeftButtonPressed) return;
+            for (var i = 0; i < _autoCompleteEntries.Count; i++)
+            {
+                if (_autoCompleteEntries[i].Control == border)
+                {
+                    _autoCompleteSelectedIndex = i;
+                    break;
+                }
+            }
+            ConfirmAutoComplete();
+            pe.Handled = true;
+        };
+
+        border.PointerEntered += (_, _) =>
+        {
+            for (var i = 0; i < _autoCompleteEntries.Count; i++)
+            {
+                if (_autoCompleteEntries[i].Control == border)
+                {
+                    _autoCompleteSelectedIndex = i;
+                    UpdateAutoCompleteHighlight();
+                    break;
+                }
+            }
+        };
+
+        return border;
     }
 
     private void Sync()
@@ -194,6 +629,102 @@ public class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":c-empty", string.IsNullOrWhiteSpace(SuggestionC));
         PseudoClasses.Set(":has-models", Models is not null);
         PseudoClasses.Set(":has-quality", QualityLevels is not null);
+        var hasAgent = !string.IsNullOrWhiteSpace(AgentName);
+        var hasSkills = HasAnySkills();
+        PseudoClasses.Set(":has-agent", hasAgent);
+        PseudoClasses.Set(":has-skills", hasSkills);
+        PseudoClasses.Set(":has-chips", hasAgent || hasSkills);
+    }
+
+    private bool HasAnySkills()
+    {
+        if (SkillItems is null) return false;
+        foreach (var _ in SkillItems) return true;
+        return false;
+    }
+
+    private void OnSkillItemsChanged()
+    {
+        if (_subscribedSkillCollection is not null)
+        {
+            _subscribedSkillCollection.CollectionChanged -= OnSkillCollectionChanged;
+            _subscribedSkillCollection = null;
+        }
+
+        if (SkillItems is INotifyCollectionChanged ncc)
+        {
+            ncc.CollectionChanged += OnSkillCollectionChanged;
+            _subscribedSkillCollection = ncc;
+        }
+
+        RebuildSkillChips();
+    }
+
+    private void OnSkillCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RebuildSkillChips();
+    }
+
+    private void RebuildSkillChips()
+    {
+        if (_chipsRow is null) return;
+
+        // Remove previous skill chips (PART_AgentChip stays at index 0)
+        while (_chipsRow.Children.Count > 1)
+            _chipsRow.Children.RemoveAt(_chipsRow.Children.Count - 1);
+
+        if (SkillItems is not null)
+        {
+            foreach (var item in SkillItems)
+                _chipsRow.Children.Add(CreateSkillChip(item));
+        }
+
+        Sync();
+    }
+
+    private Control CreateSkillChip(object item)
+    {
+        var name = item is StrataComposerChip c ? c.Name : item?.ToString() ?? "";
+        var glyph = item is StrataComposerChip sc ? sc.Glyph : "✦";
+
+        var glyphText = new TextBlock { Text = glyph };
+        glyphText.Classes.Add("chip-glyph");
+
+        var nameText = new TextBlock { Text = name };
+        nameText.Classes.Add("chip-name");
+
+        var removeIcon = new TextBlock { Text = "×" };
+        removeIcon.Classes.Add("chip-remove-icon");
+
+        var removeBtn = new Button
+        {
+            Width = 16, Height = 16,
+            Padding = new Thickness(0),
+            MinHeight = 0, MinWidth = 0,
+            CornerRadius = new CornerRadius(8),
+            VerticalAlignment = VerticalAlignment.Center,
+            Content = removeIcon,
+            Cursor = new Cursor(StandardCursorType.Hand)
+        };
+        removeBtn.Classes.Add("subtle");
+        removeBtn.Classes.Add("chip-remove");
+
+        var capturedItem = item;
+        removeBtn.Click += (_, _) =>
+            RaiseEvent(new ComposerChipRemovedEventArgs(SkillRemovedEvent, capturedItem));
+
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4
+        };
+        panel.Children.Add(glyphText);
+        panel.Children.Add(nameText);
+        panel.Children.Add(removeBtn);
+
+        var border = new Border { Child = panel };
+        border.Classes.Add("composer-skill-chip");
+        return border;
     }
 
     private void EnsureSelectedValues()

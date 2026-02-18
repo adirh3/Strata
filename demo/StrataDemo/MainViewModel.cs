@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using StrataDemo.Localization;
+using StrataTheme.Controls;
 
 namespace StrataDemo;
 
@@ -128,6 +129,30 @@ public class MainViewModel : INotifyPropertyChanged
         "High",
         "Extra High"
     };
+
+    public ObservableCollection<StrataComposerChip> AiSkills { get; } = new()
+    {
+        new StrataComposerChip("Code Search", "⌕"),
+        new StrataComposerChip("Web Browse", "⫶"),
+    };
+
+    public ObservableCollection<StrataComposerChip> AvailableAgents { get; } = new()
+    {
+        new StrataComposerChip("Code Reviewer", "◉"),
+        new StrataComposerChip("Bug Triager", "◎"),
+        new StrataComposerChip("Doc Writer", "◈"),
+    };
+
+    public ObservableCollection<StrataComposerChip> AvailableSkills { get; } = new()
+    {
+        new StrataComposerChip("Code Search", "⌕"),
+        new StrataComposerChip("Web Browse", "⫶"),
+        new StrataComposerChip("File Read", "📄"),
+        new StrataComposerChip("Terminal", "▸"),
+        new StrataComposerChip("Code Edit", "✎"),
+    };
+
+    public ObservableCollection<StrataComposerChip> LiveAiSkills { get; } = new();
 
     protected void OnPropertyChanged([CallerMemberName] string? name = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

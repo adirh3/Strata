@@ -76,6 +76,29 @@ public partial class MainWindow : Window
         {
             _liveComposer.SendRequested += OnLiveComposerSendRequested;
             _liveComposer.StopRequested += OnLiveComposerStopRequested;
+            _liveComposer.AgentRemoved += (s, _) =>
+            {
+                if (s is StrataChatComposer c) c.AgentName = null;
+            };
+            _liveComposer.SkillRemoved += (_, e) =>
+            {
+                if (DataContext is MainViewModel vm && e.Item is StrataComposerChip chip)
+                    vm.LiveAiSkills.Remove(chip);
+            };
+        }
+
+        var demoComposer = this.FindControl<StrataChatComposer>("DemoComposer");
+        if (demoComposer is not null)
+        {
+            demoComposer.AgentRemoved += (s, _) =>
+            {
+                if (s is StrataChatComposer c) c.AgentName = null;
+            };
+            demoComposer.SkillRemoved += (s, e) =>
+            {
+                if (DataContext is MainViewModel vm && e.Item is StrataComposerChip chip)
+                    vm.AiSkills.Remove(chip);
+            };
         }
     }
 

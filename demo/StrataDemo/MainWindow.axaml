@@ -748,11 +748,17 @@
                                     QualityLevels="{Binding AiQualityLevels}"
                                     SelectedQuality="High" />
 
-              <sc:StrataChatComposer Placeholder="What would you like to know?"
+              <sc:StrataChatComposer x:Name="DemoComposer"
+                                    Placeholder="What would you like to know?"
                                     Models="{Binding AiModels}"
                                     SelectedModel="GPT-5.3-Codex"
                                     QualityLevels="{Binding AiQualityLevels}"
                                     SelectedQuality="Extra High"
+                                    AgentName="Code Reviewer"
+                                    AgentGlyph="◉"
+                                    SkillItems="{Binding AiSkills}"
+                                    AvailableAgents="{Binding AvailableAgents}"
+                                    AvailableSkills="{Binding AvailableSkills}"
                                     SuggestionA="Summarize"
                                     SuggestionB="Root cause"
                                     SuggestionC="Action items" />
@@ -1388,6 +1394,9 @@
                                       SelectedModel="GPT-5.3-Codex"
                                       QualityLevels="{Binding AiQualityLevels}"
                                       SelectedQuality="Extra High"
+                                      AvailableAgents="{Binding AvailableAgents}"
+                                      AvailableSkills="{Binding AvailableSkills}"
+                                      SkillItems="{Binding LiveAiSkills}"
                                       SuggestionA="Summarize incident"
                                       SuggestionB="Draft status update"
                                       SuggestionC="Create rollout checklist" />
