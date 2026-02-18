@@ -15,7 +15,7 @@
         <Setter Property="Focusable" Value="True" />
         <Setter Property="Template">
           <ControlTemplate>
-            <StackPanel Name="PART_Root" Spacing="0" HorizontalAlignment="Stretch">
+            <StackPanel Name="PART_Root" Spacing="0" HorizontalAlignment="Stretch" Background="Transparent">
 
               <!-- Optional metadata row -->
               <StackPanel Name="PART_MetaRow" IsVisible="False" Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
@@ -116,58 +116,49 @@
               </Border>
 
               <!-- Hover action toolbar -->
-                    <Border Name="PART_ActionLayer"
-                      Background="Transparent"
+              <Border Name="PART_ActionLayer"
                       Margin="0,2,0,0"
-                      Padding="0,2,0,0"
-                      MinHeight="28">
+                      IsVisible="False">
                 <StackPanel Name="PART_ActionBar"
-                      Orientation="Horizontal"
-                      Spacing="0"
-                      IsVisible="False"
-                      Opacity="0">
-                  <StackPanel.Transitions>
-                    <Transitions>
-                      <DoubleTransition Property="Opacity" Duration="0:0:0.1" />
-                    </Transitions>
-                  </StackPanel.Transitions>
+                            Orientation="Horizontal"
+                            Spacing="0">
                   <Border Background="{DynamicResource Brush.Surface1}"
-                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="2,1">
+                          BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                          BorderThickness="1"
+                          CornerRadius="6"
+                          Padding="2,1">
                     <StackPanel Orientation="Horizontal" Spacing="0">
                       <Button Name="PART_CopyButton" Classes="subtle"
-                        Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                  <TextBlock Text="Copy" FontSize="11"
-                       Foreground="{DynamicResource Brush.TextTertiary}" />
+                              Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
+                        <TextBlock Text="Copy" FontSize="11"
+                                   Foreground="{DynamicResource Brush.TextTertiary}" />
                       </Button>
                       <Border Name="PART_EditSep" Width="1" Margin="2,3"
-                        Background="{DynamicResource Brush.BorderSubtle}" />
+                              Background="{DynamicResource Brush.BorderSubtle}" />
                       <Button Name="PART_EditButton" Classes="subtle"
-                        Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                  <TextBlock Text="Edit" FontSize="11"
-                       Foreground="{DynamicResource Brush.TextTertiary}" />
+                              Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
+                        <TextBlock Text="Edit" FontSize="11"
+                                   Foreground="{DynamicResource Brush.TextTertiary}" />
                       </Button>
                       <Border Width="1" Margin="2,3"
-                        Background="{DynamicResource Brush.BorderSubtle}" />
+                              Background="{DynamicResource Brush.BorderSubtle}" />
                       <Button Name="PART_RegenerateButton" Classes="subtle"
-                        Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                  <TextBlock Text="Retry" FontSize="11"
-                       Foreground="{DynamicResource Brush.TextTertiary}" />
+                              Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
+                        <TextBlock Text="Retry" FontSize="11"
+                                   Foreground="{DynamicResource Brush.TextTertiary}" />
                       </Button>
                     </StackPanel>
                   </Border>
 
                   <TextBlock Name="PART_StatusText"
-                       IsVisible="False"
-                       Text="{TemplateBinding StatusText}"
-                       FontSize="11"
-                       Foreground="{DynamicResource Brush.TextTertiary}"
-                       VerticalAlignment="Center"
-                       Margin="8,0,0,0" />
+                             IsVisible="False"
+                             Text="{TemplateBinding StatusText}"
+                             FontSize="11"
+                             Foreground="{DynamicResource Brush.TextTertiary}"
+                             VerticalAlignment="Center"
+                             Margin="8,0,0,0" />
                 </StackPanel>
-                    </Border>
+              </Border>
 
             </StackPanel>
           </ControlTemplate>
@@ -180,17 +171,11 @@
           <Setter Property="RenderTransform" Value="scale(0.995)" />
         </Style>
 
-        <Style Selector="^:pointerover /template/ StackPanel#PART_ActionBar">
+        <Style Selector="^:pointerover /template/ Border#PART_ActionLayer">
           <Setter Property="IsVisible" Value="True" />
-          <Setter Property="Opacity" Value="1" />
         </Style>
-        <Style Selector="^:focus-within /template/ StackPanel#PART_ActionBar">
+        <Style Selector="^:focus-within /template/ Border#PART_ActionLayer">
           <Setter Property="IsVisible" Value="True" />
-          <Setter Property="Opacity" Value="1" />
-        </Style>
-        <Style Selector="^ /template/ Border#PART_ActionLayer:pointerover StackPanel#PART_ActionBar">
-          <Setter Property="IsVisible" Value="True" />
-          <Setter Property="Opacity" Value="1" />
         </Style>
 
         <!-- Meta + status visibility -->
@@ -214,7 +199,7 @@
         <Style Selector="^:editing /template/ Border#PART_EditArea">
           <Setter Property="IsVisible" Value="True" />
         </Style>
-        <Style Selector="^:editing /template/ StackPanel#PART_ActionBar">
+        <Style Selector="^:editing /template/ Border#PART_ActionLayer">
           <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:editing /template/ Border#PART_StreamBar">
@@ -261,7 +246,7 @@
         <Style Selector="^:system /template/ Border#PART_Bubble">
           <Setter Property="Padding" Value="0,4,0,4" />
         </Style>
-        <Style Selector="^:system /template/ StackPanel#PART_ActionBar">
+        <Style Selector="^:system /template/ Border#PART_ActionLayer">
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
