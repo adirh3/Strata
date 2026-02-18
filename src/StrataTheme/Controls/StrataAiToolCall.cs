@@ -35,12 +35,14 @@ public enum StrataAiToolCallStatus
 ///                             MoreInfo="Found 12 results" /&gt;
 /// </code>
 /// <para><b>Template parts:</b> PART_Header (Border), PART_StateDot (Border), PART_Detail (Border).</para>
-/// <para><b>Pseudo-classes:</b> :expanded, :inprogress, :completed, :failed, :has-params, :has-info.</para>
+/// <para><b>Pseudo-classes:</b> :expanded, :inprogress, :completed, :failed, :has-params, :has-info, :has-duration.</para>
 /// </remarks>
 public class StrataAiToolCall : TemplatedControl
 {
     private Border? _header;
     private Border? _stateDot;
+    private StrataMarkdown? _inputMarkdown;
+    private StrataMarkdown? _infoMarkdown;
 
     /// <summary>Name of the tool being invoked (e.g. "search_code").</summary>
     public static readonly StyledProperty<string> ToolNameProperty =
@@ -126,8 +128,8 @@ public class StrataAiToolCall : TemplatedControl
     };
 
     public string DurationText => DurationMs >= 1000
-        ? $"{DurationMs / 1000d:F2}s"
-        : $"{DurationMs:F0} ms";
+        ? $"Duration \u00b7 {DurationMs / 1000d:F2}s"
+        : $"Duration \u00b7 {DurationMs:F0} ms";
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -135,6 +137,8 @@ public class StrataAiToolCall : TemplatedControl
 
         _header = e.NameScope.Find<Border>("PART_Header");
         _stateDot = e.NameScope.Find<Border>("PART_StateDot");
+        _inputMarkdown = e.NameScope.Find<StrataMarkdown>("PART_InputMarkdown");
+        _infoMarkdown = e.NameScope.Find<StrataMarkdown>("PART_InfoMarkdown");
 
         if (_header is not null)
         {
@@ -191,6 +195,12 @@ public class StrataAiToolCall : TemplatedControl
         PseudoClasses.Set(":expanded", IsExpanded);
         PseudoClasses.Set(":has-params", !string.IsNullOrWhiteSpace(InputParameters));
         PseudoClasses.Set(":has-info", !string.IsNullOrWhiteSpace(MoreInfo));
+        PseudoClasses.Set(":has-duration", DurationMs > 0);
+
+        if (_inputMarkdown is not null)
+            _inputMarkdown.Markdown = InputParameters ?? "";
+        if (_infoMarkdown is not null)
+            _infoMarkdown.Markdown = MoreInfo ?? "";
 
         if (Status == StrataAiToolCallStatus.InProgress)
             StartRunningPulse();

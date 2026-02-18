@@ -6,10 +6,9 @@
     <ResourceDictionary>
       <ControlTheme x:Key="{x:Type controls:StrataAiToolCall}" TargetType="controls:StrataAiToolCall">
         <Setter Property="Focusable" Value="True" />
-        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="VerticalAlignment" Value="Top" />
         <Setter Property="MinWidth" Value="220" />
-        <Setter Property="MaxWidth" Value="320" />
         <Setter Property="Template">
           <ControlTemplate>
             <Panel>
@@ -21,7 +20,6 @@
                       IsHitTestVisible="False" />
 
               <Border Name="PART_Root"
-                      Width="260"
                       Background="{DynamicResource Brush.Surface0}"
                       BorderBrush="{DynamicResource Brush.BorderSubtle}"
                       BorderThickness="1"
@@ -32,7 +30,6 @@
                     <BrushTransition Property="Background" Duration="0:0:0.14" />
                     <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
                     <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
-                    <DoubleTransition Property="Width" Duration="0:0:0.24" Easing="CubicEaseOut" />
                   </Transitions>
                 </Border.Transitions>
 
@@ -46,7 +43,7 @@
                           Cursor="Hand"
                           Padding="10,6"
                           Background="Transparent">
-                    <Grid ColumnDefinitions="Auto,8,*,8,Auto">
+                    <Grid ColumnDefinitions="Auto,8,*,8,Auto,6,Auto">
                       <Border Name="PART_StateDot"
                               Width="6" Height="6"
                               CornerRadius="3"
@@ -71,6 +68,14 @@
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource Brush.AccentDefault}" />
                       </Border>
+
+                      <TextBlock Name="PART_HeaderDuration"
+                                 Grid.Column="6"
+                                 Text="{Binding DurationText, RelativeSource={RelativeSource TemplatedParent}}"
+                                 FontSize="10"
+                                 VerticalAlignment="Center"
+                                 IsVisible="False"
+                                 Foreground="{DynamicResource Brush.TextTertiary}" />
                     </Grid>
                   </Border>
 
@@ -89,6 +94,8 @@
                       </Transitions>
                     </Border.Transitions>
 
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="8">
                       <Border Name="PART_Input"
                               IsVisible="False"
@@ -100,10 +107,8 @@
                                      FontSize="10.5"
                                      FontWeight="SemiBold"
                                      Foreground="{DynamicResource Brush.TextTertiary}" />
-                          <TextBlock Text="{TemplateBinding InputParameters}"
-                                     FontSize="11.5"
-                                     TextWrapping="Wrap"
-                                     Foreground="{DynamicResource Brush.TextSecondary}" />
+                          <controls:StrataMarkdown Name="PART_InputMarkdown"
+                                                   IsInline="True" />
                         </StackPanel>
                       </Border>
 
@@ -117,17 +122,13 @@
                                      FontSize="10.5"
                                      FontWeight="SemiBold"
                                      Foreground="{DynamicResource Brush.TextTertiary}" />
-                          <TextBlock Text="{TemplateBinding MoreInfo}"
-                                     FontSize="11.5"
-                                     TextWrapping="Wrap"
-                                     Foreground="{DynamicResource Brush.TextSecondary}" />
+                          <controls:StrataMarkdown Name="PART_InfoMarkdown"
+                                                   IsInline="True" />
                         </StackPanel>
                       </Border>
 
-                      <TextBlock Text="{Binding DurationText, RelativeSource={RelativeSource TemplatedParent}, StringFormat='Duration · {0}'}"
-                                 FontSize="10.5"
-                                 Foreground="{DynamicResource Brush.TextTertiary}" />
                     </StackPanel>
+                    </ScrollViewer>
                   </Border>
                 </StackPanel>
               </Border>
@@ -136,7 +137,7 @@
         </Setter>
 
         <Style Selector="^:expanded /template/ Border#PART_Detail">
-          <Setter Property="MaxHeight" Value="420" />
+          <Setter Property="MaxHeight" Value="600" />
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
         </Style>
@@ -146,6 +147,10 @@
         </Style>
 
         <Style Selector="^:has-info /template/ Border#PART_Info">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:has-duration /template/ TextBlock#PART_HeaderDuration">
           <Setter Property="IsVisible" Value="True" />
         </Style>
 
