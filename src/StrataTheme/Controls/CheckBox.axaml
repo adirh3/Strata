@@ -34,7 +34,6 @@
                       <BrushTransition Property="Background" Duration="0:0:0.167" />
                       <BrushTransition Property="BorderBrush" Duration="0:0:0.167" />
                       <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
-                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
                     </Transitions>
                   </Border.Transitions>
                   <Panel>
