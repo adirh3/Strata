@@ -96,12 +96,11 @@
                               CornerRadius="6"
                               Padding="10,8">
                         <StackPanel Spacing="4">
-                          <TextBlock Text="Input parameters"
+                          <TextBlock Text="Details"
                                      FontSize="10.5"
                                      FontWeight="SemiBold"
                                      Foreground="{DynamicResource Brush.TextTertiary}" />
                           <TextBlock Text="{TemplateBinding InputParameters}"
-                                     FontFamily="{DynamicResource Font.FamilyMono}"
                                      FontSize="11.5"
                                      TextWrapping="Wrap"
                                      Foreground="{DynamicResource Brush.TextSecondary}" />
