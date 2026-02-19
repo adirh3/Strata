@@ -100,7 +100,7 @@ public class StrataMarkdown : ContentControl
 
         _contentHost = new StackPanel
         {
-            Spacing = 8,
+            Spacing = 10,
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
 
@@ -228,10 +228,26 @@ public class StrataMarkdown : ContentControl
                 continue;
             }
 
+            var indentLevel = GetIndentLevel(line);
+
             if (TryParseBullet(line, out var bulletText))
             {
                 FlushParagraph(paragraphBuffer);
-                AddBullet(bulletText);
+                AddBullet(bulletText, indentLevel);
+                continue;
+            }
+
+            if (TryParseNumberedItem(line, out var number, out var numText))
+            {
+                FlushParagraph(paragraphBuffer);
+                AddNumberedItem(number, numText, indentLevel);
+                continue;
+            }
+
+            if (IsHorizontalRule(line))
+            {
+                FlushParagraph(paragraphBuffer);
+                AddHorizontalRule();
                 continue;
             }
 
@@ -276,16 +292,20 @@ public class StrataMarkdown : ContentControl
             _bodyFontSize * 1.6,
             TextWrapping.Wrap);
         heading.FontWeight = FontWeight.SemiBold;
-        heading.Margin = new Thickness(0, level == 1 ? 6 : 2, 0, 2);
+        var topMargin = _contentHost.Children.Count > 0
+            ? level switch { 1 => 14, 2 => 10, _ => 6 }
+            : 0;
+        heading.Margin = new Thickness(0, topMargin, 0, 2);
         heading.Classes.Add("strata-md-heading");
         _contentHost.Children.Add(heading);
     }
 
-    private void AddBullet(string text)
+    private void AddBullet(string text, int indentLevel = 0)
     {
         var row = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto,8,*")
+            ColumnDefinitions = new ColumnDefinitions("Auto,8,*"),
+            Margin = new Thickness(indentLevel * 16, 0, 0, 0)
         };
 
         var dot = new Border
@@ -657,5 +677,87 @@ public class StrataMarkdown : ContentControl
         }
 
         return false;
+    }
+
+    private static bool TryParseNumberedItem(string line, out int number, out string text)
+    {
+        number = 0;
+        text = string.Empty;
+        var trimmed = line.TrimStart();
+
+        var dotIndex = trimmed.IndexOf(". ", StringComparison.Ordinal);
+        if (dotIndex is < 1 or > 3) return false;
+        if (!int.TryParse(trimmed[..dotIndex], out number))
+            return false;
+
+        text = trimmed[(dotIndex + 2)..].Trim();
+        return !string.IsNullOrWhiteSpace(text);
+    }
+
+    private static bool IsHorizontalRule(string line)
+    {
+        var trimmed = line.Trim();
+        var withoutSpaces = trimmed.Replace(" ", "");
+        if (withoutSpaces.Length < 3) return false;
+
+        var first = withoutSpaces[0];
+        if (first is not ('-' or '*' or '_')) return false;
+
+        foreach (var c in withoutSpaces)
+            if (c != first) return false;
+
+        return true;
+    }
+
+    private static int GetIndentLevel(string line)
+    {
+        var spaces = 0;
+        foreach (var c in line)
+        {
+            if (c == ' ') spaces++;
+            else if (c == '\t') spaces += 4;
+            else break;
+        }
+        return Math.Min(spaces / 2, 3);
+    }
+
+    private void AddNumberedItem(int number, string text, int indentLevel = 0)
+    {
+        var row = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,6,*"),
+            Margin = new Thickness(indentLevel * 16, 0, 0, 0)
+        };
+
+        var numBlock = new SelectableTextBlock
+        {
+            Text = $"{number}.",
+            FontSize = _bodyFontSize,
+            LineHeight = _bodyFontSize * 1.52,
+            VerticalAlignment = VerticalAlignment.Top
+        };
+        numBlock.Classes.Add("strata-md-number");
+
+        var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
+        textBlock.Classes.Add("strata-md-bullet-text");
+
+        Grid.SetColumn(numBlock, 0);
+        Grid.SetColumn(textBlock, 2);
+        row.Children.Add(numBlock);
+        row.Children.Add(textBlock);
+
+        _contentHost.Children.Add(row);
+    }
+
+    private void AddHorizontalRule()
+    {
+        var rule = new Border
+        {
+            Height = 1,
+            Margin = new Thickness(0, 4, 0, 4),
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        rule.Classes.Add("strata-md-hr");
+        _contentHost.Children.Add(rule);
     }
 }

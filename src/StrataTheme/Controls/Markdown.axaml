@@ -36,6 +36,17 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
 
+  <Style Selector="TextBlock.strata-md-number">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="SelectableTextBlock.strata-md-number">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+
+  <Style Selector="Border.strata-md-hr">
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
+  </Style>
+
   <Style Selector="Button.strata-md-link">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
