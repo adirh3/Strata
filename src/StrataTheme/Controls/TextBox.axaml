@@ -41,35 +41,45 @@
                              Foreground="{DynamicResource Brush.TextTertiary}"
                              Margin="12,4,12,0" />
                   <DataValidationErrors>
-                    <Panel>
-                      <TextBlock Name="PART_Watermark"
-                                 Text="{TemplateBinding Watermark}"
-                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                 IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                                 IsHitTestVisible="False"
-                                 VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                 Margin="{TemplateBinding Padding}" />
-                      <ScrollViewer HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
-                                    VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
-                        <TextPresenter Name="PART_TextPresenter"
-                                       Text="{TemplateBinding Text, Mode=TwoWay}"
-                                       CaretBrush="{TemplateBinding CaretBrush}"
-                                       CaretIndex="{TemplateBinding CaretIndex}"
-                                       SelectionStart="{TemplateBinding SelectionStart}"
-                                       SelectionEnd="{TemplateBinding SelectionEnd}"
-                                       SelectionBrush="{TemplateBinding SelectionBrush}"
-                                       SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
-                                       TextAlignment="{TemplateBinding TextAlignment}"
-                                       TextWrapping="{TemplateBinding TextWrapping}"
-                                       PasswordChar="{TemplateBinding PasswordChar}"
-                                       RevealPassword="{TemplateBinding RevealPassword}"
-                                       LetterSpacing="{TemplateBinding LetterSpacing}"
-                                       LineHeight="{TemplateBinding LineHeight}"
-                                       Margin="{TemplateBinding Padding}"
-                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
-                      </ScrollViewer>
-                    </Panel>
+                    <DockPanel>
+                      <ContentPresenter DockPanel.Dock="Left"
+                                        Content="{TemplateBinding InnerLeftContent}"
+                                        IsVisible="{TemplateBinding InnerLeftContent, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                        VerticalAlignment="Center" />
+                      <ContentPresenter DockPanel.Dock="Right"
+                                        Content="{TemplateBinding InnerRightContent}"
+                                        IsVisible="{TemplateBinding InnerRightContent, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                        VerticalAlignment="Center" />
+                      <Panel>
+                        <TextBlock Name="PART_Watermark"
+                                   Text="{TemplateBinding Watermark}"
+                                   Foreground="{DynamicResource Brush.TextTertiary}"
+                                   IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                   IsHitTestVisible="False"
+                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                   Margin="{TemplateBinding Padding}" />
+                        <ScrollViewer HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
+                                      VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
+                          <TextPresenter Name="PART_TextPresenter"
+                                         Text="{TemplateBinding Text, Mode=TwoWay}"
+                                         CaretBrush="{TemplateBinding CaretBrush}"
+                                         CaretIndex="{TemplateBinding CaretIndex}"
+                                         SelectionStart="{TemplateBinding SelectionStart}"
+                                         SelectionEnd="{TemplateBinding SelectionEnd}"
+                                         SelectionBrush="{TemplateBinding SelectionBrush}"
+                                         SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                                         TextAlignment="{TemplateBinding TextAlignment}"
+                                         TextWrapping="{TemplateBinding TextWrapping}"
+                                         PasswordChar="{TemplateBinding PasswordChar}"
+                                         RevealPassword="{TemplateBinding RevealPassword}"
+                                         LetterSpacing="{TemplateBinding LetterSpacing}"
+                                         LineHeight="{TemplateBinding LineHeight}"
+                                         Margin="{TemplateBinding Padding}"
+                                         VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                         HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                        </ScrollViewer>
+                      </Panel>
+                    </DockPanel>
                   </DataValidationErrors>
                 </DockPanel>
               </Border>
