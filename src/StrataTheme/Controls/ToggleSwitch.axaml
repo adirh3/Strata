@@ -4,6 +4,7 @@
     <ResourceDictionary>
 
       <ControlTheme x:Key="{x:Type ToggleSwitch}" TargetType="ToggleSwitch">
+        <Setter Property="Transitions" Value="{x:Null}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
         <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
@@ -22,16 +23,7 @@
                         Background="{DynamicResource Brush.ControlPressed}"
                         BorderBrush="{DynamicResource Brush.BorderStrong}"
                         BorderThickness="1"
-                        BoxShadow="0 0 0 0 #00000000">
-                  <Border.Transitions>
-                    <Transitions>
-                      <BrushTransition Duration="0:0:0.15" Property="BorderBrush" />
-                      <BrushTransition Duration="0:0:0.15" Property="Background" />
-                      <DoubleTransition Duration="0:0:0.15" Property="Opacity" />
-                      <BoxShadowsTransition Duration="0:0:0.2" Property="BoxShadow" />
-                    </Transitions>
-                  </Border.Transitions>
-                </Border>
+                        BoxShadow="0 0 0 0 #00000000" />
 
                 <!-- On track (visible when checked) -->
                 <Border x:Name="SwitchKnobBounds"
@@ -42,17 +34,7 @@
                         Opacity="0"
                         RenderTransformOrigin="0.5,0.5"
                         RenderTransform="scaleX(0.96) scaleY(0.96)"
-                        BoxShadow="0 0 0 0 #00000000">
-                  <Border.Transitions>
-                    <Transitions>
-                      <BrushTransition Duration="0:0:0.15" Property="BorderBrush" />
-                      <BrushTransition Duration="0:0:0.15" Property="Background" />
-                      <DoubleTransition Duration="0:0:0.15" Property="Opacity" />
-                      <TransformOperationsTransition Duration="0:0:0.4" Property="RenderTransform" Easing="0.34,1.56,0.64,1" />
-                      <BoxShadowsTransition Duration="0:0:0.2" Property="BoxShadow" />
-                    </Transitions>
-                  </Border.Transitions>
-                </Border>
+                        BoxShadow="0 0 0 0 #00000000" />
 
                 <Border x:Name="SwitchFlash"
                         Width="40"
@@ -62,14 +44,7 @@
                         Opacity="0"
                         RenderTransformOrigin="0.5,0.5"
                         RenderTransform="scaleX(0.7)"
-                        IsHitTestVisible="False">
-                  <Border.Transitions>
-                    <Transitions>
-                      <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
-                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.35" Easing="0.34,1.56,0.64,1" />
-                    </Transitions>
-                  </Border.Transitions>
-                </Border>
+                        IsHitTestVisible="False" />
 
                 <!-- Knob canvas — the control sets Canvas.Left on PART_MovingKnobs -->
                 <Canvas x:Name="PART_SwitchKnob"
@@ -80,35 +55,13 @@
                         Height="20"
                         RenderTransformOrigin="0.5,0.5"
                         RenderTransform="scaleX(1) scaleY(1)">
-                    <Grid.Transitions>
-                      <Transitions>
-                        <DoubleTransition Property="Canvas.Left" Duration="0:0:0.28" Easing="0.2,0 0,1" />
-                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.45" Easing="0.34,1.56,0.64,1" />
-                      </Transitions>
-                    </Grid.Transitions>
                     <Ellipse x:Name="SwitchKnobOff"
                              Fill="{DynamicResource Brush.TextSecondary}"
-                             Width="12" Height="12">
-                      <Ellipse.Transitions>
-                        <Transitions>
-                          <DoubleTransition Duration="0:0:0.167" Easing="0,0 0,1" Property="Width" />
-                          <DoubleTransition Duration="0:0:0.167" Easing="0,0 0,1" Property="Height" />
-                          <DoubleTransition Duration="0:0:0.12" Property="Opacity" />
-                        </Transitions>
-                      </Ellipse.Transitions>
-                    </Ellipse>
+                             Width="12" Height="12" />
                     <Ellipse x:Name="SwitchKnobOn"
                              Fill="White"
                              Width="12" Height="12"
-                             Opacity="0">
-                      <Ellipse.Transitions>
-                        <Transitions>
-                          <DoubleTransition Duration="0:0:0.167" Easing="0,0 0,1" Property="Width" />
-                          <DoubleTransition Duration="0:0:0.167" Easing="0,0 0,1" Property="Height" />
-                          <DoubleTransition Duration="0:0:0.12" Property="Opacity" />
-                        </Transitions>
-                      </Ellipse.Transitions>
-                    </Ellipse>
+                             Opacity="0" />
                   </Grid>
                 </Canvas>
               </Grid>
@@ -138,27 +91,10 @@
                                 ContentTemplate="{TemplateBinding ContentTemplate}"
                                 VerticalAlignment="Center"
                                 RenderTransformOrigin="0,0.5"
-                                RenderTransform="translateX(0px)">
-                <ContentPresenter.Transitions>
-                  <Transitions>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
-                  </Transitions>
-                </ContentPresenter.Transitions>
-              </ContentPresenter>
+                                RenderTransform="translateX(0px)" />
             </Grid>
           </ControlTemplate>
         </Setter>
-
-        <!-- Smooth knob slide when not dragging -->
-        <Style Selector="^:not(:dragging) /template/ Grid#PART_MovingKnobs">
-          <Setter Property="Transitions">
-            <Transitions>
-              <DoubleTransition Property="Canvas.Left" Duration="0:0:0.3" Easing="0.2,0 0,1" />
-              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.45" Easing="0.34,1.56,0.64,1" />
-            </Transitions>
-          </Setter>
-        </Style>
 
         <!-- Hover: knob grows -->
         <Style Selector="^:pointerover">

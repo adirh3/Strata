@@ -99,6 +99,10 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<bool> IsBusyProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsBusy));
 
+    /// <summary>When true, Enter sends and Shift+Enter inserts newline. When false, Ctrl+Enter sends.</summary>
+    public static readonly StyledProperty<bool> SendWithEnterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(SendWithEnter), true);
+
     /// <summary>Whether to show the attach (+) button.</summary>
     public static readonly StyledProperty<bool> CanAttachProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanAttach), true);
@@ -172,6 +176,7 @@ public class StrataChatComposer : TemplatedControl
             Dispatcher.UIThread.Post(() => c.CheckAutoComplete(), DispatcherPriority.Input);
         });
         IsBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        SendWithEnterProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanAttachProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SuggestionAProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SuggestionBProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
@@ -214,6 +219,7 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? QualityLevels { get => GetValue(QualityLevelsProperty); set => SetValue(QualityLevelsProperty, value); }
     public object? SelectedQuality { get => GetValue(SelectedQualityProperty); set => SetValue(SelectedQualityProperty, value); }
     public bool IsBusy { get => GetValue(IsBusyProperty); set => SetValue(IsBusyProperty, value); }
+    public bool SendWithEnter { get => GetValue(SendWithEnterProperty); set => SetValue(SendWithEnterProperty, value); }
     public bool CanAttach { get => GetValue(CanAttachProperty); set => SetValue(CanAttachProperty, value); }
     public string SuggestionA { get => GetValue(SuggestionAProperty); set => SetValue(SuggestionAProperty, value); }
     public string SuggestionB { get => GetValue(SuggestionBProperty); set => SetValue(SuggestionBProperty, value); }
@@ -306,8 +312,25 @@ public class StrataChatComposer : TemplatedControl
             }
         }
 
-        if (e.Key == Key.Enter && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-        { e.Handled = true; HandleSendAction(); }
+        if (e.Key == Key.Enter)
+        {
+            var isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            var isCtrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+
+            if (SendWithEnter)
+            {
+                if (!isShift)
+                {
+                    e.Handled = true;
+                    HandleSendAction();
+                }
+            }
+            else if (isCtrl)
+            {
+                e.Handled = true;
+                HandleSendAction();
+            }
+        }
     }
 
     private void HandleSendAction()

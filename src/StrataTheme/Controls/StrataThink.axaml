@@ -14,7 +14,7 @@
                     BorderBrush="{DynamicResource Brush.ControlElevationBorder}"
                     BorderThickness="{DynamicResource Stroke.Thin}"
                     CornerRadius="{DynamicResource Radius.Base}"
-                    Padding="10,6,10,6"
+                  Padding="12,7,12,7"
                     BoxShadow="0 1 2 0 #0A000000"
                     HorizontalAlignment="Left">
               <Border.Transitions>
@@ -66,7 +66,9 @@
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                                   VerticalScrollBarVisibility="Auto"
                                   MaxHeight="480">
-                      <ContentPresenter Content="{TemplateBinding Content}" />
+                      <Border Padding="0,0,2,0">
+                        <ContentPresenter Content="{TemplateBinding Content}" />
+                      </Border>
                     </ScrollViewer>
                   </StackPanel>
                 </Border>
