@@ -40,12 +40,16 @@ public class StrataSetting : TemplatedControl
     public static readonly StyledProperty<bool> ShowSeparatorProperty =
         AvaloniaProperty.Register<StrataSetting, bool>(nameof(ShowSeparator));
 
+    public static readonly StyledProperty<bool> IsHighlightedProperty =
+        AvaloniaProperty.Register<StrataSetting, bool>(nameof(IsHighlighted));
+
     public static readonly RoutedEvent<RoutedEventArgs> RevertedEvent =
         RoutedEvent.Register<StrataSetting, RoutedEventArgs>(nameof(Reverted), RoutingStrategies.Bubble);
 
     static StrataSetting()
     {
         IsModifiedProperty.Changed.AddClassHandler<StrataSetting>((s, _) => s.UpdatePseudoClasses());
+        IsHighlightedProperty.Changed.AddClassHandler<StrataSetting>((s, _) => s.UpdatePseudoClasses());
     }
 
     /// <summary>The setting name displayed as the primary label.</summary>
@@ -84,6 +88,13 @@ public class StrataSetting : TemplatedControl
         set => SetValue(ShowSeparatorProperty, value);
     }
 
+    /// <summary>Highlights the setting with an accent background, used for search matches.</summary>
+    public bool IsHighlighted
+    {
+        get => GetValue(IsHighlightedProperty);
+        set => SetValue(IsHighlightedProperty, value);
+    }
+
     /// <summary>Raised when the user clicks the revert button.</summary>
     public event EventHandler<RoutedEventArgs>? Reverted
     {
@@ -117,5 +128,6 @@ public class StrataSetting : TemplatedControl
     private void UpdatePseudoClasses()
     {
         PseudoClasses.Set(":modified", IsModified);
+        PseudoClasses.Set(":highlighted", IsHighlighted);
     }
 }

@@ -17,10 +17,25 @@
                       IsVisible="{TemplateBinding ShowSeparator}" />
 
               <!-- Setting row -->
-              <Grid ColumnDefinitions="*,Auto"
+              <Grid ColumnDefinitions="Auto,*,Auto"
                     MinHeight="{DynamicResource Size.ControlHeightM}">
+
+                <!-- Highlight accent bar (left edge indicator for search) -->
+                <Border Name="PART_HighlightBar"
+                        Grid.Column="0"
+                        Width="3" CornerRadius="2"
+                        Margin="0,2,8,2"
+                        Opacity="0"
+                        Background="{DynamicResource Brush.AccentDefault}">
+                  <Border.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Border.Transitions>
+                </Border>
+
                 <!-- Header + description + inline revert -->
-                <StackPanel Grid.Column="0"
+                <StackPanel Grid.Column="1"
                             VerticalAlignment="Center"
                             Spacing="2"
                             Margin="0,0,16,0">
@@ -66,7 +81,7 @@
                 </StackPanel>
 
                 <!-- Setting control -->
-                <ContentPresenter Grid.Column="1"
+                <ContentPresenter Grid.Column="2"
                                   Content="{TemplateBinding SettingContent}"
                                   VerticalAlignment="Center" />
               </Grid>
@@ -83,6 +98,14 @@
 
         <!-- Modified: accent the header text -->
         <Style Selector="^:modified /template/ TextBlock#PART_HeaderText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <!-- Highlighted: search match accent bar + header color -->
+        <Style Selector="^:highlighted /template/ Border#PART_HighlightBar">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:highlighted /template/ TextBlock#PART_HeaderText">
           <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
         </Style>
       </ControlTheme>
