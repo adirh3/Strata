@@ -6,6 +6,8 @@ using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace StrataTheme.Controls;
 
@@ -41,8 +43,10 @@ public class StrataAiToolCall : TemplatedControl
 {
     private Border? _header;
     private Border? _stateDot;
+    private Border? _root;
     private StrataMarkdown? _inputMarkdown;
     private StrataMarkdown? _infoMarkdown;
+    private ContextMenu? _contextMenu;
 
     /// <summary>Name of the tool being invoked (e.g. "search_code").</summary>
     public static readonly StyledProperty<string> ToolNameProperty =
@@ -137,6 +141,7 @@ public class StrataAiToolCall : TemplatedControl
 
         _header = e.NameScope.Find<Border>("PART_Header");
         _stateDot = e.NameScope.Find<Border>("PART_StateDot");
+        _root = e.NameScope.Find<Border>("PART_Root");
         _inputMarkdown = e.NameScope.Find<StrataMarkdown>("PART_InputMarkdown");
         _infoMarkdown = e.NameScope.Find<StrataMarkdown>("PART_InfoMarkdown");
 
@@ -151,6 +156,8 @@ public class StrataAiToolCall : TemplatedControl
                 }
             };
         }
+
+        AttachContextMenu();
 
         UpdateState();
 
@@ -206,6 +213,81 @@ public class StrataAiToolCall : TemplatedControl
             StartRunningPulse();
         else
             StopRunningPulse();
+    }
+
+    private void AttachContextMenu()
+    {
+        if (_root is null)
+            return;
+
+        _contextMenu ??= new ContextMenu();
+        _contextMenu.Opening -= OnContextMenuOpening;
+        _contextMenu.Opening += OnContextMenuOpening;
+
+        RebuildContextMenuItems();
+        _root.ContextMenu = _contextMenu;
+    }
+
+    private void OnContextMenuOpening(object? sender, EventArgs e)
+    {
+        RebuildContextMenuItems();
+    }
+
+    private void RebuildContextMenuItems()
+    {
+        if (_contextMenu is null)
+            return;
+
+        var items = new List<object>();
+
+        var copySummaryItem = new MenuItem { Header = "Copy summary" };
+        copySummaryItem.Click += async (_, _) => await CopyToClipboardAsync(GetSummaryText());
+        items.Add(copySummaryItem);
+
+        if (!string.IsNullOrWhiteSpace(InputParameters))
+        {
+            var copyDetailsItem = new MenuItem { Header = "Copy details" };
+            copyDetailsItem.Click += async (_, _) => await CopyToClipboardAsync(InputParameters!);
+            items.Add(copyDetailsItem);
+        }
+
+        if (!string.IsNullOrWhiteSpace(MoreInfo))
+        {
+            var copyInfoItem = new MenuItem { Header = "Copy info" };
+            copyInfoItem.Click += async (_, _) => await CopyToClipboardAsync(MoreInfo!);
+            items.Add(copyInfoItem);
+        }
+
+        if (items.Count > 0)
+            items.Add(new Separator());
+
+        var toggleItem = new MenuItem { Header = IsExpanded ? "Collapse" : "Expand" };
+        toggleItem.Click += (_, _) => IsExpanded = !IsExpanded;
+        items.Add(toggleItem);
+
+        _contextMenu.ItemsSource = items;
+    }
+
+    private string GetSummaryText()
+    {
+        var lines = new List<string> { $"{ToolName} ({StatusText})" };
+
+        if (DurationMs > 0)
+            lines.Add(DurationText);
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private async Task CopyToClipboardAsync(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard is null)
+            return;
+
+        await topLevel.Clipboard.SetTextAsync(text);
     }
 
     private void StartRunningPulse()

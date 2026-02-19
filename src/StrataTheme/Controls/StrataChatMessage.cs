@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -51,6 +52,7 @@ public class StrataChatMessage : TemplatedControl
     private Border? _streamBar;
     private Border? _bubble;
     private TextBox? _editBox;
+    private ContextMenu? _contextMenu;
 
     /// <summary>Message role. Controls alignment, colour, and available actions.</summary>
     public static readonly StyledProperty<StrataChatRole> RoleProperty =
@@ -191,19 +193,73 @@ public class StrataChatMessage : TemplatedControl
         if (_bubble is null)
             return;
 
+        _contextMenu ??= new ContextMenu();
+        _contextMenu.Opening -= OnContextMenuOpening;
+        _contextMenu.Opening += OnContextMenuOpening;
+
+        RebuildContextMenuItems();
+        _bubble.ContextMenu = _contextMenu;
+    }
+
+    private void OnContextMenuOpening(object? sender, EventArgs e)
+    {
+        RebuildContextMenuItems();
+    }
+
+    private void RebuildContextMenuItems()
+    {
+        if (_contextMenu is null)
+            return;
+
+        var items = new List<object>();
+
         var copyItem = new MenuItem { Header = "Copy" };
         copyItem.Click += async (_, _) =>
         {
             await CopyMessageTextAsync();
             RaiseEvent(new RoutedEventArgs(CopyRequestedEvent));
         };
+        items.Add(copyItem);
 
-        var menu = new ContextMenu
+        if (IsEditing)
         {
-            ItemsSource = new object[] { copyItem }
-        };
+            if (IsEditable)
+            {
+                items.Add(new Separator());
 
-        _bubble.ContextMenu = menu;
+                var saveItem = new MenuItem { Header = "Save" };
+                saveItem.Click += (_, _) => ConfirmEdit();
+                items.Add(saveItem);
+
+                var cancelItem = new MenuItem { Header = "Cancel" };
+                cancelItem.Click += (_, _) => CancelEdit();
+                items.Add(cancelItem);
+            }
+
+            _contextMenu.ItemsSource = items;
+            return;
+        }
+
+        if (IsEditable && Role != StrataChatRole.System)
+        {
+            items.Add(new Separator());
+
+            var editItem = new MenuItem { Header = "Edit" };
+            editItem.Click += (_, _) => BeginEdit();
+            items.Add(editItem);
+        }
+
+        if (!IsStreaming && Role is StrataChatRole.Assistant or StrataChatRole.Tool)
+        {
+            if (items.Count > 0 && items[^1] is not Separator)
+                items.Add(new Separator());
+
+            var retryItem = new MenuItem { Header = "Retry" };
+            retryItem.Click += (_, _) => RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent));
+            items.Add(retryItem);
+        }
+
+        _contextMenu.ItemsSource = items;
     }
 
     private async Task CopyMessageTextAsync()

@@ -140,7 +140,7 @@
                         <TextBlock Text="Edit" FontSize="11"
                                    Foreground="{DynamicResource Brush.TextTertiary}" />
                       </Button>
-                      <Border Width="1" Margin="2,3"
+                            <Border Name="PART_RegenerateSep" Width="1" Margin="2,3"
                               Background="{DynamicResource Brush.BorderSubtle}" />
                       <Button Name="PART_RegenerateButton" Classes="subtle"
                               Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
@@ -214,6 +214,12 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:not(:editable) /template/ Border#PART_EditSep">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:user /template/ Border#PART_RegenerateSep">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:streaming /template/ Border#PART_RegenerateSep">
           <Setter Property="IsVisible" Value="False" />
         </Style>
 

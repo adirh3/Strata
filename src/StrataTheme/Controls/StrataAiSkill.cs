@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace StrataTheme.Controls;
 
@@ -23,6 +26,8 @@ namespace StrataTheme.Controls;
 public class StrataAiSkill : TemplatedControl
 {
     private Border? _header;
+    private Border? _root;
+    private ContextMenu? _contextMenu;
 
     /// <summary>Single-character glyph displayed in the icon badge.</summary>
     public static readonly StyledProperty<string> IconGlyphProperty =
@@ -86,6 +91,7 @@ public class StrataAiSkill : TemplatedControl
         base.OnApplyTemplate(e);
 
         _header = e.NameScope.Find<Border>("PART_Header");
+        _root = e.NameScope.Find<Border>("PART_Root");
 
         if (_header is not null)
         {
@@ -98,6 +104,8 @@ public class StrataAiSkill : TemplatedControl
                 }
             };
         }
+
+        AttachContextMenu();
 
         UpdateState();
     }
@@ -123,5 +131,73 @@ public class StrataAiSkill : TemplatedControl
         PseudoClasses.Set(":has-description", !string.IsNullOrWhiteSpace(Description));
         PseudoClasses.Set(":has-detail", !string.IsNullOrWhiteSpace(DetailMarkdown));
         PseudoClasses.Set(":expanded", IsExpanded);
+    }
+
+    private void AttachContextMenu()
+    {
+        if (_root is null)
+            return;
+
+        _contextMenu ??= new ContextMenu();
+        _contextMenu.Opening -= OnContextMenuOpening;
+        _contextMenu.Opening += OnContextMenuOpening;
+
+        RebuildContextMenuItems();
+        _root.ContextMenu = _contextMenu;
+    }
+
+    private void OnContextMenuOpening(object? sender, EventArgs e)
+    {
+        RebuildContextMenuItems();
+    }
+
+    private void RebuildContextMenuItems()
+    {
+        if (_contextMenu is null)
+            return;
+
+        var items = new List<object>();
+
+        var copySummaryItem = new MenuItem { Header = "Copy summary" };
+        copySummaryItem.Click += async (_, _) => await CopyToClipboardAsync(GetSummaryText());
+        items.Add(copySummaryItem);
+
+        if (!string.IsNullOrWhiteSpace(DetailMarkdown))
+        {
+            var copyDetailsItem = new MenuItem { Header = "Copy details" };
+            copyDetailsItem.Click += async (_, _) => await CopyToClipboardAsync(DetailMarkdown!);
+            items.Add(copyDetailsItem);
+        }
+
+        if (items.Count > 0)
+            items.Add(new Separator());
+
+        var toggleItem = new MenuItem { Header = IsExpanded ? "Collapse" : "Expand" };
+        toggleItem.Click += (_, _) => IsExpanded = !IsExpanded;
+        items.Add(toggleItem);
+
+        _contextMenu.ItemsSource = items;
+    }
+
+    private string GetSummaryText()
+    {
+        var lines = new List<string> { SkillName };
+
+        if (!string.IsNullOrWhiteSpace(Description))
+            lines.Add(Description);
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private async Task CopyToClipboardAsync(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard is null)
+            return;
+
+        await topLevel.Clipboard.SetTextAsync(text);
     }
 }

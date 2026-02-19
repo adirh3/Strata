@@ -8,6 +8,28 @@
 
   <Styles.Resources>
     <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type Menu}" TargetType="Menu">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+      </ControlTheme>
+
+      <ControlTheme x:Key="{x:Type MenuItem}" TargetType="MenuItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="Margin" Value="2,1" />
+        <Setter Property="Transitions">
+          <Transitions>
+            <BrushTransition Property="Background" Duration="0:0:0.1" />
+            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut" />
+          </Transitions>
+        </Setter>
+      </ControlTheme>
+
       <ControlTheme x:Key="{x:Type ContextMenu}" TargetType="ContextMenu">
         <Setter Property="Background" Value="{DynamicResource Brush.SurfaceOverlay}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
@@ -46,28 +68,6 @@
     </ResourceDictionary>
   </Styles.Resources>
 
-  <Style Selector="Menu">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
-    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
-  </Style>
-
-  <Style Selector="MenuItem">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
-    <Setter Property="Padding" Value="10,6" />
-    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
-    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
-    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
-    <Setter Property="Margin" Value="2,1" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.1" />
-        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut" />
-      </Transitions>
-    </Setter>
-  </Style>
-
   <Style Selector="MenuItem:pointerover">
     <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
     <Setter Property="RenderTransform" Value="translateX(1px)" />
@@ -80,6 +80,20 @@
 
   <Style Selector="MenuItem:disabled">
     <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+  <Style Selector="ContextMenu MenuItem">
+    <Setter Property="Padding" Value="12,7" />
+    <Setter Property="Margin" Value="2,1" />
+  </Style>
+
+  <Style Selector="ContextMenu Separator">
+    <Setter Property="Margin" Value="6,4" />
+    <Setter Property="Opacity" Value="0.95" />
+  </Style>
+
+  <Style Selector="ContextMenu MenuItem:submenuopen">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
   </Style>
 
 </Styles>

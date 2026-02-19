@@ -144,7 +144,8 @@ public class StrataThink : TemplatedControl
                 return;
 
             _headerRow.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            var width = Math.Max(56, _headerRow.DesiredSize.Width + 14);
+            var horizontalPadding = _pill.Padding.Left + _pill.Padding.Right;
+            var width = Math.Max(56, _headerRow.DesiredSize.Width + horizontalPadding);
             _pill.Width = width;
         }, DispatcherPriority.Loaded);
     }

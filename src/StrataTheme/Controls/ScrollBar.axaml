@@ -117,4 +117,12 @@
     <Setter Property="RenderTransform" Value="scaleY(1.08)" />
   </Style>
 
+  <!-- ── scroll-fade: auto-hide scrollbars until the ScrollViewer is hovered ── -->
+  <Style Selector="ScrollViewer.scroll-fade /template/ ScrollBar">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="ScrollViewer.scroll-fade:pointerover /template/ ScrollBar">
+    <Setter Property="Opacity" Value="0.78" />
+  </Style>
+
 </Styles>
