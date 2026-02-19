@@ -42,6 +42,8 @@ public class StrataMarkdown : ContentControl
     private readonly TextBlock _title;
     private readonly StackPanel _contentHost;
     private IBrush? _inlineCodeBrush;
+    private IBrush? _linkBrush;
+    private readonly Dictionary<Run, string> _linkRuns = new();
     private string _lastThemeVariant = string.Empty;
     private double _bodyFontSize = 14;
 
@@ -137,6 +139,7 @@ public class StrataMarkdown : ContentControl
 
         _lastThemeVariant = currentVariant;
         _inlineCodeBrush = null;
+        _linkBrush = null;
         Rebuild();
     }
 
@@ -176,6 +179,7 @@ public class StrataMarkdown : ContentControl
     private void Rebuild()
     {
         _contentHost.Children.Clear();
+        _linkRuns.Clear();
         _bodyFontSize = GetBodyFontSize();
 
         var source = Markdown;
@@ -340,6 +344,20 @@ public class StrataMarkdown : ContentControl
         };
 
         AppendFormattedInlines(textBlock, text);
+
+        if (textBlock.Inlines != null)
+        {
+            foreach (var inline in textBlock.Inlines)
+            {
+                if (inline is Run run && _linkRuns.ContainsKey(run))
+                {
+                    textBlock.Tapped += OnLinkTapped;
+                    textBlock.PointerMoved += OnTextBlockPointerMoved;
+                    break;
+                }
+            }
+        }
+
         return textBlock;
     }
 
@@ -403,32 +421,13 @@ public class StrataMarkdown : ContentControl
                 var linkLabel = match.Groups["l_text"].Value;
                 var linkTarget = match.Groups["l_url"].Value.Trim();
 
-                var linkText = new TextBlock
+                var linkRun = new Run(linkLabel)
                 {
-                    Text = linkLabel,
-                    FontSize = target.FontSize,
-                    VerticalAlignment = VerticalAlignment.Center
+                    Foreground = _linkBrush ??= ResolveLinkBrush(),
+                    TextDecorations = TextDecorations.Underline,
                 };
-                linkText.Classes.Add("strata-md-link-text");
-
-                var linkButton = new Button
-                {
-                    Content = linkText,
-                    Padding = new Thickness(2, 0),
-                    Margin = new Thickness(0),
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Cursor = new Cursor(StandardCursorType.Hand)
-                };
-                linkButton.Classes.Add("strata-md-link");
-                ToolTip.SetTip(linkButton, BuildLinkTooltip(linkTarget));
-                linkButton.Click += (_, _) => OpenLink(linkTarget);
-
-                target.Inlines?.Add(new InlineUIContainer
-                {
-                    Child = linkButton,
-                    BaselineAlignment = BaselineAlignment.Center
-                });
+                _linkRuns[linkRun] = linkTarget;
+                target.Inlines?.Add(linkRun);
             }
 
             lastIndex = match.Index + match.Length;
@@ -626,6 +625,53 @@ public class StrataMarkdown : ContentControl
         }
 
         return FontFamily.Default;
+    }
+
+    private string? GetLinkAtCharIndex(SelectableTextBlock tb, int charIndex)
+    {
+        if (tb.Inlines == null) return null;
+
+        var pos = 0;
+        foreach (var inline in tb.Inlines)
+        {
+            if (inline is Run run)
+            {
+                var len = run.Text?.Length ?? 0;
+                if (charIndex >= pos && charIndex < pos + len && _linkRuns.TryGetValue(run, out var url))
+                    return url;
+                pos += len;
+            }
+        }
+        return null;
+    }
+
+    private void OnLinkTapped(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is not SelectableTextBlock tb) return;
+        var url = GetLinkAtCharIndex(tb, tb.SelectionStart);
+        if (url != null) OpenLink(url);
+    }
+
+    private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (sender is not SelectableTextBlock tb) return;
+
+        var point = e.GetPosition(tb);
+        var hit = tb.TextLayout.HitTestPoint(point);
+        var isLink = hit.IsInside && GetLinkAtCharIndex(tb, hit.CharacterHit.FirstCharacterIndex) != null;
+        tb.Cursor = isLink ? new Cursor(StandardCursorType.Hand) : Cursor.Default;
+    }
+
+    private static IBrush ResolveLinkBrush()
+    {
+        if (Application.Current is not null &&
+            Application.Current.TryGetResource("Brush.AccentDefault", Application.Current.ActualThemeVariant, out var res) &&
+            res is IBrush brush)
+        {
+            return brush;
+        }
+
+        return Brushes.DodgerBlue;
     }
 
     private static IBrush ResolveInlineCodeBrush()
