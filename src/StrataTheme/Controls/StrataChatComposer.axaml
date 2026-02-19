@@ -123,7 +123,9 @@
                             Width="28" Height="28"
                             Padding="0" MinHeight="0" MinWidth="0"
                             CornerRadius="6"
-                            ToolTip.Tip="Attach">
+                            VerticalAlignment="Center"
+                            ToolTip.Tip="Attach"
+                            Margin="0,0,6,6">
                       <TextBlock Text="+" FontSize="16" FontWeight="SemiBold"
                                  Foreground="{DynamicResource Brush.TextSecondary}"
                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -135,6 +137,7 @@
                             Width="28" Height="28"
                             Padding="0" MinHeight="0" MinWidth="0"
                             CornerRadius="6"
+                            VerticalAlignment="Center"
                             ToolTip.Tip="Mention agent or skill"
                             Margin="0,0,6,6">
                       <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -180,21 +183,24 @@
                     <!-- Suggestion chips -->
                     <Button Name="PART_ActionA" Classes="subtle"
                             Content="{TemplateBinding SuggestionA}"
-                          Padding="8,4" MinHeight="0" MaxWidth="170"
+                            Padding="8,4" MinHeight="0" MaxWidth="170"
                             CornerRadius="6" FontSize="12"
-                          Margin="0,0,6,6"
+                            VerticalAlignment="Center"
+                            Margin="0,0,6,6"
                             Foreground="{DynamicResource Brush.TextSecondary}" />
                     <Button Name="PART_ActionB" Classes="subtle"
                             Content="{TemplateBinding SuggestionB}"
-                          Padding="8,4" MinHeight="0" MaxWidth="170"
+                            Padding="8,4" MinHeight="0" MaxWidth="170"
                             CornerRadius="6" FontSize="12"
-                          Margin="0,0,6,6"
+                            VerticalAlignment="Center"
+                            Margin="0,0,6,6"
                             Foreground="{DynamicResource Brush.TextSecondary}" />
                     <Button Name="PART_ActionC" Classes="subtle"
                             Content="{TemplateBinding SuggestionC}"
-                          Padding="8,4" MinHeight="0" MaxWidth="170"
+                            Padding="8,4" MinHeight="0" MaxWidth="170"
                             CornerRadius="6" FontSize="12"
-                          Margin="0,0,6,6"
+                            VerticalAlignment="Center"
+                            Margin="0,0,6,6"
                             Foreground="{DynamicResource Brush.TextSecondary}" />
                       </WrapPanel>
 
@@ -205,6 +211,7 @@
                             Width="28" Height="28"
                             Padding="0" MinHeight="0" MinWidth="0"
                             CornerRadius="6"
+                            VerticalAlignment="Center"
                             ToolTip.Tip="Voice">
                       <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Path Stretch="Uniform"
