@@ -2,9 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Avalonia.Media;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -31,8 +29,6 @@ namespace StrataTheme.Controls;
 public class StrataAiAgent : TemplatedControl
 {
     private Border? _header;
-    private Border? _root;
-    private ContextMenu? _contextMenu;
     private Border? _root;
     private ContextMenu? _contextMenu;
 
@@ -141,7 +137,6 @@ public class StrataAiAgent : TemplatedControl
 
         _header = e.NameScope.Find<Border>("PART_Header");
         _root = e.NameScope.Find<Border>("PART_Root");
-        _root = e.NameScope.Find<Border>("PART_Root");
 
         if (_header is not null)
         {
@@ -153,12 +148,9 @@ public class StrataAiAgent : TemplatedControl
                     pointerEvent.Handled = true;
                 }
             };
-
-            AttachContextMenu();
         }
 
         AttachContextMenu();
-
         UpdateState();
     }
 
@@ -198,6 +190,7 @@ public class StrataAiAgent : TemplatedControl
 
         RebuildContextMenuItems();
         _root.ContextMenu = _contextMenu;
+        ContextMenu = _contextMenu;
     }
 
     private void OnContextMenuOpening(object? sender, EventArgs e)
@@ -212,13 +205,13 @@ public class StrataAiAgent : TemplatedControl
 
         var items = new List<object>();
 
-        var copySummaryItem = new MenuItem { Header = "Copy summary" };
+        var copySummaryItem = new MenuItem { Header = "Copy summary", Icon = CreateMenuIcon("\uE8C8") };
         copySummaryItem.Click += async (_, _) => await CopyToClipboardAsync(GetSummaryText());
         items.Add(copySummaryItem);
 
         if (!string.IsNullOrWhiteSpace(DetailMarkdown))
         {
-            var copyOverviewItem = new MenuItem { Header = "Copy overview" };
+            var copyOverviewItem = new MenuItem { Header = "Copy overview", Icon = CreateMenuIcon("\uE8A7") };
             copyOverviewItem.Click += async (_, _) => await CopyToClipboardAsync(DetailMarkdown!);
             items.Add(copyOverviewItem);
         }
@@ -226,82 +219,28 @@ public class StrataAiAgent : TemplatedControl
         if (items.Count > 0)
             items.Add(new Separator());
 
-        var toggleItem = new MenuItem { Header = IsExpanded ? "Collapse" : "Expand" };
-        toggleItem.Click += (_, _) => IsExpanded = !IsExpanded;
-        items.Add(toggleItem);
-
-        _contextMenu.ItemsSource = items;
-    }
-
-    private string GetSummaryText()
-    {
-        var lines = new List<string> { AgentName };
-
-        if (!string.IsNullOrWhiteSpace(Description))
-            lines.Add(Description);
-
-        lines.Add($"Tools {ToolsCount}");
-        lines.Add($"Skills {SkillsCount}");
-
-        return string.Join(Environment.NewLine, lines);
-    }
-
-    private async Task CopyToClipboardAsync(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return;
-
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel?.Clipboard is null)
-            return;
-
-        await topLevel.Clipboard.SetTextAsync(text);
-    }
-
-    private void AttachContextMenu()
-    {
-        if (_root is null)
-            return;
-
-        _contextMenu ??= new ContextMenu();
-        _contextMenu.Opening -= OnContextMenuOpening;
-        _contextMenu.Opening += OnContextMenuOpening;
-
-        RebuildContextMenuItems();
-        _root.ContextMenu = _contextMenu;
-    }
-
-    private void OnContextMenuOpening(object? sender, EventArgs e)
-    {
-        RebuildContextMenuItems();
-    }
-
-    private void RebuildContextMenuItems()
-    {
-        if (_contextMenu is null)
-            return;
-
-        var items = new List<object>();
-
-        var copySummaryItem = new MenuItem { Header = "Copy summary" };
-        copySummaryItem.Click += async (_, _) => await CopyToClipboardAsync(GetSummaryText());
-        items.Add(copySummaryItem);
-
-        if (!string.IsNullOrWhiteSpace(DetailMarkdown))
+        var toggleItem = new MenuItem
         {
-            var copyOverviewItem = new MenuItem { Header = "Copy overview" };
-            copyOverviewItem.Click += async (_, _) => await CopyToClipboardAsync(DetailMarkdown!);
-            items.Add(copyOverviewItem);
-        }
-
-        if (items.Count > 0)
-            items.Add(new Separator());
-
-        var toggleItem = new MenuItem { Header = IsExpanded ? "Collapse" : "Expand" };
+            Header = IsExpanded ? "Collapse" : "Expand",
+            Icon = CreateMenuIcon(IsExpanded ? "\uE70E" : "\uE70D")
+        };
         toggleItem.Click += (_, _) => IsExpanded = !IsExpanded;
         items.Add(toggleItem);
 
         _contextMenu.ItemsSource = items;
+    }
+
+    private static TextBlock CreateMenuIcon(string glyph)
+    {
+        return new TextBlock
+        {
+            Text = glyph,
+            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+            FontSize = 12,
+            Width = 14,
+            TextAlignment = TextAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
     }
 
     private string GetSummaryText()

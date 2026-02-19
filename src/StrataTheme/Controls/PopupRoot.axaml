@@ -3,12 +3,28 @@
 
   <!-- ═══════════════════════════════════════════════════════════
        STRATA UI – PopupRoot
-       Transparent background so BoxShadow on popup children
-       can render into the margin bleed space.
+       Fully transparent host so ContextMenu / Popup children
+       own their own background, border, corner-radius, and shadow.
+       No platform chrome, no gray rectangle behind rounded menus.
        ═══════════════════════════════════════════════════════════ -->
 
   <Style Selector="PopupRoot">
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="TransparencyBackgroundFallback" Value="Transparent" />
+    <Setter Property="TransparencyLevelHint" Value="Transparent" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Background="Transparent">
+          <ContentPresenter Name="PART_ContentPresenter"
+                            Background="Transparent"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Content="{TemplateBinding Content}"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
   </Style>
 
 </Styles>

@@ -51,7 +51,11 @@ public class StrataChatMessage : TemplatedControl
 {
     private Border? _streamBar;
     private Border? _bubble;
+    private Border? _editSeparator;
+    private Border? _retrySeparator;
     private TextBox? _editBox;
+    private Button? _editButton;
+    private Button? _retryButton;
     private ContextMenu? _contextMenu;
 
     /// <summary>Message role. Controls alignment, colour, and available actions.</summary>
@@ -149,6 +153,10 @@ public class StrataChatMessage : TemplatedControl
         var editBtn = e.NameScope.Find<Button>("PART_EditButton");
         var saveBtn = e.NameScope.Find<Button>("PART_SaveButton");
         var cancelBtn = e.NameScope.Find<Button>("PART_CancelButton");
+        _editSeparator = e.NameScope.Find<Border>("PART_EditSep");
+        _retrySeparator = e.NameScope.Find<Border>("PART_RegenerateSep");
+        _editButton = editBtn;
+        _retryButton = regenBtn;
 
         if (copyBtn is not null)
             copyBtn.Click += async (_, ev) =>
@@ -172,6 +180,7 @@ public class StrataChatMessage : TemplatedControl
         AttachContextMenu();
 
         UpdatePseudoClasses();
+        UpdateActionBarLayout();
         if (IsStreaming)
             Dispatcher.UIThread.Post(StartStreamPulse, DispatcherPriority.Loaded);
     }
@@ -199,6 +208,7 @@ public class StrataChatMessage : TemplatedControl
 
         RebuildContextMenuItems();
         _bubble.ContextMenu = _contextMenu;
+        ContextMenu = _contextMenu;
     }
 
     private void OnContextMenuOpening(object? sender, EventArgs e)
@@ -213,7 +223,7 @@ public class StrataChatMessage : TemplatedControl
 
         var items = new List<object>();
 
-        var copyItem = new MenuItem { Header = "Copy" };
+        var copyItem = new MenuItem { Header = "Copy", Icon = CreateMenuIcon("\uE8C8") };
         copyItem.Click += async (_, _) =>
         {
             await CopyMessageTextAsync();
@@ -227,11 +237,11 @@ public class StrataChatMessage : TemplatedControl
             {
                 items.Add(new Separator());
 
-                var saveItem = new MenuItem { Header = "Save" };
+                var saveItem = new MenuItem { Header = "Save", Icon = CreateMenuIcon("\uE74E") };
                 saveItem.Click += (_, _) => ConfirmEdit();
                 items.Add(saveItem);
 
-                var cancelItem = new MenuItem { Header = "Cancel" };
+                var cancelItem = new MenuItem { Header = "Cancel", Icon = CreateMenuIcon("\uE711") };
                 cancelItem.Click += (_, _) => CancelEdit();
                 items.Add(cancelItem);
             }
@@ -244,7 +254,7 @@ public class StrataChatMessage : TemplatedControl
         {
             items.Add(new Separator());
 
-            var editItem = new MenuItem { Header = "Edit" };
+            var editItem = new MenuItem { Header = "Edit", Icon = CreateMenuIcon("\uE70F") };
             editItem.Click += (_, _) => BeginEdit();
             items.Add(editItem);
         }
@@ -254,12 +264,25 @@ public class StrataChatMessage : TemplatedControl
             if (items.Count > 0 && items[^1] is not Separator)
                 items.Add(new Separator());
 
-            var retryItem = new MenuItem { Header = "Retry" };
+            var retryItem = new MenuItem { Header = "Retry", Icon = CreateMenuIcon("\uE72C") };
             retryItem.Click += (_, _) => RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent));
             items.Add(retryItem);
         }
 
         _contextMenu.ItemsSource = items;
+    }
+
+    private static TextBlock CreateMenuIcon(string glyph)
+    {
+        return new TextBlock
+        {
+            Text = glyph,
+            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+            FontSize = 12,
+            Width = 14,
+            TextAlignment = TextAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
     }
 
     private async Task CopyMessageTextAsync()
@@ -396,6 +419,27 @@ public class StrataChatMessage : TemplatedControl
         PseudoClasses.Set(":editable", IsEditable);
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Timestamp));
         PseudoClasses.Set(":has-status", !string.IsNullOrWhiteSpace(StatusText));
+
+        UpdateActionBarLayout();
+    }
+
+    private void UpdateActionBarLayout()
+    {
+        var canShowActions = !IsEditing && Role != StrataChatRole.System;
+        var showEdit = canShowActions && IsEditable;
+        var showRetry = canShowActions && !IsStreaming && Role is StrataChatRole.Assistant or StrataChatRole.Tool;
+
+        if (_editButton is not null)
+            _editButton.IsVisible = showEdit;
+
+        if (_retryButton is not null)
+            _retryButton.IsVisible = showRetry;
+
+        if (_editSeparator is not null)
+            _editSeparator.IsVisible = showEdit;
+
+        if (_retrySeparator is not null)
+            _retrySeparator.IsVisible = showRetry;
     }
 
     private void StartStreamPulse()

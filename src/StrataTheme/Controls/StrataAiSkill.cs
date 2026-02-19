@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Media;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -144,6 +145,7 @@ public class StrataAiSkill : TemplatedControl
 
         RebuildContextMenuItems();
         _root.ContextMenu = _contextMenu;
+        ContextMenu = _contextMenu;
     }
 
     private void OnContextMenuOpening(object? sender, EventArgs e)
@@ -158,13 +160,13 @@ public class StrataAiSkill : TemplatedControl
 
         var items = new List<object>();
 
-        var copySummaryItem = new MenuItem { Header = "Copy summary" };
+        var copySummaryItem = new MenuItem { Header = "Copy summary", Icon = CreateMenuIcon("\uE8C8") };
         copySummaryItem.Click += async (_, _) => await CopyToClipboardAsync(GetSummaryText());
         items.Add(copySummaryItem);
 
         if (!string.IsNullOrWhiteSpace(DetailMarkdown))
         {
-            var copyDetailsItem = new MenuItem { Header = "Copy details" };
+            var copyDetailsItem = new MenuItem { Header = "Copy details", Icon = CreateMenuIcon("\uE8A7") };
             copyDetailsItem.Click += async (_, _) => await CopyToClipboardAsync(DetailMarkdown!);
             items.Add(copyDetailsItem);
         }
@@ -172,11 +174,28 @@ public class StrataAiSkill : TemplatedControl
         if (items.Count > 0)
             items.Add(new Separator());
 
-        var toggleItem = new MenuItem { Header = IsExpanded ? "Collapse" : "Expand" };
+        var toggleItem = new MenuItem
+        {
+            Header = IsExpanded ? "Collapse" : "Expand",
+            Icon = CreateMenuIcon(IsExpanded ? "\uE70E" : "\uE70D")
+        };
         toggleItem.Click += (_, _) => IsExpanded = !IsExpanded;
         items.Add(toggleItem);
 
         _contextMenu.ItemsSource = items;
+    }
+
+    private static TextBlock CreateMenuIcon(string glyph)
+    {
+        return new TextBlock
+        {
+            Text = glyph,
+            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+            FontSize = 12,
+            Width = 14,
+            TextAlignment = TextAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
     }
 
     private string GetSummaryText()

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
@@ -226,6 +227,7 @@ public class StrataAiToolCall : TemplatedControl
 
         RebuildContextMenuItems();
         _root.ContextMenu = _contextMenu;
+        ContextMenu = _contextMenu;
     }
 
     private void OnContextMenuOpening(object? sender, EventArgs e)
@@ -240,20 +242,20 @@ public class StrataAiToolCall : TemplatedControl
 
         var items = new List<object>();
 
-        var copySummaryItem = new MenuItem { Header = "Copy summary" };
+        var copySummaryItem = new MenuItem { Header = "Copy summary", Icon = CreateMenuIcon("\uE8C8") };
         copySummaryItem.Click += async (_, _) => await CopyToClipboardAsync(GetSummaryText());
         items.Add(copySummaryItem);
 
         if (!string.IsNullOrWhiteSpace(InputParameters))
         {
-            var copyDetailsItem = new MenuItem { Header = "Copy details" };
+            var copyDetailsItem = new MenuItem { Header = "Copy details", Icon = CreateMenuIcon("\uE8A7") };
             copyDetailsItem.Click += async (_, _) => await CopyToClipboardAsync(InputParameters!);
             items.Add(copyDetailsItem);
         }
 
         if (!string.IsNullOrWhiteSpace(MoreInfo))
         {
-            var copyInfoItem = new MenuItem { Header = "Copy info" };
+            var copyInfoItem = new MenuItem { Header = "Copy info", Icon = CreateMenuIcon("\uE946") };
             copyInfoItem.Click += async (_, _) => await CopyToClipboardAsync(MoreInfo!);
             items.Add(copyInfoItem);
         }
@@ -261,11 +263,28 @@ public class StrataAiToolCall : TemplatedControl
         if (items.Count > 0)
             items.Add(new Separator());
 
-        var toggleItem = new MenuItem { Header = IsExpanded ? "Collapse" : "Expand" };
+        var toggleItem = new MenuItem
+        {
+            Header = IsExpanded ? "Collapse" : "Expand",
+            Icon = CreateMenuIcon(IsExpanded ? "\uE70E" : "\uE70D")
+        };
         toggleItem.Click += (_, _) => IsExpanded = !IsExpanded;
         items.Add(toggleItem);
 
         _contextMenu.ItemsSource = items;
+    }
+
+    private static TextBlock CreateMenuIcon(string glyph)
+    {
+        return new TextBlock
+        {
+            Text = glyph,
+            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+            FontSize = 12,
+            Width = 14,
+            TextAlignment = TextAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
     }
 
     private string GetSummaryText()
