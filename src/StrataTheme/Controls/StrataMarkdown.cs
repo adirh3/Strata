@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Documents;
+using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -193,6 +194,7 @@ public class StrataMarkdown : ContentControl
         var codeBuffer = new StringBuilder();
         var inCodeBlock = false;
         var codeLanguage = string.Empty;
+        var tableBuffer = new List<string>();
 
         foreach (var rawLine in lines)
         {
@@ -201,6 +203,7 @@ public class StrataMarkdown : ContentControl
             if (line.StartsWith("```", StringComparison.Ordinal))
             {
                 FlushParagraph(paragraphBuffer);
+                FlushTable(tableBuffer);
 
                 if (!inCodeBlock)
                 {
@@ -224,6 +227,16 @@ public class StrataMarkdown : ContentControl
                 codeBuffer.AppendLine(line);
                 continue;
             }
+
+            if (IsTableLine(line))
+            {
+                FlushParagraph(paragraphBuffer);
+                tableBuffer.Add(line);
+                continue;
+            }
+
+            if (tableBuffer.Count > 0)
+                FlushTable(tableBuffer);
 
             if (TryParseHeading(line, out var level, out var headingText))
             {
@@ -267,6 +280,7 @@ public class StrataMarkdown : ContentControl
         if (inCodeBlock)
             AddCodeBlock(codeBuffer.ToString(), codeLanguage);
 
+        FlushTable(tableBuffer);
         FlushParagraph(paragraphBuffer);
     }
 
@@ -805,5 +819,92 @@ public class StrataMarkdown : ContentControl
         };
         rule.Classes.Add("strata-md-hr");
         _contentHost.Children.Add(rule);
+    }
+
+    private static bool IsTableLine(string line)
+    {
+        var trimmed = line.Trim();
+        return trimmed.Length > 1 && trimmed[0] == '|' && trimmed.IndexOf('|', 1) >= 0;
+    }
+
+    private static bool IsTableSeparator(string line)
+    {
+        var cells = SplitTableCells(line);
+        return cells.Length > 0 && cells.All(c => Regex.IsMatch(c.Trim(), @"^:?-+:?$"));
+    }
+
+    private static string[] SplitTableCells(string line)
+    {
+        var trimmed = line.Trim();
+        if (trimmed.StartsWith('|')) trimmed = trimmed[1..];
+        if (trimmed.EndsWith('|')) trimmed = trimmed[..^1];
+        return trimmed.Split('|');
+    }
+
+    private void FlushTable(List<string> tableLines)
+    {
+        if (tableLines.Count == 0) return;
+
+        if (tableLines.Count < 2 || !IsTableSeparator(tableLines[1]))
+        {
+            foreach (var line in tableLines)
+            {
+                var para = CreateRichText(line, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
+                para.Classes.Add("strata-md-paragraph");
+                _contentHost.Children.Add(para);
+            }
+            tableLines.Clear();
+            return;
+        }
+
+        var headers = SplitTableCells(tableLines[0]).Select(h => h.Trim()).ToArray();
+        var rows = new List<string[]>();
+
+        for (var i = 2; i < tableLines.Count; i++)
+        {
+            var cells = SplitTableCells(tableLines[i]).Select(c => c.Trim()).ToArray();
+            var padded = new string[headers.Length];
+            for (var j = 0; j < headers.Length; j++)
+                padded[j] = j < cells.Length ? cells[j] : string.Empty;
+            rows.Add(padded);
+        }
+
+        AddTable(headers, rows);
+        tableLines.Clear();
+    }
+
+    private void AddTable(string[] headers, List<string[]> rows)
+    {
+        var dataGrid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            IsReadOnly = true,
+            CanUserReorderColumns = false,
+            CanUserResizeColumns = true,
+            CanUserSortColumns = true,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            SelectionMode = DataGridSelectionMode.Single,
+            MaxHeight = 400,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+
+        for (var i = 0; i < headers.Length; i++)
+        {
+            dataGrid.Columns.Add(new DataGridTextColumn
+            {
+                Header = headers[i],
+                Binding = new Binding($"[{i}]"),
+                Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+            });
+        }
+
+        var items = rows.Select(r => r.ToList()).ToList();
+        dataGrid.ItemsSource = items;
+
+        // Size to content, capped at MaxHeight
+        var estimatedHeight = 40 + (rows.Count * 36) + 4;
+        dataGrid.Height = Math.Min(estimatedHeight, 400);
+
+        _contentHost.Children.Add(dataGrid);
     }
 }
