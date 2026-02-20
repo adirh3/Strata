@@ -55,6 +55,20 @@ public class StrataMarkdown : ContentControl
     private HashSet<string> _diagramKeysUsed = new();
     private Border? _chartPlaceholder;
 
+    private readonly Dictionary<string, StrataConfidence> _confidenceCache = new();
+    private HashSet<string> _confidenceKeysUsed = new();
+
+    private readonly Dictionary<string, StrataFork> _comparisonCache = new();
+    private HashSet<string> _comparisonKeysUsed = new();
+
+    private readonly Dictionary<string, StrataCard> _cardCache = new();
+    private HashSet<string> _cardKeysUsed = new();
+
+    private readonly Dictionary<string, Control> _sourcesCache = new();
+    private HashSet<string> _sourcesKeysUsed = new();
+
+    private Border? _blockPlaceholder;
+
     /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
     public static readonly StyledProperty<string?> MarkdownProperty =
         AvaloniaProperty.Register<StrataMarkdown, string?>(nameof(Markdown));
@@ -191,6 +205,10 @@ public class StrataMarkdown : ContentControl
         _bodyFontSize = GetBodyFontSize();
         _chartKeysUsed = new HashSet<string>();
         _diagramKeysUsed = new HashSet<string>();
+        _confidenceKeysUsed = new HashSet<string>();
+        _comparisonKeysUsed = new HashSet<string>();
+        _cardKeysUsed = new HashSet<string>();
+        _sourcesKeysUsed = new HashSet<string>();
 
         var source = Markdown;
         if (!string.IsNullOrWhiteSpace(source))
@@ -221,12 +239,21 @@ public class StrataMarkdown : ContentControl
                     }
                     else
                     {
+                        var code = codeBuffer.ToString();
                         if (string.Equals(codeLanguage, "chart", StringComparison.OrdinalIgnoreCase))
-                            AddChart(codeBuffer.ToString());
+                            AddChart(code);
                         else if (string.Equals(codeLanguage, "mermaid", StringComparison.OrdinalIgnoreCase))
-                            AddMermaidChart(codeBuffer.ToString());
+                            AddMermaidChart(code);
+                        else if (string.Equals(codeLanguage, "confidence", StringComparison.OrdinalIgnoreCase))
+                            AddConfidence(code);
+                        else if (string.Equals(codeLanguage, "comparison", StringComparison.OrdinalIgnoreCase))
+                            AddComparison(code);
+                        else if (string.Equals(codeLanguage, "card", StringComparison.OrdinalIgnoreCase))
+                            AddCard(code);
+                        else if (string.Equals(codeLanguage, "sources", StringComparison.OrdinalIgnoreCase))
+                            AddSources(code);
                         else
-                            AddCodeBlock(codeBuffer.ToString(), codeLanguage);
+                            AddCodeBlock(code, codeLanguage);
                         inCodeBlock = false;
                         codeLanguage = string.Empty;
                         codeBuffer.Clear();
@@ -292,12 +319,21 @@ public class StrataMarkdown : ContentControl
 
             if (inCodeBlock)
             {
+                var code = codeBuffer.ToString();
                 if (string.Equals(codeLanguage, "chart", StringComparison.OrdinalIgnoreCase))
-                    AddChart(codeBuffer.ToString());
+                    AddChart(code);
                 else if (string.Equals(codeLanguage, "mermaid", StringComparison.OrdinalIgnoreCase))
-                    AddMermaidChart(codeBuffer.ToString());
+                    AddMermaidChart(code);
+                else if (string.Equals(codeLanguage, "confidence", StringComparison.OrdinalIgnoreCase))
+                    AddConfidence(code);
+                else if (string.Equals(codeLanguage, "comparison", StringComparison.OrdinalIgnoreCase))
+                    AddComparison(code);
+                else if (string.Equals(codeLanguage, "card", StringComparison.OrdinalIgnoreCase))
+                    AddCard(code);
+                else if (string.Equals(codeLanguage, "sources", StringComparison.OrdinalIgnoreCase))
+                    AddSources(code);
                 else
-                    AddCodeBlock(codeBuffer.ToString(), codeLanguage);
+                    AddCodeBlock(code, codeLanguage);
             }
 
             FlushTable(tableBuffer);
@@ -309,6 +345,14 @@ public class StrataMarkdown : ContentControl
             _chartCache.Remove(staleKey);
         foreach (var staleKey in _diagramCache.Keys.Except(_diagramKeysUsed).ToList())
             _diagramCache.Remove(staleKey);
+        foreach (var staleKey in _confidenceCache.Keys.Except(_confidenceKeysUsed).ToList())
+            _confidenceCache.Remove(staleKey);
+        foreach (var staleKey in _comparisonCache.Keys.Except(_comparisonKeysUsed).ToList())
+            _comparisonCache.Remove(staleKey);
+        foreach (var staleKey in _cardCache.Keys.Except(_cardKeysUsed).ToList())
+            _cardCache.Remove(staleKey);
+        foreach (var staleKey in _sourcesCache.Keys.Except(_sourcesKeysUsed).ToList())
+            _sourcesCache.Remove(staleKey);
     }
 
     private void FlushParagraph(StringBuilder paragraphBuffer)
@@ -1094,6 +1138,295 @@ public class StrataMarkdown : ContentControl
         }
 
         Animate();
+    }
+
+    private void AddBlockPlaceholder(string emoji)
+    {
+        if (_blockPlaceholder is null)
+        {
+            _blockPlaceholder = new Border
+            {
+                Height = 60,
+                CornerRadius = new CornerRadius(8),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            _blockPlaceholder.Classes.Add("strata-md-code-block");
+
+            var stack = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Spacing = 8,
+                Orientation = Orientation.Horizontal,
+            };
+
+            var icon = new TextBlock
+            {
+                Text = emoji,
+                FontSize = 18,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Opacity = 0.35,
+            };
+
+            var dotsRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Spacing = 6,
+            };
+
+            for (int i = 0; i < 3; i++)
+            {
+                var dot = new Border
+                {
+                    Width = 5,
+                    Height = 5,
+                    CornerRadius = new CornerRadius(2.5),
+                    Opacity = 0.3,
+                };
+                dot.Classes.Add("strata-md-bullet-dot");
+                dotsRow.Children.Add(dot);
+            }
+
+            stack.Children.Add(icon);
+            stack.Children.Add(dotsRow);
+            _blockPlaceholder.Child = stack;
+
+            _blockPlaceholder.AttachedToVisualTree += (_, _) =>
+            {
+                var dots = dotsRow.Children.OfType<Border>().ToList();
+                for (int i = 0; i < dots.Count; i++)
+                    StartDotPulse(dots[i], i * 200);
+            };
+        }
+
+        if (_blockPlaceholder.Parent is Panel oldParent)
+            oldParent.Children.Remove(_blockPlaceholder);
+
+        _contentHost.Children.Add(_blockPlaceholder);
+    }
+
+    private void AddConfidence(string json)
+    {
+        var trimmed = json.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            AddBlockPlaceholder("\U0001F3AF"); // 🎯
+            return;
+        }
+
+        if (_confidenceCache.TryGetValue(trimmed, out var cached))
+        {
+            _confidenceKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(cached);
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+
+            var label = root.TryGetProperty("label", out var lp) ? lp.GetString() ?? "Confidence" : "Confidence";
+            var value = root.TryGetProperty("value", out var vp) && vp.TryGetDouble(out var v) ? v : 72;
+            var explanation = root.TryGetProperty("explanation", out var ep) ? ep.GetString() : null;
+
+            var ctrl = new StrataConfidence
+            {
+                Label = label,
+                Confidence = Math.Clamp(value, 0, 100),
+                Margin = new Thickness(0, 4, 0, 4),
+            };
+
+            if (!string.IsNullOrWhiteSpace(explanation))
+                ctrl.Explanation = new StrataMarkdown { Markdown = explanation, IsInline = true };
+
+            _confidenceCache[trimmed] = ctrl;
+            _confidenceKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(ctrl);
+        }
+        catch
+        {
+            AddBlockPlaceholder("\U0001F3AF");
+        }
+    }
+
+    private void AddComparison(string json)
+    {
+        var trimmed = json.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            AddBlockPlaceholder("\u2696\uFE0F"); // ⚖️
+            return;
+        }
+
+        if (_comparisonCache.TryGetValue(trimmed, out var cached))
+        {
+            _comparisonKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(cached);
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+
+            var titleA = "Option A";
+            var contentA = "";
+            var titleB = "Option B";
+            var contentB = "";
+
+            if (root.TryGetProperty("optionA", out var aProp))
+            {
+                if (aProp.TryGetProperty("title", out var at)) titleA = at.GetString() ?? titleA;
+                if (aProp.TryGetProperty("content", out var ac)) contentA = ac.GetString() ?? "";
+            }
+
+            if (root.TryGetProperty("optionB", out var bProp))
+            {
+                if (bProp.TryGetProperty("title", out var bt)) titleB = bt.GetString() ?? titleB;
+                if (bProp.TryGetProperty("content", out var bc)) contentB = bc.GetString() ?? "";
+            }
+
+            var ctrl = new StrataFork
+            {
+                OptionATitle = titleA,
+                OptionBTitle = titleB,
+                OptionAContent = new StrataMarkdown { Markdown = contentA, IsInline = true },
+                OptionBContent = new StrataMarkdown { Markdown = contentB, IsInline = true },
+                Margin = new Thickness(0, 4, 0, 4),
+            };
+
+            _comparisonCache[trimmed] = ctrl;
+            _comparisonKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(ctrl);
+        }
+        catch
+        {
+            AddBlockPlaceholder("\u2696\uFE0F");
+        }
+    }
+
+    private void AddCard(string json)
+    {
+        var trimmed = json.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            AddBlockPlaceholder("\U0001F4CB"); // 📋
+            return;
+        }
+
+        if (_cardCache.TryGetValue(trimmed, out var cached))
+        {
+            _cardKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(cached);
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+
+            var header = root.TryGetProperty("header", out var hp) ? hp.GetString() ?? "" : "";
+            var summary = root.TryGetProperty("summary", out var sp) ? sp.GetString() ?? "" : "";
+            var detail = root.TryGetProperty("detail", out var dp) ? dp.GetString() ?? "" : "";
+
+            var ctrl = new StrataCard
+            {
+                Margin = new Thickness(0, 4, 0, 4),
+            };
+
+            if (!string.IsNullOrWhiteSpace(header))
+            {
+                ctrl.Header = new TextBlock
+                {
+                    Text = header,
+                    FontWeight = FontWeight.SemiBold,
+                    FontSize = _bodyFontSize * 1.08,
+                    TextWrapping = TextWrapping.Wrap,
+                };
+            }
+
+            if (!string.IsNullOrWhiteSpace(summary))
+                ctrl.Summary = new StrataMarkdown { Markdown = summary, IsInline = true };
+
+            if (!string.IsNullOrWhiteSpace(detail))
+                ctrl.Detail = new StrataMarkdown { Markdown = detail, IsInline = true };
+
+            _cardCache[trimmed] = ctrl;
+            _cardKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(ctrl);
+        }
+        catch
+        {
+            AddBlockPlaceholder("\U0001F4CB");
+        }
+    }
+
+    private void AddSources(string json)
+    {
+        var trimmed = json.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            AddBlockPlaceholder("\U0001F4CE"); // 📎
+            return;
+        }
+
+        if (_sourcesCache.TryGetValue(trimmed, out var cached))
+        {
+            _sourcesKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(cached);
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("sources", out var sourcesProp) || sourcesProp.ValueKind != JsonValueKind.Array)
+            {
+                AddBlockPlaceholder("\U0001F4CE");
+                return;
+            }
+
+            var panel = new WrapPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 4, 0, 4),
+            };
+
+            var index = 1;
+            foreach (var src in sourcesProp.EnumerateArray())
+            {
+                var title = src.TryGetProperty("title", out var tp) ? tp.GetString() ?? "Source" : "Source";
+                var snippet = src.TryGetProperty("snippet", out var snp) ? snp.GetString() : null;
+                var origin = src.TryGetProperty("origin", out var op) ? op.GetString() : null;
+                var relevance = src.TryGetProperty("relevance", out var rp) && rp.TryGetDouble(out var rv) ? rv : 0;
+
+                var trace = new StrataTrace
+                {
+                    Index = index++,
+                    Title = title,
+                    Snippet = snippet,
+                    Origin = origin,
+                    Relevance = relevance,
+                    Margin = new Thickness(0, 0, 4, 4),
+                };
+
+                panel.Children.Add(trace);
+            }
+
+            _sourcesCache[trimmed] = panel;
+            _sourcesKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(panel);
+        }
+        catch
+        {
+            AddBlockPlaceholder("\U0001F4CE");
+        }
     }
 
     private static void ApplyTextMateHighlighting(TextEditor editor, string language)
