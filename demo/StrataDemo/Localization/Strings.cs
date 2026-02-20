@@ -203,6 +203,16 @@ public sealed class Strings
             ["DateFormat.Desc"] = "Choose the format for displaying dates",
             ["Use24Hour"] = "Use 24-hour clock",
             ["Use24Hour.Desc"] = "Display time in 24-hour format instead of AM/PM",
+
+            // Charts
+            ["Chart.Revenue"] = "Revenue Trend",
+            ["Chart.Revenue.Subtitle"] = "Monthly revenue with actual vs. forecast comparison.",
+            ["Chart.Budget"] = "Department Budget",
+            ["Chart.Budget.Subtitle"] = "Year-over-year budget allocation by department.",
+            ["Chart.Distribution"] = "Project Distribution",
+            ["Chart.Distribution.Subtitle"] = "Resource allocation across project categories.",
+            ["Chart.Clients"] = "Client Segments",
+            ["Chart.Clients.Subtitle"] = "Client distribution by segment type.",
         },
 
         ["he"] = new()
@@ -362,6 +372,16 @@ public sealed class Strings
             ["DateFormat.Desc"] = "בחירת התבנית להצגת תאריכים",
             ["Use24Hour"] = "שעון 24 שעות",
             ["Use24Hour.Desc"] = "הצגת שעה בתבנית 24 שעות במקום AM/PM",
+
+            // Charts
+            ["Chart.Revenue"] = "מגמת הכנסות",
+            ["Chart.Revenue.Subtitle"] = "הכנסות חודשיות עם השוואה לתחזית.",
+            ["Chart.Budget"] = "תקציב מחלקות",
+            ["Chart.Budget.Subtitle"] = "הקצאת תקציב שנתית לפי מחלקה.",
+            ["Chart.Distribution"] = "חלוקת פרויקטים",
+            ["Chart.Distribution.Subtitle"] = "הקצאת משאבים בין קטגוריות פרויקטים.",
+            ["Chart.Clients"] = "פלחי לקוחות",
+            ["Chart.Clients.Subtitle"] = "התפלגות לקוחות לפי סוג פלח.",
         }
     };
 }

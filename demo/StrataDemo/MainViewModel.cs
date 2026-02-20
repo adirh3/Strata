@@ -154,6 +154,38 @@ public class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<StrataComposerChip> LiveAiSkills { get; } = new();
 
+    // ── Chart demo data ──
+
+    public IList<string> ChartMonthLabels { get; } = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+    public IList<StrataChartSeries> RevenueSeries { get; } = new List<StrataChartSeries>
+    {
+        new() { Name = "Actual", Values = new double[] { 42, 49, 55, 58, 63, 68, 72, 76, 74, 79, 82, 84 } },
+        new() { Name = "Forecast", Values = new double[] { 40, 45, 50, 56, 60, 65, 70, 75, 78, 81, 85, 90 } },
+    };
+
+    public IList<string> DeptLabels { get; } = new[] { "Eng", "Sales", "Mktg", "Ops", "HR", "Legal" };
+
+    public IList<StrataChartSeries> DeptSeries { get; } = new List<StrataChartSeries>
+    {
+        new() { Name = "FY25", Values = new double[] { 180, 120, 85, 95, 60, 45 } },
+        new() { Name = "FY24", Values = new double[] { 160, 105, 78, 88, 55, 42 } },
+    };
+
+    public IList<string> ProjectLabels { get; } = new[] { "Engineering", "Marketing", "Sales", "Operations" };
+
+    public IList<StrataChartSeries> ProjectSeries { get; } = new List<StrataChartSeries>
+    {
+        new() { Name = "Allocation", Values = new double[] { 45, 22, 18, 15 } },
+    };
+
+    public IList<string> ClientLabels { get; } = new[] { "Enterprise", "SMB", "Startup", "Government" };
+
+    public IList<StrataChartSeries> ClientSeries { get; } = new List<StrataChartSeries>
+    {
+        new() { Name = "Clients", Values = new double[] { 38, 27, 20, 15 } },
+    };
+
     protected void OnPropertyChanged([CallerMemberName] string? name = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

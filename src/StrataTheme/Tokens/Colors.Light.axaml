@@ -191,4 +191,19 @@
     <GradientStop Offset="1" Color="#04EC4899" />
   </LinearGradientBrush>
 
+  <!-- ── Chart Palette: Strata signature spectrum ── -->
+  <Color x:Key="Color.Chart1">#4F46E5</Color>  <!-- Indigo   — AccentDefault -->
+  <Color x:Key="Color.Chart2">#7C3AED</Color>  <!-- Violet   — AccentViolet  -->
+  <Color x:Key="Color.Chart3">#9333EA</Color>  <!-- Purple   — midpoint      -->
+  <Color x:Key="Color.Chart4">#EC4899</Color>  <!-- Rose     — AccentRose    -->
+  <Color x:Key="Color.Chart5">#0284C7</Color>  <!-- Sky      — cool contrast -->
+  <Color x:Key="Color.Chart6">#059669</Color>  <!-- Emerald  — complement    -->
+
+  <SolidColorBrush x:Key="Brush.Chart1" Color="{DynamicResource Color.Chart1}" />
+  <SolidColorBrush x:Key="Brush.Chart2" Color="{DynamicResource Color.Chart2}" />
+  <SolidColorBrush x:Key="Brush.Chart3" Color="{DynamicResource Color.Chart3}" />
+  <SolidColorBrush x:Key="Brush.Chart4" Color="{DynamicResource Color.Chart4}" />
+  <SolidColorBrush x:Key="Brush.Chart5" Color="{DynamicResource Color.Chart5}" />
+  <SolidColorBrush x:Key="Brush.Chart6" Color="{DynamicResource Color.Chart6}" />
+
 </ResourceDictionary>

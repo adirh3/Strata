@@ -208,6 +208,59 @@
             </Border>
           </Grid>
 
+          <!-- Charts -->
+          <Grid ColumnDefinitions="*,16,*">
+            <Border Grid.Column="0" Classes="strata-card">
+              <StackPanel Spacing="12">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="subtitle" Text="{Binding Strings[Chart.Revenue]}" />
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[Chart.Revenue.Subtitle]}" />
+                </StackPanel>
+                <sc:StrataChart ChartType="Line" ChartHeight="200"
+                                Labels="{Binding ChartMonthLabels}"
+                                Series="{Binding RevenueSeries}" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="strata-card">
+              <StackPanel Spacing="12">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="subtitle" Text="{Binding Strings[Chart.Budget]}" />
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[Chart.Budget.Subtitle]}" />
+                </StackPanel>
+                <sc:StrataChart ChartType="Bar" ChartHeight="200"
+                                Labels="{Binding DeptLabels}"
+                                Series="{Binding DeptSeries}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,16,*">
+            <Border Grid.Column="0" Classes="strata-card">
+              <StackPanel Spacing="12">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="subtitle" Text="{Binding Strings[Chart.Distribution]}" />
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[Chart.Distribution.Subtitle]}" />
+                </StackPanel>
+                <sc:StrataChart ChartType="Donut" ChartHeight="220"
+                                Labels="{Binding ProjectLabels}"
+                                Series="{Binding ProjectSeries}"
+                                DonutCenterValue="100%"
+                                DonutCenterLabel="Allocation" />
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="strata-card">
+              <StackPanel Spacing="12">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="subtitle" Text="{Binding Strings[Chart.Clients]}" />
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[Chart.Clients.Subtitle]}" />
+                </StackPanel>
+                <sc:StrataChart ChartType="Pie" ChartHeight="220"
+                                Labels="{Binding ClientLabels}"
+                                Series="{Binding ClientSeries}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
           <!-- Type scale -->
           <Border Classes="strata-card">
             <StackPanel Spacing="8">
@@ -808,6 +861,221 @@
                                         SelectedQuality="High" />
                 </sc:StrataChatShell.Composer>
               </sc:StrataChatShell>
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataCanvas ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataCanvas" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Rich-content artifact panel for AI chat integration. Host code, documents, previews, or any control alongside a conversation." />
+              </StackPanel>
+
+              <Grid ColumnDefinitions="*,16,*">
+                <!-- Canvas with code content -->
+                <sc:StrataCanvas Grid.Column="0"
+                                 Title="Generated Code"
+                                 Subtitle="Python · 24 lines"
+                                 ShowCloseButton="False"
+                                 MinHeight="220">
+                  <sc:StrataCanvas.Icon>
+                    <Border Width="22" Height="22" CornerRadius="6"
+                            Background="{DynamicResource Brush.AccentSubtle}">
+                      <TextBlock Text="🐍" FontSize="12"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                  </sc:StrataCanvas.Icon>
+                  <sc:StrataCanvas.ToolBar>
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                      <Button Classes="subtle" Padding="6,3" MinHeight="0" CornerRadius="4">
+                        <TextBlock Text="Copy" FontSize="11"
+                                   Foreground="{DynamicResource Brush.TextTertiary}" />
+                      </Button>
+                      <Button Classes="subtle" Padding="6,3" MinHeight="0" CornerRadius="4">
+                        <TextBlock Text="Apply" FontSize="11"
+                                   Foreground="{DynamicResource Brush.AccentDefault}" />
+                      </Button>
+                    </StackPanel>
+                  </sc:StrataCanvas.ToolBar>
+                  <sc:StrataCanvas.Content>
+                    <SelectableTextBlock FontFamily="Cascadia Code, Consolas, monospace"
+                                         FontSize="12"
+                                         Foreground="{DynamicResource Brush.TextPrimary}"
+                                         xml:space="preserve"
+                                         TextWrapping="Wrap">import asyncio
+from dataclasses import dataclass
+
+@dataclass
+class IncidentReport:
+    id: str
+    severity: str
+    summary: str
+    root_cause: str | None = None
+
+async def analyze_incident(report):
+    """Analyze incident and suggest mitigations."""
+    causes = await fetch_correlated_events(
+        report.id,
+        window="24h"
+    )
+    return {
+        "root_cause": causes[0],
+        "confidence": 0.88,
+        "mitigations": suggest(causes)
+    }</SelectableTextBlock>
+                  </sc:StrataCanvas.Content>
+                  <sc:StrataCanvas.Footer>
+                    <DockPanel>
+                      <TextBlock DockPanel.Dock="Right"
+                                 FontSize="11"
+                                 Foreground="{DynamicResource Brush.TextTertiary}"
+                                 Text="Last updated 2 min ago" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Width="5" Height="5" CornerRadius="2.5"
+                                Background="{DynamicResource Brush.SuccessDefault}"
+                                VerticalAlignment="Center" />
+                        <TextBlock FontSize="11"
+                                   Foreground="{DynamicResource Brush.TextTertiary}"
+                                   Text="Ready to apply" />
+                      </StackPanel>
+                    </DockPanel>
+                  </sc:StrataCanvas.Footer>
+                </sc:StrataCanvas>
+
+                <!-- Canvas with document/analysis content -->
+                <sc:StrataCanvas Grid.Column="2"
+                                 Title="Incident Summary"
+                                 Subtitle="Auto-generated · IR-4471"
+                                 ShowCloseButton="False"
+                                 MinHeight="220">
+                  <sc:StrataCanvas.Icon>
+                    <Border Width="22" Height="22" CornerRadius="6"
+                            Background="{DynamicResource Brush.AccentGradient}">
+                      <TextBlock Text="S" FontSize="11" FontWeight="Bold"
+                                 Foreground="{DynamicResource Brush.TextOnAccent}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                  </sc:StrataCanvas.Icon>
+                  <sc:StrataCanvas.Content>
+                    <StackPanel Spacing="14">
+                      <StackPanel Spacing="4">
+                        <TextBlock FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                   Text="Root Cause" />
+                        <TextBlock FontSize="12.5" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="GC pause inflation from allocation bursts in the serializer hot path during peak traffic on worker pool C." />
+                      </StackPanel>
+                      <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Opacity="0.5" />
+                      <StackPanel Spacing="4">
+                        <TextBlock FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                   Text="Mitigation Plan" />
+                        <StackPanel Spacing="3">
+                          <TextBlock FontSize="12.5" TextWrapping="Wrap"
+                                     Foreground="{DynamicResource Brush.TextSecondary}"
+                                     Text="1. Enable autoscale policy with p95 &lt; 250ms gate" />
+                          <TextBlock FontSize="12.5" TextWrapping="Wrap"
+                                     Foreground="{DynamicResource Brush.TextSecondary}"
+                                     Text="2. Tune GC thresholds to reduce allocation pressure" />
+                          <TextBlock FontSize="12.5" TextWrapping="Wrap"
+                                     Foreground="{DynamicResource Brush.TextSecondary}"
+                                     Text="3. Stage rollout at 25% → 50% → 100% with rollback" />
+                        </StackPanel>
+                      </StackPanel>
+                      <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Opacity="0.5" />
+                      <StackPanel Spacing="4">
+                        <TextBlock FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brush.TextPrimary}"
+                                   Text="Impact Assessment" />
+                        <TextBlock FontSize="12.5" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="Estimated 12% of requests affected during peak window. No data loss detected. Customer-facing latency normalized within 8 minutes of fix deployment." />
+                      </StackPanel>
+                    </StackPanel>
+                  </sc:StrataCanvas.Content>
+                  <sc:StrataCanvas.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <sc:StrataConfidence Label="Accuracy" Confidence="88" />
+                    </StackPanel>
+                  </sc:StrataCanvas.Footer>
+                </sc:StrataCanvas>
+              </Grid>
+
+              <!-- Canvas integrated with mini chat -->
+              <TextBlock Classes="caption tertiary" Text="Integrated with chat" Margin="0,8,0,0" />
+              <Grid ColumnDefinitions="1.2*,12,*" MinHeight="300">
+                <sc:StrataChatShell Grid.Column="0"
+                                    IsOnline="True"
+                                    MinHeight="280">
+                  <sc:StrataChatShell.Transcript>
+                    <StackPanel Spacing="4">
+                      <sc:StrataChatMessage Role="User">
+                        <sc:StrataChatMessage.Content>
+                          <TextBlock TextWrapping="Wrap" FontSize="13"
+                                     Text="Generate a rollout checklist for IR-4471" />
+                        </sc:StrataChatMessage.Content>
+                      </sc:StrataChatMessage>
+                      <sc:StrataChatMessage Role="Assistant" StatusText="canvas opened">
+                        <sc:StrataChatMessage.Content>
+                          <TextBlock TextWrapping="Wrap" FontSize="13"
+                                     Foreground="{DynamicResource Brush.TextPrimary}"
+                                     Text="I've created a rollout checklist in the canvas. You can review and edit it directly." />
+                        </sc:StrataChatMessage.Content>
+                      </sc:StrataChatMessage>
+                    </StackPanel>
+                  </sc:StrataChatShell.Transcript>
+                  <sc:StrataChatShell.Composer>
+                    <sc:StrataChatComposer Placeholder="Ask about the canvas…" />
+                  </sc:StrataChatShell.Composer>
+                </sc:StrataChatShell>
+
+                <sc:StrataCanvas Grid.Column="2"
+                                 Title="Rollout Checklist"
+                                 Subtitle="IR-4471 · 6 items"
+                                 ShowCloseButton="True"
+                                 MinHeight="280">
+                  <sc:StrataCanvas.Icon>
+                    <Border Width="22" Height="22" CornerRadius="6"
+                            Background="{DynamicResource Brush.AccentSubtle}">
+                      <TextBlock Text="☑" FontSize="12"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                  </sc:StrataCanvas.Icon>
+                  <sc:StrataCanvas.ToolBar>
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                      <Button Classes="subtle" Padding="6,3" MinHeight="0" CornerRadius="4">
+                        <TextBlock Text="Export" FontSize="11"
+                                   Foreground="{DynamicResource Brush.TextTertiary}" />
+                      </Button>
+                    </StackPanel>
+                  </sc:StrataCanvas.ToolBar>
+                  <sc:StrataCanvas.Content>
+                    <StackPanel Spacing="10">
+                      <CheckBox IsChecked="True" Content="Confirm autoscale policy thresholds" FontSize="12.5" />
+                      <CheckBox IsChecked="True" Content="Validate GC tuning parameters" FontSize="12.5" />
+                      <CheckBox IsChecked="True" Content="Run canary deployment at 25%" FontSize="12.5" />
+                      <CheckBox Content="Monitor p95 for 15 min at each stage" FontSize="12.5" />
+                      <CheckBox Content="Expand to 50% with rollback gate active" FontSize="12.5" />
+                      <CheckBox Content="Full rollout with stakeholder sign-off" FontSize="12.5" />
+                    </StackPanel>
+                  </sc:StrataCanvas.Content>
+                  <sc:StrataCanvas.Footer>
+                    <DockPanel>
+                      <TextBlock DockPanel.Dock="Right"
+                                 FontSize="11"
+                                 Foreground="{DynamicResource Brush.TextTertiary}"
+                                 Text="3 of 6 complete" />
+                      <ProgressBar Value="50" Minimum="0" Maximum="100"
+                                   Height="4" CornerRadius="2"
+                                   Width="80"
+                                   HorizontalAlignment="Left" />
+                    </DockPanel>
+                  </sc:StrataCanvas.Footer>
+                </sc:StrataCanvas>
+              </Grid>
             </StackPanel>
           </Border>
 
