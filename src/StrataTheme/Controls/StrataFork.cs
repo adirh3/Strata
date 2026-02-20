@@ -164,7 +164,7 @@ public class StrataFork : TemplatedControl
         if (tabWidth < 2)
             return;
 
-        var half = Math.Max(0, (tabWidth - 8) / 2.0);
+        var half = Math.Max(0, tabWidth / 2.0);
         _indicator.Width = half;
 
         var targetX = (float)(SelectedIndex == 0 ? 0 : half);
