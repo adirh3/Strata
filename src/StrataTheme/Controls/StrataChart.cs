@@ -224,6 +224,7 @@ public class StrataChart : TemplatedControl
     {
         if (_canvas is not null)
         {
+            _canvas.ClearFilters();
             // Only re-animate if already displayed once; initial animation
             // is handled by OnAttachedToVisualTree deferred callback.
             if (_canvas.HoverIndex < 0) // not during hover interaction
@@ -274,6 +275,10 @@ public class StrataChart : TemplatedControl
         private const double LegendRowH = 24;
         private const int GridLines = 5;
 
+        // ── Legend filtering ───────────────────────────────────
+        private readonly HashSet<int> _hiddenIndices = new();
+        private readonly List<(int Index, Rect Bounds)> _legendHitRects = new();
+
         // ── Animation state ────────────────────────────────────
         private const double AnimDurationMs = 600;
         private readonly Stopwatch _animWatch = new();
@@ -297,6 +302,8 @@ public class StrataChart : TemplatedControl
             _hasAnimated = false;
             _animWatch.Reset();
         }
+
+        internal void ClearFilters() => _hiddenIndices.Clear();
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
@@ -405,6 +412,25 @@ public class StrataChart : TemplatedControl
         {
             base.OnPointerExited(e);
             if (_hoverIndex >= 0) { _hoverIndex = -1; InvalidateVisual(); }
+        }
+
+        protected override void OnPointerPressed(PointerPressedEventArgs e)
+        {
+            base.OnPointerPressed(e);
+            var pos = e.GetPosition(this);
+            foreach (var (idx, rect) in _legendHitRects)
+            {
+                if (rect.Contains(pos))
+                {
+                    if (_hiddenIndices.Contains(idx))
+                        _hiddenIndices.Remove(idx);
+                    else
+                        _hiddenIndices.Add(idx);
+                    InvalidateVisual();
+                    e.Handled = true;
+                    return;
+                }
+            }
         }
 
         // ── Hit testing ────────────────────────────────────────
@@ -546,13 +572,18 @@ public class StrataChart : TemplatedControl
         private void DrawLegend(DrawingContext ctx, Rect bounds, IList<StrataChartSeries> series)
         {
             var labelBrush = _chart.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
+            var dimBrush = _chart.ResolveBrush("Brush.TextTertiary", Color.Parse("#8A8A8A"));
+            _legendHitRects.Clear();
 
             if (_chart.ChartType is StrataChartType.Donut or StrataChartType.Pie)
             {
                 // Vertical legend on the right side
                 var labels = _chart.Labels;
                 var vals = series.Count > 0 ? series[0].Values : null;
-                var total = vals?.Sum() ?? 0;
+                var visibleTotal = 0.0;
+                if (vals is not null)
+                    for (int i = 0; i < vals.Count; i++)
+                        if (!_hiddenIndices.Contains(i)) visibleTotal += vals[i];
 
                 var center = _chart.ChartType == StrataChartType.Pie
                     ? PieMetrics().center
@@ -563,12 +594,24 @@ public class StrataChart : TemplatedControl
 
                 for (int i = 0; i < itemCount; i++)
                 {
-                    var brush = SeriesBrush(i);
+                    var hidden = _hiddenIndices.Contains(i);
+                    var brush = hidden ? dimBrush : SeriesBrush(i);
+                    var textBr = hidden ? dimBrush : labelBrush;
+
                     ctx.DrawEllipse(brush, null, new Point(startX + 5, startY + 7), 5, 5);
+                    if (hidden)
+                    {
+                        // Strikethrough line over the dot
+                        var strikePen = new Pen(dimBrush, 1.5);
+                        ctx.DrawLine(strikePen, new Point(startX, startY + 7), new Point(startX + 10, startY + 7));
+                    }
                     var label = labels![i];
-                    if (vals is not null && i < vals.Count && total > 0)
-                        label += $"  {vals[i] / total * 100:F0}%";
-                    ctx.DrawText(Txt(label, 11, labelBrush), new Point(startX + 16, startY));
+                    if (vals is not null && i < vals.Count && visibleTotal > 0 && !hidden)
+                        label += $"  {vals[i] / visibleTotal * 100:F0}%";
+                    var ft = Txt(label, 11, textBr);
+                    ctx.DrawText(ft, new Point(startX + 16, startY));
+
+                    _legendHitRects.Add((i, new Rect(startX, startY, 16 + ft.Width, 18)));
                     startY += 22;
                 }
             }
@@ -578,11 +621,22 @@ public class StrataChart : TemplatedControl
                 double x = LeftPad;
                 for (int i = 0; i < series.Count; i++)
                 {
-                    var brush = SeriesBrush(i);
+                    var hidden = _hiddenIndices.Contains(i);
+                    var brush = hidden ? dimBrush : SeriesBrush(i);
+                    var textBr = hidden ? dimBrush : labelBrush;
+
                     ctx.DrawEllipse(brush, null, new Point(x + 5, TopPad + 7), 5, 5);
-                    var ft = Txt(series[i].Name, 11, labelBrush);
+                    if (hidden)
+                    {
+                        var strikePen = new Pen(dimBrush, 1.5);
+                        ctx.DrawLine(strikePen, new Point(x, TopPad + 7), new Point(x + 10, TopPad + 7));
+                    }
+                    var ft = Txt(series[i].Name, 11, textBr);
                     ctx.DrawText(ft, new Point(x + 14, TopPad));
-                    x += 14 + ft.Width + 20;
+
+                    var itemW = 14 + ft.Width;
+                    _legendHitRects.Add((i, new Rect(x, TopPad, itemW, 18)));
+                    x += itemW + 20;
                 }
             }
         }
@@ -631,7 +685,9 @@ public class StrataChart : TemplatedControl
             var rect = ChartRect();
             if (rect.Width < 10 || rect.Height < 10) return;
 
-            double maxVal = series.SelectMany(s => s.Values).DefaultIfEmpty(0).Max();
+            double maxVal = series
+                .Where((_, i) => !_hiddenIndices.Contains(i))
+                .SelectMany(s => s.Values).DefaultIfEmpty(0).Max();
             maxVal = NiceMax(maxVal);
             var range = maxVal > 0 ? maxVal : 1;
 
@@ -651,6 +707,7 @@ public class StrataChart : TemplatedControl
 
             for (int si = 0; si < series.Count; si++)
             {
+                if (_hiddenIndices.Contains(si)) continue;
                 var s = series[si];
                 if (s.Values.Count < 2) continue;
 
@@ -744,14 +801,15 @@ public class StrataChart : TemplatedControl
             {
                 double highY = rect.Bottom;
                 for (int si = 0; si < series.Count; si++)
-                    if (_hoverIndex < series[si].Values.Count)
+                    if (!_hiddenIndices.Contains(si) && _hoverIndex < series[si].Values.Count)
                     {
                         var y = rect.Bottom - series[si].Values[_hoverIndex] / range * rect.Height;
                         if (y < highY) highY = y;
                     }
 
                 var tx = rect.Left + (double)_hoverIndex / (labels.Count - 1) * rect.Width;
-                DrawTooltip(ctx, new Point(tx, highY), series, _hoverIndex, labels, textBrush, surfaceBrush, gridBrush);
+                var visibleSeries = series.Where((_, i) => !_hiddenIndices.Contains(i)).ToList();
+                DrawTooltip(ctx, new Point(tx, highY), visibleSeries, _hoverIndex, labels, textBrush, surfaceBrush, gridBrush);
             }
         }
 
@@ -766,7 +824,13 @@ public class StrataChart : TemplatedControl
             var rect = ChartRect();
             if (rect.Width < 10 || rect.Height < 10) return;
 
-            double maxVal = series.SelectMany(s => s.Values).DefaultIfEmpty(0).Max();
+            // Visible series for layout calculations
+            var visibleSeriesIndices = new List<int>();
+            for (int i = 0; i < series.Count; i++)
+                if (!_hiddenIndices.Contains(i)) visibleSeriesIndices.Add(i);
+
+            double maxVal = visibleSeriesIndices
+                .SelectMany(i => series[i].Values).DefaultIfEmpty(0).Max();
             maxVal = NiceMax(maxVal);
             if (maxVal <= 0) maxVal = 1;
 
@@ -774,13 +838,13 @@ public class StrataChart : TemplatedControl
                 DrawGridAndAxes(ctx, rect, 0, maxVal, gridBrush, labelBrush);
 
             var labelCount = labels.Count;
-            var seriesCount = series.Count;
+            var visCount = visibleSeriesIndices.Count;
             var groupWidth = rect.Width / labelCount;
             var groupPad = groupWidth * 0.2;
             var barArea = groupWidth - groupPad;
-            var barGap = seriesCount > 1 ? 2.0 : 0;
-            var totalGaps = Math.Max(0, seriesCount - 1) * barGap;
-            var barWidth = Math.Max(2, (barArea - totalGaps) / seriesCount);
+            var barGap = visCount > 1 ? 2.0 : 0;
+            var totalGaps = Math.Max(0, visCount - 1) * barGap;
+            var barWidth = visCount > 0 ? Math.Max(2, (barArea - totalGaps) / visCount) : 0;
             var cornerR = Math.Min(4, barWidth / 2);
 
             for (int i = 0; i < labelCount; i++)
@@ -791,15 +855,16 @@ public class StrataChart : TemplatedControl
                 var ft = Txt(labels[i], 10, labelBrush);
                 ctx.DrawText(ft, new Point(groupLeft + barArea / 2 - ft.Width / 2, rect.Bottom + 6));
 
-                for (int si = 0; si < seriesCount; si++)
+                for (int vi = 0; vi < visCount; vi++)
                 {
+                    var si = visibleSeriesIndices[vi];
                     if (i >= series[si].Values.Count) continue;
 
                     var val = series[si].Values[i];
                     var barH = val / maxVal * rect.Height * _animProgress;
                     if (barH < 1) continue;
 
-                    var bx = groupLeft + si * (barWidth + barGap);
+                    var bx = groupLeft + vi * (barWidth + barGap);
                     var by = rect.Bottom - barH;
                     var barRect = new Rect(bx, by, barWidth, barH);
                     var brush = SeriesBrush(si);
@@ -819,15 +884,19 @@ public class StrataChart : TemplatedControl
             if (_hoverIndex >= 0 && _hoverIndex < labelCount)
             {
                 double highY = rect.Bottom;
-                for (int si = 0; si < seriesCount; si++)
+                for (int vi = 0; vi < visCount; vi++)
+                {
+                    var si = visibleSeriesIndices[vi];
                     if (_hoverIndex < series[si].Values.Count)
                     {
                         var y = rect.Bottom - series[si].Values[_hoverIndex] / maxVal * rect.Height;
                         if (y < highY) highY = y;
                     }
+                }
 
                 var gCenter = rect.Left + _hoverIndex * groupWidth + groupWidth / 2;
-                DrawTooltip(ctx, new Point(gCenter, highY), series, _hoverIndex, labels, textBrush, surfaceBrush, gridBrush);
+                var visibleSeries = visibleSeriesIndices.Select(i => series[i]).ToList();
+                DrawTooltip(ctx, new Point(gCenter, highY), visibleSeries, _hoverIndex, labels, textBrush, surfaceBrush, gridBrush);
             }
         }
 
@@ -844,15 +913,24 @@ public class StrataChart : TemplatedControl
             var total = vals.Sum();
             if (total <= 0) return;
 
+            // Calculate visible total for proportional sizing
+            var visibleTotal = 0.0;
+            for (int i = 0; i < vals.Count; i++)
+                if (!_hiddenIndices.Contains(i)) visibleTotal += vals[i];
+            if (visibleTotal <= 0) visibleTotal = total; // fallback if all hidden
+
+            var visibleCount = vals.Count - _hiddenIndices.Count(i => i < vals.Count);
             var gapDeg = 3.0;
-            var usable = 360.0 - gapDeg * vals.Count;
+            var usable = 360.0 - gapDeg * Math.Max(1, visibleCount);
             var animSweepTotal = 360.0 * _animProgress;
 
             double angle = 0;
             double drawnSoFar = 0;
             for (int i = 0; i < vals.Count; i++)
             {
-                var sweep = vals[i] / total * usable;
+                if (_hiddenIndices.Contains(i)) continue;
+
+                var sweep = vals[i] / visibleTotal * usable;
                 var brush = SeriesBrush(i);
 
                 // Clamp sweep to remaining animation budget
@@ -889,7 +967,7 @@ public class StrataChart : TemplatedControl
             }
 
             // Hover tooltip for donut
-            if (_hoverIndex >= 0 && _hoverIndex < vals.Count)
+            if (_hoverIndex >= 0 && _hoverIndex < vals.Count && !_hiddenIndices.Contains(_hoverIndex))
             {
                 var labels = _chart.Labels;
                 if (labels is not null && _hoverIndex < labels.Count)
@@ -897,14 +975,17 @@ public class StrataChart : TemplatedControl
                     // Calculate segment midpoint for tooltip anchor
                     double hAngle = 0;
                     for (int i = 0; i < _hoverIndex; i++)
-                        hAngle += vals[i] / total * usable + gapDeg;
-                    var hSweep = vals[_hoverIndex] / total * usable;
+                    {
+                        if (_hiddenIndices.Contains(i)) continue;
+                        hAngle += vals[i] / visibleTotal * usable + gapDeg;
+                    }
+                    var hSweep = vals[_hoverIndex] / visibleTotal * usable;
                     var midRad = (hAngle + hSweep / 2 - 90) * Math.PI / 180;
                     var tipAnchor = new Point(
                         center.X + (outerR + 10) * Math.Cos(midRad),
                         center.Y + (outerR + 10) * Math.Sin(midRad));
 
-                    var pct = vals[_hoverIndex] / total * 100;
+                    var pct = vals[_hoverIndex] / visibleTotal * 100;
                     var tipText = $"{labels[_hoverIndex]}: {FormatValue(vals[_hoverIndex])} ({pct:F0}%)";
 
                     var gridBrush = _chart.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
@@ -926,6 +1007,12 @@ public class StrataChart : TemplatedControl
             var total = vals.Sum();
             if (total <= 0) return;
 
+            // Calculate visible total for proportional sizing
+            var visibleTotal = 0.0;
+            for (int i = 0; i < vals.Count; i++)
+                if (!_hiddenIndices.Contains(i)) visibleTotal += vals[i];
+            if (visibleTotal <= 0) visibleTotal = total; // fallback if all hidden
+
             // No angular gap — full 360°, then overlay separator lines
             var animSweepTotal = 360.0 * _animProgress;
 
@@ -933,7 +1020,9 @@ public class StrataChart : TemplatedControl
             double drawnSoFar = 0;
             for (int i = 0; i < vals.Count; i++)
             {
-                var sweep = vals[i] / total * 360.0;
+                if (_hiddenIndices.Contains(i)) continue;
+
+                var sweep = vals[i] / visibleTotal * 360.0;
                 var brush = SeriesBrush(i);
 
                 var availableSweep = Math.Max(0, Math.Min(sweep, animSweepTotal - drawnSoFar));
@@ -959,7 +1048,8 @@ public class StrataChart : TemplatedControl
             angle = 0;
             for (int i = 0; i < vals.Count; i++)
             {
-                var sweep = vals[i] / total * 360.0;
+                if (_hiddenIndices.Contains(i)) continue;
+                var sweep = vals[i] / visibleTotal * 360.0;
                 // Separator at the START of each slice (draws over seam)
                 var rad = (angle - 90) * Math.PI / 180;
                 var edgePt = new Point(center.X + (radius + 1) * Math.Cos(rad),
@@ -969,21 +1059,24 @@ public class StrataChart : TemplatedControl
             }
 
             // Hover tooltip
-            if (_hoverIndex >= 0 && _hoverIndex < vals.Count)
+            if (_hoverIndex >= 0 && _hoverIndex < vals.Count && !_hiddenIndices.Contains(_hoverIndex))
             {
                 var labels = _chart.Labels;
                 if (labels is not null && _hoverIndex < labels.Count)
                 {
                     double hAngle = 0;
                     for (int i = 0; i < _hoverIndex; i++)
-                        hAngle += vals[i] / total * 360.0;
-                    var hSweep = vals[_hoverIndex] / total * 360.0;
+                    {
+                        if (_hiddenIndices.Contains(i)) continue;
+                        hAngle += vals[i] / visibleTotal * 360.0;
+                    }
+                    var hSweep = vals[_hoverIndex] / visibleTotal * 360.0;
                     var midRad = (hAngle + hSweep / 2 - 90) * Math.PI / 180;
                     var tipAnchor = new Point(
                         center.X + (radius + 12) * Math.Cos(midRad),
                         center.Y + (radius + 12) * Math.Sin(midRad));
 
-                    var pct = vals[_hoverIndex] / total * 100;
+                    var pct = vals[_hoverIndex] / visibleTotal * 100;
                     var tipText = $"{labels[_hoverIndex]}: {FormatValue(vals[_hoverIndex])} ({pct:F0}%)";
 
                     var gridBrush = _chart.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
