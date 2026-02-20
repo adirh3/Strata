@@ -206,6 +206,11 @@ public sealed class Strings
             ["Use24Hour"] = "Use 24-hour clock",
             ["Use24Hour.Desc"] = "Display time in 24-hour format instead of AM/PM",
 
+            // Mermaid Diagrams
+            ["MermaidDiagrams"] = "Mermaid Diagrams",
+            ["MermaidDiagrams.Subtitle"] = "Flowcharts, sequence diagrams, and state machines rendered from standard Mermaid syntax via StrataMarkdown.",
+            ["MermaidDiagrams.Footer"] = "Use ```mermaid fenced blocks with graph/flowchart, sequenceDiagram, or stateDiagram-v2 syntax. Pie and xychart-beta also supported.",
+
             // Charts
             ["Chart.Revenue"] = "Revenue Trend",
             ["Chart.Revenue.Subtitle"] = "Monthly revenue with actual vs. forecast comparison.",
@@ -376,6 +381,11 @@ public sealed class Strings
             ["DateFormat.Desc"] = "בחירת התבנית להצגת תאריכים",
             ["Use24Hour"] = "שעון 24 שעות",
             ["Use24Hour.Desc"] = "הצגת שעה בתבנית 24 שעות במקום AM/PM",
+
+            // Mermaid Diagrams
+            ["MermaidDiagrams"] = "תרשימי Mermaid",
+            ["MermaidDiagrams.Subtitle"] = "תרשימי זרימה, רצפים ומכונות מצב מתחביר Mermaid סטנדרטי באמצעות StrataMarkdown.",
+            ["MermaidDiagrams.Footer"] = "השתמשו בבלוקי ```mermaid עם graph/flowchart, sequenceDiagram או stateDiagram-v2. תמיכה גם ב-pie ו-xychart-beta.",
 
             // Charts
             ["Chart.Revenue"] = "מגמת הכנסות",

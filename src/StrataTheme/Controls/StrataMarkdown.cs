@@ -12,6 +12,7 @@ using TextMateSharp.Grammars;
 using AvaloniaEdit.TextMate;
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -50,6 +51,8 @@ public class StrataMarkdown : ContentControl
     private double _bodyFontSize = 14;
     private readonly Dictionary<string, StrataChart> _chartCache = new();
     private HashSet<string> _chartKeysUsed = new();
+    private readonly Dictionary<string, StrataMermaid> _diagramCache = new();
+    private HashSet<string> _diagramKeysUsed = new();
     private Border? _chartPlaceholder;
 
     /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
@@ -187,6 +190,7 @@ public class StrataMarkdown : ContentControl
         _linkRuns.Clear();
         _bodyFontSize = GetBodyFontSize();
         _chartKeysUsed = new HashSet<string>();
+        _diagramKeysUsed = new HashSet<string>();
 
         var source = Markdown;
         if (!string.IsNullOrWhiteSpace(source))
@@ -219,6 +223,8 @@ public class StrataMarkdown : ContentControl
                     {
                         if (string.Equals(codeLanguage, "chart", StringComparison.OrdinalIgnoreCase))
                             AddChart(codeBuffer.ToString());
+                        else if (string.Equals(codeLanguage, "mermaid", StringComparison.OrdinalIgnoreCase))
+                            AddMermaidChart(codeBuffer.ToString());
                         else
                             AddCodeBlock(codeBuffer.ToString(), codeLanguage);
                         inCodeBlock = false;
@@ -288,6 +294,8 @@ public class StrataMarkdown : ContentControl
             {
                 if (string.Equals(codeLanguage, "chart", StringComparison.OrdinalIgnoreCase))
                     AddChart(codeBuffer.ToString());
+                else if (string.Equals(codeLanguage, "mermaid", StringComparison.OrdinalIgnoreCase))
+                    AddMermaidChart(codeBuffer.ToString());
                 else
                     AddCodeBlock(codeBuffer.ToString(), codeLanguage);
             }
@@ -296,9 +304,11 @@ public class StrataMarkdown : ContentControl
             FlushParagraph(paragraphBuffer);
         }
 
-        // Evict cached charts no longer present in the markdown
+        // Evict cached controls no longer present in the markdown
         foreach (var staleKey in _chartCache.Keys.Except(_chartKeysUsed).ToList())
             _chartCache.Remove(staleKey);
+        foreach (var staleKey in _diagramCache.Keys.Except(_diagramKeysUsed).ToList())
+            _diagramCache.Remove(staleKey);
     }
 
     private void FlushParagraph(StringBuilder paragraphBuffer)
@@ -698,6 +708,292 @@ public class StrataMarkdown : ContentControl
             // Incomplete/malformed JSON during streaming — show placeholder
             AddChartPlaceholder();
         }
+    }
+
+    private void AddMermaidChart(string mermaidText)
+    {
+        var trimmed = mermaidText.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            AddChartPlaceholder();
+            return;
+        }
+
+        var firstLine = trimmed.Split('\n')[0].TrimStart().ToLowerInvariant();
+
+        // Diagram types → StrataMermaid
+        if (firstLine.StartsWith("graph") || firstLine.StartsWith("flowchart") ||
+            firstLine.StartsWith("sequencediagram") || firstLine.StartsWith("statediagram"))
+        {
+            AddMermaidDiagram(trimmed);
+            return;
+        }
+
+        // Chart types → StrataChart
+        var cacheKey = "mermaid:" + trimmed;
+        if (_chartCache.TryGetValue(cacheKey, out var cached))
+        {
+            _chartKeysUsed.Add(cacheKey);
+            _contentHost.Children.Add(cached);
+            return;
+        }
+
+        try
+        {
+            StrataChart? chart = null;
+
+            if (trimmed.StartsWith("pie", StringComparison.OrdinalIgnoreCase))
+                chart = ParseMermaidPie(trimmed);
+            else if (trimmed.StartsWith("xychart-beta", StringComparison.OrdinalIgnoreCase)
+                  || trimmed.StartsWith("xychart", StringComparison.OrdinalIgnoreCase))
+                chart = ParseMermaidXyChart(trimmed);
+
+            if (chart is not null)
+            {
+                _chartCache[cacheKey] = chart;
+                _chartKeysUsed.Add(cacheKey);
+                _contentHost.Children.Add(chart);
+            }
+            else
+            {
+                AddCodeBlock(trimmed, "mermaid");
+            }
+        }
+        catch
+        {
+            AddChartPlaceholder();
+        }
+    }
+
+    private void AddMermaidDiagram(string mermaidText)
+    {
+        var cacheKey = "mermaid-diag:" + mermaidText;
+        if (_diagramCache.TryGetValue(cacheKey, out var cached))
+        {
+            _diagramKeysUsed.Add(cacheKey);
+            _contentHost.Children.Add(cached);
+            return;
+        }
+
+        var diagram = new StrataMermaid { Source = mermaidText };
+        _diagramCache[cacheKey] = diagram;
+        _diagramKeysUsed.Add(cacheKey);
+        _contentHost.Children.Add(diagram);
+    }
+
+    private static readonly Regex MermaidPieEntryRegex = new(
+        @"^\s*""(?<label>[^""]+)""\s*:\s*(?<value>[\d.]+)",
+        RegexOptions.Compiled);
+
+    private StrataChart? ParseMermaidPie(string text)
+    {
+        var lines = text.Split('\n');
+        var labels = new List<string>();
+        var values = new List<double>();
+        string? title = null;
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+
+            if (line.StartsWith("pie", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (line.StartsWith("title ", StringComparison.OrdinalIgnoreCase))
+            {
+                title = line[6..].Trim().Trim('"');
+                continue;
+            }
+
+            var match = MermaidPieEntryRegex.Match(line);
+            if (match.Success)
+            {
+                labels.Add(match.Groups["label"].Value);
+                if (double.TryParse(match.Groups["value"].Value, NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out var val))
+                    values.Add(val);
+                else
+                    values.Add(0);
+            }
+        }
+
+        if (labels.Count == 0 || values.Count == 0)
+            return null;
+
+        var total = values.Sum();
+        var chart = new StrataChart
+        {
+            ChartType = StrataChartType.Pie,
+            Labels = labels,
+            Series = new List<StrataChartSeries>
+            {
+                new() { Name = title ?? "", Values = values }
+            },
+            ShowLegend = true,
+            ShowGrid = false,
+            ChartHeight = 220,
+        };
+
+        return chart;
+    }
+
+    private static readonly Regex MermaidBracketListRegex = new(
+        @"\[(?<items>[^\]]*)\]",
+        RegexOptions.Compiled);
+
+    private static readonly Regex MermaidQuotedListRegex = new(
+        @"""(?<item>[^""]*)""|(?<bare>[\w.]+)",
+        RegexOptions.Compiled);
+
+    private StrataChart? ParseMermaidXyChart(string text)
+    {
+        var lines = text.Split('\n');
+        string? title = null;
+        var xLabels = new List<string>();
+        var barSeriesValues = new List<List<double>>();
+        var lineSeriesValues = new List<List<double>>();
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+
+            if (line.StartsWith("xychart", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (line.StartsWith("title", StringComparison.OrdinalIgnoreCase))
+            {
+                var rest = line[5..].Trim().Trim('"');
+                if (!string.IsNullOrWhiteSpace(rest))
+                    title = rest;
+                continue;
+            }
+
+            if (line.StartsWith("x-axis", StringComparison.OrdinalIgnoreCase))
+            {
+                var rest = line[6..].Trim();
+                xLabels = ParseMermaidBracketValues(rest);
+                continue;
+            }
+
+            if (line.StartsWith("y-axis", StringComparison.OrdinalIgnoreCase))
+                continue; // Informational only — StrataChart auto-scales
+
+            if (line.StartsWith("bar", StringComparison.OrdinalIgnoreCase))
+            {
+                var rest = line[3..].Trim();
+                var nums = ParseMermaidNumericList(rest);
+                if (nums.Count > 0)
+                    barSeriesValues.Add(nums);
+                continue;
+            }
+
+            if (line.StartsWith("line", StringComparison.OrdinalIgnoreCase))
+            {
+                var rest = line[4..].Trim();
+                var nums = ParseMermaidNumericList(rest);
+                if (nums.Count > 0)
+                    lineSeriesValues.Add(nums);
+                continue;
+            }
+        }
+
+        var hasBar = barSeriesValues.Count > 0;
+        var hasLine = lineSeriesValues.Count > 0;
+        if (!hasBar && !hasLine) return null;
+
+        // If no explicit x-axis labels, generate numeric indices
+        var maxCount = Math.Max(
+            barSeriesValues.DefaultIfEmpty(new()).Max(s => s.Count),
+            lineSeriesValues.DefaultIfEmpty(new()).Max(s => s.Count));
+        if (xLabels.Count == 0)
+            for (int i = 1; i <= maxCount; i++)
+                xLabels.Add(i.ToString());
+
+        // Determine chart type: prefer Bar when bars exist, Line when only lines
+        var chartType = hasBar ? StrataChartType.Bar : StrataChartType.Line;
+
+        var seriesList = new List<StrataChartSeries>();
+        for (int i = 0; i < barSeriesValues.Count; i++)
+            seriesList.Add(new StrataChartSeries
+            {
+                Name = barSeriesValues.Count > 1 ? $"Bar {i + 1}" : title ?? "Bar",
+                Values = barSeriesValues[i]
+            });
+        for (int i = 0; i < lineSeriesValues.Count; i++)
+            seriesList.Add(new StrataChartSeries
+            {
+                Name = lineSeriesValues.Count > 1 ? $"Line {i + 1}" : title ?? "Line",
+                Values = lineSeriesValues[i]
+            });
+
+        // When mixed bar+line, use Line type so both are visible as overlapping series
+        if (hasBar && hasLine)
+            chartType = StrataChartType.Line;
+
+        return new StrataChart
+        {
+            ChartType = chartType,
+            Labels = xLabels,
+            Series = seriesList,
+            ShowLegend = seriesList.Count > 1,
+            ShowGrid = true,
+            ChartHeight = 220,
+        };
+    }
+
+    private static List<string> ParseMermaidBracketValues(string text)
+    {
+        var results = new List<string>();
+        var bracketMatch = MermaidBracketListRegex.Match(text);
+        if (bracketMatch.Success)
+        {
+            var inner = bracketMatch.Groups["items"].Value;
+            foreach (var part in inner.Split(','))
+            {
+                var val = part.Trim().Trim('"');
+                if (!string.IsNullOrWhiteSpace(val))
+                    results.Add(val);
+            }
+        }
+        else
+        {
+            // Fallback: try to parse label after possible quoted title text
+            var quoteIdx = text.IndexOf('"');
+            if (quoteIdx >= 0)
+            {
+                // e.g.: "Month" Jan, Feb, Mar
+                // Find closing quote, then parse remaining comma-separated values
+                var closeQuote = text.IndexOf('"', quoteIdx + 1);
+                if (closeQuote >= 0)
+                {
+                    var rest = text[(closeQuote + 1)..].Trim();
+                    foreach (var part in rest.Split(','))
+                    {
+                        var val = part.Trim().Trim('"');
+                        if (!string.IsNullOrWhiteSpace(val))
+                            results.Add(val);
+                    }
+                }
+            }
+        }
+        return results;
+    }
+
+    private static List<double> ParseMermaidNumericList(string text)
+    {
+        var results = new List<double>();
+        var bracketMatch = MermaidBracketListRegex.Match(text);
+        if (bracketMatch.Success)
+        {
+            var inner = bracketMatch.Groups["items"].Value;
+            foreach (var part in inner.Split(','))
+            {
+                var trimmed = part.Trim();
+                if (double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out var val))
+                    results.Add(val);
+            }
+        }
+        return results;
     }
 
     private void AddChartPlaceholder()

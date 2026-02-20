@@ -686,6 +686,29 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Mermaid Diagrams via StrataMarkdown ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="{Binding Strings[MermaidDiagrams]}" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="{Binding Strings[MermaidDiagrams.Subtitle]}" />
+              </StackPanel>
+
+              <sc:StrataMarkdown IsInline="True"
+                                 Markdown="### Flowchart&#x0a;&#x0a;```mermaid&#x0a;graph TD&#x0a;    A[Request Received] --&gt; B{Authenticated?}&#x0a;    B --&gt;|Yes| C[Authorize]&#x0a;    B --&gt;|No| D[Reject 401]&#x0a;    C --&gt; E{Has Permission?}&#x0a;    E --&gt;|Yes| F[Process Request]&#x0a;    E --&gt;|No| G[Reject 403]&#x0a;    F --&gt; H[Return Response]&#x0a;    D --&gt; H&#x0a;    G --&gt; H&#x0a;```" />
+
+              <sc:StrataMarkdown IsInline="True"
+                                 Markdown="### Sequence Diagram&#x0a;&#x0a;```mermaid&#x0a;sequenceDiagram&#x0a;    participant Client&#x0a;    participant Gateway as API Gateway&#x0a;    participant Auth&#x0a;    participant Service&#x0a;    participant DB&#x0a;    Client-&gt;&gt;Gateway: POST /api/orders&#x0a;    Gateway-&gt;&gt;Auth: Validate token&#x0a;    Auth--&gt;&gt;Gateway: Token valid&#x0a;    Gateway-&gt;&gt;Service: Forward request&#x0a;    Service-&gt;&gt;DB: INSERT order&#x0a;    DB--&gt;&gt;Service: order_id&#x0a;    Service--&gt;&gt;Gateway: 201 Created&#x0a;    Gateway--&gt;&gt;Client: 201 Created&#x0a;```" />
+
+              <sc:StrataMarkdown IsInline="True"
+                                 Markdown="### State Machine&#x0a;&#x0a;```mermaid&#x0a;stateDiagram-v2&#x0a;    [*] --&gt; Idle&#x0a;    Idle --&gt; Validating : submit&#x0a;    Validating --&gt; Processing : valid&#x0a;    Validating --&gt; Failed : invalid&#x0a;    Processing --&gt; Complete : done&#x0a;    Processing --&gt; Failed : error&#x0a;    Failed --&gt; Idle : retry&#x0a;    Complete --&gt; [*]&#x0a;```" />
+
+              <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                         Text="{Binding Strings[MermaidDiagrams.Footer]}" />
+            </StackPanel>
+          </Border>
+
           <!-- ── StrataFileAttachment ── -->
           <Border Classes="strata-card" Padding="24,20">
             <StackPanel Spacing="14">
