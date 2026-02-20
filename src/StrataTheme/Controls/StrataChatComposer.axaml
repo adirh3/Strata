@@ -336,6 +336,14 @@
         <Style Selector="^:not(:has-agent) /template/ Border#PART_AgentChip">
           <Setter Property="IsVisible" Value="False" />
         </Style>
+
+        <!-- Voice button: recording state -->
+        <Style Selector="^:recording /template/ Button#PART_VoiceButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerSubtle}" />
+        </Style>
+        <Style Selector="^:recording /template/ Button#PART_VoiceButton Path">
+          <Setter Property="Fill" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>

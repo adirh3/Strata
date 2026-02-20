@@ -167,6 +167,14 @@ public class StrataChatComposer : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> MentionRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(MentionRequested), RoutingStrategies.Bubble);
 
+    /// <summary>Raised when the user clicks the voice (microphone) button.</summary>
+    public static readonly RoutedEvent<RoutedEventArgs> VoiceRequestedEvent =
+        RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(VoiceRequested), RoutingStrategies.Bubble);
+
+    /// <summary>When true, the voice button shows a recording indicator.</summary>
+    public static readonly StyledProperty<bool> IsRecordingProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsRecording));
+
     static StrataChatComposer()
     {
         PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
@@ -178,6 +186,7 @@ public class StrataChatComposer : TemplatedControl
         IsBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SendWithEnterProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanAttachProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        IsRecordingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SuggestionAProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SuggestionBProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SuggestionCProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
@@ -211,6 +220,8 @@ public class StrataChatComposer : TemplatedControl
     { add => AddHandler(SkillRemovedEvent, value); remove => RemoveHandler(SkillRemovedEvent, value); }
     public event EventHandler<RoutedEventArgs>? MentionRequested
     { add => AddHandler(MentionRequestedEvent, value); remove => RemoveHandler(MentionRequestedEvent, value); }
+    public event EventHandler<RoutedEventArgs>? VoiceRequested
+    { add => AddHandler(VoiceRequestedEvent, value); remove => RemoveHandler(VoiceRequestedEvent, value); }
 
     public string? PromptText { get => GetValue(PromptTextProperty); set => SetValue(PromptTextProperty, value); }
     public string Placeholder { get => GetValue(PlaceholderProperty); set => SetValue(PlaceholderProperty, value); }
@@ -229,6 +240,7 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? SkillItems { get => GetValue(SkillItemsProperty); set => SetValue(SkillItemsProperty, value); }
     public IEnumerable? AvailableAgents { get => GetValue(AvailableAgentsProperty); set => SetValue(AvailableAgentsProperty, value); }
     public IEnumerable? AvailableSkills { get => GetValue(AvailableSkillsProperty); set => SetValue(AvailableSkillsProperty, value); }
+    public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -240,6 +252,7 @@ public class StrataChatComposer : TemplatedControl
         Wire(e, "PART_SendButton", () => HandleSendAction());
         Wire(e, "PART_AttachButton", () => RaiseEvent(new RoutedEventArgs(AttachRequestedEvent)));
         Wire(e, "PART_MentionButton", () => ShowMentionPopup());
+        Wire(e, "PART_VoiceButton", () => RaiseEvent(new RoutedEventArgs(VoiceRequestedEvent)));
         Wire(e, "PART_AgentRemoveButton", () => RaiseEvent(new RoutedEventArgs(AgentRemovedEvent)));
         _chipsRow = e.NameScope.Find<WrapPanel>("PART_ChipsRow");
         _autoCompletePopup = e.NameScope.Find<Popup>("PART_AutoCompletePopup");
@@ -657,6 +670,7 @@ public class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":has-agent", hasAgent);
         PseudoClasses.Set(":has-skills", hasSkills);
         PseudoClasses.Set(":has-chips", hasAgent || hasSkills);
+        PseudoClasses.Set(":recording", IsRecording);
     }
 
     private bool HasAnySkills()
