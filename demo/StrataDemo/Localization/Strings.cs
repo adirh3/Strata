@@ -118,6 +118,8 @@ public sealed class Strings
             // DataGrid
             ["DataGrid"] = "DataGrid",
             ["DataGrid.Subtitle"] = "Tabular data with sorting, selection, and resizable columns.",
+            ["DataGrid.Markdown"] = "Markdown Columns",
+            ["DataGrid.Markdown.Subtitle"] = "Rich inline markdown in cell templates — bold, italic, inline code, and mixed formatting.",
 
             // Components
             ["Components"] = "Components",
@@ -287,6 +289,8 @@ public sealed class Strings
             // DataGrid
             ["DataGrid"] = "טבלת נתונים",
             ["DataGrid.Subtitle"] = "נתונים טבלאיים עם מיון, בחירה ועמודות ניתנות לשינוי גודל.",
+            ["DataGrid.Markdown"] = "עמודות Markdown",
+            ["DataGrid.Markdown.Subtitle"] = "Markdown עשיר בתוך תאי טבלה — מודגש, נטוי, קוד משובץ ועיצוב מעורב.",
 
             // Components
             ["Components"] = "רכיבים",

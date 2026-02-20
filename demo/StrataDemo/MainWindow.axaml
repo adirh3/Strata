@@ -441,6 +441,70 @@
               <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
             </DataGrid.Columns>
           </DataGrid>
+
+          <!-- Markdown columns -->
+          <Border BorderBrush="{DynamicResource Brush.AccentDefault}" BorderThickness="3,0,0,0" Padding="16,0,0,0">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="subtitle" Text="{Binding Strings[DataGrid.Markdown]}" />
+              <TextBlock Classes="caption tertiary" Text="{Binding Strings[DataGrid.Markdown.Subtitle]}" />
+            </StackPanel>
+          </Border>
+
+          <DataGrid ItemsSource="{Binding MarkdownGridData}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    CanUserReorderColumns="True"
+                    CanUserResizeColumns="True"
+                    CanUserSortColumns="False"
+                    RowHeight="NaN"
+                    Height="440">
+            <DataGrid.Columns>
+              <DataGridTemplateColumn Width="180">
+                <DataGridTemplateColumn.Header>
+                  <sc:StrataMarkdown IsInline="True" Markdown="**Endpoint** `path`" FontSize="12" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <sc:StrataMarkdown IsInline="True" Markdown="{Binding Endpoint}"
+                                       Margin="12,6" VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Width="*">
+                <DataGridTemplateColumn.Header>
+                  <sc:StrataMarkdown IsInline="True" Markdown="**Description** *summary*" FontSize="12" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <sc:StrataMarkdown IsInline="True" Markdown="{Binding Description}"
+                                       Margin="12,6" VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Width="100">
+                <DataGridTemplateColumn.Header>
+                  <sc:StrataMarkdown IsInline="True" Markdown="**Status**" FontSize="12" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <sc:StrataMarkdown IsInline="True" Markdown="{Binding Status}"
+                                       Margin="12,6" VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Width="200">
+                <DataGridTemplateColumn.Header>
+                  <sc:StrataMarkdown IsInline="True" Markdown="**Auth** `scope`" FontSize="12" />
+                </DataGridTemplateColumn.Header>
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <sc:StrataMarkdown IsInline="True" Markdown="{Binding Auth}"
+                                       Margin="12,6" VerticalAlignment="Center" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
         </StackPanel>
       </ScrollViewer>
 
@@ -615,10 +679,10 @@
 
               <sc:StrataMarkdown ShowTitle="True"
                                  Title="Incident Remediation Playbook"
-                                 Markdown="### Objective&#x0a;Stabilize latency during rollout while preserving customer experience.&#x0a;&#x0a;### Guardrail Logic&#x0a;```csharp&#x0a;public static bool ShouldRollback(double p95Ms, double gcPauseMs)&#x0a;{&#x0a;    var p95Breached = p95Ms &gt; 250;&#x0a;    var gcBreached = gcPauseMs &gt; 80;&#x0a;    return p95Breached || gcBreached;&#x0a;}&#x0a;```&#x0a;&#x0a;1. Roll out at **10%** traffic&#x0a;2. Validate p95 + GC for 30 minutes&#x0a;3. Expand to **50%** and then **100%** when healthy&#x0a;&#x0a;### Service Health&#x0a;&#x0a;| Metric | Target | Current | Status |&#x0a;|--------|--------|---------|--------|&#x0a;| **p95 Latency** | &lt; `250ms` | 180ms | *Healthy* |&#x0a;| **GC Pause** | &lt; `80ms` | 45ms | *Healthy* |&#x0a;| **Error Rate** | &lt; `0.1%` | 0.08% | *Healthy* |&#x0a;| **Throughput** | &gt; `10k rps` | [12.4k rps](https://docs.avaloniaui.net) | ***Critical*** |&#x0a;&#x0a;### Inline Elements&#x0a;Links sit on the baseline: before [Avalonia docs](https://docs.avaloniaui.net) and after.&#x0a;Mixed with `inline code` and **bold** in the same line: see [GitHub](https://github.com) for details." />
+                                 Markdown="### Objective&#x0a;Stabilize latency during rollout while preserving customer experience.&#x0a;&#x0a;### Guardrail Logic&#x0a;```csharp&#x0a;public static bool ShouldRollback(double p95Ms, double gcPauseMs)&#x0a;{&#x0a;    var p95Breached = p95Ms &gt; 250;&#x0a;    var gcBreached = gcPauseMs &gt; 80;&#x0a;    return p95Breached || gcBreached;&#x0a;}&#x0a;```&#x0a;&#x0a;1. Roll out at **10%** traffic&#x0a;2. Validate p95 + GC for 30 minutes&#x0a;3. Expand to **50%** and then **100%** when healthy&#x0a;&#x0a;### Service Health&#x0a;&#x0a;| **Metric** `id` | **Target** | **Current** | *Status* |&#x0a;|--------|--------|---------|--------|&#x0a;| **p95 Latency** | &lt; `250ms` | 180ms | *Healthy* |&#x0a;| **GC Pause** | &lt; `80ms` | 45ms | *Healthy* |&#x0a;| **Error Rate** | &lt; `0.1%` | 0.08% | *Healthy* |&#x0a;| **Throughput** | &gt; `10k rps` | [12.4k rps](https://docs.avaloniaui.net) | ***Critical*** |&#x0a;&#x0a;### Inline Elements&#x0a;Links sit on the baseline: before [Avalonia docs](https://docs.avaloniaui.net) and after.&#x0a;Mixed with `inline code` and **bold** in the same line: see [GitHub](https://github.com) for details." />
 
               <TextBlock Classes="caption tertiary"
-                         Text="Supports headings, lists, inline code, tables (with rich cell content), and fenced language blocks (e.g., csharp)." />
+                         Text="Supports headings, lists, inline code, tables (with rich markdown in headers and cells), and fenced language blocks (e.g., csharp)." />
             </StackPanel>
           </Border>
 

@@ -186,8 +186,46 @@ public class MainViewModel : INotifyPropertyChanged
         new() { Name = "Clients", Values = new double[] { 38, 27, 20, 15 } },
     };
 
+    // ── Markdown DataGrid demo data ──
+
+    public ObservableCollection<MarkdownRow> MarkdownGridData { get; } = new()
+    {
+        new MarkdownRow(
+            "POST /api/incidents",
+            "Creates a new incident record. Requires **admin** or **operator** role. Returns the created resource with `id` and `status` fields.",
+            "*Stable*",
+            "`Bearer` token with `incidents:write` scope"),
+        new MarkdownRow(
+            "GET /api/incidents/{id}",
+            "Retrieves incident details including **root cause**, **timeline**, and linked *evidence* artifacts.",
+            "*Stable*",
+            "`Bearer` token with `incidents:read` scope"),
+        new MarkdownRow(
+            "PATCH /api/incidents/{id}",
+            "Partially updates an incident. Supports `status`, `severity`, and `assignee` fields. Use **bulk update** endpoint for batch operations.",
+            "**Beta**",
+            "`Bearer` token with `incidents:write` scope"),
+        new MarkdownRow(
+            "POST /api/rollout/stage",
+            "Advances rollout to the next stage. Validates **p95 < `250ms`** and **GC pause < `80ms`** gates before proceeding.",
+            "**Beta**",
+            "`Bearer` token with `rollout:execute` scope"),
+        new MarkdownRow(
+            "GET /api/metrics/summary",
+            "Returns aggregated metrics: `p95_latency`, `error_rate`, `throughput`, and `gc_pause`. Supports *time range* and **granularity** parameters.",
+            "*Stable*",
+            "`Bearer` token with `metrics:read` scope"),
+        new MarkdownRow(
+            "DELETE /api/incidents/{id}",
+            "Soft-deletes an incident. Requires **admin** role. Deleted records are retained for `90 days` before purge.",
+            "*Deprecated*",
+            "`Bearer` token with `incidents:admin` scope"),
+    };
+
     protected void OnPropertyChanged([CallerMemberName] string? name = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
 public record SampleRow(string Invoice, string Client, string Description, decimal Amount, string Status);
+
+public record MarkdownRow(string Endpoint, string Description, string Status, string Auth);

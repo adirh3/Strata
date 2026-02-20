@@ -1091,7 +1091,7 @@ public class StrataMarkdown : ContentControl
             var colIndex = i;
             dataGrid.Columns.Add(new DataGridTemplateColumn
             {
-                Header = headers[i],
+                Header = CreateRichText(headers[i], _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.NoWrap),
                 Width = new DataGridLength(1, DataGridLengthUnitType.Star),
                 CellTemplate = new FuncDataTemplate<List<string>>((row, _) =>
                 {
