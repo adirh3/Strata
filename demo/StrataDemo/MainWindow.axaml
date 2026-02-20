@@ -704,6 +704,15 @@
               <sc:StrataMarkdown IsInline="True"
                                  Markdown="### State Machine&#x0a;&#x0a;```mermaid&#x0a;stateDiagram-v2&#x0a;    [*] --&gt; Idle&#x0a;    Idle --&gt; Validating : submit&#x0a;    Validating --&gt; Processing : valid&#x0a;    Validating --&gt; Failed : invalid&#x0a;    Processing --&gt; Complete : done&#x0a;    Processing --&gt; Failed : error&#x0a;    Failed --&gt; Idle : retry&#x0a;    Complete --&gt; [*]&#x0a;```" />
 
+              <sc:StrataMarkdown IsInline="True"
+                                 Markdown="### Class Diagram&#x0a;&#x0a;```mermaid&#x0a;classDiagram&#x0a;    class Animal {&#x0a;        +String name&#x0a;        +int age&#x0a;        +makeSound()&#x0a;        +move()&#x0a;    }&#x0a;    class Dog {&#x0a;        +String breed&#x0a;        +bark()&#x0a;        +fetch()&#x0a;    }&#x0a;    class Cat {&#x0a;        +bool indoor&#x0a;        +purr()&#x0a;    }&#x0a;    Animal &lt;|-- Dog&#x0a;    Animal &lt;|-- Cat&#x0a;```" />
+
+              <sc:StrataMarkdown IsInline="True"
+                                 Markdown="### Timeline&#x0a;&#x0a;```mermaid&#x0a;timeline&#x0a;    title History of Web Frameworks&#x0a;    section Server-Side&#x0a;        2005 : Rails 1.0&#x0a;        2010 : Express.js&#x0a;        2015 : ASP.NET Core&#x0a;    section Client-Side&#x0a;        2010 : Backbone.js&#x0a;        2013 : React&#x0a;        2016 : Vue.js&#x0a;```" />
+
+              <sc:StrataMarkdown IsInline="True"
+                                 Markdown="### Quadrant Chart&#x0a;&#x0a;```mermaid&#x0a;quadrantChart&#x0a;    title Feature Priority Matrix&#x0a;    x-axis Low Effort --&gt; High Effort&#x0a;    y-axis Low Impact --&gt; High Impact&#x0a;    quadrant-1 Do First&#x0a;    quadrant-2 Plan Carefully&#x0a;    quadrant-3 Delegate&#x0a;    quadrant-4 Eliminate&#x0a;    Auth Revamp: [0.35, 0.85]&#x0a;    Dark Mode: [0.15, 0.70]&#x0a;    Refactor DB: [0.80, 0.75]&#x0a;    Fix Typo: [0.10, 0.15]&#x0a;    New Onboarding: [0.65, 0.55]&#x0a;    Icon Update: [0.25, 0.30]&#x0a;```" />
+
               <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
                          Text="{Binding Strings[MermaidDiagrams.Footer]}" />
             </StackPanel>

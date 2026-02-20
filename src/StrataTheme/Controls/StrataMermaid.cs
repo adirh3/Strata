@@ -14,8 +14,9 @@ using Avalonia.Threading;
 namespace StrataTheme.Controls;
 
 /// <summary>
-/// Renders Mermaid flowcharts, sequence diagrams, and state diagrams
-/// using Strata semantic tokens and custom canvas drawing.
+/// Renders Mermaid flowcharts, sequence diagrams, state diagrams, ER diagrams,
+/// class diagrams, timelines, and quadrant charts using Strata semantic tokens
+/// and custom canvas drawing.
 /// </summary>
 /// <remarks>
 /// <para><b>Supported diagram types:</b></para>
@@ -24,6 +25,9 @@ namespace StrataTheme.Controls;
 ///   <item><c>sequenceDiagram</c> — participant interactions with messages.</item>
 ///   <item><c>stateDiagram-v2</c> — state machines with transitions.</item>
 ///   <item><c>erDiagram</c> — entity-relationship diagrams.</item>
+///   <item><c>classDiagram</c> — class hierarchies with attributes, methods, and relationships.</item>
+///   <item><c>timeline</c> — chronological event sequences with sections.</item>
+///   <item><c>quadrantChart</c> — 2×2 quadrant scatter plots with labeled axes.</item>
 /// </list>
 /// <para><b>Template parts:</b> PART_DiagramHost (Panel).</para>
 /// </remarks>
@@ -134,7 +138,7 @@ public class StrataMermaid : TemplatedControl
     //  DATA MODELS
     // ═══════════════════════════════════════════════════════════
 
-    private enum DiagramKind { Flowchart, Sequence, State, Er }
+    private enum DiagramKind { Flowchart, Sequence, State, Er, Class, Timeline, Quadrant }
     private enum NShape { Rect, Rounded, Diamond, Circle, Stadium }
     private enum EStyle { Arrow, Line, Dotted, Thick }
 
@@ -187,6 +191,47 @@ public class StrataMermaid : TemplatedControl
         public string Label = "";
     }
 
+    // Class diagram
+    private sealed class CdClass
+    {
+        public string Name = "";
+        public List<string> Attributes = new();
+        public List<string> Methods = new();
+        public double X, Y, W, H;
+    }
+
+    private enum CdRelType { Inheritance, Composition, Aggregation, Association, Dependency, Realization }
+
+    private sealed class CdRelation
+    {
+        public string From = "", To = "";
+        public CdRelType Type;
+        public string? Label;
+    }
+
+    // Timeline
+    private sealed class TlSection
+    {
+        public string Title = "";
+        public List<TlEvent> Events = new();
+        public double X, W;
+        public int ColorIndex;
+    }
+
+    private sealed class TlEvent
+    {
+        public string TimeLabel = "";
+        public string Text = "";
+        public double X, Y;
+    }
+
+    // Quadrant chart
+    private sealed class QdPoint
+    {
+        public string Label = "";
+        public double X, Y;
+    }
+
     // ═══════════════════════════════════════════════════════════
     //  CANVAS
     // ═══════════════════════════════════════════════════════════
@@ -212,6 +257,20 @@ public class StrataMermaid : TemplatedControl
         // ER
         private readonly Dictionary<string, ErEntity> _erEntities = new();
         private readonly List<ErRelation> _erRelations = new();
+
+        // Class diagram
+        private readonly Dictionary<string, CdClass> _cdClasses = new();
+        private readonly List<CdRelation> _cdRelations = new();
+
+        // Timeline
+        private string _tlTitle = "";
+        private readonly List<TlSection> _tlSections = new();
+
+        // Quadrant chart
+        private string _qdTitle = "";
+        private string _qdXLow = "", _qdXHigh = "", _qdYLow = "", _qdYHigh = "";
+        private readonly string[] _qdLabels = new string[4];
+        private readonly List<QdPoint> _qdPoints = new();
 
         private double _layW, _layH;
         private bool _parsed;
@@ -374,6 +433,11 @@ public class StrataMermaid : TemplatedControl
             _sParts.Clear(); _sMsgs.Clear();
             _stNodes.Clear(); _stEdges.Clear();
             _erEntities.Clear(); _erRelations.Clear();
+            _cdClasses.Clear(); _cdRelations.Clear();
+            _tlTitle = ""; _tlSections.Clear();
+            _qdTitle = ""; _qdXLow = ""; _qdXHigh = ""; _qdYLow = ""; _qdYHigh = "";
+            _qdLabels[0] = _qdLabels[1] = _qdLabels[2] = _qdLabels[3] = "";
+            _qdPoints.Clear();
             _ltr = false; _parsed = true;
 
             var src = _owner.Source?.Trim();
@@ -388,6 +452,12 @@ public class StrataMermaid : TemplatedControl
             { _kind = DiagramKind.State; ParseState(lines); }
             else if (first.StartsWith("erdiagram"))
             { _kind = DiagramKind.Er; ParseEr(lines); }
+            else if (first.StartsWith("classdiagram"))
+            { _kind = DiagramKind.Class; ParseClass(lines); }
+            else if (first.StartsWith("timeline"))
+            { _kind = DiagramKind.Timeline; ParseTimeline(lines); }
+            else if (first.StartsWith("quadrantchart") || first.StartsWith("quadrant-chart"))
+            { _kind = DiagramKind.Quadrant; ParseQuadrant(lines); }
             else
             {
                 _kind = DiagramKind.Flowchart;
@@ -646,6 +716,216 @@ public class StrataMermaid : TemplatedControl
             }
         }
 
+        // ── Class diagram parse ────────────────────────────────
+
+        private static readonly Regex CdClassBlockRx = new(
+            @"^\s*class\s+(\w+)\s*\{?\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex CdMemberRx = new(
+            @"^\s*([+\-#~])?\s*(.+)$", RegexOptions.Compiled);
+        private static readonly Regex CdRelRx = new(
+            @"^(\w+)\s+(<\|--|<\|\.\.|--\*|--o|-->|\.\.>|--)\s+(\w+)(?:\s*:\s*(.+))?$", RegexOptions.Compiled);
+        private static readonly Regex CdAnnotationRx = new(
+            @"^\s*<<\s*(.+?)\s*>>\s*$", RegexOptions.Compiled);
+
+        private void ParseClass(string[] lines)
+        {
+            CdClass? current = null;
+
+            foreach (var raw in lines.Skip(1))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith("%%")) continue;
+
+                if (line == "}")
+                {
+                    current = null;
+                    continue;
+                }
+
+                // Class block: class Foo {
+                var cm = CdClassBlockRx.Match(line);
+                if (cm.Success)
+                {
+                    var name = cm.Groups[1].Value;
+                    if (!_cdClasses.ContainsKey(name))
+                        _cdClasses[name] = new CdClass { Name = name };
+                    current = _cdClasses[name];
+                    continue;
+                }
+
+                // Inside class block
+                if (current is not null)
+                {
+                    // Skip annotations like <<interface>>
+                    if (CdAnnotationRx.IsMatch(line)) continue;
+
+                    var mm = CdMemberRx.Match(line);
+                    if (mm.Success)
+                    {
+                        var member = mm.Groups[2].Value.Trim();
+                        if (member.Contains('('))
+                            current.Methods.Add(line.Trim());
+                        else
+                            current.Attributes.Add(line.Trim());
+                    }
+                    continue;
+                }
+
+                // Relationship: A <|-- B
+                var rm = CdRelRx.Match(line);
+                if (rm.Success)
+                {
+                    var arrow = rm.Groups[2].Value;
+                    var relType = arrow switch
+                    {
+                        "<|--" => CdRelType.Inheritance,
+                        "<|.." => CdRelType.Realization,
+                        "--*" => CdRelType.Composition,
+                        "--o" => CdRelType.Aggregation,
+                        "..>" => CdRelType.Dependency,
+                        _ => CdRelType.Association
+                    };
+                    _cdRelations.Add(new CdRelation
+                    {
+                        From = rm.Groups[1].Value,
+                        To = rm.Groups[3].Value,
+                        Type = relType,
+                        Label = rm.Groups[4].Success ? rm.Groups[4].Value.Trim() : null
+                    });
+
+                    // Ensure classes exist
+                    if (!_cdClasses.ContainsKey(rm.Groups[1].Value))
+                        _cdClasses[rm.Groups[1].Value] = new CdClass { Name = rm.Groups[1].Value };
+                    if (!_cdClasses.ContainsKey(rm.Groups[3].Value))
+                        _cdClasses[rm.Groups[3].Value] = new CdClass { Name = rm.Groups[3].Value };
+                    continue;
+                }
+            }
+        }
+
+        // ── Timeline parse ─────────────────────────────────────
+
+        private void ParseTimeline(string[] lines)
+        {
+            TlSection? currentSection = null;
+            int sectionIdx = 0;
+
+            foreach (var raw in lines.Skip(1))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith("%%")) continue;
+
+                if (line.StartsWith("title", StringComparison.OrdinalIgnoreCase))
+                {
+                    _tlTitle = line.Length > 5 ? line[5..].Trim().TrimStart(':').Trim() : "";
+                    continue;
+                }
+
+                if (line.StartsWith("section", StringComparison.OrdinalIgnoreCase))
+                {
+                    var sectionTitle = line.Length > 7 ? line[7..].Trim() : "";
+                    currentSection = new TlSection { Title = sectionTitle, ColorIndex = sectionIdx++ };
+                    _tlSections.Add(currentSection);
+                    continue;
+                }
+
+                // Event line: "label : event1 : event2" or just "label : event"
+                var colonIdx = line.IndexOf(':');
+                if (colonIdx > 0)
+                {
+                    var timeLabel = line[..colonIdx].Trim();
+                    var eventsStr = line[(colonIdx + 1)..];
+                    var events = eventsStr.Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+                    if (currentSection is null)
+                    {
+                        currentSection = new TlSection { Title = "", ColorIndex = sectionIdx++ };
+                        _tlSections.Add(currentSection);
+                    }
+
+                    foreach (var evt in events)
+                        currentSection.Events.Add(new TlEvent { TimeLabel = timeLabel, Text = evt });
+                }
+                else if (currentSection is not null)
+                {
+                    currentSection.Events.Add(new TlEvent { TimeLabel = "", Text = line });
+                }
+            }
+        }
+
+        // ── Quadrant chart parse ───────────────────────────────
+
+        private static readonly Regex QdPointRx = new(
+            @"^\s*(.+?):\s*\[([0-9.]+),\s*([0-9.]+)\]\s*$", RegexOptions.Compiled);
+
+        private void ParseQuadrant(string[] lines)
+        {
+            foreach (var raw in lines.Skip(1))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith("%%")) continue;
+
+                if (line.StartsWith("title", StringComparison.OrdinalIgnoreCase))
+                {
+                    _qdTitle = line.Length > 5 ? line[5..].Trim().TrimStart(':').Trim() : "";
+                    continue;
+                }
+
+                if (line.StartsWith("x-axis", StringComparison.OrdinalIgnoreCase))
+                {
+                    var val = line.Length > 6 ? line[6..].Trim() : "";
+                    var arrowIdx = val.IndexOf("-->", StringComparison.Ordinal);
+                    if (arrowIdx >= 0)
+                    {
+                        _qdXLow = val[..arrowIdx].Trim();
+                        _qdXHigh = val[(arrowIdx + 3)..].Trim();
+                    }
+                    else _qdXLow = val;
+                    continue;
+                }
+
+                if (line.StartsWith("y-axis", StringComparison.OrdinalIgnoreCase))
+                {
+                    var val = line.Length > 6 ? line[6..].Trim() : "";
+                    var arrowIdx = val.IndexOf("-->", StringComparison.Ordinal);
+                    if (arrowIdx >= 0)
+                    {
+                        _qdYLow = val[..arrowIdx].Trim();
+                        _qdYHigh = val[(arrowIdx + 3)..].Trim();
+                    }
+                    else _qdYLow = val;
+                    continue;
+                }
+
+                for (int q = 1; q <= 4; q++)
+                {
+                    var prefix = $"quadrant-{q}";
+                    if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _qdLabels[q - 1] = line.Length > prefix.Length ? line[prefix.Length..].Trim() : "";
+                        goto nextLine;
+                    }
+                }
+
+                var pm = QdPointRx.Match(line);
+                if (pm.Success)
+                {
+                    if (double.TryParse(pm.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var px) &&
+                        double.TryParse(pm.Groups[3].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var py))
+                    {
+                        _qdPoints.Add(new QdPoint
+                        {
+                            Label = pm.Groups[1].Value.Trim(),
+                            X = Math.Clamp(px, 0, 1),
+                            Y = Math.Clamp(py, 0, 1)
+                        });
+                    }
+                }
+
+                nextLine:;
+            }
+        }
+
         // ── LAYOUT ─────────────────────────────────────────────
 
         private void ComputeLayout(double availW)
@@ -656,6 +936,9 @@ public class StrataMermaid : TemplatedControl
                 case DiagramKind.Sequence: LayoutSeq(availW); break;
                 case DiagramKind.State: LayoutState(); break;
                 case DiagramKind.Er: LayoutEr(availW); break;
+                case DiagramKind.Class: LayoutClass(availW); break;
+                case DiagramKind.Timeline: LayoutTimeline(availW); break;
+                case DiagramKind.Quadrant: LayoutQuadrant(availW); break;
             }
         }
 
@@ -913,6 +1196,115 @@ public class StrataMermaid : TemplatedControl
             _layH = entities.Max(e => e.Y + e.H);
         }
 
+        private void LayoutClass(double availW)
+        {
+            if (_cdClasses.Count == 0) { _layW = _layH = 0; return; }
+
+            const double cdFieldH = 20;
+            const double cdHeaderH = 30;
+            const double cdPadH = 14;
+            const double cdGapH = 60;
+            const double cdGapV = 48;
+            const double cdDivH = 1;
+
+            foreach (var cls in _cdClasses.Values)
+            {
+                double maxW = Txt(cls.Name, Fs).Width + cdPadH * 2;
+                foreach (var attr in cls.Attributes)
+                    maxW = Math.Max(maxW, Txt(attr, FsSmall).Width + cdPadH * 2);
+                foreach (var meth in cls.Methods)
+                    maxW = Math.Max(maxW, Txt(meth, FsSmall).Width + cdPadH * 2);
+                cls.W = Math.Max(maxW, 100);
+
+                var sections = 1; // header
+                if (cls.Attributes.Count > 0 || cls.Methods.Count > 0) sections++;
+                if (cls.Attributes.Count > 0 && cls.Methods.Count > 0) sections++;
+                cls.H = cdHeaderH
+                       + cls.Attributes.Count * cdFieldH
+                       + cls.Methods.Count * cdFieldH
+                       + (sections - 1) * cdDivH + 8;
+            }
+
+            // Grid layout
+            var classes = _cdClasses.Values.ToList();
+            double x = 0, y = 0, rowH = 0;
+            var maxLayW = Math.Max(availW - Pad * 2, 400);
+
+            foreach (var cls in classes)
+            {
+                if (x > 0 && x + cls.W > maxLayW)
+                {
+                    x = 0;
+                    y += rowH + cdGapV;
+                    rowH = 0;
+                }
+                cls.X = x;
+                cls.Y = y;
+                x += cls.W + cdGapH;
+                rowH = Math.Max(rowH, cls.H);
+            }
+
+            _layW = classes.Max(c => c.X + c.W);
+            _layH = classes.Max(c => c.Y + c.H);
+        }
+
+        private void LayoutTimeline(double availW)
+        {
+            if (_tlSections.Count == 0) { _layW = _layH = 0; return; }
+
+            const double tlEventH = 28;
+            const double tlEventGap = 6;
+            const double tlSectionGap = 16;
+            const double tlRailY = 60;
+
+            double titleH = _tlTitle.Length > 0 ? 36 : 0;
+
+            // Measure each section width and event positions
+            double x = 0;
+            foreach (var sec in _tlSections)
+            {
+                // Measure max event width for this section
+                double secW = sec.Title.Length > 0 ? Txt(sec.Title, Fs).Width + 32 : 80;
+                foreach (var ev in sec.Events)
+                {
+                    var labelW = ev.TimeLabel.Length > 0 ? Txt(ev.TimeLabel, 11).Width + 8 : 0;
+                    var textW = Txt(ev.Text, FsSmall).Width;
+                    secW = Math.Max(secW, labelW + textW + 32);
+                }
+                secW = Math.Max(secW, 110);
+
+                sec.X = x;
+                sec.W = secW;
+
+                // Position events below rail
+                double ey = titleH + tlRailY + 24;
+                foreach (var ev in sec.Events)
+                {
+                    ev.X = x + secW / 2;
+                    ev.Y = ey;
+                    ey += tlEventH + tlEventGap;
+                }
+
+                x += secW + tlSectionGap;
+            }
+
+            _layW = Math.Max(x - tlSectionGap, 100);
+            var maxEvY = _tlSections.SelectMany(s => s.Events).Select(e => e.Y + tlEventH).DefaultIfEmpty(0).Max();
+            _layH = Math.Max(maxEvY + 12, titleH + tlRailY + 80);
+        }
+
+        private void LayoutQuadrant(double availW)
+        {
+            const double qdSize = 380;
+            const double qdMarginLeft = 80;
+            const double qdMarginRight = 20;
+            const double qdMarginBottom = 48;
+            var qdMarginTop = _qdTitle.Length > 0 ? 40.0 : 12.0;
+
+            _layW = qdSize + qdMarginLeft + qdMarginRight;
+            _layH = qdSize + qdMarginBottom + qdMarginTop;
+        }
+
         // ── RENDER ─────────────────────────────────────────────
 
         public override void Render(DrawingContext ctx)
@@ -948,6 +1340,9 @@ public class StrataMermaid : TemplatedControl
                     case DiagramKind.Sequence: RenderSeq(ctx); break;
                     case DiagramKind.State: RenderState(ctx); break;
                     case DiagramKind.Er: RenderEr(ctx); break;
+                    case DiagramKind.Class: RenderClass(ctx); break;
+                    case DiagramKind.Timeline: RenderTimeline(ctx); break;
+                    case DiagramKind.Quadrant: RenderQuadrant(ctx); break;
                 }
             }
 
@@ -1435,6 +1830,434 @@ public class StrataMermaid : TemplatedControl
                 // Advance along the line
                 bx += Math.Cos(angle) * 8;
                 by += Math.Sin(angle) * 8;
+            }
+        }
+
+        // ── Class diagram render ───────────────────────────────
+
+        private void RenderClass(DrawingContext ctx)
+        {
+            var fill = _owner.ResolveBrush("Brush.Surface1", Color.Parse("#252525"));
+            var headerBg = _owner.ResolveBrush("Brush.Surface2", Color.Parse("#2D2D2D"));
+            var border = _owner.ResolveBrush("Brush.BorderDefault", Color.Parse("#3A3A3A"));
+            var textBr = _owner.ResolveBrush("Brush.TextPrimary", Color.Parse("#E4E4E4"));
+            var textSec = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
+            var lineBr = _owner.ResolveBrush("Brush.TextTertiary", Color.Parse("#777"));
+            var accent = _owner.ResolveBrush("Brush.AccentDefault", Color.Parse("#818CF8"));
+            var divider = _owner.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
+            var labelBr = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
+            var pillBg = _owner.ResolveBrush("Brush.Surface0", Color.Parse("#1A1A1A"));
+
+            var borderPen = new Pen(border, 1.4);
+            var linePen = new Pen(lineBr, 1.2);
+            var dashedPen = new Pen(lineBr, 1.2) { DashStyle = new DashStyle(new[] { 5.0, 4.0 }, 0) };
+            var divPen = new Pen(divider, 0.8);
+
+            const double cdFieldH = 20;
+            const double cdHeaderH = 30;
+            const double cdPadH = 10;
+
+            // Draw relations first (behind classes)
+            foreach (var rel in _cdRelations)
+            {
+                if (!_cdClasses.TryGetValue(rel.From, out var fromCls) ||
+                    !_cdClasses.TryGetValue(rel.To, out var toCls)) continue;
+
+                var fromPt = CdEdgePoint(fromCls, new Point(toCls.X + toCls.W / 2, toCls.Y + toCls.H / 2));
+                var toPt = CdEdgePoint(toCls, new Point(fromCls.X + fromCls.W / 2, fromCls.Y + fromCls.H / 2));
+
+                var pen = rel.Type is CdRelType.Dependency or CdRelType.Realization ? dashedPen : linePen;
+                var hasArrow = rel.Type is CdRelType.Association or CdRelType.Dependency;
+
+                DrawBezierEdge(ctx, fromPt, toPt, pen, hasArrow, false, lineBr);
+
+                // Draw relationship markers
+                DrawCdRelMarker(ctx, toPt, fromPt, rel.Type, lineBr, fill);
+
+                if (!string.IsNullOrWhiteSpace(rel.Label))
+                {
+                    var midX = (fromPt.X + toPt.X) / 2;
+                    var midY = (fromPt.Y + toPt.Y) / 2;
+                    var ft = Txt(rel.Label, FsSmall, labelBr);
+                    var pillR = new Rect(midX - ft.Width / 2 - 6, midY - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
+                    ctx.DrawRectangle(pillBg, null, pillR, 8, 8);
+                    ctx.DrawText(ft, new Point(midX - ft.Width / 2, midY - ft.Height / 2));
+                }
+            }
+
+            // Draw classes
+            foreach (var cls in _cdClasses.Values)
+            {
+                var rect = new Rect(cls.X, cls.Y, cls.W, cls.H);
+                ctx.DrawRectangle(fill, borderPen, rect, 6, 6);
+
+                // Header
+                var headerRect = new Rect(cls.X, cls.Y, cls.W, cdHeaderH);
+                using (ctx.PushClip(new RoundedRect(rect, 6)))
+                    ctx.DrawRectangle(headerBg, null, headerRect);
+
+                // Accent top stripe
+                using (ctx.PushClip(new RoundedRect(rect, 6)))
+                    ctx.DrawRectangle(accent, null, new Rect(cls.X + 1, cls.Y + 1, cls.W - 2, 2.5));
+
+                // Class name
+                var nameFt = Txt(cls.Name, Fs, textBr, FontWeight.SemiBold);
+                ctx.DrawText(nameFt, new Point(cls.X + cls.W / 2 - nameFt.Width / 2, cls.Y + cdHeaderH / 2 - nameFt.Height / 2));
+
+                double fy = cls.Y + cdHeaderH;
+
+                // Attributes section
+                if (cls.Attributes.Count > 0)
+                {
+                    ctx.DrawLine(divPen, new Point(cls.X + 1, fy), new Point(cls.X + cls.W - 1, fy));
+                    fy += 4;
+                    foreach (var attr in cls.Attributes)
+                    {
+                        var ft = Txt(attr, FsSmall, textSec);
+                        ctx.DrawText(ft, new Point(cls.X + cdPadH, fy + cdFieldH / 2 - ft.Height / 2));
+                        fy += cdFieldH;
+                    }
+                }
+
+                // Methods section
+                if (cls.Methods.Count > 0)
+                {
+                    ctx.DrawLine(divPen, new Point(cls.X + 1, fy), new Point(cls.X + cls.W - 1, fy));
+                    fy += 4;
+                    foreach (var meth in cls.Methods)
+                    {
+                        var ft = Txt(meth, FsSmall, textBr);
+                        ctx.DrawText(ft, new Point(cls.X + cdPadH, fy + cdFieldH / 2 - ft.Height / 2));
+                        fy += cdFieldH;
+                    }
+                }
+            }
+        }
+
+        private static Point CdEdgePoint(CdClass cls, Point target)
+        {
+            var cx = cls.X + cls.W / 2;
+            var cy = cls.Y + cls.H / 2;
+            var dx = target.X - cx;
+            var dy = target.Y - cy;
+            if (Math.Abs(dx) < 0.1 && Math.Abs(dy) < 0.1) return new Point(cx, cls.Y + cls.H);
+
+            var hw = cls.W / 2;
+            var hh = cls.H / 2;
+            Point best = new(cx, cls.Y);
+            double bestDist = double.MaxValue;
+
+            if (dy < 0) { var ix = cx + dx * (-hh / dy); if (ix >= cls.X && ix <= cls.X + cls.W) { var p = new Point(ix, cls.Y); var d = Dist(p, target); if (d < bestDist) { best = p; bestDist = d; } } }
+            if (dy > 0) { var ix = cx + dx * (hh / dy); if (ix >= cls.X && ix <= cls.X + cls.W) { var p = new Point(ix, cls.Y + cls.H); var d = Dist(p, target); if (d < bestDist) { best = p; bestDist = d; } } }
+            if (dx < 0) { var iy = cy + dy * (-hw / dx); if (iy >= cls.Y && iy <= cls.Y + cls.H) { var p = new Point(cls.X, iy); var d = Dist(p, target); if (d < bestDist) { best = p; bestDist = d; } } }
+            if (dx > 0) { var iy = cy + dy * (hw / dx); if (iy >= cls.Y && iy <= cls.Y + cls.H) { var p = new Point(cls.X + cls.W, iy); var d = Dist(p, target); if (d < bestDist) { best = p; bestDist = d; } } }
+
+            return best;
+        }
+
+        private static void DrawCdRelMarker(DrawingContext ctx, Point at, Point from, CdRelType type,
+            IBrush lineBrush, IBrush fillBrush)
+        {
+            var angle = Math.Atan2(from.Y - at.Y, from.X - at.X);
+            var pen = new Pen(lineBrush, 1.4);
+
+            switch (type)
+            {
+                case CdRelType.Inheritance:
+                case CdRelType.Realization:
+                {
+                    // Open triangle (hollow arrowhead)
+                    var p1 = new Point(at.X + 10 * Math.Cos(angle - 0.4), at.Y + 10 * Math.Sin(angle - 0.4));
+                    var p2 = new Point(at.X + 10 * Math.Cos(angle + 0.4), at.Y + 10 * Math.Sin(angle + 0.4));
+                    var geo = new StreamGeometry();
+                    using (var gc = geo.Open()) { gc.BeginFigure(at, true); gc.LineTo(p1); gc.LineTo(p2); gc.EndFigure(true); }
+                    ctx.DrawGeometry(fillBrush, pen, geo);
+                    break;
+                }
+                case CdRelType.Composition:
+                {
+                    // Filled diamond
+                    var p1 = new Point(at.X + 8 * Math.Cos(angle - 0.45), at.Y + 8 * Math.Sin(angle - 0.45));
+                    var p2 = new Point(at.X + 14 * Math.Cos(angle), at.Y + 14 * Math.Sin(angle));
+                    var p3 = new Point(at.X + 8 * Math.Cos(angle + 0.45), at.Y + 8 * Math.Sin(angle + 0.45));
+                    var geo = new StreamGeometry();
+                    using (var gc = geo.Open()) { gc.BeginFigure(at, true); gc.LineTo(p1); gc.LineTo(p2); gc.LineTo(p3); gc.EndFigure(true); }
+                    ctx.DrawGeometry(lineBrush, null, geo);
+                    break;
+                }
+                case CdRelType.Aggregation:
+                {
+                    // Hollow diamond
+                    var p1 = new Point(at.X + 8 * Math.Cos(angle - 0.45), at.Y + 8 * Math.Sin(angle - 0.45));
+                    var p2 = new Point(at.X + 14 * Math.Cos(angle), at.Y + 14 * Math.Sin(angle));
+                    var p3 = new Point(at.X + 8 * Math.Cos(angle + 0.45), at.Y + 8 * Math.Sin(angle + 0.45));
+                    var geo = new StreamGeometry();
+                    using (var gc = geo.Open()) { gc.BeginFigure(at, true); gc.LineTo(p1); gc.LineTo(p2); gc.LineTo(p3); gc.EndFigure(true); }
+                    ctx.DrawGeometry(fillBrush, pen, geo);
+                    break;
+                }
+                default:
+                    DrawArrowHead(ctx, at, angle + Math.PI, lineBrush);
+                    break;
+            }
+        }
+
+        // ── Timeline render ────────────────────────────────────
+
+        private static readonly string[] ChartColorKeys =
+            { "Brush.Chart1", "Brush.Chart2", "Brush.Chart3", "Brush.Chart4", "Brush.Chart5", "Brush.Chart6" };
+        private static readonly Color[] ChartColorFallbacks =
+            { Color.Parse("#818CF8"), Color.Parse("#A78BFA"), Color.Parse("#C084FC"), Color.Parse("#F472B6"), Color.Parse("#38BDF8"), Color.Parse("#34D399") };
+
+        private void RenderTimeline(DrawingContext ctx)
+        {
+            var fill = _owner.ResolveBrush("Brush.Surface1", Color.Parse("#252525"));
+            var surface0 = _owner.ResolveBrush("Brush.Surface0", Color.Parse("#1A1A1A"));
+            var border = _owner.ResolveBrush("Brush.BorderDefault", Color.Parse("#3A3A3A"));
+            var textBr = _owner.ResolveBrush("Brush.TextPrimary", Color.Parse("#E4E4E4"));
+            var textSec = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
+            var subtle = _owner.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
+
+            // Resolve chart palette for sections
+            var sectionBrushes = new IBrush[ChartColorKeys.Length];
+            for (int i = 0; i < ChartColorKeys.Length; i++)
+                sectionBrushes[i] = _owner.ResolveBrush(ChartColorKeys[i], ChartColorFallbacks[i]);
+
+            var borderPen = new Pen(border, 1.0);
+            var railPen = new Pen(subtle, 1.6);
+
+            const double tlEventH = 28;
+            const double tlRailY = 60;
+            double titleH = _tlTitle.Length > 0 ? 36 : 0;
+
+            // Title
+            if (_tlTitle.Length > 0)
+            {
+                var ft = Txt(_tlTitle, 14, textBr, FontWeight.SemiBold);
+                ctx.DrawText(ft, new Point(_layW / 2 - ft.Width / 2, 2));
+            }
+
+            // Horizontal rail line spanning all sections
+            var railBaseline = titleH + tlRailY;
+            if (_tlSections.Count > 0)
+            {
+                var firstSec = _tlSections.First();
+                var lastSec = _tlSections.Last();
+                var railX1 = firstSec.X + firstSec.W / 2;
+                var railX2 = lastSec.X + lastSec.W / 2;
+                ctx.DrawLine(railPen, new Point(railX1, railBaseline), new Point(railX2, railBaseline));
+            }
+
+            foreach (var sec in _tlSections)
+            {
+                var secCx = sec.X + sec.W / 2;
+                var secColor = sectionBrushes[sec.ColorIndex % sectionBrushes.Length];
+                var secColorPen = new Pen(secColor, 1.4);
+
+                // Section header badge
+                if (sec.Title.Length > 0)
+                {
+                    var hft = Txt(sec.Title, 11, textBr, FontWeight.SemiBold);
+                    var badgeW = hft.Width + 20;
+                    var badgeH = 24.0;
+                    var badgeRect = new Rect(secCx - badgeW / 2, titleH + 12, badgeW, badgeH);
+                    ctx.DrawRectangle(fill, secColorPen, badgeRect, badgeH / 2, badgeH / 2);
+
+                    // Accent left bar inside badge
+                    using (ctx.PushClip(new RoundedRect(badgeRect, badgeH / 2)))
+                        ctx.DrawRectangle(secColor, null, new Rect(badgeRect.X, badgeRect.Y, 3.5, badgeRect.Height));
+
+                    ctx.DrawText(hft, new Point(secCx - hft.Width / 2 + 2, titleH + 12 + badgeH / 2 - hft.Height / 2));
+                }
+
+                // Connector from badge to rail
+                var connTop = titleH + 12 + 24;
+                ctx.DrawLine(new Pen(secColor, 1.0), new Point(secCx, connTop), new Point(secCx, railBaseline));
+
+                // Rail dot
+                ctx.DrawEllipse(surface0, new Pen(secColor, 2.0), new Point(secCx, railBaseline), 5, 5);
+
+                // Vertical connector from rail down to events
+                if (sec.Events.Count > 0)
+                {
+                    var lastEvY = sec.Events.Last().Y + tlEventH / 2;
+                    ctx.DrawLine(new Pen(secColor, 1.0) { DashStyle = new DashStyle(new[] { 3.0, 3.0 }, 0) },
+                        new Point(secCx, railBaseline + 5), new Point(secCx, lastEvY));
+                }
+
+                // Events
+                foreach (var ev in sec.Events)
+                {
+                    var evCx = ev.X;
+
+                    // Small dot on the vertical line
+                    ctx.DrawEllipse(secColor, null, new Point(evCx, ev.Y + tlEventH / 2), 3, 3);
+
+                    // Event card
+                    var timeFt = ev.TimeLabel.Length > 0 ? Txt(ev.TimeLabel, 11, secColor, FontWeight.SemiBold) : null;
+                    var textFt = Txt(ev.Text, FsSmall, textSec);
+
+                    var cardContentW = (timeFt is not null ? timeFt.Width + 8 : 0) + textFt.Width;
+                    var cardW = cardContentW + 20;
+                    var cardX = evCx + 10;
+                    var cardRect = new Rect(cardX, ev.Y, cardW, tlEventH);
+
+                    ctx.DrawRectangle(fill, borderPen, cardRect, 6, 6);
+
+                    // Content: [time label] event text
+                    double tx = cardX + 10;
+                    if (timeFt is not null)
+                    {
+                        ctx.DrawText(timeFt, new Point(tx, ev.Y + tlEventH / 2 - timeFt.Height / 2));
+                        tx += timeFt.Width + 8;
+                    }
+                    ctx.DrawText(textFt, new Point(tx, ev.Y + tlEventH / 2 - textFt.Height / 2));
+                }
+            }
+        }
+
+        // ── Quadrant chart render ──────────────────────────────
+
+        private void RenderQuadrant(DrawingContext ctx)
+        {
+            var fill = _owner.ResolveBrush("Brush.Surface1", Color.Parse("#252525"));
+            var border = _owner.ResolveBrush("Brush.BorderDefault", Color.Parse("#3A3A3A"));
+            var textBr = _owner.ResolveBrush("Brush.TextPrimary", Color.Parse("#E4E4E4"));
+            var textSec = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
+            var textTer = _owner.ResolveBrush("Brush.TextTertiary", Color.Parse("#777"));
+            var accent = _owner.ResolveBrush("Brush.AccentDefault", Color.Parse("#818CF8"));
+            var surface0 = _owner.ResolveBrush("Brush.Surface0", Color.Parse("#1A1A1A"));
+            var subtle = _owner.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
+
+            // Quadrant fill brushes from chart palette (low opacity)
+            var q1Brush = _owner.ResolveBrush("Brush.Chart5", Color.Parse("#38BDF8"));   // Sky
+            var q2Brush = _owner.ResolveBrush("Brush.Chart1", Color.Parse("#818CF8"));   // Indigo
+            var q3Brush = _owner.ResolveBrush("Brush.Chart4", Color.Parse("#F472B6"));   // Rose
+            var q4Brush = _owner.ResolveBrush("Brush.Chart6", Color.Parse("#34D399"));   // Emerald
+
+            var borderPen = new Pen(border, 1.0);
+            var subtlePen = new Pen(subtle, 0.6);
+            var axisPen = new Pen(textTer, 1.0);
+
+            const double qdSize = 380;
+            const double qdMarginLeft = 80;
+
+            double titleH = _qdTitle.Length > 0 ? 40 : 12;
+
+            // Title
+            if (_qdTitle.Length > 0)
+            {
+                var ft = Txt(_qdTitle, 14, textBr, FontWeight.SemiBold);
+                ctx.DrawText(ft, new Point(qdMarginLeft + qdSize / 2 - ft.Width / 2, 4));
+            }
+
+            var ox = qdMarginLeft;
+            var oy = titleH;
+            var halfSize = qdSize / 2;
+
+            // Outer background
+            var outerRect = new Rect(ox, oy, qdSize, qdSize);
+            ctx.DrawRectangle(surface0, borderPen, outerRect, 8, 8);
+
+            // Quadrant fills with low-opacity tints
+            // Q1=top-right(Do First), Q2=top-left(Plan), Q3=bottom-left(Delegate), Q4=bottom-right(Eliminate)
+            var qRects = new[] {
+                new Rect(ox + halfSize, oy, halfSize, halfSize),           // Q1
+                new Rect(ox, oy, halfSize, halfSize),                       // Q2
+                new Rect(ox, oy + halfSize, halfSize, halfSize),           // Q3
+                new Rect(ox + halfSize, oy + halfSize, halfSize, halfSize) // Q4
+            };
+            var qBrushes = new[] { q1Brush, q2Brush, q3Brush, q4Brush };
+
+            for (int i = 0; i < 4; i++)
+            {
+                using (ctx.PushClip(new RoundedRect(outerRect, 8)))
+                using (ctx.PushOpacity(0.08))
+                    ctx.DrawRectangle(qBrushes[i], null, qRects[i]);
+            }
+
+            // Quadrant labels — centered in each quadrant
+            for (int i = 0; i < 4; i++)
+            {
+                if (_qdLabels[i].Length > 0)
+                {
+                    var lft = Txt(_qdLabels[i], 11, textTer, FontWeight.SemiBold);
+                    ctx.DrawText(lft, new Point(
+                        qRects[i].X + qRects[i].Width / 2 - lft.Width / 2,
+                        qRects[i].Y + qRects[i].Height / 2 - lft.Height / 2));
+                }
+            }
+
+            // Center cross lines (dashed, subtle)
+            var crossPen = new Pen(subtle, 1.0) { DashStyle = new DashStyle(new[] { 6.0, 4.0 }, 0) };
+            using (ctx.PushClip(new RoundedRect(outerRect, 8)))
+            {
+                ctx.DrawLine(crossPen, new Point(ox + halfSize, oy), new Point(ox + halfSize, oy + qdSize));
+                ctx.DrawLine(crossPen, new Point(ox, oy + halfSize), new Point(ox + qdSize, oy + halfSize));
+            }
+
+            // Axes along left and bottom edges (inside the border)
+            ctx.DrawLine(axisPen, new Point(ox, oy + qdSize), new Point(ox + qdSize, oy + qdSize)); // x-axis
+            ctx.DrawLine(axisPen, new Point(ox, oy), new Point(ox, oy + qdSize));                   // y-axis
+
+            // Axis arrow tips
+            // X-axis right arrow
+            DrawArrowHead(ctx, new Point(ox + qdSize - 1, oy + qdSize), 0, textTer);
+            // Y-axis up arrow
+            DrawArrowHead(ctx, new Point(ox, oy + 1), -Math.PI / 2, textTer);
+
+            // X-axis labels
+            if (_qdXLow.Length > 0)
+            {
+                var ft = Txt(_qdXLow, FsSmall, textSec);
+                ctx.DrawText(ft, new Point(ox + 4, oy + qdSize + 8));
+            }
+            if (_qdXHigh.Length > 0)
+            {
+                var ft = Txt(_qdXHigh, FsSmall, textSec);
+                ctx.DrawText(ft, new Point(ox + qdSize - ft.Width - 4, oy + qdSize + 8));
+            }
+
+            // Y-axis labels
+            if (_qdYLow.Length > 0)
+            {
+                var ft = Txt(_qdYLow, FsSmall, textSec);
+                ctx.DrawText(ft, new Point(ox - ft.Width - 8, oy + qdSize - ft.Height - 2));
+            }
+            if (_qdYHigh.Length > 0)
+            {
+                var ft = Txt(_qdYHigh, FsSmall, textSec);
+                ctx.DrawText(ft, new Point(ox - ft.Width - 8, oy + 2));
+            }
+
+            // Data points
+            for (int i = 0; i < _qdPoints.Count; i++)
+            {
+                var pt = _qdPoints[i];
+                var px = ox + pt.X * qdSize;
+                var py = oy + (1.0 - pt.Y) * qdSize;
+
+                // Glow ring
+                using (ctx.PushOpacity(0.25))
+                    ctx.DrawEllipse(accent, null, new Point(px, py), 9, 9);
+
+                // Solid dot
+                ctx.DrawEllipse(accent, null, new Point(px, py), 5, 5);
+
+                // Label pill
+                var lft = Txt(pt.Label, FsSmall, textBr);
+                var pillW = lft.Width + 12;
+                var pillH = lft.Height + 6;
+                var pillX = px + 10;
+                var pillY = py - pillH / 2;
+
+                // Keep pill inside chart area
+                if (pillX + pillW > ox + qdSize - 4)
+                    pillX = px - 10 - pillW;
+
+                var pillRect = new Rect(pillX, pillY, pillW, pillH);
+                ctx.DrawRectangle(fill, borderPen, pillRect, 4, 4);
+                ctx.DrawText(lft, new Point(pillX + 6, pillY + 3));
             }
         }
 

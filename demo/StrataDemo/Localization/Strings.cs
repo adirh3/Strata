@@ -208,8 +208,8 @@ public sealed class Strings
 
             // Mermaid Diagrams
             ["MermaidDiagrams"] = "Mermaid Diagrams",
-            ["MermaidDiagrams.Subtitle"] = "Flowcharts, sequence diagrams, and state machines rendered from standard Mermaid syntax via StrataMarkdown.",
-            ["MermaidDiagrams.Footer"] = "Use ```mermaid fenced blocks with graph/flowchart, sequenceDiagram, or stateDiagram-v2 syntax. Pie and xychart-beta also supported.",
+            ["MermaidDiagrams.Subtitle"] = "Flowcharts, sequences, state machines, class diagrams, timelines, and quadrant charts rendered from standard Mermaid syntax via StrataMarkdown.",
+            ["MermaidDiagrams.Footer"] = "Use ```mermaid fenced blocks with graph/flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, timeline, or quadrantChart syntax. Pie and xychart-beta also supported.",
 
             // Charts
             ["Chart.Revenue"] = "Revenue Trend",
@@ -384,8 +384,8 @@ public sealed class Strings
 
             // Mermaid Diagrams
             ["MermaidDiagrams"] = "תרשימי Mermaid",
-            ["MermaidDiagrams.Subtitle"] = "תרשימי זרימה, רצפים ומכונות מצב מתחביר Mermaid סטנדרטי באמצעות StrataMarkdown.",
-            ["MermaidDiagrams.Footer"] = "השתמשו בבלוקי ```mermaid עם graph/flowchart, sequenceDiagram או stateDiagram-v2. תמיכה גם ב-pie ו-xychart-beta.",
+            ["MermaidDiagrams.Subtitle"] = "תרשימי זרימה, רצפים, מכונות מצב, תרשימי מחלקות, צירי זמן ותרשימי רבעים מתחביר Mermaid סטנדרטי באמצעות StrataMarkdown.",
+            ["MermaidDiagrams.Footer"] = "השתמשו בבלוקי ```mermaid עם graph/flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, timeline או quadrantChart. תמיכה גם ב-pie ו-xychart-beta.",
 
             // Charts
             ["Chart.Revenue"] = "מגמת הכנסות",

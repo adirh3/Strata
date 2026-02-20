@@ -768,7 +768,9 @@ public class StrataMarkdown : ContentControl
         // Diagram types → StrataMermaid
         if (firstLine.StartsWith("graph") || firstLine.StartsWith("flowchart") ||
             firstLine.StartsWith("sequencediagram") || firstLine.StartsWith("statediagram") ||
-            firstLine.StartsWith("erdiagram"))
+            firstLine.StartsWith("erdiagram") || firstLine.StartsWith("classdiagram") ||
+            firstLine.StartsWith("timeline") || firstLine.StartsWith("quadrantchart") ||
+            firstLine.StartsWith("quadrant-chart"))
         {
             AddMermaidDiagram(trimmed);
             return;
