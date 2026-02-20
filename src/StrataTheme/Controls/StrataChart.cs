@@ -281,6 +281,8 @@ public class StrataChart : TemplatedControl
         private double _animProgress; // 0 = hidden, 1 = fully visible
         private bool _hasAnimated;
         private bool _entranceReady; // true once deferred post fires after attach
+        private bool _hasBeenAttached; // true after first attach (skip delay on reattach)
+        private DispatcherTimer? _entranceDelayTimer;
 
         internal int HoverIndex => _hoverIndex;
 
@@ -299,32 +301,54 @@ public class StrataChart : TemplatedControl
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
-            // Delay animation until the window is actually visible on screen.
-            // DispatcherPriority.Loaded alone isn't enough — the window compositor
-            // hasn't painted yet. A short timer gives the window time to appear.
+
+            // Animation already completed — render instantly on reattach
+            if (_hasAnimated)
+            {
+                _animProgress = 1.0;
+                _entranceReady = true;
+                return;
+            }
+
+            if (_hasBeenAttached)
+            {
+                // Reattach during streaming — skip the 150ms delay, resume animation
+                _entranceReady = true;
+                if (!_animWatch.IsRunning && _animProgress < 1.0)
+                {
+                    _animWatch.Start(); // Resume from paused position
+                    _animTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, OnAnimTick);
+                    _animTimer.Start();
+                }
+                InvalidateVisual();
+                return;
+            }
+
+            // First attach — use 150ms delay for initial window appearance
+            _hasBeenAttached = true;
             _animProgress = 0;
-            _hasAnimated = false;
             _entranceReady = false;
             _animWatch.Reset();
 
-            var delayTimer = new DispatcherTimer(DispatcherPriority.Render)
+            _entranceDelayTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
                 Interval = TimeSpan.FromMilliseconds(150),
             };
-            delayTimer.Tick += (_, _) =>
+            _entranceDelayTimer.Tick += (_, _) =>
             {
-                delayTimer.Stop();
+                _entranceDelayTimer!.Stop();
                 _entranceReady = true;
                 InvalidateVisual();
             };
-            delayTimer.Start();
+            _entranceDelayTimer.Start();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnDetachedFromVisualTree(e);
+            _entranceDelayTimer?.Stop();
             _animTimer?.Stop();
-            _animWatch.Reset();
+            _animWatch.Stop(); // Pause — preserve elapsed time for resume
             _entranceReady = false;
         }
 
@@ -335,7 +359,7 @@ public class StrataChart : TemplatedControl
 
             if (!_animWatch.IsRunning)
             {
-                _animWatch.Restart();
+                _animWatch.Start(); // Start or resume from paused position
                 _animTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, OnAnimTick);
                 _animTimer.Start();
             }

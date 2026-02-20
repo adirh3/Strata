@@ -13,6 +13,7 @@ using AvaloniaEdit.TextMate;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Threading.Tasks;
@@ -47,6 +48,9 @@ public class StrataMarkdown : ContentControl
     private readonly Dictionary<Run, string> _linkRuns = new();
     private string _lastThemeVariant = string.Empty;
     private double _bodyFontSize = 14;
+    private readonly Dictionary<string, StrataChart> _chartCache = new();
+    private HashSet<string> _chartKeysUsed = new();
+    private Border? _chartPlaceholder;
 
     /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
     public static readonly StyledProperty<string?> MarkdownProperty =
@@ -182,106 +186,119 @@ public class StrataMarkdown : ContentControl
         _contentHost.Children.Clear();
         _linkRuns.Clear();
         _bodyFontSize = GetBodyFontSize();
+        _chartKeysUsed = new HashSet<string>();
 
         var source = Markdown;
-        if (string.IsNullOrWhiteSpace(source))
-            return;
-
-        var normalized = source.Replace("\r\n", "\n");
-        var lines = normalized.Split('\n');
-
-        var paragraphBuffer = new StringBuilder();
-        var codeBuffer = new StringBuilder();
-        var inCodeBlock = false;
-        var codeLanguage = string.Empty;
-        var tableBuffer = new List<string>();
-
-        foreach (var rawLine in lines)
+        if (!string.IsNullOrWhiteSpace(source))
         {
-            var line = rawLine ?? string.Empty;
+            var normalized = source.Replace("\r\n", "\n");
+            var lines = normalized.Split('\n');
 
-            if (line.StartsWith("```", StringComparison.Ordinal))
+            var paragraphBuffer = new StringBuilder();
+            var codeBuffer = new StringBuilder();
+            var inCodeBlock = false;
+            var codeLanguage = string.Empty;
+            var tableBuffer = new List<string>();
+
+            foreach (var rawLine in lines)
             {
-                FlushParagraph(paragraphBuffer);
-                FlushTable(tableBuffer);
+                var line = rawLine ?? string.Empty;
 
-                if (!inCodeBlock)
+                if (line.StartsWith("```", StringComparison.Ordinal))
                 {
-                    inCodeBlock = true;
-                    codeLanguage = line.Length > 3 ? line[3..].Trim() : string.Empty;
-                    codeBuffer.Clear();
-                }
-                else
-                {
-                    AddCodeBlock(codeBuffer.ToString(), codeLanguage);
-                    inCodeBlock = false;
-                    codeLanguage = string.Empty;
-                    codeBuffer.Clear();
+                    FlushParagraph(paragraphBuffer);
+                    FlushTable(tableBuffer);
+
+                    if (!inCodeBlock)
+                    {
+                        inCodeBlock = true;
+                        codeLanguage = line.Length > 3 ? line[3..].Trim() : string.Empty;
+                        codeBuffer.Clear();
+                    }
+                    else
+                    {
+                        if (string.Equals(codeLanguage, "chart", StringComparison.OrdinalIgnoreCase))
+                            AddChart(codeBuffer.ToString());
+                        else
+                            AddCodeBlock(codeBuffer.ToString(), codeLanguage);
+                        inCodeBlock = false;
+                        codeLanguage = string.Empty;
+                        codeBuffer.Clear();
+                    }
+
+                    continue;
                 }
 
-                continue;
+                if (inCodeBlock)
+                {
+                    codeBuffer.AppendLine(line);
+                    continue;
+                }
+
+                if (IsTableLine(line))
+                {
+                    FlushParagraph(paragraphBuffer);
+                    tableBuffer.Add(line);
+                    continue;
+                }
+
+                if (tableBuffer.Count > 0)
+                    FlushTable(tableBuffer);
+
+                if (TryParseHeading(line, out var level, out var headingText))
+                {
+                    FlushParagraph(paragraphBuffer);
+                    AddHeading(level, headingText);
+                    continue;
+                }
+
+                var indentLevel = GetIndentLevel(line);
+
+                if (TryParseBullet(line, out var bulletText))
+                {
+                    FlushParagraph(paragraphBuffer);
+                    AddBullet(bulletText, indentLevel);
+                    continue;
+                }
+
+                if (TryParseNumberedItem(line, out var number, out var numText))
+                {
+                    FlushParagraph(paragraphBuffer);
+                    AddNumberedItem(number, numText, indentLevel);
+                    continue;
+                }
+
+                if (IsHorizontalRule(line))
+                {
+                    FlushParagraph(paragraphBuffer);
+                    AddHorizontalRule();
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    FlushParagraph(paragraphBuffer);
+                    continue;
+                }
+
+                paragraphBuffer.AppendLine(line);
             }
 
             if (inCodeBlock)
             {
-                codeBuffer.AppendLine(line);
-                continue;
+                if (string.Equals(codeLanguage, "chart", StringComparison.OrdinalIgnoreCase))
+                    AddChart(codeBuffer.ToString());
+                else
+                    AddCodeBlock(codeBuffer.ToString(), codeLanguage);
             }
 
-            if (IsTableLine(line))
-            {
-                FlushParagraph(paragraphBuffer);
-                tableBuffer.Add(line);
-                continue;
-            }
-
-            if (tableBuffer.Count > 0)
-                FlushTable(tableBuffer);
-
-            if (TryParseHeading(line, out var level, out var headingText))
-            {
-                FlushParagraph(paragraphBuffer);
-                AddHeading(level, headingText);
-                continue;
-            }
-
-            var indentLevel = GetIndentLevel(line);
-
-            if (TryParseBullet(line, out var bulletText))
-            {
-                FlushParagraph(paragraphBuffer);
-                AddBullet(bulletText, indentLevel);
-                continue;
-            }
-
-            if (TryParseNumberedItem(line, out var number, out var numText))
-            {
-                FlushParagraph(paragraphBuffer);
-                AddNumberedItem(number, numText, indentLevel);
-                continue;
-            }
-
-            if (IsHorizontalRule(line))
-            {
-                FlushParagraph(paragraphBuffer);
-                AddHorizontalRule();
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                FlushParagraph(paragraphBuffer);
-                continue;
-            }
-
-            paragraphBuffer.AppendLine(line);
+            FlushTable(tableBuffer);
+            FlushParagraph(paragraphBuffer);
         }
 
-        if (inCodeBlock)
-            AddCodeBlock(codeBuffer.ToString(), codeLanguage);
-
-        FlushTable(tableBuffer);
-        FlushParagraph(paragraphBuffer);
+        // Evict cached charts no longer present in the markdown
+        foreach (var staleKey in _chartCache.Keys.Except(_chartKeysUsed).ToList())
+            _chartCache.Remove(staleKey);
     }
 
     private void FlushParagraph(StringBuilder paragraphBuffer)
@@ -600,6 +617,187 @@ public class StrataMarkdown : ContentControl
 
         shell.Child = stack;
         _contentHost.Children.Add(shell);
+    }
+
+    private void AddChart(string json)
+    {
+        var trimmed = json.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            AddChartPlaceholder();
+            return;
+        }
+
+        // Reuse cached chart if JSON hasn't changed (preserves animation state during streaming)
+        if (_chartCache.TryGetValue(trimmed, out var cached))
+        {
+            _chartKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(cached);
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+
+            var typeStr = root.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : "bar";
+            var chartType = typeStr?.ToLowerInvariant() switch
+            {
+                "line" => StrataChartType.Line,
+                "bar" => StrataChartType.Bar,
+                "donut" => StrataChartType.Donut,
+                "pie" => StrataChartType.Pie,
+                _ => StrataChartType.Bar
+            };
+
+            var labels = new List<string>();
+            if (root.TryGetProperty("labels", out var labelsProp) && labelsProp.ValueKind == JsonValueKind.Array)
+                foreach (var l in labelsProp.EnumerateArray())
+                    labels.Add(l.GetString() ?? "");
+
+            var seriesList = new List<StrataChartSeries>();
+            if (root.TryGetProperty("series", out var seriesProp) && seriesProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var s in seriesProp.EnumerateArray())
+                {
+                    var name = s.TryGetProperty("name", out var np) ? np.GetString() ?? "" : "";
+                    var values = new List<double>();
+                    if (s.TryGetProperty("values", out var vp) && vp.ValueKind == JsonValueKind.Array)
+                        foreach (var v in vp.EnumerateArray())
+                            values.Add(v.TryGetDouble(out var d) ? d : 0);
+                    seriesList.Add(new StrataChartSeries { Name = name, Values = values });
+                }
+            }
+
+            var showLegend = !root.TryGetProperty("showLegend", out var slp) || slp.ValueKind != JsonValueKind.False;
+            var showGrid = !root.TryGetProperty("showGrid", out var sgp) || sgp.ValueKind != JsonValueKind.False;
+            var height = root.TryGetProperty("height", out var hp) && hp.TryGetDouble(out var hv) ? hv : 220;
+
+            var chart = new StrataChart
+            {
+                ChartType = chartType,
+                Labels = labels,
+                Series = seriesList,
+                ShowLegend = showLegend,
+                ShowGrid = showGrid,
+                ChartHeight = Math.Clamp(height, 120, 500),
+            };
+
+            if (root.TryGetProperty("donutCenterValue", out var dcv))
+                chart.DonutCenterValue = dcv.GetString();
+            if (root.TryGetProperty("donutCenterLabel", out var dcl))
+                chart.DonutCenterLabel = dcl.GetString();
+
+            _chartCache[trimmed] = chart;
+            _chartKeysUsed.Add(trimmed);
+            _contentHost.Children.Add(chart);
+        }
+        catch
+        {
+            // Incomplete/malformed JSON during streaming — show placeholder
+            AddChartPlaceholder();
+        }
+    }
+
+    private void AddChartPlaceholder()
+    {
+        // Reuse the cached placeholder so dot animations survive rebuilds
+        if (_chartPlaceholder is null)
+        {
+            _chartPlaceholder = new Border
+            {
+                Height = 100,
+                CornerRadius = new CornerRadius(8),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            _chartPlaceholder.Classes.Add("strata-md-code-block");
+
+            var stack = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Spacing = 8,
+            };
+
+            var icon = new TextBlock
+            {
+                Text = "\U0001F4CA",
+                FontSize = 22,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Opacity = 0.35,
+            };
+
+            var dotsRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Spacing = 6,
+            };
+
+            for (int i = 0; i < 3; i++)
+            {
+                var dot = new Border
+                {
+                    Width = 5,
+                    Height = 5,
+                    CornerRadius = new CornerRadius(2.5),
+                    Opacity = 0.3,
+                };
+                dot.Classes.Add("strata-md-bullet-dot");
+                dotsRow.Children.Add(dot);
+            }
+
+            stack.Children.Add(icon);
+            stack.Children.Add(dotsRow);
+            _chartPlaceholder.Child = stack;
+
+            // Start dot animations once the placeholder is in the visual tree
+            _chartPlaceholder.AttachedToVisualTree += (_, _) =>
+            {
+                var dots = dotsRow.Children.OfType<Border>().ToList();
+                for (int i = 0; i < dots.Count; i++)
+                    StartDotPulse(dots[i], i * 200);
+            };
+        }
+
+        // Remove from previous parent if still attached (Rebuild cleared children)
+        if (_chartPlaceholder.Parent is Panel oldParent)
+            oldParent.Children.Remove(_chartPlaceholder);
+
+        _contentHost.Children.Add(_chartPlaceholder);
+    }
+
+    private static void StartDotPulse(Border dot, int delayMs)
+    {
+        // Guard against double-starting
+        if (dot.Tag is System.Threading.CancellationTokenSource existingCts)
+        {
+            if (!existingCts.IsCancellationRequested) return;
+        }
+
+        var cts = new System.Threading.CancellationTokenSource();
+        dot.Tag = cts;
+
+        async void Animate()
+        {
+            try
+            {
+                if (delayMs > 0)
+                    await Task.Delay(delayMs, cts.Token);
+
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    dot.Opacity = 0.7;
+                    await Task.Delay(400, cts.Token);
+                    dot.Opacity = 0.2;
+                    await Task.Delay(400, cts.Token);
+                }
+            }
+            catch (TaskCanceledException) { }
+        }
+
+        Animate();
     }
 
     private static void ApplyTextMateHighlighting(TextEditor editor, string language)
