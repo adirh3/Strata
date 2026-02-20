@@ -6,8 +6,10 @@ using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace StrataTheme.Controls;
 
@@ -21,6 +23,7 @@ namespace StrataTheme.Controls;
 ///   <item><c>graph TD/LR</c> or <c>flowchart TD/LR</c> — directed flowcharts.</item>
 ///   <item><c>sequenceDiagram</c> — participant interactions with messages.</item>
 ///   <item><c>stateDiagram-v2</c> — state machines with transitions.</item>
+///   <item><c>erDiagram</c> — entity-relationship diagrams.</item>
 /// </list>
 /// <para><b>Template parts:</b> PART_DiagramHost (Panel).</para>
 /// </remarks>
@@ -28,6 +31,9 @@ public class StrataMermaid : TemplatedControl
 {
     private Panel? _host;
     private MermaidCanvas? _canvas;
+    private Border? _zoomBar;
+    private Button? _zoomIn, _zoomOut, _zoomReset;
+    private TextBlock? _zoomLabel;
 
     /// <summary>Identifies the <see cref="Source"/> styled property.</summary>
     public static readonly StyledProperty<string?> SourceProperty =
@@ -48,7 +54,22 @@ public class StrataMermaid : TemplatedControl
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
+
+        if (_zoomIn is not null) _zoomIn.Click -= OnZoomIn;
+        if (_zoomOut is not null) _zoomOut.Click -= OnZoomOut;
+        if (_zoomReset is not null) _zoomReset.Click -= OnZoomReset;
+
         _host = e.NameScope.Find<Panel>("PART_DiagramHost");
+        _zoomBar = e.NameScope.Find<Border>("PART_ZoomBar");
+        _zoomIn = e.NameScope.Find<Button>("PART_ZoomIn");
+        _zoomOut = e.NameScope.Find<Button>("PART_ZoomOut");
+        _zoomReset = e.NameScope.Find<Button>("PART_ZoomReset");
+        _zoomLabel = e.NameScope.Find<TextBlock>("PART_ZoomLabel");
+
+        if (_zoomIn is not null) _zoomIn.Click += OnZoomIn;
+        if (_zoomOut is not null) _zoomOut.Click += OnZoomOut;
+        if (_zoomReset is not null) _zoomReset.Click += OnZoomReset;
+
         if (_host is not null)
         {
             _canvas = new MermaidCanvas(this)
@@ -58,6 +79,33 @@ public class StrataMermaid : TemplatedControl
             };
             _host.Children.Add(_canvas);
         }
+    }
+
+    private void OnZoomIn(object? s, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _canvas?.ZoomBy(1.25);
+        UpdateZoomLabel();
+    }
+
+    private void OnZoomOut(object? s, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _canvas?.ZoomBy(1.0 / 1.25);
+        UpdateZoomLabel();
+    }
+
+    private void OnZoomReset(object? s, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        _canvas?.ResetView();
+        UpdateZoomLabel();
+    }
+
+    internal void UpdateZoomLabel()
+    {
+        if (_zoomLabel is null || _canvas is null) return;
+        var pct = (int)Math.Round(_canvas.UserZoom * 100);
+        _zoomLabel.Text = $"{pct}%";
+        if (_zoomBar is not null)
+            _zoomBar.Opacity = Math.Abs(_canvas.UserZoom - 1.0) > 0.01 || _canvas.HasPan ? 1.0 : 0.0;
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -86,7 +134,7 @@ public class StrataMermaid : TemplatedControl
     //  DATA MODELS
     // ═══════════════════════════════════════════════════════════
 
-    private enum DiagramKind { Flowchart, Sequence, State }
+    private enum DiagramKind { Flowchart, Sequence, State, Er }
     private enum NShape { Rect, Rounded, Diamond, Circle, Stadium }
     private enum EStyle { Arrow, Line, Dotted, Thick }
 
@@ -118,6 +166,27 @@ public class StrataMermaid : TemplatedControl
 
     private sealed class StEdge { public string From = "", To = ""; public string? Label; }
 
+    // ER diagram
+    private sealed class ErEntity
+    {
+        public string Name = "";
+        public List<ErField> Fields = new();
+        public double X, Y, W, H;
+    }
+
+    private sealed class ErField
+    {
+        public string Type = "", Name = "";
+        public string? Constraint; // PK, FK, UK
+    }
+
+    private sealed class ErRelation
+    {
+        public string From = "", To = "";
+        public string LeftCard = "", RightCard = "";
+        public string Label = "";
+    }
+
     // ═══════════════════════════════════════════════════════════
     //  CANVAS
     // ═══════════════════════════════════════════════════════════
@@ -140,8 +209,27 @@ public class StrataMermaid : TemplatedControl
         private readonly Dictionary<string, StNode> _stNodes = new();
         private readonly List<StEdge> _stEdges = new();
 
+        // ER
+        private readonly Dictionary<string, ErEntity> _erEntities = new();
+        private readonly List<ErRelation> _erRelations = new();
+
         private double _layW, _layH;
         private bool _parsed;
+        private double _baseScale = 1.0;
+
+        // Pan & zoom
+        private double _userZoom = 1.0;
+        private double _panX, _panY;
+        private bool _isPanning;
+        private Point _panStart;
+        private double _panStartX, _panStartY;
+
+        // Entrance animation
+        private double _animProgress = 1.0;
+        private DateTime _animStartTime;
+        private bool _animating;
+        private DispatcherTimer? _animTimer;
+        private const double AnimDuration = 500.0;
 
         // Constants
         private const double Pad = 24;
@@ -152,9 +240,113 @@ public class StrataMermaid : TemplatedControl
         private const double ArrSz = 8;
         private const double SeqBoxH = 36, SeqMsgGap = 44, SeqMinCol = 130;
 
-        public MermaidCanvas(StrataMermaid owner) { _owner = owner; ClipToBounds = true; }
+        public MermaidCanvas(StrataMermaid owner)
+        {
+            _owner = owner;
+            ClipToBounds = true;
+        }
 
-        internal void Reparse() { _parsed = false; }
+        internal double UserZoom => _userZoom;
+        internal bool HasPan => Math.Abs(_panX) > 1 || Math.Abs(_panY) > 1;
+
+        internal void ZoomBy(double factor)
+        {
+            _userZoom = Math.Clamp(_userZoom * factor, 0.5, 4.0);
+            InvalidateVisual();
+        }
+
+        internal void ResetView()
+        {
+            _userZoom = 1.0;
+            _panX = _panY = 0;
+            InvalidateVisual();
+        }
+
+        internal void Reparse()
+        {
+            _parsed = false;
+            _userZoom = 1.0;
+            _panX = _panY = 0;
+            StartEntranceAnimation();
+        }
+
+        // ── ANIMATION ──────────────────────────────────────────
+
+        private void StartEntranceAnimation()
+        {
+            _animProgress = 0;
+            _animStartTime = DateTime.UtcNow;
+            _animating = true;
+            _animTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, OnAnimTick);
+            _animTimer.Start();
+        }
+
+        private void OnAnimTick(object? sender, EventArgs e)
+        {
+            var elapsed = (DateTime.UtcNow - _animStartTime).TotalMilliseconds;
+            var t = Math.Clamp(elapsed / AnimDuration, 0, 1);
+            // Ease-out cubic
+            t = 1.0 - Math.Pow(1.0 - t, 3);
+            _animProgress = t;
+
+            if (t >= 1.0)
+            {
+                _animProgress = 1.0;
+                _animating = false;
+                _animTimer?.Stop();
+            }
+
+            InvalidateVisual();
+        }
+
+        // ── PAN ─────────────────────────────────────────────
+
+        protected override void OnPointerPressed(PointerPressedEventArgs e)
+        {
+            var props = e.GetCurrentPoint(this).Properties;
+            if (props.IsLeftButtonPressed)
+            {
+                if (e.ClickCount == 2)
+                {
+                    ResetView();
+                    _owner.UpdateZoomLabel();
+                    e.Handled = true;
+                    return;
+                }
+
+                _isPanning = true;
+                _panStart = e.GetPosition(this);
+                _panStartX = _panX;
+                _panStartY = _panY;
+                e.Pointer.Capture(this);
+                Cursor = new Cursor(StandardCursorType.SizeAll);
+                e.Handled = true;
+            }
+        }
+
+        protected override void OnPointerMoved(PointerEventArgs e)
+        {
+            if (_isPanning)
+            {
+                var pos = e.GetPosition(this);
+                _panX = _panStartX + (pos.X - _panStart.X);
+                _panY = _panStartY + (pos.Y - _panStart.Y);
+                InvalidateVisual();
+                e.Handled = true;
+            }
+        }
+
+        protected override void OnPointerReleased(PointerReleasedEventArgs e)
+        {
+            if (_isPanning)
+            {
+                _isPanning = false;
+                e.Pointer.Capture(null);
+                Cursor = null;
+                _owner.UpdateZoomLabel();
+                e.Handled = true;
+            }
+        }
 
         // ── MEASURE ────────────────────────────────────────────
 
@@ -165,9 +357,13 @@ public class StrataMermaid : TemplatedControl
             var w = double.IsInfinity(available.Width) ? 600 : available.Width;
             ComputeLayout(w);
 
+            _baseScale = 1.0;
+            if (_layW + Pad * 2 > w && _layW > 0)
+                _baseScale = (w - 12) / (_layW + Pad * 2);
+
             return new Size(
                 Math.Min(w, _layW + Pad * 2),
-                Math.Max(40, _layH + Pad * 2));
+                Math.Max(40, (_layH + Pad * 2) * _baseScale));
         }
 
         // ── PARSING ────────────────────────────────────────────
@@ -177,6 +373,7 @@ public class StrataMermaid : TemplatedControl
             _fNodes.Clear(); _fEdges.Clear();
             _sParts.Clear(); _sMsgs.Clear();
             _stNodes.Clear(); _stEdges.Clear();
+            _erEntities.Clear(); _erRelations.Clear();
             _ltr = false; _parsed = true;
 
             var src = _owner.Source?.Trim();
@@ -189,6 +386,8 @@ public class StrataMermaid : TemplatedControl
             { _kind = DiagramKind.Sequence; ParseSeq(lines); }
             else if (first.StartsWith("statediagram"))
             { _kind = DiagramKind.State; ParseState(lines); }
+            else if (first.StartsWith("erdiagram"))
+            { _kind = DiagramKind.Er; ParseEr(lines); }
             else
             {
                 _kind = DiagramKind.Flowchart;
@@ -373,6 +572,80 @@ public class StrataMermaid : TemplatedControl
             }
         }
 
+        // ── ER parse ───────────────────────────────────────────
+
+        private static readonly Regex ErRelRx = new(
+            @"^(\w+)\s+(\|[|o{}]--[|o{}]\|)\s+(\w+)\s*:\s*(.+)$", RegexOptions.Compiled);
+
+        private void ParseEr(string[] lines)
+        {
+            ErEntity? current = null;
+
+            foreach (var raw in lines.Skip(1))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith("%%")) continue;
+
+                // Closing brace
+                if (line == "}")
+                {
+                    current = null;
+                    continue;
+                }
+
+                // Entity block start: ENTITY_NAME {
+                if (line.EndsWith('{'))
+                {
+                    var name = line[..^1].Trim();
+                    if (name.Length > 0 && !_erEntities.ContainsKey(name))
+                    {
+                        current = new ErEntity { Name = name };
+                        _erEntities[name] = current;
+                    }
+                    continue;
+                }
+
+                // Inside entity block: type name PK/FK/UK
+                if (current is not null)
+                {
+                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2)
+                    {
+                        current.Fields.Add(new ErField
+                        {
+                            Type = parts[0],
+                            Name = parts[1],
+                            Constraint = parts.Length >= 3 ? parts[2] : null
+                        });
+                    }
+                    continue;
+                }
+
+                // Relationship: ENTITY ||--o{ ENTITY : label
+                var rm = ErRelRx.Match(line);
+                if (rm.Success)
+                {
+                    var card = rm.Groups[2].Value;
+                    var leftCard = card[..2];
+                    var rightCard = card[^2..];
+                    _erRelations.Add(new ErRelation
+                    {
+                        From = rm.Groups[1].Value,
+                        To = rm.Groups[3].Value,
+                        LeftCard = leftCard,
+                        RightCard = rightCard,
+                        Label = rm.Groups[4].Value.Trim()
+                    });
+
+                    // Ensure entities exist
+                    if (!_erEntities.ContainsKey(rm.Groups[1].Value))
+                        _erEntities[rm.Groups[1].Value] = new ErEntity { Name = rm.Groups[1].Value };
+                    if (!_erEntities.ContainsKey(rm.Groups[3].Value))
+                        _erEntities[rm.Groups[3].Value] = new ErEntity { Name = rm.Groups[3].Value };
+                }
+            }
+        }
+
         // ── LAYOUT ─────────────────────────────────────────────
 
         private void ComputeLayout(double availW)
@@ -382,6 +655,7 @@ public class StrataMermaid : TemplatedControl
                 case DiagramKind.Flowchart: LayoutFlow(); break;
                 case DiagramKind.Sequence: LayoutSeq(availW); break;
                 case DiagramKind.State: LayoutState(); break;
+                case DiagramKind.Er: LayoutEr(availW); break;
             }
         }
 
@@ -588,6 +862,57 @@ public class StrataMermaid : TemplatedControl
                 _layW += 60;
         }
 
+        private void LayoutEr(double availW)
+        {
+            if (_erEntities.Count == 0) { _layW = _layH = 0; return; }
+
+            const double erFieldH = 22;
+            const double erHeaderH = 32;
+            const double erPadH = 16;
+            const double erGapH = 60;
+            const double erGapV = 48;
+
+            // Measure each entity
+            foreach (var ent in _erEntities.Values)
+            {
+                double maxFieldW = 0;
+                foreach (var f in ent.Fields)
+                {
+                    var fieldText = $"{f.Type} {f.Name}";
+                    if (f.Constraint is not null) fieldText += $" {f.Constraint}";
+                    var ft = Txt(fieldText, FsSmall);
+                    maxFieldW = Math.Max(maxFieldW, ft.Width);
+                }
+                var headerFt = Txt(ent.Name, Fs);
+                ent.W = Math.Max(headerFt.Width + erPadH * 2, maxFieldW + erPadH * 2 + 16);
+                ent.W = Math.Max(ent.W, 120);
+                ent.H = erHeaderH + ent.Fields.Count * erFieldH + 8;
+            }
+
+            // Layout in a grid — arrange entities in rows that fit availW
+            var entities = _erEntities.Values.ToList();
+            double x = 0, y = 0, rowH = 0;
+            var maxW = availW - Pad * 2;
+            if (maxW < 200) maxW = 600;
+
+            foreach (var ent in entities)
+            {
+                if (x > 0 && x + ent.W > maxW)
+                {
+                    x = 0;
+                    y += rowH + erGapV;
+                    rowH = 0;
+                }
+                ent.X = x;
+                ent.Y = y;
+                x += ent.W + erGapH;
+                rowH = Math.Max(rowH, ent.H);
+            }
+
+            _layW = entities.Max(e => e.X + e.W);
+            _layH = entities.Max(e => e.Y + e.H);
+        }
+
         // ── RENDER ─────────────────────────────────────────────
 
         public override void Render(DrawingContext ctx)
@@ -596,22 +921,37 @@ public class StrataMermaid : TemplatedControl
             if (b.Width < 20 || b.Height < 20) return;
             if (_layW < 1 && _layH < 1) return;
 
-            // Scale to fit width if needed
-            var scale = 1.0;
-            if (_layW + Pad * 2 > b.Width && _layW > 0)
-                scale = (b.Width - 12) / (_layW + Pad * 2);
+            // Entrance animation: opacity fade-in
+            DrawingContext.PushedState? opState = _animProgress < 1.0
+                ? ctx.PushOpacity(_animProgress)
+                : null;
 
-            var ox = (b.Width - _layW * scale) / 2;
-            var oy = Pad * scale;
+            // Animation scale: subtle grow from 0.96 to 1.0
+            var animScale = _animating || _animProgress < 1.0
+                ? 0.96 + 0.04 * _animProgress
+                : 1.0;
 
-            using var _ = ctx.PushTransform(Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(ox, oy));
+            var effScale = _baseScale * _userZoom * animScale;
 
-            switch (_kind)
+            var ox = (b.Width - _layW * effScale) / 2 + _panX;
+            var oy = Pad * effScale + _panY;
+
+            // Animation: slide up slightly
+            if (_animating || _animProgress < 1.0)
+                oy += 8 * (1.0 - _animProgress);
+
+            using (ctx.PushTransform(Matrix.CreateScale(effScale, effScale) * Matrix.CreateTranslation(ox, oy)))
             {
-                case DiagramKind.Flowchart: RenderFlow(ctx); break;
-                case DiagramKind.Sequence: RenderSeq(ctx); break;
-                case DiagramKind.State: RenderState(ctx); break;
+                switch (_kind)
+                {
+                    case DiagramKind.Flowchart: RenderFlow(ctx); break;
+                    case DiagramKind.Sequence: RenderSeq(ctx); break;
+                    case DiagramKind.State: RenderState(ctx); break;
+                    case DiagramKind.Er: RenderEr(ctx); break;
+                }
             }
+
+            opState?.Dispose();
         }
 
         // ── Flowchart render ───────────────────────────────────
@@ -869,6 +1209,232 @@ public class StrataMermaid : TemplatedControl
                     var ft = Txt(n.Text, Fs, textBr);
                     ctx.DrawText(ft, new Point(rect.Center.X - ft.Width / 2, rect.Center.Y - ft.Height / 2));
                 }
+            }
+        }
+
+        // ── ER render ──────────────────────────────────────────
+
+        private void RenderEr(DrawingContext ctx)
+        {
+            var fill = _owner.ResolveBrush("Brush.Surface1", Color.Parse("#252525"));
+            var headerBg = _owner.ResolveBrush("Brush.Surface2", Color.Parse("#2D2D2D"));
+            var border = _owner.ResolveBrush("Brush.BorderDefault", Color.Parse("#3A3A3A"));
+            var textBr = _owner.ResolveBrush("Brush.TextPrimary", Color.Parse("#E4E4E4"));
+            var textSec = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
+            var lineBr = _owner.ResolveBrush("Brush.TextTertiary", Color.Parse("#777"));
+            var accent = _owner.ResolveBrush("Brush.AccentDefault", Color.Parse("#818CF8"));
+            var labelBr = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
+            var pillBg = _owner.ResolveBrush("Brush.Surface0", Color.Parse("#1A1A1A"));
+            var constraintBr = _owner.ResolveBrush("Brush.AccentDefault", Color.Parse("#818CF8"));
+            var divider = _owner.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
+
+            var borderPen = new Pen(border, 1.4);
+            var linePen = new Pen(lineBr, 1.2);
+            var divPen = new Pen(divider, 0.8);
+
+            const double erFieldH = 22;
+            const double erHeaderH = 32;
+            const double erPadH = 12;
+
+            // Draw relationships first (behind entities)
+            foreach (var rel in _erRelations)
+            {
+                if (!_erEntities.TryGetValue(rel.From, out var fromEnt) ||
+                    !_erEntities.TryGetValue(rel.To, out var toEnt)) continue;
+
+                var fromCenter = new Point(fromEnt.X + fromEnt.W / 2, fromEnt.Y + fromEnt.H / 2);
+                var toCenter = new Point(toEnt.X + toEnt.W / 2, toEnt.Y + toEnt.H / 2);
+
+                // Find nearest edge points
+                var fromPt = NearestEdgePoint(fromEnt, toCenter);
+                var toPt = NearestEdgePoint(toEnt, fromCenter);
+
+                DrawBezierEdge(ctx, fromPt, toPt, linePen, false, false, lineBr);
+
+                // Draw cardinality symbols
+                DrawCardinality(ctx, fromPt, toPt, rel.LeftCard, lineBr, textSec);
+                DrawCardinality(ctx, toPt, fromPt, rel.RightCard, lineBr, textSec);
+
+                // Label in the middle
+                if (!string.IsNullOrWhiteSpace(rel.Label))
+                {
+                    var midX = (fromPt.X + toPt.X) / 2;
+                    var midY = (fromPt.Y + toPt.Y) / 2;
+                    var ft = Txt(rel.Label, FsSmall, labelBr);
+                    var pillR = new Rect(midX - ft.Width / 2 - 6, midY - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
+                    ctx.DrawRectangle(pillBg, null, pillR, 8, 8);
+                    ctx.DrawText(ft, new Point(midX - ft.Width / 2, midY - ft.Height / 2));
+                }
+            }
+
+            // Draw entities
+            foreach (var ent in _erEntities.Values)
+            {
+                var rect = new Rect(ent.X, ent.Y, ent.W, ent.H);
+
+                // Body
+                ctx.DrawRectangle(fill, borderPen, rect, 8, 8);
+
+                // Header background
+                var headerRect = new Rect(ent.X, ent.Y, ent.W, erHeaderH);
+                using (ctx.PushClip(new RoundedRect(rect, 8)))
+                    ctx.DrawRectangle(headerBg, null, headerRect);
+
+                // Accent top stripe
+                using (ctx.PushClip(new RoundedRect(rect, 8)))
+                    ctx.DrawRectangle(accent, null, new Rect(ent.X + 1, ent.Y + 1, ent.W - 2, 2.5));
+
+                // Header text
+                var headerFt = Txt(ent.Name, Fs, textBr, FontWeight.SemiBold);
+                ctx.DrawText(headerFt, new Point(ent.X + erPadH, ent.Y + erHeaderH / 2 - headerFt.Height / 2));
+
+                // Divider line
+                ctx.DrawLine(divPen, new Point(ent.X + 1, ent.Y + erHeaderH), new Point(ent.X + ent.W - 1, ent.Y + erHeaderH));
+
+                // Fields
+                double fy = ent.Y + erHeaderH + 4;
+                foreach (var field in ent.Fields)
+                {
+                    // Constraint badge
+                    if (field.Constraint is not null)
+                    {
+                        var cft = Txt(field.Constraint, 9, constraintBr, FontWeight.SemiBold);
+                        ctx.DrawText(cft, new Point(ent.X + erPadH, fy + erFieldH / 2 - cft.Height / 2));
+                    }
+
+                    // Type
+                    var typeOffset = field.Constraint is not null ? 30.0 : 0;
+                    var typeFt = Txt(field.Type, FsSmall, textSec);
+                    ctx.DrawText(typeFt, new Point(ent.X + erPadH + typeOffset, fy + erFieldH / 2 - typeFt.Height / 2));
+
+                    // Name
+                    var nameFt = Txt(field.Name, FsSmall, textBr);
+                    ctx.DrawText(nameFt, new Point(ent.X + erPadH + typeOffset + typeFt.Width + 6, fy + erFieldH / 2 - nameFt.Height / 2));
+
+                    fy += erFieldH;
+                }
+            }
+        }
+
+        private static Point NearestEdgePoint(ErEntity ent, Point target)
+        {
+            var cx = ent.X + ent.W / 2;
+            var cy = ent.Y + ent.H / 2;
+            var dx = target.X - cx;
+            var dy = target.Y - cy;
+
+            if (Math.Abs(dx) < 0.1 && Math.Abs(dy) < 0.1)
+                return new Point(cx, ent.Y + ent.H);
+
+            // Try each edge and pick the one closest to target direction
+            var hw = ent.W / 2;
+            var hh = ent.H / 2;
+
+            // Intersect with each side
+            Point best = new(cx, ent.Y); // top
+            double bestDist = double.MaxValue;
+
+            // Top
+            if (dy < 0)
+            {
+                var ix = cx + dx * (-hh / dy);
+                if (ix >= ent.X && ix <= ent.X + ent.W)
+                {
+                    var p = new Point(ix, ent.Y);
+                    var d = Dist(p, target);
+                    if (d < bestDist) { best = p; bestDist = d; }
+                }
+            }
+            // Bottom
+            if (dy > 0)
+            {
+                var ix = cx + dx * (hh / dy);
+                if (ix >= ent.X && ix <= ent.X + ent.W)
+                {
+                    var p = new Point(ix, ent.Y + ent.H);
+                    var d = Dist(p, target);
+                    if (d < bestDist) { best = p; bestDist = d; }
+                }
+            }
+            // Left
+            if (dx < 0)
+            {
+                var iy = cy + dy * (-hw / dx);
+                if (iy >= ent.Y && iy <= ent.Y + ent.H)
+                {
+                    var p = new Point(ent.X, iy);
+                    var d = Dist(p, target);
+                    if (d < bestDist) { best = p; bestDist = d; }
+                }
+            }
+            // Right
+            if (dx > 0)
+            {
+                var iy = cy + dy * (hw / dx);
+                if (iy >= ent.Y && iy <= ent.Y + ent.H)
+                {
+                    var p = new Point(ent.X + ent.W, iy);
+                    var d = Dist(p, target);
+                    if (d < bestDist) { best = p; bestDist = d; }
+                }
+            }
+
+            return best;
+        }
+
+        private static double Dist(Point a, Point b)
+        {
+            var dx = a.X - b.X;
+            var dy = a.Y - b.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        private static void DrawCardinality(DrawingContext ctx, Point near, Point far,
+            string card, IBrush lineBrush, IBrush textBrush)
+        {
+            // card is 2 chars like "||" "|{" "o{" "o|" etc.
+            // Draw at the 'near' end, pointing toward 'far'
+            var angle = Math.Atan2(far.Y - near.Y, far.X - near.X);
+            var perpX = -Math.Sin(angle);
+            var perpY = Math.Cos(angle);
+            var pen = new Pen(lineBrush, 1.4);
+
+            const double off = 12; // distance from endpoint
+            const double spread = 6; // how wide the symbols spread
+
+            var bx = near.X + Math.Cos(angle) * off;
+            var by = near.Y + Math.Sin(angle) * off;
+
+            foreach (var ch in card)
+            {
+                switch (ch)
+                {
+                    case '|':
+                        // Perpendicular line
+                        ctx.DrawLine(pen,
+                            new Point(bx + perpX * spread, by + perpY * spread),
+                            new Point(bx - perpX * spread, by - perpY * spread));
+                        break;
+                    case 'o':
+                        // Small circle
+                        ctx.DrawEllipse(null, pen, new Point(bx, by), 4, 4);
+                        break;
+                    case '{':
+                    case '}':
+                        // Crow's foot (many)
+                        var tipX = bx + Math.Cos(angle) * 6;
+                        var tipY = by + Math.Sin(angle) * 6;
+                        ctx.DrawLine(pen,
+                            new Point(tipX, tipY),
+                            new Point(bx + perpX * spread, by + perpY * spread));
+                        ctx.DrawLine(pen,
+                            new Point(tipX, tipY),
+                            new Point(bx - perpX * spread, by - perpY * spread));
+                        break;
+                }
+                // Advance along the line
+                bx += Math.Cos(angle) * 8;
+                by += Math.Sin(angle) * 8;
             }
         }
 
