@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Documents;
-using Avalonia.Data;
+using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -890,11 +890,16 @@ public class StrataMarkdown : ContentControl
 
         for (var i = 0; i < headers.Length; i++)
         {
-            dataGrid.Columns.Add(new DataGridTextColumn
+            var colIndex = i;
+            dataGrid.Columns.Add(new DataGridTemplateColumn
             {
                 Header = headers[i],
-                Binding = new Binding($"[{i}]"),
                 Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+                CellTemplate = new FuncDataTemplate<List<string>>((row, _) =>
+                {
+                    var cellText = row is not null && colIndex < row.Count ? row[colIndex] : string.Empty;
+                    return CreateRichText(cellText, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
+                })
             });
         }
 
