@@ -1,0 +1,111 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataTurnSummary}" TargetType="controls:StrataTurnSummary">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel Spacing="0">
+
+              <!-- Clickable header row — no card, just an inline disclosure -->
+              <Border Name="PART_Header"
+                      Cursor="Hand"
+                      Background="Transparent"
+                      CornerRadius="{DynamicResource Radius.Base}"
+                      Padding="4,5,8,5">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                  </Transitions>
+                </Border.Transitions>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <!-- Status dot -->
+                  <Border Name="PART_Dot"
+                          Width="6" Height="6"
+                          CornerRadius="3"
+                          VerticalAlignment="Center"
+                          Background="{DynamicResource Brush.SuccessDefault}">
+                    <Border.Transitions>
+                      <Transitions>
+                        <BrushTransition Property="Background" Duration="0:0:0.2" />
+                      </Transitions>
+                    </Border.Transitions>
+                  </Border>
+
+                  <!-- Label -->
+                  <TextBlock Text="{TemplateBinding Label}"
+                             FontSize="{DynamicResource Font.SizeCaption}"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource Brush.TextTertiary}"
+                             VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </Border>
+
+              <!-- Expandable content area with left accent bar -->
+              <Border Name="PART_ContentHost"
+                      ClipToBounds="True"
+                      MaxHeight="0"
+                      Opacity="0"
+                      RenderTransformOrigin="0.5,0"
+                      RenderTransform="translateY(-4px) scaleY(0.97)">
+                <Border.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="MaxHeight" Duration="0:0:0.28" Easing="CubicEaseOut" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+
+                <Border Padding="12,4,0,4"
+                        BorderThickness="2,0,0,0"
+                        BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                        Margin="3,2,0,0">
+                  <Border.Transitions>
+                    <Transitions>
+                      <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <ContentPresenter Content="{TemplateBinding Content}" />
+                </Border>
+              </Border>
+
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Expanded state -->
+        <Style Selector="^:expanded /template/ Border#PART_ContentHost">
+          <Setter Property="MaxHeight" Value="4000" />
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
+        </Style>
+
+        <!-- Failure state dot -->
+        <Style Selector="^:has-failures /template/ Border#PART_Dot">
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
+
+        <!-- Hover -->
+        <Style Selector="^ /template/ Border#PART_Header:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+        </Style>
+
+        <!-- Pressed -->
+        <Style Selector="^:pressed /template/ Border#PART_Header">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlPressed}" />
+        </Style>
+
+        <!-- Focus -->
+        <Style Selector="^:focus-visible /template/ Border#PART_Header">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="BorderThickness" Value="1.5" />
+        </Style>
+
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

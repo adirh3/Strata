@@ -86,5 +86,6 @@
   <StyleInclude Source="avares://StrataTheme/Controls/StrataSetting.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataSettingGroup.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataSettingPage.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataTurnSummary.axaml" />
 
 </Styles>
