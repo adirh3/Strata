@@ -43,7 +43,7 @@
                           Cursor="Hand"
                           Padding="10,6"
                           Background="Transparent">
-                    <Grid ColumnDefinitions="Auto,8,*,8,Auto,6,Auto">
+                    <Grid ColumnDefinitions="Auto,8,*,8,Auto">
                       <Border Name="PART_StateDot"
                               Width="6" Height="6"
                               CornerRadius="3"
@@ -68,14 +68,6 @@
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource Brush.AccentDefault}" />
                       </Border>
-
-                      <TextBlock Name="PART_HeaderDuration"
-                                 Grid.Column="6"
-                                 Text="{Binding DurationText, RelativeSource={RelativeSource TemplatedParent}}"
-                                 FontSize="10"
-                                 VerticalAlignment="Center"
-                                 IsVisible="False"
-                                 Foreground="{DynamicResource Brush.TextTertiary}" />
                     </Grid>
                   </Border>
 
@@ -147,10 +139,6 @@
         </Style>
 
         <Style Selector="^:has-info /template/ Border#PART_Info">
-          <Setter Property="IsVisible" Value="True" />
-        </Style>
-
-        <Style Selector="^:has-duration /template/ TextBlock#PART_HeaderDuration">
           <Setter Property="IsVisible" Value="True" />
         </Style>
 
