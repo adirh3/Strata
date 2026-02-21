@@ -78,7 +78,7 @@
   </Style>
 
   <Style Selector="ScrollBar /template/ Thumb#thumb">
-    <Setter Property="Background" Value="{DynamicResource Brush.BorderDefault}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.ScrollbarThumb}" />
     <Setter Property="Margin" Value="1" />
     <Setter Property="Template">
       <ControlTemplate>
@@ -99,7 +99,7 @@
   </Style>
 
   <Style Selector="ScrollBar:pointerover /template/ Thumb#thumb">
-    <Setter Property="Background" Value="{DynamicResource Brush.BorderStrong}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.ScrollbarThumbHover}" />
     <Setter Property="Opacity" Value="1" />
   </Style>
 

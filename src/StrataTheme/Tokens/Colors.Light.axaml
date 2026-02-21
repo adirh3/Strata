@@ -58,6 +58,8 @@
   <Color x:Key="Color.BorderDefault">#E0E0E0</Color>
   <Color x:Key="Color.BorderSubtle">#EBEBEB</Color>
   <Color x:Key="Color.BorderStrong">#C4C4C4</Color>
+  <Color x:Key="Color.ScrollbarThumb">#E0E0E0</Color>
+  <Color x:Key="Color.ScrollbarThumbHover">#C4C4C4</Color>
   <Color x:Key="Color.BorderFocus">#4F46E5</Color>
   <Color x:Key="Color.BorderError">#BA1A1A</Color>
 
@@ -105,6 +107,8 @@
   <SolidColorBrush x:Key="Brush.BorderDefault" Color="{DynamicResource Color.BorderDefault}" />
   <SolidColorBrush x:Key="Brush.BorderSubtle" Color="{DynamicResource Color.BorderSubtle}" />
   <SolidColorBrush x:Key="Brush.BorderStrong" Color="{DynamicResource Color.BorderStrong}" />
+  <SolidColorBrush x:Key="Brush.ScrollbarThumb" Color="{DynamicResource Color.ScrollbarThumb}" />
+  <SolidColorBrush x:Key="Brush.ScrollbarThumbHover" Color="{DynamicResource Color.ScrollbarThumbHover}" />
   <SolidColorBrush x:Key="Brush.BorderFocus" Color="{DynamicResource Color.BorderFocus}" />
   <SolidColorBrush x:Key="Brush.BorderError" Color="{DynamicResource Color.BorderError}" />
 
