@@ -27,6 +27,8 @@ public partial class MainWindow : Window
     private StrataPulse? _livePulse;
     private StrataBudgetChip? _liveBudget;
     private CancellationTokenSource? _generationCts;
+    private StrataCanvas? _chatExperienceCanvas;
+    private bool _isChatCanvasOpen;
 
     public MainWindow()
     {
@@ -72,6 +74,9 @@ public partial class MainWindow : Window
         _liveConfImpact = this.FindControl<StrataConfidence>("LiveConfImpact");
         _livePulse = this.FindControl<StrataPulse>("LivePulse");
         _liveBudget = this.FindControl<StrataBudgetChip>("LiveBudget");
+        _chatExperienceCanvas = this.FindControl<StrataCanvas>("ChatExperienceCanvas");
+        if (_chatExperienceCanvas is not null)
+            _chatExperienceCanvas.CloseRequested += OnChatCanvasCloseRequested;
         if (_liveComposer is not null)
         {
             _liveComposer.SendRequested += OnLiveComposerSendRequested;
@@ -224,6 +229,26 @@ public partial class MainWindow : Window
 
         if (chatLayout is null || chatMainCard is null || chatSideHost is null || mainChatShell is null)
             return;
+
+        // Position canvas when it's open
+        if (_isChatCanvasOpen && _chatExperienceCanvas is not null)
+        {
+            chatSideHost.IsVisible = false;
+            if (narrow)
+            {
+                Grid.SetColumn(_chatExperienceCanvas, 0);
+                Grid.SetRow(_chatExperienceCanvas, 2);
+            }
+            else
+            {
+                Grid.SetColumn(_chatExperienceCanvas, 2);
+                Grid.SetRow(_chatExperienceCanvas, 0);
+            }
+        }
+        else
+        {
+            chatSideHost.IsVisible = true;
+        }
 
         if (narrow)
         {
@@ -538,7 +563,14 @@ public partial class MainWindow : Window
             toolBatch.Message.StatusText = "4 calls · completed";
 
         _mainChatShell?.ScrollToEnd();
-    }
+        // Open canvas for relevant prompts
+        var pl = prompt.ToLowerInvariant();
+        if (pl.Contains("checklist") || pl.Contains("rollout") || pl.Contains("plan"))
+            ShowChatCanvas("Rollout Checklist", "IR-4471 \u00b7 Staged", BuildChecklistCanvasContent(), true);
+        else if (pl.Contains("code") || pl.Contains("analyze"))
+            ShowChatCanvas("Generated Code", "Python \u00b7 incident_analyzer.py", BuildCodeCanvasContent(), true);
+        else if (pl.Contains("summary") || pl.Contains("summarize") || pl.Contains("incident"))
+            ShowChatCanvas("Incident Summary", "IR-4471 \u00b7 Auto-generated", BuildSummaryCanvasContent(), false);    }
 
     private async Task<(List<StrataAiToolCall> Calls, StrataChatMessage? Message)> AddParallelToolCallsAsync(Random rng, CancellationToken token)
     {
@@ -785,6 +817,72 @@ public partial class MainWindow : Window
 
         _liveTranscript.Children.Add(note);
         _mainChatShell?.ScrollToEnd();
+    }
+
+    private void OnChatCanvasCloseRequested(object? sender, RoutedEventArgs e)
+    {
+        _isChatCanvasOpen = false;
+        var chatSideHost = this.FindControl<ScrollViewer>("ChatSideHost");
+        if (chatSideHost is not null)
+            chatSideHost.IsVisible = true;
+        UpdateResponsiveClasses(Bounds.Width);
+    }
+
+    private void ShowChatCanvas(string title, string subtitle, object content, bool isGenerating)
+    {
+        if (_chatExperienceCanvas is null) return;
+        _chatExperienceCanvas.Title = title;
+        _chatExperienceCanvas.Subtitle = subtitle;
+        _chatExperienceCanvas.Content = content;
+        _chatExperienceCanvas.IsGenerating = isGenerating;
+        _isChatCanvasOpen = true;
+
+        var chatSideHost = this.FindControl<ScrollViewer>("ChatSideHost");
+        if (chatSideHost is not null)
+            chatSideHost.IsVisible = false;
+
+        _chatExperienceCanvas.IsOpen = true;
+        UpdateResponsiveClasses(Bounds.Width);
+
+        if (isGenerating)
+        {
+            _ = Task.Delay(3000).ContinueWith(_ =>
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_chatExperienceCanvas?.IsGenerating == true)
+                        _chatExperienceCanvas.IsGenerating = false;
+                }));
+        }
+    }
+
+    private static object BuildChecklistCanvasContent()
+    {
+        return new StrataMarkdown
+        {
+            IsInline = true,
+            Markdown = "## Rollout Checklist\n\n### Stage 1 — Canary\n- Validate autoscale policy thresholds\n- Validate GC tuning parameters\n- Deploy to canary pool (5%)\n- Observe p95 for 10 minutes\n\n### Stage 2 — Expansion\n- Expand to 25% with rollback gate\n- Expand to 50% with rollback gate\n- Send stakeholder status update\n\n### Stage 3 — Full rollout\n- Complete full rollout with sign-off\n- Close incident IR-4471"
+        };
+    }
+
+    private static object BuildCodeCanvasContent()
+    {
+        return new SelectableTextBlock
+        {
+            Text = "import asyncio\n\nasync def analyze_incident(incident_id: str):\n    events = await fetch_correlated_events(incident_id, window=\"24h\")\n    hypothesis = rank_hypotheses(events)[0]\n\n    return {\n        \"root_cause\": hypothesis.label,\n        \"confidence\": hypothesis.score,\n        \"next_step\": \"stage rollout with rollback gates\"\n    }",
+            FontFamily = new FontFamily("Cascadia Code, Consolas, monospace"),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = ResolveBrush("Brush.TextPrimary", Brushes.Black)
+        };
+    }
+
+    private static object BuildSummaryCanvasContent()
+    {
+        return new StrataMarkdown
+        {
+            IsInline = true,
+            Markdown = "## Incident Summary\n\n### Root Cause\nGC pause inflation from allocation bursts in serializer hot paths during peak traffic on worker pool C.\n\n### Mitigation\n- Stage rollout (25% → 50% → 100%)\n- Use p95 and GC pause rollback gates\n- Publish stakeholder updates at each gate\n\n### Impact\n~12% of requests affected at peak, no data loss, normalized within 8 minutes of mitigation deployment."
+        };
     }
 
     private static IBrush ResolveBrush(string key, IBrush fallback)

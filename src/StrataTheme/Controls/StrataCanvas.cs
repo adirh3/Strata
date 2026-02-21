@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -12,10 +13,9 @@ using Avalonia.Threading;
 namespace StrataTheme.Controls;
 
 /// <summary>
-/// Rich-content artifact canvas for AI chat integration. Hosts arbitrary
-/// controls (code, documents, diagrams, checklists) alongside a conversation
-/// surface with a live stream rail, version navigation, tab strip, and
-/// Strata-signature visual language.
+/// Structured artifact canvas for chat workflows.
+/// Provides a compact title bar, optional version controls, and a content surface
+/// that can be shown or hidden with smooth split-from-chat animation.
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage:</b></para>
@@ -32,21 +32,23 @@ namespace StrataTheme.Controls;
 ///     &lt;/controls:StrataCanvas.Content&gt;
 /// &lt;/controls:StrataCanvas&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Root (Border), PART_StreamTrack (Border),
-/// PART_StreamBar (Border), PART_StatusDot (Border), PART_CloseButton (Button),
-/// PART_PrevButton (Button), PART_NextButton (Button), PART_ContentHost (Border).</para>
+/// <para><b>Template parts:</b> PART_Root (Border), PART_ActivityTrack (Border),
+/// PART_ActivityBar (Border), PART_CloseButton (Button), PART_PrevButton (Button),
+/// PART_NextButton (Button), PART_ContentHost (Border).</para>
 /// <para><b>Pseudo-classes:</b> :open, :closed, :generating, :ready, :has-subtitle,
 /// :has-toolbar, :has-icon, :has-footer, :has-versions.</para>
 /// </remarks>
 public class StrataCanvas : TemplatedControl
 {
     private Border? _root;
-    private Border? _streamTrack;
-    private Border? _streamBar;
-    private Border? _statusDot;
+    private Border? _activityTrack;
+    private Border? _activityBar;
     private Button? _closeButton;
     private Button? _prevButton;
     private Button? _nextButton;
+
+    private bool _isTemplateApplied;
+    private int _animationVersion;
 
     /// <summary>Title displayed in the canvas title bar.</summary>
     public static readonly StyledProperty<string> TitleProperty =
@@ -76,7 +78,7 @@ public class StrataCanvas : TemplatedControl
     public static readonly StyledProperty<bool> IsOpenProperty =
         AvaloniaProperty.Register<StrataCanvas, bool>(nameof(IsOpen), true);
 
-    /// <summary>Whether content is actively being generated. Drives the stream rail animation.</summary>
+    /// <summary>Whether the artifact is actively being generated.</summary>
     public static readonly StyledProperty<bool> IsGeneratingProperty =
         AvaloniaProperty.Register<StrataCanvas, bool>(nameof(IsGenerating));
 
@@ -138,10 +140,10 @@ public class StrataCanvas : TemplatedControl
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
+        _isTemplateApplied = true;
         _root = e.NameScope.Find<Border>("PART_Root");
-        _streamTrack = e.NameScope.Find<Border>("PART_StreamTrack");
-        _streamBar = e.NameScope.Find<Border>("PART_StreamBar");
-        _statusDot = e.NameScope.Find<Border>("PART_StatusDot");
+        _activityTrack = e.NameScope.Find<Border>("PART_ActivityTrack");
+        _activityBar = e.NameScope.Find<Border>("PART_ActivityBar");
         _closeButton = e.NameScope.Find<Button>("PART_CloseButton");
         _prevButton = e.NameScope.Find<Button>("PART_PrevButton");
         _nextButton = e.NameScope.Find<Button>("PART_NextButton");
@@ -176,27 +178,23 @@ public class StrataCanvas : TemplatedControl
                 }
             };
 
-        if (_streamTrack is not null)
-            _streamTrack.SizeChanged += (_, _) =>
+        if (_activityTrack is not null)
+            _activityTrack.SizeChanged += (_, _) =>
             {
                 if (IsGenerating)
-                    StartStreamAnimation();
+                    StartGeneratingAnimation();
             };
 
         UpdatePseudoClasses();
         UpdateVersionButtons();
+        IsVisible = IsOpen;
 
         Dispatcher.UIThread.Post(() =>
         {
             if (IsGenerating)
-            {
-                StartStreamAnimation();
-                StartStatusPulse();
-            }
+                StartGeneratingAnimation();
             else
-            {
-                HideStreamBar();
-            }
+                StopGeneratingAnimation();
         }, DispatcherPriority.Loaded);
     }
 
@@ -226,23 +224,31 @@ public class StrataCanvas : TemplatedControl
     private void OnIsOpenChanged()
     {
         UpdatePseudoClasses();
+        if (!_isTemplateApplied)
+        {
+            IsVisible = IsOpen;
+            return;
+        }
+
         if (IsOpen)
-            AnimateOpen();
+        {
+            _animationVersion++;
+            IsVisible = true;
+            AnimateShow();
+        }
+        else
+        {
+            AnimateHide();
+        }
     }
 
     private void OnGeneratingChanged()
     {
         UpdatePseudoClasses();
         if (IsGenerating)
-        {
-            StartStreamAnimation();
-            StartStatusPulse();
-        }
+            StartGeneratingAnimation();
         else
-        {
-            HideStreamBar();
-            StopStatusPulse();
-        }
+            StopGeneratingAnimation();
     }
 
     private void UpdatePseudoClasses()
@@ -266,7 +272,7 @@ public class StrataCanvas : TemplatedControl
             _nextButton.IsEnabled = Version < VersionCount;
     }
 
-    private void AnimateOpen()
+    private void AnimateShow()
     {
         if (_root is null)
             return;
@@ -277,50 +283,110 @@ public class StrataCanvas : TemplatedControl
 
         var comp = visual.Compositor;
 
-        // Slide + scale entrance from offset
         visual.CenterPoint = new Avalonia.Vector3D(
-            _root.Bounds.Width / 2,
+            0,
             _root.Bounds.Height / 2, 0);
 
         var scaleAnim = comp.CreateVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
-        scaleAnim.InsertKeyFrame(0f, new Vector3(0.96f, 0.96f, 1f));
+        scaleAnim.InsertKeyFrame(0f, new Vector3(0.94f, 0.98f, 1f));
+        scaleAnim.InsertKeyFrame(0.72f, new Vector3(1.012f, 1.002f, 1f));
         scaleAnim.InsertKeyFrame(1f, new Vector3(1f, 1f, 1f));
-        scaleAnim.Duration = TimeSpan.FromMilliseconds(350);
+        scaleAnim.Duration = TimeSpan.FromMilliseconds(320);
 
         var offsetAnim = comp.CreateVector3KeyFrameAnimation();
         offsetAnim.Target = "Offset";
-        offsetAnim.InsertKeyFrame(0f, new Vector3(16f, 0f, 0f));
+        offsetAnim.InsertKeyFrame(0f, new Vector3(-26f, 0f, 0f));
+        offsetAnim.InsertKeyFrame(0.72f, new Vector3(2f, 0f, 0f));
         offsetAnim.InsertKeyFrame(1f, new Vector3(0f, 0f, 0f));
-        offsetAnim.Duration = TimeSpan.FromMilliseconds(350);
+        offsetAnim.Duration = TimeSpan.FromMilliseconds(320);
 
         var fadeAnim = comp.CreateScalarKeyFrameAnimation();
         fadeAnim.Target = "Opacity";
         fadeAnim.InsertKeyFrame(0f, 0f);
+        fadeAnim.InsertKeyFrame(0.35f, 0.78f);
         fadeAnim.InsertKeyFrame(1f, 1f);
-        fadeAnim.Duration = TimeSpan.FromMilliseconds(280);
+        fadeAnim.Duration = TimeSpan.FromMilliseconds(250);
 
         visual.StartAnimation("Scale", scaleAnim);
         visual.StartAnimation("Offset", offsetAnim);
         visual.StartAnimation("Opacity", fadeAnim);
     }
 
-    private void StartStreamAnimation()
+    private async void AnimateHide()
     {
-        if (_streamBar is null || _streamTrack is null)
+        if (_root is null)
+        {
+            IsVisible = false;
+            return;
+        }
+
+        var version = ++_animationVersion;
+        var visual = ElementComposition.GetElementVisual(_root);
+        if (visual is null)
+        {
+            IsVisible = false;
+            return;
+        }
+
+        var comp = visual.Compositor;
+
+        visual.CenterPoint = new Avalonia.Vector3D(
+            0,
+            _root.Bounds.Height / 2, 0);
+
+        var offsetAnim = comp.CreateVector3KeyFrameAnimation();
+        offsetAnim.Target = "Offset";
+        offsetAnim.InsertKeyFrame(0f, new Vector3(0f, 0f, 0f));
+        offsetAnim.InsertKeyFrame(0.25f, new Vector3(1f, 0f, 0f));
+        offsetAnim.InsertKeyFrame(1f, new Vector3(-22f, 0f, 0f));
+        offsetAnim.Duration = TimeSpan.FromMilliseconds(230);
+
+        var scaleAnim = comp.CreateVector3KeyFrameAnimation();
+        scaleAnim.Target = "Scale";
+        scaleAnim.InsertKeyFrame(0f, new Vector3(1f, 1f, 1f));
+        scaleAnim.InsertKeyFrame(0.4f, new Vector3(1.004f, 1.001f, 1f));
+        scaleAnim.InsertKeyFrame(1f, new Vector3(0.965f, 0.99f, 1f));
+        scaleAnim.Duration = TimeSpan.FromMilliseconds(230);
+
+        var fadeAnim = comp.CreateScalarKeyFrameAnimation();
+        fadeAnim.Target = "Opacity";
+        fadeAnim.InsertKeyFrame(0f, 1f);
+        fadeAnim.InsertKeyFrame(0.45f, 0.62f);
+        fadeAnim.InsertKeyFrame(1f, 0f);
+        fadeAnim.Duration = TimeSpan.FromMilliseconds(200);
+
+        visual.StartAnimation("Offset", offsetAnim);
+        visual.StartAnimation("Scale", scaleAnim);
+        visual.StartAnimation("Opacity", fadeAnim);
+
+        await Task.Delay(250);
+
+        if (_animationVersion == version && !IsOpen)
+        {
+            IsVisible = false;
+            visual.Opacity = 1;
+            visual.Offset = new Vector3(0, 0, 0);
+            visual.Scale = new Vector3(1, 1, 1);
+        }
+    }
+
+    private void StartGeneratingAnimation()
+    {
+        if (_activityBar is null || _activityTrack is null)
             return;
 
-        var visual = ElementComposition.GetElementVisual(_streamBar);
+        var visual = ElementComposition.GetElementVisual(_activityBar);
         if (visual is null)
             return;
 
-        var trackWidth = _streamTrack.Bounds.Width;
+        var trackWidth = _activityTrack.Bounds.Width;
         if (trackWidth < 10)
             trackWidth = Math.Max(220, Bounds.Width - 40);
 
-        var barWidth = _streamBar.Bounds.Width;
+        var barWidth = _activityBar.Bounds.Width;
         if (barWidth < 4)
-            barWidth = 80;
+            barWidth = 96;
 
         var comp = visual.Compositor;
 
@@ -328,69 +394,39 @@ public class StrataCanvas : TemplatedControl
         offset.Target = "Offset";
         offset.InsertKeyFrame(0f, new Vector3((float)-barWidth, 0f, 0f));
         offset.InsertKeyFrame(1f, new Vector3((float)trackWidth, 0f, 0f));
-        offset.Duration = TimeSpan.FromMilliseconds(1200);
+        offset.Duration = TimeSpan.FromMilliseconds(1350);
         offset.IterationBehavior = AnimationIterationBehavior.Forever;
 
         var opacity = comp.CreateScalarKeyFrameAnimation();
         opacity.Target = "Opacity";
-        opacity.InsertKeyFrame(0f, 0.2f);
-        opacity.InsertKeyFrame(0.4f, 0.95f);
-        opacity.InsertKeyFrame(1f, 0.2f);
-        opacity.Duration = TimeSpan.FromMilliseconds(1200);
+        opacity.InsertKeyFrame(0f, 0.15f);
+        opacity.InsertKeyFrame(0.5f, 0.95f);
+        opacity.InsertKeyFrame(1f, 0.15f);
+        opacity.Duration = TimeSpan.FromMilliseconds(1350);
         opacity.IterationBehavior = AnimationIterationBehavior.Forever;
 
         visual.StartAnimation("Offset", offset);
         visual.StartAnimation("Opacity", opacity);
     }
 
-    private void HideStreamBar()
+    private void StopGeneratingAnimation()
     {
-        if (_streamBar is null)
+        if (_activityBar is null)
             return;
 
-        var visual = ElementComposition.GetElementVisual(_streamBar);
+        var visual = ElementComposition.GetElementVisual(_activityBar);
         if (visual is null)
             return;
 
         visual.Opacity = 0;
-    }
-
-    private void StartStatusPulse()
-    {
-        if (_statusDot is null)
-            return;
-
-        var visual = ElementComposition.GetElementVisual(_statusDot);
-        if (visual is null)
-            return;
 
         var comp = visual.Compositor;
-        var anim = comp.CreateScalarKeyFrameAnimation();
-        anim.Target = "Opacity";
-        anim.InsertKeyFrame(0f, 1f);
-        anim.InsertKeyFrame(0.5f, 0.3f);
-        anim.InsertKeyFrame(1f, 1f);
-        anim.Duration = TimeSpan.FromMilliseconds(1400);
-        anim.IterationBehavior = AnimationIterationBehavior.Forever;
-        visual.StartAnimation("Opacity", anim);
-    }
-
-    private void StopStatusPulse()
-    {
-        if (_statusDot is null)
-            return;
-
-        var visual = ElementComposition.GetElementVisual(_statusDot);
-        if (visual is null)
-            return;
-
-        var comp = visual.Compositor;
-        var reset = comp.CreateScalarKeyFrameAnimation();
-        reset.Target = "Opacity";
-        reset.InsertKeyFrame(0f, 1f);
-        reset.Duration = TimeSpan.FromMilliseconds(1);
-        reset.IterationBehavior = AnimationIterationBehavior.Count;
-        reset.IterationCount = 1;
-        visual.StartAnimation("Opacity", reset);
+        var resetOffset = comp.CreateVector3KeyFrameAnimation();
+        resetOffset.Target = "Offset";
+        resetOffset.InsertKeyFrame(0f, new Vector3(0f, 0f, 0f));
+        resetOffset.Duration = TimeSpan.FromMilliseconds(1);
+        resetOffset.IterationBehavior = AnimationIterationBehavior.Count;
+        resetOffset.IterationCount = 1;
+        visual.StartAnimation("Offset", resetOffset);
     }
 }

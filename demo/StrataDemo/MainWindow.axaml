@@ -1128,159 +1128,11 @@ async def analyze_incident(report):
 
               </Grid>
 
-              <!-- Row 2: Chat + Canvas side-by-side (production layout) -->
-              <TextBlock Classes="caption tertiary" Text="Chat × Canvas integration" Margin="0,4,0,0" />
-              <Grid ColumnDefinitions="1.1*,10,*" MinHeight="340">
-
-                <!-- Conversation surface -->
-                <sc:StrataChatShell Grid.Column="0"
-                                    IsOnline="True"
-                                    MinHeight="320">
-                  <sc:StrataChatShell.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                      <Border Width="20" Height="20" CornerRadius="6"
-                              Background="{DynamicResource Brush.AccentGradient}">
-                        <TextBlock Text="S" FontSize="10" FontWeight="Bold"
-                                   Foreground="{DynamicResource Brush.TextOnAccent}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                      </Border>
-                      <TextBlock Classes="body-strong" Text="Assistant" />
-                    </StackPanel>
-                  </sc:StrataChatShell.Header>
-                  <sc:StrataChatShell.PresenceText>Connected</sc:StrataChatShell.PresenceText>
-                  <sc:StrataChatShell.Transcript>
-                    <StackPanel Spacing="4">
-                      <sc:StrataChatMessage Role="User">
-                        <sc:StrataChatMessage.Content>
-                          <TextBlock TextWrapping="Wrap" FontSize="13"
-                                     Text="Create a rollout checklist for IR-4471 with rollback gates" />
-                        </sc:StrataChatMessage.Content>
-                      </sc:StrataChatMessage>
-
-                      <sc:StrataChatMessage Role="Assistant" StatusText="canvas opened">
-                        <sc:StrataChatMessage.Content>
-                          <StackPanel Spacing="6">
-                            <TextBlock TextWrapping="Wrap" FontSize="13"
-                                       Foreground="{DynamicResource Brush.TextPrimary}"
-                                       Text="I've created a staged rollout checklist with rollback gates at each stage. Review and check off items as you proceed." />
-                            <!-- Inline canvas reference chip -->
-                            <Border Background="{DynamicResource Brush.AccentSubtle}"
-                                    BorderBrush="{DynamicResource Brush.AccentDefault}"
-                                    BorderThickness="1"
-                                    CornerRadius="6"
-                                    Padding="8,4"
-                                    HorizontalAlignment="Left">
-                              <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Border Width="5" Height="5" CornerRadius="2.5"
-                                        Background="{DynamicResource Brush.AccentDefault}"
-                                        VerticalAlignment="Center" />
-                                <TextBlock FontSize="11" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource Brush.AccentDefault}"
-                                           Text="Rollout Checklist" />
-                                <TextBlock FontSize="11"
-                                           Foreground="{DynamicResource Brush.TextTertiary}"
-                                           Text="· 6 items" />
-                              </StackPanel>
-                            </Border>
-                          </StackPanel>
-                        </sc:StrataChatMessage.Content>
-                      </sc:StrataChatMessage>
-
-                      <sc:StrataChatMessage Role="User">
-                        <sc:StrataChatMessage.Content>
-                          <TextBlock TextWrapping="Wrap" FontSize="13"
-                                     Text="Add a comms step after the 50% gate" />
-                        </sc:StrataChatMessage.Content>
-                      </sc:StrataChatMessage>
-
-                      <sc:StrataTypingIndicator IsActive="True" Label="Updating canvas…" />
-                    </StackPanel>
-                  </sc:StrataChatShell.Transcript>
-                  <sc:StrataChatShell.Composer>
-                    <sc:StrataChatComposer Placeholder="Refine the canvas…" />
-                  </sc:StrataChatShell.Composer>
-                </sc:StrataChatShell>
-
-                <!-- Canvas artifact: interactive checklist -->
-                <sc:StrataCanvas Grid.Column="2"
-                                 Title="Rollout Checklist"
-                                 Subtitle="IR-4471 · Staged"
-                                 IsGenerating="True"
-                                 Version="2" VersionCount="2"
-                                 ShowCloseButton="True"
-                                 MinHeight="320">
-                  <sc:StrataCanvas.Icon>
-                    <Border Width="20" Height="20" CornerRadius="5"
-                            Background="{DynamicResource Brush.AccentSubtle}">
-                      <TextBlock Text="☑" FontSize="10"
-                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                  </sc:StrataCanvas.Icon>
-                  <sc:StrataCanvas.ToolBar>
-                    <StackPanel Orientation="Horizontal" Spacing="1">
-                      <Button Classes="subtle" Padding="6,3" MinHeight="0" CornerRadius="4">
-                        <TextBlock Text="Copy" FontSize="11"
-                                   Foreground="{DynamicResource Brush.TextTertiary}" />
-                      </Button>
-                      <Button Classes="subtle" Padding="6,3" MinHeight="0" CornerRadius="4">
-                        <TextBlock Text="Export" FontSize="11"
-                                   Foreground="{DynamicResource Brush.TextTertiary}" />
-                      </Button>
-                    </StackPanel>
-                  </sc:StrataCanvas.ToolBar>
-                  <sc:StrataCanvas.Content>
-                    <StackPanel Spacing="4">
-                      <!-- Stage 1 -->
-                      <TextBlock FontSize="11" FontWeight="SemiBold"
-                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                 Text="STAGE 1 · CANARY" Margin="0,0,0,2" />
-                      <CheckBox IsChecked="True" Content="Confirm autoscale policy thresholds" FontSize="12" />
-                      <CheckBox IsChecked="True" Content="Validate GC tuning parameters" FontSize="12" />
-                      <CheckBox IsChecked="True" Content="Deploy to canary pool (5%)" FontSize="12" />
-                      <CheckBox IsChecked="True" Content="Monitor p95 for 10 min" FontSize="12" />
-                      <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Opacity="0.3" Margin="0,4" />
-                      <!-- Stage 2 -->
-                      <TextBlock FontSize="11" FontWeight="SemiBold"
-                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                 Text="STAGE 2 · EXPANSION" Margin="0,0,0,2" />
-                      <CheckBox Content="Expand to 25% with rollback gate" FontSize="12" />
-                      <CheckBox Content="Monitor p95 &lt; 250ms for 15 min" FontSize="12" />
-                      <CheckBox Content="Expand to 50% with rollback gate" FontSize="12" />
-                      <CheckBox Content="Send stakeholder status update" FontSize="12"
-                                Foreground="{DynamicResource Brush.AccentDefault}" />
-                      <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Opacity="0.3" Margin="0,4" />
-                      <!-- Stage 3 -->
-                      <TextBlock FontSize="11" FontWeight="SemiBold"
-                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                 Text="STAGE 3 · FULL ROLLOUT" Margin="0,0,0,2" />
-                      <CheckBox Content="Full rollout with sign-off" FontSize="12" />
-                      <CheckBox Content="Close incident IR-4471" FontSize="12" />
-                    </StackPanel>
-                  </sc:StrataCanvas.Content>
-                  <sc:StrataCanvas.Footer>
-                    <DockPanel>
-                      <TextBlock DockPanel.Dock="Right"
-                                 FontSize="11"
-                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                 Text="4 of 11 complete" />
-                      <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ProgressBar Value="36" Minimum="0" Maximum="100"
-                                     Height="4" CornerRadius="2"
-                                     Width="60"
-                                     HorizontalAlignment="Left"
-                                     VerticalAlignment="Center" />
-                        <TextBlock FontSize="11"
-                                   Foreground="{DynamicResource Brush.AccentDefault}"
-                                   Text="Updating…"
-                                   VerticalAlignment="Center" />
-                      </StackPanel>
-                    </DockPanel>
-                  </sc:StrataCanvas.Footer>
-                </sc:StrataCanvas>
-
-              </Grid>
+              <TextBlock Classes="caption tertiary"
+                         Text="Use the Chat Experience page for live chat-to-canvas interactions and open/close animation." />
             </StackPanel>
           </Border>
+
 
           <Border Classes="strata-card" Padding="24,20">
             <StackPanel Spacing="18">
@@ -1875,6 +1727,35 @@ async def analyze_incident(report):
 
             </sc:StrataChatShell>
           </Border>
+
+          <!-- Dynamic artifact canvas (opens from chat interactions) -->
+          <sc:StrataCanvas x:Name="ChatExperienceCanvas"
+                           Grid.Column="2"
+                           IsOpen="False"
+                           IsVisible="False"
+                           ShowCloseButton="True"
+                           VerticalAlignment="Stretch">
+            <sc:StrataCanvas.Icon>
+              <Border Width="20" Height="20" CornerRadius="5"
+                      Background="{DynamicResource Brush.AccentSubtle}">
+                <TextBlock Text="◇" FontSize="10"
+                           Foreground="{DynamicResource Brush.AccentDefault}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+            </sc:StrataCanvas.Icon>
+            <sc:StrataCanvas.ToolBar>
+              <StackPanel Orientation="Horizontal" Spacing="1">
+                <Button Classes="subtle" Padding="6,3" MinHeight="0" CornerRadius="4">
+                  <TextBlock Text="Copy" FontSize="11"
+                             Foreground="{DynamicResource Brush.TextTertiary}" />
+                </Button>
+                <Button Classes="subtle" Padding="6,3" MinHeight="0" CornerRadius="4">
+                  <TextBlock Text="Apply" FontSize="11"
+                             Foreground="{DynamicResource Brush.AccentDefault}" />
+                </Button>
+              </StackPanel>
+            </sc:StrataCanvas.ToolBar>
+          </sc:StrataCanvas>
 
           <!-- Context / side intelligence -->
           <ScrollViewer x:Name="ChatSideHost"
