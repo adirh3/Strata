@@ -42,7 +42,7 @@ public class StrataChatShell : TemplatedControl
     private Border? _presenceDot;
     private ScrollViewer? _scrollViewer;
     private bool _userScrolledAway;
-    private bool _isAutoScrolling;
+    private bool _isProgrammaticScroll;
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
@@ -86,16 +86,48 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is not null)
         {
             _scrollViewer.ScrollChanged += OnScrollChanged;
+            // Detect user scroll-away intent (don't intercept — let ScrollViewer handle natively)
             _scrollViewer.PointerWheelChanged += OnUserWheelScroll;
+
+            // Set up compositor-driven smooth scrolling after template is realized
+            var scrollContent = e.NameScope.Find<Panel>("PART_ScrollContent");
+            if (scrollContent is not null)
+                Dispatcher.UIThread.Post(() => SetupCompositorSmoothing(scrollContent), DispatcherPriority.Loaded);
         }
 
         Refresh();
+    }
+
+    /// <summary>
+    /// Applies an implicit composition animation on the scroll content's visual Offset,
+    /// so every scroll position change is smoothly animated on the compositor/render thread
+    /// at full vsync rate — independent of UI thread load.
+    /// </summary>
+    private void SetupCompositorSmoothing(Control scrollContent)
+    {
+        var visual = ElementComposition.GetElementVisual(scrollContent);
+        if (visual is null) return;
+
+        var compositor = visual.Compositor;
+        var anim = compositor.CreateVector3KeyFrameAnimation();
+        anim.Target = "Offset";
+        anim.InsertExpressionKeyFrame(1f, "this.FinalValue");
+        anim.Duration = TimeSpan.FromMilliseconds(120);
+
+        var implicitAnims = compositor.CreateImplicitAnimationCollection();
+        implicitAnims["Offset"] = anim;
+        visual.ImplicitAnimations = implicitAnims;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         Dispatcher.UIThread.Post(Refresh, DispatcherPriority.Loaded);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
     }
 
     private void Refresh()
@@ -152,15 +184,16 @@ public class StrataChatShell : TemplatedControl
     /// Scrolls transcript to the bottom. Call this during streaming/generation.
     /// Respects user scroll-away: if the user scrolled up, this is a no-op
     /// until <see cref="ResetAutoScroll"/> is called.
+    /// The compositor implicit animation handles visual smoothing.
     /// </summary>
     public void ScrollToEnd()
     {
         if (_scrollViewer is null || _userScrolledAway)
             return;
 
-        _isAutoScrolling = true;
+        _isProgrammaticScroll = true;
         _scrollViewer.ScrollToEnd();
-        Dispatcher.UIThread.Post(() => _isAutoScrolling = false, DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(() => _isProgrammaticScroll = false, DispatcherPriority.Loaded);
     }
 
     /// <summary>
@@ -174,20 +207,17 @@ public class StrataChatShell : TemplatedControl
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        if (_scrollViewer is null || _isAutoScrolling)
+        if (_scrollViewer is null || _isProgrammaticScroll)
             return;
 
-        // If user scrolled up more than ~40px from bottom, mark as scrolled away
         var distanceFromBottom = _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height - _scrollViewer.Offset.Y;
-        if (distanceFromBottom > 40)
-            _userScrolledAway = true;
-        else
-            _userScrolledAway = false;
+        _userScrolledAway = distanceFromBottom > 40;
     }
 
     private void OnUserWheelScroll(object? sender, PointerWheelEventArgs e)
     {
-        // Any upward wheel scroll = user wants to read history
+        // Don't intercept — let ScrollViewer handle natively (especially for touchpad).
+        // Just detect scroll-away intent so auto-scroll pauses during streaming.
         if (e.Delta.Y > 0)
             _userScrolledAway = true;
     }
