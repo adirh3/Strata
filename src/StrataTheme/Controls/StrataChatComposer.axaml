@@ -180,6 +180,66 @@
                               VerticalAlignment="Center"
                               Margin="0,0,6,6" />
 
+                    <!-- MCP server selector button -->
+                    <Panel Name="PART_McpPanel" Margin="0,0,6,6">
+                      <Button Name="PART_McpButton"
+                              Classes="subtle"
+                              Height="28"
+                              Padding="6,4"
+                              MinHeight="0" MinWidth="0"
+                              CornerRadius="6"
+                              Background="{DynamicResource Brush.Surface2}"
+                              VerticalAlignment="Center"
+                              ToolTip.Tip="MCP Servers">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                          <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                            <Canvas Width="16" Height="16">
+                              <!-- Plug/connector icon -->
+                              <Path Fill="{DynamicResource Brush.TextSecondary}"
+                                    Data="M10,0 L10,4 L9,4 L9,2 L7,2 L7,6.5 L9.5,6.5 C10.88,6.5 12,7.62 12,9 L12,10 L16,10 L16,12 L12,12 L12,13 C12,14.38 10.88,15.5 9.5,15.5 L6.5,15.5 C5.12,15.5 4,14.38 4,13 L4,12 L0,12 L0,10 L4,10 L4,9 C4,7.62 5.12,6.5 6.5,6.5 L7,6.5 L7,2 L6,2 L6,4 L4,4 L4,0 L6,0 L6,2 L7,2 L7,0 L9,0 L9,2 L10,2 L10,0 Z" />
+                            </Canvas>
+                          </Viewbox>
+                          <TextBlock Name="PART_McpCount" Text="" FontSize="11"
+                                     Foreground="{DynamicResource Brush.TextSecondary}"
+                                     VerticalAlignment="Center" />
+                        </StackPanel>
+                      </Button>
+                      <Popup Name="PART_McpPopup"
+                             IsLightDismissEnabled="True"
+                             Placement="Top"
+                             PlacementTarget="{Binding #PART_McpButton}"
+                             WindowManagerAddShadowHint="False">
+                        <Border Background="{DynamicResource Brush.Surface1}"
+                                BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="6"
+                                MinWidth="220"
+                                MaxWidth="300"
+                                BoxShadow="0 8 24 0 #20000000, 0 2 6 0 #08000000"
+                                RenderTransformOrigin="0.5,1"
+                                RenderTransform="scaleY(1)">
+                          <Border.Transitions>
+                            <Transitions>
+                              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                            </Transitions>
+                          </Border.Transitions>
+                          <StackPanel Spacing="0">
+                            <TextBlock Text="MCP SERVERS"
+                                       FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brush.TextTertiary}"
+                                       Margin="10,6,10,6"
+                                       LetterSpacing="0.8" />
+                            <ScrollViewer MaxHeight="260"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
+                              <StackPanel Name="PART_McpPopupPanel" Spacing="0" />
+                            </ScrollViewer>
+                          </StackPanel>
+                        </Border>
+                      </Popup>
+                    </Panel>
+
                     <!-- Suggestion chips -->
                     <Button Name="PART_ActionA" Classes="subtle"
                             Content="{TemplateBinding SuggestionA}"
@@ -327,6 +387,24 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
+        <!-- Hide MCP button when no MCP servers are available -->
+        <Style Selector="^:not(:has-mcp-options) /template/ Panel#PART_McpPanel">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <!-- Highlight MCP button when some (not all) MCPs are selected -->
+        <Style Selector="^:has-mcps /template/ Button#PART_McpButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+        </Style>
+        <Style Selector="^:has-mcps /template/ Button#PART_McpButton Path">
+          <Setter Property="Fill" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^:has-mcps /template/ Button#PART_McpButton TextBlock#PART_McpCount">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^ /template/ Button#PART_McpButton:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+        </Style>
+
         <!-- Hide chips row when no agent and no skills -->
         <Style Selector="^:not(:has-chips) /template/ WrapPanel#PART_ChipsRow">
           <Setter Property="IsVisible" Value="False" />
@@ -403,6 +481,25 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
     <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- MCP popup item styles -->
+  <Style Selector="Border.mcp-popup-item">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.1" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.mcp-popup-item:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+  </Style>
+
+  <!-- MCP popup separator -->
+  <Style Selector="Border.mcp-popup-separator">
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
   </Style>
 
   <!-- Autocomplete popup item styles -->

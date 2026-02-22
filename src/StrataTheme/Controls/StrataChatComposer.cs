@@ -14,10 +14,13 @@ using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
-/// <summary>Lightweight chip data for agent or skill display in the composer.</summary>
+/// <summary>Lightweight chip data for agent, skill, or MCP display in the composer.</summary>
 /// <param name="Name">Display label.</param>
 /// <param name="Glyph">Single-character icon (default "✦").</param>
 public record StrataComposerChip(string Name, string Glyph = "✦");
+
+/// <summary>The kind of autocomplete entry or chip.</summary>
+public enum ChipKind { Agent, Skill, Mcp }
 
 /// <summary>Event arguments carrying a removed skill chip item.</summary>
 public class ComposerChipRemovedEventArgs : RoutedEventArgs
@@ -62,12 +65,17 @@ public class StrataChatComposer : TemplatedControl
     private WrapPanel? _chipsRow;
     private Popup? _autoCompletePopup;
     private StackPanel? _autoCompletePanel;
-    private readonly List<(Border Control, StrataComposerChip Chip, bool IsAgent)> _autoCompleteEntries = new();
+    private Popup? _mcpPopup;
+    private StackPanel? _mcpPopupPanel;
+    private TextBlock? _mcpCountText;
+    private Button? _mcpButton;
+    private readonly List<(Border Control, StrataComposerChip Chip, ChipKind Kind)> _autoCompleteEntries = new();
     private int _autoCompleteSelectedIndex = -1;
     private int _triggerIndex = -1;
     private char _triggerChar;
     private bool _suppressAutoComplete;
     private INotifyCollectionChanged? _subscribedSkillCollection;
+    private INotifyCollectionChanged? _subscribedMcpCollection;
     private static readonly string[] DefaultModels = ["GPT-5.3-Codex", "GPT-4o", "o3"];
     private static readonly string[] DefaultQualityLevels = ["Medium", "High", "Extra High"];
 
@@ -143,6 +151,17 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<IEnumerable?> AvailableSkillsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableSkills));
 
+    /// <summary>
+    /// Items source for MCP server chips displayed in the composer.
+    /// Use <see cref="StrataComposerChip"/> items for icon+name display.
+    /// </summary>
+    public static readonly StyledProperty<IEnumerable?> McpItemsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(McpItems));
+
+    /// <summary>Catalog of MCP servers available for selection via the MCP button popup.</summary>
+    public static readonly StyledProperty<IEnumerable?> AvailableMcpsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableMcps));
+
     /// <summary>Raised when the user sends a prompt (Enter key or send button click).</summary>
     public static readonly RoutedEvent<RoutedEventArgs> SendRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(SendRequested), RoutingStrategies.Bubble);
@@ -162,6 +181,10 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Raised when the user removes a skill chip. <see cref="ComposerChipRemovedEventArgs.Item"/> carries the removed item.</summary>
     public static readonly RoutedEvent<ComposerChipRemovedEventArgs> SkillRemovedEvent =
         RoutedEvent.Register<StrataChatComposer, ComposerChipRemovedEventArgs>(nameof(SkillRemoved), RoutingStrategies.Bubble);
+
+    /// <summary>Raised when the user removes an MCP server chip.</summary>
+    public static readonly RoutedEvent<ComposerChipRemovedEventArgs> McpRemovedEvent =
+        RoutedEvent.Register<StrataChatComposer, ComposerChipRemovedEventArgs>(nameof(McpRemoved), RoutingStrategies.Bubble);
 
     /// <summary>Raised when the user clicks the mention (@) button to add agents or skills.</summary>
     public static readonly RoutedEvent<RoutedEventArgs> MentionRequestedEvent =
@@ -193,6 +216,8 @@ public class StrataChatComposer : TemplatedControl
         AgentNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         AgentGlyphProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
+        McpItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnMcpItemsChanged());
+        AvailableMcpsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         ModelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
         QualityLevelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
     }
@@ -218,6 +243,8 @@ public class StrataChatComposer : TemplatedControl
     { add => AddHandler(AgentRemovedEvent, value); remove => RemoveHandler(AgentRemovedEvent, value); }
     public event EventHandler<ComposerChipRemovedEventArgs>? SkillRemoved
     { add => AddHandler(SkillRemovedEvent, value); remove => RemoveHandler(SkillRemovedEvent, value); }
+    public event EventHandler<ComposerChipRemovedEventArgs>? McpRemoved
+    { add => AddHandler(McpRemovedEvent, value); remove => RemoveHandler(McpRemovedEvent, value); }
     public event EventHandler<RoutedEventArgs>? MentionRequested
     { add => AddHandler(MentionRequestedEvent, value); remove => RemoveHandler(MentionRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? VoiceRequested
@@ -240,6 +267,8 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? SkillItems { get => GetValue(SkillItemsProperty); set => SetValue(SkillItemsProperty, value); }
     public IEnumerable? AvailableAgents { get => GetValue(AvailableAgentsProperty); set => SetValue(AvailableAgentsProperty, value); }
     public IEnumerable? AvailableSkills { get => GetValue(AvailableSkillsProperty); set => SetValue(AvailableSkillsProperty, value); }
+    public IEnumerable? McpItems { get => GetValue(McpItemsProperty); set => SetValue(McpItemsProperty, value); }
+    public IEnumerable? AvailableMcps { get => GetValue(AvailableMcpsProperty); set => SetValue(AvailableMcpsProperty, value); }
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -255,6 +284,11 @@ public class StrataChatComposer : TemplatedControl
         Wire(e, "PART_VoiceButton", () => RaiseEvent(new RoutedEventArgs(VoiceRequestedEvent)));
         Wire(e, "PART_AgentRemoveButton", () => RaiseEvent(new RoutedEventArgs(AgentRemovedEvent)));
         _chipsRow = e.NameScope.Find<WrapPanel>("PART_ChipsRow");
+        _mcpPopup = e.NameScope.Find<Popup>("PART_McpPopup");
+        _mcpPopupPanel = e.NameScope.Find<StackPanel>("PART_McpPopupPanel");
+        _mcpCountText = e.NameScope.Find<TextBlock>("PART_McpCount");
+        _mcpButton = e.NameScope.Find<Button>("PART_McpButton");
+        Wire(e, "PART_McpButton", () => ShowMcpPopup());
         _autoCompletePopup = e.NameScope.Find<Popup>("PART_AutoCompletePopup");
         _autoCompletePanel = e.NameScope.Find<StackPanel>("PART_AutoCompletePanel");
         if (_autoCompletePopup is not null)
@@ -446,9 +480,9 @@ public class StrataChatComposer : TemplatedControl
                     hasAgentSection = true;
                 }
 
-                var border = CreateAutoCompleteEntry(chip, true);
+                var border = CreateAutoCompleteEntry(chip, ChipKind.Agent);
                 _autoCompletePanel.Children.Add(border);
-                _autoCompleteEntries.Add((border, chip, true));
+                _autoCompleteEntries.Add((border, chip, ChipKind.Agent));
             }
         }
 
@@ -468,9 +502,9 @@ public class StrataChatComposer : TemplatedControl
                     hasSkillSection = true;
                 }
 
-                var border = CreateAutoCompleteEntry(chip, false);
+                var border = CreateAutoCompleteEntry(chip, ChipKind.Skill);
                 _autoCompletePanel.Children.Add(border);
-                _autoCompleteEntries.Add((border, chip, false));
+                _autoCompleteEntries.Add((border, chip, ChipKind.Skill));
             }
         }
 
@@ -526,7 +560,7 @@ public class StrataChatComposer : TemplatedControl
         if (_autoCompleteSelectedIndex < 0 || _autoCompleteSelectedIndex >= _autoCompleteEntries.Count)
             return;
 
-        var (_, chip, isAgent) = _autoCompleteEntries[_autoCompleteSelectedIndex];
+        var (_, chip, kind) = _autoCompleteEntries[_autoCompleteSelectedIndex];
 
         var text = PromptText ?? "";
         var caret = _input?.CaretIndex ?? text.Length;
@@ -544,15 +578,16 @@ public class StrataChatComposer : TemplatedControl
             }
         }
 
-        if (isAgent)
+        switch (kind)
         {
-            AgentName = chip.Name;
-            AgentGlyph = chip.Glyph;
-        }
-        else
-        {
-            if (SkillItems is System.Collections.IList list && !IsAlreadyActiveSkill(chip))
-                list.Add(chip);
+            case ChipKind.Agent:
+                AgentName = chip.Name;
+                AgentGlyph = chip.Glyph;
+                break;
+            case ChipKind.Skill:
+                if (SkillItems is System.Collections.IList skillList && !IsAlreadyActiveSkill(chip))
+                    skillList.Add(chip);
+                break;
         }
 
         CloseAutoComplete();
@@ -594,6 +629,17 @@ public class StrataChatComposer : TemplatedControl
         return false;
     }
 
+    private bool IsAlreadyActiveMcp(StrataComposerChip chip)
+    {
+        if (McpItems is null) return false;
+        foreach (var item in McpItems)
+        {
+            if (item is StrataComposerChip sc && sc.Name == chip.Name) return true;
+            if (item?.ToString() == chip.Name) return true;
+        }
+        return false;
+    }
+
     private static Control CreateSectionHeader(string label)
     {
         var tb = new TextBlock { Text = label };
@@ -601,7 +647,7 @@ public class StrataChatComposer : TemplatedControl
         return tb;
     }
 
-    private Border CreateAutoCompleteEntry(StrataComposerChip chip, bool isAgent)
+    private Border CreateAutoCompleteEntry(StrataComposerChip chip, ChipKind kind)
     {
         var glyph = new TextBlock { Text = chip.Glyph };
         glyph.Classes.Add("autocomplete-glyph");
@@ -609,13 +655,20 @@ public class StrataChatComposer : TemplatedControl
         var name = new TextBlock { Text = chip.Name };
         name.Classes.Add("autocomplete-name");
 
-        var kind = new TextBlock { Text = isAgent ? "Agent" : "Skill" };
-        kind.Classes.Add("autocomplete-kind");
+        var kindLabel = kind switch
+        {
+            ChipKind.Agent => "Agent",
+            ChipKind.Skill => "Skill",
+            ChipKind.Mcp => "MCP",
+            _ => ""
+        };
+        var kindText = new TextBlock { Text = kindLabel };
+        kindText.Classes.Add("autocomplete-kind");
 
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
         panel.Children.Add(glyph);
         panel.Children.Add(name);
-        panel.Children.Add(kind);
+        panel.Children.Add(kindText);
 
         var border = new Border
         {
@@ -667,10 +720,16 @@ public class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":has-quality", QualityLevels is not null);
         var hasAgent = !string.IsNullOrWhiteSpace(AgentName);
         var hasSkills = HasAnySkills();
+        var mcpCount = CountMcps();
+        var totalMcpCount = CountAvailableMcps();
         PseudoClasses.Set(":has-agent", hasAgent);
         PseudoClasses.Set(":has-skills", hasSkills);
+        PseudoClasses.Set(":has-mcps", mcpCount > 0);
         PseudoClasses.Set(":has-chips", hasAgent || hasSkills);
+        PseudoClasses.Set(":mcp-partial", mcpCount > 0 && mcpCount < totalMcpCount);
+        UpdateMcpCountText(mcpCount, totalMcpCount);
         PseudoClasses.Set(":recording", IsRecording);
+        PseudoClasses.Set(":has-mcp-options", HasAnyAvailableMcps());
     }
 
     private bool HasAnySkills()
@@ -678,6 +737,170 @@ public class StrataChatComposer : TemplatedControl
         if (SkillItems is null) return false;
         foreach (var _ in SkillItems) return true;
         return false;
+    }
+
+    private int CountMcps()
+    {
+        if (McpItems is null) return 0;
+        var count = 0;
+        foreach (var _ in McpItems) count++;
+        return count;
+    }
+
+    private int CountAvailableMcps()
+    {
+        if (AvailableMcps is null) return 0;
+        var count = 0;
+        foreach (var _ in AvailableMcps) count++;
+        return count;
+    }
+
+    private bool HasAnyAvailableMcps()
+    {
+        if (AvailableMcps is null) return false;
+        foreach (var _ in AvailableMcps) return true;
+        return false;
+    }
+
+    private void UpdateMcpCountText(int active, int total)
+    {
+        if (_mcpCountText is null) return;
+        if (total == 0)
+            _mcpCountText.Text = "";
+        else if (active == total)
+            _mcpCountText.Text = $"All ({total})";
+        else
+            _mcpCountText.Text = $"{active}/{total}";
+    }
+
+    // ── MCP button popup ───────────────────────────────────────────
+
+    private void ShowMcpPopup()
+    {
+        if (_mcpPopup is null || _mcpPopupPanel is null || AvailableMcps is null)
+            return;
+
+        _mcpPopupPanel.Children.Clear();
+
+        var checkboxes = new List<(CheckBox Cb, StrataComposerChip Chip)>();
+
+        foreach (var item in AvailableMcps)
+        {
+            var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
+            var isActive = IsAlreadyActiveMcp(chip);
+
+            var cb = new CheckBox
+            {
+                IsChecked = isActive,
+                Margin = new Thickness(0),
+                Padding = new Thickness(0),
+                MinWidth = 0,
+                MinHeight = 0,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var nameText = new TextBlock
+            {
+                Text = chip.Name,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis
+            };
+
+            // Build row with DockPanel for better layout
+            var dp = new DockPanel { LastChildFill = true };
+            dp.Children.Add(cb);
+            DockPanel.SetDock(cb, Dock.Left);
+            nameText.Margin = new Thickness(10, 0, 0, 0);
+            dp.Children.Add(nameText);
+
+            var border = new Border
+            {
+                Child = dp,
+                Padding = new Thickness(10, 7),
+                CornerRadius = new CornerRadius(6),
+                Cursor = new Cursor(StandardCursorType.Hand)
+            };
+            border.Classes.Add("mcp-popup-item");
+
+            var capturedChip = chip;
+            var capturedCb = cb;
+            checkboxes.Add((cb, chip));
+
+            border.PointerPressed += (_, pe) =>
+            {
+                if (!pe.GetCurrentPoint(border).Properties.IsLeftButtonPressed) return;
+                capturedCb.IsChecked = !capturedCb.IsChecked;
+                pe.Handled = true;
+            };
+
+            cb.IsCheckedChanged += (_, _) =>
+            {
+                if (cb.IsChecked == true)
+                {
+                    if (McpItems is System.Collections.IList list && !IsAlreadyActiveMcp(capturedChip))
+                        list.Add(capturedChip);
+                }
+                else
+                {
+                    if (McpItems is System.Collections.IList list)
+                    {
+                        for (var i = list.Count - 1; i >= 0; i--)
+                        {
+                            var existing = list[i];
+                            var existingName = existing is StrataComposerChip sc ? sc.Name : existing?.ToString() ?? "";
+                            if (existingName == capturedChip.Name)
+                            {
+                                list.RemoveAt(i);
+                                break;
+                            }
+                        }
+                    }
+                }
+                Sync();
+            };
+
+            _mcpPopupPanel.Children.Add(border);
+        }
+
+        // Separator line before action buttons
+        var separator = new Border
+        {
+            Height = 1,
+            Margin = new Thickness(4, 4)
+        };
+        separator.Classes.Add("mcp-popup-separator");
+        _mcpPopupPanel.Children.Add(separator);
+
+        // Select All / Deselect All buttons at the bottom
+        var selectAll = new Button { Content = "Select All", Padding = new Thickness(10, 4), MinHeight = 0, MinWidth = 0, FontSize = 11 };
+        selectAll.Classes.Add("subtle");
+        selectAll.Click += (_, _) =>
+        {
+            foreach (var (cb, _) in checkboxes)
+                cb.IsChecked = true;
+        };
+
+        var deselectAll = new Button { Content = "Deselect All", Padding = new Thickness(10, 4), MinHeight = 0, MinWidth = 0, FontSize = 11 };
+        deselectAll.Classes.Add("subtle");
+        deselectAll.Click += (_, _) =>
+        {
+            foreach (var (cb, _) in checkboxes)
+                cb.IsChecked = false;
+        };
+
+        var actionsRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            Margin = new Thickness(4, 0, 4, 2),
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        actionsRow.Children.Add(selectAll);
+        actionsRow.Children.Add(deselectAll);
+        _mcpPopupPanel.Children.Add(actionsRow);
+
+        _mcpPopup.IsOpen = true;
     }
 
     private void OnSkillItemsChanged()
@@ -702,6 +925,28 @@ public class StrataChatComposer : TemplatedControl
         RebuildSkillChips();
     }
 
+    private void OnMcpItemsChanged()
+    {
+        if (_subscribedMcpCollection is not null)
+        {
+            _subscribedMcpCollection.CollectionChanged -= OnMcpCollectionChanged;
+            _subscribedMcpCollection = null;
+        }
+
+        if (McpItems is INotifyCollectionChanged ncc)
+        {
+            ncc.CollectionChanged += OnMcpCollectionChanged;
+            _subscribedMcpCollection = ncc;
+        }
+
+        RebuildSkillChips();
+    }
+
+    private void OnMcpCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RebuildSkillChips();
+    }
+
     private void RebuildSkillChips()
     {
         if (_chipsRow is null) return;
@@ -713,13 +958,13 @@ public class StrataChatComposer : TemplatedControl
         if (SkillItems is not null)
         {
             foreach (var item in SkillItems)
-                _chipsRow.Children.Add(CreateSkillChip(item));
+                _chipsRow.Children.Add(CreateChip(item, SkillRemovedEvent, "composer-skill-chip"));
         }
 
         Sync();
     }
 
-    private Control CreateSkillChip(object item)
+    private Control CreateChip(object item, RoutedEvent<ComposerChipRemovedEventArgs> removedEvent, string cssClass)
     {
         var name = item is StrataComposerChip c ? c.Name : item?.ToString() ?? "";
         var glyph = item is StrataComposerChip sc ? sc.Glyph : "✦";
@@ -748,7 +993,7 @@ public class StrataChatComposer : TemplatedControl
 
         var capturedItem = item;
         removeBtn.Click += (_, _) =>
-            RaiseEvent(new ComposerChipRemovedEventArgs(SkillRemovedEvent, capturedItem));
+            RaiseEvent(new ComposerChipRemovedEventArgs(removedEvent, capturedItem));
 
         var panel = new StackPanel
         {
@@ -760,7 +1005,7 @@ public class StrataChatComposer : TemplatedControl
         panel.Children.Add(removeBtn);
 
         var border = new Border { Child = panel };
-        border.Classes.Add("composer-skill-chip");
+        border.Classes.Add(cssClass);
         return border;
     }
 
