@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
@@ -276,7 +277,10 @@ public class StrataChatComposer : TemplatedControl
         base.OnApplyTemplate(e);
         _input = e.NameScope.Find<TextBox>("PART_Input");
         if (_input is not null)
+        {
             _input.AddHandler(KeyDownEvent, OnInputKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            _input.ContextMenu = BuildInputContextMenu(_input);
+        }
 
         Wire(e, "PART_SendButton", () => HandleSendAction());
         Wire(e, "PART_AttachButton", () => RaiseEvent(new RoutedEventArgs(AttachRequestedEvent)));
@@ -314,6 +318,74 @@ public class StrataChatComposer : TemplatedControl
     public void FocusInput()
     {
         Dispatcher.UIThread.Post(() => _input?.Focus(), DispatcherPriority.Loaded);
+    }
+
+    private static ContextMenu BuildInputContextMenu(TextBox textBox)
+    {
+        var cut = new MenuItem { Header = "Cut", InputGesture = new KeyGesture(Key.X, KeyModifiers.Control) };
+        var copy = new MenuItem { Header = "Copy", InputGesture = new KeyGesture(Key.C, KeyModifiers.Control) };
+        var paste = new MenuItem { Header = "Paste", InputGesture = new KeyGesture(Key.V, KeyModifiers.Control) };
+        var selectAll = new MenuItem { Header = "Select All", InputGesture = new KeyGesture(Key.A, KeyModifiers.Control) };
+
+        async void DoCut()
+        {
+            var clip = TopLevel.GetTopLevel(textBox)?.Clipboard;
+            if (clip is null || string.IsNullOrEmpty(textBox.SelectedText)) return;
+            await clip.SetTextAsync(textBox.SelectedText);
+            var start = textBox.SelectionStart;
+            var end = textBox.SelectionEnd;
+            var lo = Math.Min(start, end);
+            var hi = Math.Max(start, end);
+            textBox.Text = textBox.Text?.Remove(lo, hi - lo);
+            textBox.CaretIndex = lo;
+        }
+
+        async void DoCopy()
+        {
+            var clip = TopLevel.GetTopLevel(textBox)?.Clipboard;
+            if (clip is null || string.IsNullOrEmpty(textBox.SelectedText)) return;
+            await clip.SetTextAsync(textBox.SelectedText);
+        }
+
+        async void DoPaste()
+        {
+            var clip = TopLevel.GetTopLevel(textBox)?.Clipboard;
+            if (clip is null) return;
+            var text = await ClipboardExtensions.TryGetTextAsync(clip);
+            if (string.IsNullOrEmpty(text)) return;
+            var start = textBox.SelectionStart;
+            var end = textBox.SelectionEnd;
+            var lo = Math.Min(start, end);
+            var hi = Math.Max(start, end);
+            var current = textBox.Text ?? "";
+            textBox.Text = current.Remove(lo, hi - lo).Insert(lo, text);
+            textBox.CaretIndex = lo + text.Length;
+        }
+
+        void DoSelectAll()
+        {
+            textBox.SelectionStart = 0;
+            textBox.SelectionEnd = textBox.Text?.Length ?? 0;
+        }
+
+        cut.Click += (_, _) => DoCut();
+        copy.Click += (_, _) => DoCopy();
+        paste.Click += (_, _) => DoPaste();
+        selectAll.Click += (_, _) => DoSelectAll();
+
+        var menu = new ContextMenu
+        {
+            Items = { cut, copy, paste, new Separator(), selectAll }
+        };
+
+        menu.Opening += (_, _) =>
+        {
+            var hasSelection = !string.IsNullOrEmpty(textBox.SelectedText);
+            cut.IsEnabled = hasSelection;
+            copy.IsEnabled = hasSelection;
+        };
+
+        return menu;
     }
 
     private static void Wire(TemplateAppliedEventArgs e, string name, System.Action action)
