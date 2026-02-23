@@ -154,14 +154,52 @@ Strata is not just a set of styles. It is a system with visual and behavioral ru
 - If UI/theme/control changed: `dotnet run --project demo/StrataDemo/StrataDemo.csproj`
 - If packaging/version changed: `dotnet pack src/StrataTheme/StrataTheme.csproj -c Release -o ./nupkg`
 
-## 9) Frequent pitfalls
+## 9) UI Testing with Avalonia MCP
+
+Strata has an Avalonia MCP server configured in `.vscode/mcp.json`. This gives you live access to the running demo app — you can see the UI, click buttons, type text, inspect controls, check bindings, and take screenshots. **Use it.**
+
+**Every time you make a UI or control change, you must test it with the MCP tools.** Don't just build and hope it works — run the demo, poke at it, and confirm your changes look and behave correctly.
+
+### Workflow
+
+1. Run `dotnet tool restore` once to ensure the CLI tool is available
+2. Start the demo: `dotnet run --project demo/StrataDemo/StrataDemo.csproj`
+3. Use the MCP tools to verify your work
+
+### What to test and how
+
+- **Did your control actually render?** Use `find_control` to search by name (`#MyControl`) or type (`Button`). If it's not found, something is wrong.
+- **Are properties set correctly?** Use `get_control_properties` to check values, visibility, enabled state, dimensions — anything you set in XAML or code-behind.
+- **Do bindings work?** Use `get_data_context` to check ViewModel state, and `get_binding_errors` to catch broken bindings. Binding errors are silent failures — always check.
+- **Does interaction work?** Use `click_control` to press buttons, `input_text` to type into text fields, `set_property` to change values at runtime. Verify the app responds correctly.
+- **Does it look right?** Use `take_screenshot` to capture the window or a specific control. Check layout, alignment, and visual appearance.
+- **Is the tree structure correct?** Use `get_visual_tree` or `get_logical_tree` to verify parent-child relationships and nesting.
+- **What's focused?** Use `get_focused_element` to check focus behavior after interactions.
+- **Styles applied?** Use `get_applied_styles` to inspect CSS classes, pseudo-classes, and style setters on a control.
+
+### Control identifiers
+
+Many tools take a `controlId` parameter. Three formats work:
+- `#Name` — matches by `Name` property (e.g., `#SendButton`)
+- `TypeName` — first control of that type (e.g., `TextBox`)
+- `TypeName[n]` — nth control of that type, 0-indexed (e.g., `Button[2]`)
+
+### When to use it
+
+- After adding or modifying any XAML or code-behind UI code
+- After changing data bindings or ViewModel properties that affect the UI
+- After styling changes — verify pseudo-classes and setters apply
+- When debugging layout issues — inspect bounds, margins, and visibility
+- When a feature "should work" but you're not sure — take a screenshot and see
+
+## 10) Frequent pitfalls
 
 - Runtime animation exceptions from unsupported keyframe properties.
 - Forgetting to register new control AXAML in `StrataTheme.axaml`.
 - Adding user-facing demo text without localization keys.
 - Build failure due to locked `StrataDemo.exe` when demo is still running.
 
-## 10) Done criteria
+## 11) Done criteria
 
 A task is complete only when:
 
