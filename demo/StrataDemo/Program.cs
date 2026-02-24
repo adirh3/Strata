@@ -1,4 +1,5 @@
 using Avalonia;
+using AvaloniaMcp.Diagnostics;
 using System;
 
 namespace StrataDemo;
@@ -12,5 +13,6 @@ class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .UseMcpDiagnostics()
             .LogToTrace();
 }
