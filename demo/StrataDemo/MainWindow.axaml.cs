@@ -494,13 +494,8 @@ public partial class MainWindow : Window
 
         await Task.Delay(700, token);
 
-        var streamedText = new TextBlock
-        {
-            TextWrapping = TextWrapping.Wrap,
-            FontSize = 13,
-            LineHeight = 20,
-            Foreground = ResolveBrush("Brush.TextPrimary", Brushes.Black)
-        };
+        var fullMarkdown = BuildMockMarkdown(prompt);
+        var streamingMd = new StrataMarkdown { IsInline = true, Markdown = "" };
 
         var assistantMessage = new StrataChatMessage
         {
@@ -510,46 +505,48 @@ public partial class MainWindow : Window
             StatusText = "streaming",
             IsStreaming = true,
             IsEditable = false,
-            Content = streamedText
+            Content = streamingMd
         };
 
         _liveTranscript.Children.Add(assistantMessage);
         _mainChatShell?.ScrollToEnd();
 
-        var fullMarkdown = BuildMockMarkdown(prompt);
-        var streamingText = StripMarkdown(fullMarkdown);
-        var words = streamingText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // Stream markdown in batches — accumulate words quickly, push to
+        // StrataMarkdown in chunks so the user sees formatted content
+        // progressively without per-word parse overhead.
+        var words = fullMarkdown.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var accumulated = new System.Text.StringBuilder(fullMarkdown.Length);
+        const int batchSize = 6;
 
         for (var i = 0; i < words.Length; i++)
         {
             token.ThrowIfCancellationRequested();
 
-            streamedText.Text = string.IsNullOrEmpty(streamedText.Text)
-                ? words[i]
-                : $"{streamedText.Text} {words[i]}";
+            if (accumulated.Length > 0) accumulated.Append(' ');
+            accumulated.Append(words[i]);
 
-            if (i % 6 == 0)
+            // Push to markdown renderer every batch
+            if (i % batchSize == batchSize - 1 || i == words.Length - 1)
+            {
+                streamingMd.Markdown = accumulated.ToString();
                 _mainChatShell?.ScrollToEnd();
+            }
 
-            if (i % 4 == 0 && _livePulse is not null)
+            if (i % 6 == 0 && _livePulse is not null)
             {
                 _livePulse.Rate = 12 + rng.NextDouble() * 22;
                 _livePulse.Push(0.25 + rng.NextDouble() * 0.75);
             }
 
-            if (i % 10 == 0 && _liveBudget is not null)
+            if (i % 12 == 0 && _liveBudget is not null)
                 _liveBudget.UsedTokens += 22 + rng.Next(10, 35);
 
-            await Task.Delay(40, token);
+            await Task.Delay(18, token);
         }
 
         assistantMessage.IsStreaming = false;
         assistantMessage.StatusText = "Grounded · 2 references";
-        assistantMessage.Content = new StrataMarkdown
-        {
-            Markdown = fullMarkdown,
-            IsInline = true
-        };
+        streamingMd.Markdown = fullMarkdown;
 
         think.IsActive = false;
         think.IsExpanded = false;

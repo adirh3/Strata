@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Input;
+using Avalonia.Threading;
 using AvaloniaEdit;
 using TextMateSharp.Grammars;
 using AvaloniaEdit.TextMate;
@@ -38,6 +39,40 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataMarkdown : ContentControl
 {
+    // ── Block model for incremental diffing ──
+    internal enum MdBlockKind
+    {
+        Paragraph,
+        Heading,
+        Bullet,
+        NumberedItem,
+        CodeBlock,
+        HorizontalRule,
+        Table,
+        Chart,
+        Mermaid,
+        Confidence,
+        Comparison,
+        Card,
+        Sources,
+    }
+
+    internal readonly struct MdBlock : IEquatable<MdBlock>
+    {
+        public MdBlockKind Kind { get; init; }
+        public string Content { get; init; }
+        public int Level { get; init; }       // heading level, indent, item number
+        public string Language { get; init; }  // code block language
+
+        public bool Equals(MdBlock other) =>
+            Kind == other.Kind && Level == other.Level &&
+            string.Equals(Content, other.Content, StringComparison.Ordinal) &&
+            string.Equals(Language, other.Language, StringComparison.Ordinal);
+
+        public override bool Equals(object? obj) => obj is MdBlock b && Equals(b);
+        public override int GetHashCode() => HashCode.Combine(Kind, Content, Level, Language);
+    }
+
     private static readonly Regex LinkRegex = new(@"\[(?<text>[^\]]+)\]\((?<url>[^)]+)\)", RegexOptions.Compiled);
 
     private readonly StackPanel _root;
@@ -50,24 +85,39 @@ public class StrataMarkdown : ContentControl
     private string _lastThemeVariant = string.Empty;
     private double _bodyFontSize = 14;
     private readonly Dictionary<string, StrataChart> _chartCache = new();
-    private HashSet<string> _chartKeysUsed = new();
+    private readonly HashSet<string> _chartKeysUsed = new();
     private readonly Dictionary<string, StrataMermaid> _diagramCache = new();
-    private HashSet<string> _diagramKeysUsed = new();
+    private readonly HashSet<string> _diagramKeysUsed = new();
     private Border? _chartPlaceholder;
 
     private readonly Dictionary<string, StrataConfidence> _confidenceCache = new();
-    private HashSet<string> _confidenceKeysUsed = new();
+    private readonly HashSet<string> _confidenceKeysUsed = new();
 
     private readonly Dictionary<string, StrataFork> _comparisonCache = new();
-    private HashSet<string> _comparisonKeysUsed = new();
+    private readonly HashSet<string> _comparisonKeysUsed = new();
 
     private readonly Dictionary<string, StrataCard> _cardCache = new();
-    private HashSet<string> _cardKeysUsed = new();
+    private readonly HashSet<string> _cardKeysUsed = new();
 
     private readonly Dictionary<string, Control> _sourcesCache = new();
-    private HashSet<string> _sourcesKeysUsed = new();
+    private readonly HashSet<string> _sourcesKeysUsed = new();
 
     private Border? _blockPlaceholder;
+
+    // ── Incremental state ──
+    private List<MdBlock> _previousBlocks = new();
+    private string? _previousMarkdownNormalized;
+    private int _previousMarkdownLength;
+
+    // ── Rebuild debouncing for rapid streaming ──
+    private bool _rebuildQueued;
+
+    // ── Shared TextMate registries (expensive to create) ──
+    private static RegistryOptions? _darkRegistry;
+    private static RegistryOptions? _lightRegistry;
+
+    // ── Reusable buffer to avoid per-rebuild allocations ──
+    private readonly List<string> _evictBuffer = new();
 
     /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
     public static readonly StyledProperty<string?> MarkdownProperty =
@@ -87,10 +137,25 @@ public class StrataMarkdown : ContentControl
 
     static StrataMarkdown()
     {
-        MarkdownProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.Rebuild());
+        MarkdownProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         TitleProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateTitle());
         ShowTitleProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateTitle());
         IsInlineProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateSurfaceMode());
+    }
+
+    /// <summary>
+    /// Debounces rapid Markdown changes (e.g., streaming tokens) into a single rebuild pass.
+    /// This prevents multiple full parses within the same UI frame.
+    /// </summary>
+    private void ScheduleRebuild()
+    {
+        if (_rebuildQueued) return;
+        _rebuildQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _rebuildQueued = false;
+            Rebuild();
+        }, DispatcherPriority.Loaded);
     }
 
     public string? Markdown
@@ -148,6 +213,9 @@ public class StrataMarkdown : ContentControl
 
         if (string.Equals(change.Property.Name, nameof(FontSize), StringComparison.Ordinal))
         {
+            _previousBlocks.Clear();
+            _previousMarkdownNormalized = null;
+            _previousMarkdownLength = 0;
             Rebuild();
             return;
         }
@@ -162,6 +230,10 @@ public class StrataMarkdown : ContentControl
         _lastThemeVariant = currentVariant;
         _inlineCodeBrush = null;
         _linkBrush = null;
+        // Force full rebuild (not incremental) since brushes changed
+        _previousBlocks.Clear();
+        _previousMarkdownNormalized = null;
+        _previousMarkdownLength = 0;
         Rebuild();
     }
 
@@ -200,175 +272,358 @@ public class StrataMarkdown : ContentControl
 
     private void Rebuild()
     {
-        _contentHost.Children.Clear();
         _linkRuns.Clear();
         _bodyFontSize = GetBodyFontSize();
-        _chartKeysUsed = new HashSet<string>();
-        _diagramKeysUsed = new HashSet<string>();
-        _confidenceKeysUsed = new HashSet<string>();
-        _comparisonKeysUsed = new HashSet<string>();
-        _cardKeysUsed = new HashSet<string>();
-        _sourcesKeysUsed = new HashSet<string>();
+        _chartKeysUsed.Clear();
+        _diagramKeysUsed.Clear();
+        _confidenceKeysUsed.Clear();
+        _comparisonKeysUsed.Clear();
+        _cardKeysUsed.Clear();
+        _sourcesKeysUsed.Clear();
 
         var source = Markdown;
-        if (!string.IsNullOrWhiteSpace(source))
+        if (string.IsNullOrWhiteSpace(source))
         {
-            var normalized = source.Replace("\r\n", "\n");
-            var lines = normalized.Split('\n');
+            _contentHost.Children.Clear();
+            _previousBlocks.Clear();
+            _previousMarkdownNormalized = null;
+            _previousMarkdownLength = 0;
+            EvictStaleCaches();
+            return;
+        }
 
-            var paragraphBuffer = new StringBuilder();
-            var codeBuffer = new StringBuilder();
-            var inCodeBlock = false;
-            var codeLanguage = string.Empty;
-            var tableBuffer = new List<string>();
+        var normalized = source.Replace("\r\n", "\n");
 
-            foreach (var rawLine in lines)
+        // Fast path: identical content — skip everything
+        if (normalized.Length == _previousMarkdownLength &&
+            string.Equals(normalized, _previousMarkdownNormalized, StringComparison.Ordinal))
+        {
+            // Re-mark all cache keys as used so eviction doesn't clear them
+            foreach (var block in _previousBlocks)
+                TrackCacheKeysForBlock(block);
+            EvictStaleCaches();
+            return;
+        }
+
+        // Streaming fast path: new text appends to old text.
+        var isStreamingAppend = _previousMarkdownNormalized is not null &&
+                                normalized.Length > _previousMarkdownLength &&
+                                normalized.AsSpan().StartsWith(_previousMarkdownNormalized.AsSpan());
+
+        var newBlocks = ParseBlocks(normalized);
+
+        // ── Incremental diff: only touch changed blocks ──
+        ApplyBlocksDiff(newBlocks, isStreamingAppend);
+
+        _previousBlocks = newBlocks;
+        _previousMarkdownNormalized = normalized;
+        _previousMarkdownLength = normalized.Length;
+
+        EvictStaleCaches();
+    }
+
+    /// <summary>
+    /// Parses markdown text into a flat list of lightweight block descriptors.
+    /// Pure function — no UI side-effects.
+    /// </summary>
+    internal static List<MdBlock> ParseBlocks(string normalized)
+    {
+        var blocks = new List<MdBlock>();
+        ParseBlocksCore(normalized.AsSpan(), blocks, new StringBuilder(), new StringBuilder(), new List<string>());
+        return blocks;
+    }
+
+    /// <summary>
+    /// Core line-by-line parser. Enumerates lines from <paramref name="source"/> via span
+    /// slicing and appends parsed block descriptors to <paramref name="blocks"/>.
+    /// </summary>
+    private static void ParseBlocksCore(
+        ReadOnlySpan<char> source, List<MdBlock> blocks,
+        StringBuilder paragraphBuffer, StringBuilder codeBuffer, List<string> tableBuffer)
+    {
+        paragraphBuffer.Clear();
+        codeBuffer.Clear();
+        tableBuffer.Clear();
+        var inCodeBlock = false;
+        var codeLanguage = string.Empty;
+
+        // Enumerate lines using span slicing — no Split allocation
+        var remaining = source;
+        while (remaining.Length > 0)
+        {
+            int nlPos = remaining.IndexOf('\n');
+            ReadOnlySpan<char> lineSpan;
+            if (nlPos >= 0)
             {
-                var line = rawLine ?? string.Empty;
+                lineSpan = remaining[..nlPos];
+                remaining = remaining[(nlPos + 1)..];
+            }
+            else
+            {
+                lineSpan = remaining;
+                remaining = ReadOnlySpan<char>.Empty;
+            }
 
-                if (line.StartsWith("```", StringComparison.Ordinal))
+            // Trim trailing \r if present
+            if (lineSpan.Length > 0 && lineSpan[^1] == '\r')
+                lineSpan = lineSpan[..^1];
+
+            var line = lineSpan.ToString(); // Need string for block content storage
+
+            if (lineSpan.Length >= 3 && lineSpan[0] == '`' && lineSpan[1] == '`' && lineSpan[2] == '`')
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks);
+                FlushTableBlock(tableBuffer, blocks);
+
+                if (!inCodeBlock)
                 {
-                    FlushParagraph(paragraphBuffer);
-                    FlushTable(tableBuffer);
-
-                    if (!inCodeBlock)
-                    {
-                        inCodeBlock = true;
-                        codeLanguage = line.Length > 3 ? line[3..].Trim() : string.Empty;
-                        codeBuffer.Clear();
-                    }
-                    else
-                    {
-                        var code = codeBuffer.ToString();
-                        if (string.Equals(codeLanguage, "chart", StringComparison.OrdinalIgnoreCase))
-                            AddChart(code);
-                        else if (string.Equals(codeLanguage, "mermaid", StringComparison.OrdinalIgnoreCase))
-                            AddMermaidChart(code);
-                        else if (string.Equals(codeLanguage, "confidence", StringComparison.OrdinalIgnoreCase))
-                            AddConfidence(code);
-                        else if (string.Equals(codeLanguage, "comparison", StringComparison.OrdinalIgnoreCase))
-                            AddComparison(code);
-                        else if (string.Equals(codeLanguage, "card", StringComparison.OrdinalIgnoreCase))
-                            AddCard(code);
-                        else if (string.Equals(codeLanguage, "sources", StringComparison.OrdinalIgnoreCase))
-                            AddSources(code);
-                        else
-                            AddCodeBlock(code, codeLanguage);
-                        inCodeBlock = false;
-                        codeLanguage = string.Empty;
-                        codeBuffer.Clear();
-                    }
-
-                    continue;
+                    inCodeBlock = true;
+                    codeLanguage = lineSpan.Length > 3 ? lineSpan[3..].Trim().ToString() : string.Empty;
+                    codeBuffer.Clear();
                 }
-
-                if (inCodeBlock)
+                else
                 {
-                    codeBuffer.AppendLine(line);
-                    continue;
+                    var code = codeBuffer.ToString();
+                    var kind = MapCodeLanguageToBlockKind(codeLanguage);
+                    blocks.Add(new MdBlock { Kind = kind, Content = code, Language = codeLanguage });
+                    inCodeBlock = false;
+                    codeLanguage = string.Empty;
+                    codeBuffer.Clear();
                 }
-
-                if (IsTableLine(line))
-                {
-                    FlushParagraph(paragraphBuffer);
-                    tableBuffer.Add(line);
-                    continue;
-                }
-
-                if (tableBuffer.Count > 0)
-                    FlushTable(tableBuffer);
-
-                if (TryParseHeading(line, out var level, out var headingText))
-                {
-                    FlushParagraph(paragraphBuffer);
-                    AddHeading(level, headingText);
-                    continue;
-                }
-
-                var indentLevel = GetIndentLevel(line);
-
-                if (TryParseBullet(line, out var bulletText))
-                {
-                    FlushParagraph(paragraphBuffer);
-                    AddBullet(bulletText, indentLevel);
-                    continue;
-                }
-
-                if (TryParseNumberedItem(line, out var number, out var numText))
-                {
-                    FlushParagraph(paragraphBuffer);
-                    AddNumberedItem(number, numText, indentLevel);
-                    continue;
-                }
-
-                if (IsHorizontalRule(line))
-                {
-                    FlushParagraph(paragraphBuffer);
-                    AddHorizontalRule();
-                    continue;
-                }
-
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    FlushParagraph(paragraphBuffer);
-                    continue;
-                }
-
-                paragraphBuffer.AppendLine(line);
+                continue;
             }
 
             if (inCodeBlock)
             {
-                var code = codeBuffer.ToString();
-                if (string.Equals(codeLanguage, "chart", StringComparison.OrdinalIgnoreCase))
-                    AddChart(code);
-                else if (string.Equals(codeLanguage, "mermaid", StringComparison.OrdinalIgnoreCase))
-                    AddMermaidChart(code);
-                else if (string.Equals(codeLanguage, "confidence", StringComparison.OrdinalIgnoreCase))
-                    AddConfidence(code);
-                else if (string.Equals(codeLanguage, "comparison", StringComparison.OrdinalIgnoreCase))
-                    AddComparison(code);
-                else if (string.Equals(codeLanguage, "card", StringComparison.OrdinalIgnoreCase))
-                    AddCard(code);
-                else if (string.Equals(codeLanguage, "sources", StringComparison.OrdinalIgnoreCase))
-                    AddSources(code);
-                else
-                    AddCodeBlock(code, codeLanguage);
+                codeBuffer.AppendLine(line);
+                continue;
             }
 
-            FlushTable(tableBuffer);
-            FlushParagraph(paragraphBuffer);
+            if (IsTableLine(lineSpan))
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks);
+                tableBuffer.Add(line);
+                continue;
+            }
+
+            if (tableBuffer.Count > 0)
+                FlushTableBlock(tableBuffer, blocks);
+
+            if (TryParseHeading(lineSpan, out var level, out var headingText))
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks);
+                blocks.Add(new MdBlock { Kind = MdBlockKind.Heading, Content = headingText, Level = level });
+                continue;
+            }
+
+            // HR must be checked before bullet: "- - -" is a valid HR that also matches
+            // the bullet prefix ("- "). IsHorizontalRule rejects lines with mixed chars
+            // or non-rule content, so genuine bullets like "- Item" fall through safely.
+            if (IsHorizontalRule(lineSpan))
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks);
+                blocks.Add(new MdBlock { Kind = MdBlockKind.HorizontalRule, Content = string.Empty });
+                continue;
+            }
+
+            if (TryParseBullet(lineSpan, out var bulletText))
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks);
+                var indentLevel = GetIndentLevel(lineSpan);
+                blocks.Add(new MdBlock { Kind = MdBlockKind.Bullet, Content = bulletText, Level = indentLevel });
+                continue;
+            }
+
+            if (TryParseNumberedItem(lineSpan, out var number, out var numText))
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks);
+                blocks.Add(new MdBlock { Kind = MdBlockKind.NumberedItem, Content = numText, Level = number });
+                continue;
+            }
+
+            if (lineSpan.IsWhiteSpace())
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks);
+                continue;
+            }
+
+            paragraphBuffer.AppendLine(line);
         }
 
-        // Evict cached controls no longer present in the markdown
-        foreach (var staleKey in _chartCache.Keys.Except(_chartKeysUsed).ToList())
-            _chartCache.Remove(staleKey);
-        foreach (var staleKey in _diagramCache.Keys.Except(_diagramKeysUsed).ToList())
-            _diagramCache.Remove(staleKey);
-        foreach (var staleKey in _confidenceCache.Keys.Except(_confidenceKeysUsed).ToList())
-            _confidenceCache.Remove(staleKey);
-        foreach (var staleKey in _comparisonCache.Keys.Except(_comparisonKeysUsed).ToList())
-            _comparisonCache.Remove(staleKey);
-        foreach (var staleKey in _cardCache.Keys.Except(_cardKeysUsed).ToList())
-            _cardCache.Remove(staleKey);
-        foreach (var staleKey in _sourcesCache.Keys.Except(_sourcesKeysUsed).ToList())
-            _sourcesCache.Remove(staleKey);
+        // Handle unclosed code block
+        if (inCodeBlock)
+        {
+            var code = codeBuffer.ToString();
+            var kind = MapCodeLanguageToBlockKind(codeLanguage);
+            blocks.Add(new MdBlock { Kind = kind, Content = code, Language = codeLanguage });
+        }
+
+        FlushTableBlock(tableBuffer, blocks);
+        FlushParagraphBlock(paragraphBuffer, blocks);
     }
 
-    private void FlushParagraph(StringBuilder paragraphBuffer)
+    private static MdBlockKind MapCodeLanguageToBlockKind(string language)
     {
-        var text = paragraphBuffer.ToString().Trim();
-        paragraphBuffer.Clear();
+        if (language.Equals("chart", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Chart;
+        if (language.Equals("mermaid", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Mermaid;
+        if (language.Equals("confidence", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Confidence;
+        if (language.Equals("comparison", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Comparison;
+        if (language.Equals("card", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Card;
+        if (language.Equals("sources", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Sources;
+        return MdBlockKind.CodeBlock;
+    }
 
-        if (string.IsNullOrWhiteSpace(text))
+    private static void FlushParagraphBlock(StringBuilder buffer, List<MdBlock> blocks)
+    {
+        var text = buffer.ToString().Trim();
+        buffer.Clear();
+        if (!string.IsNullOrWhiteSpace(text))
+            blocks.Add(new MdBlock { Kind = MdBlockKind.Paragraph, Content = text });
+    }
+
+    private static void FlushTableBlock(List<string> tableLines, List<MdBlock> blocks)
+    {
+        if (tableLines.Count == 0) return;
+        // Store the full table as joined lines
+        blocks.Add(new MdBlock { Kind = MdBlockKind.Table, Content = string.Join("\n", tableLines) });
+        tableLines.Clear();
+    }
+
+    /// <summary>
+    /// Applies block diff: reuses unchanged controls, updates changed ones, adds/removes as needed.
+    /// During streaming append, blocks before the last old block are guaranteed unchanged
+    /// (the text is a strict prefix), so we skip straight to the divergence point.
+    /// </summary>
+    private void ApplyBlocksDiff(List<MdBlock> newBlocks, bool isStreamingAppend)
+    {
+        var oldBlocks = _previousBlocks;
+        var oldCount = oldBlocks.Count;
+        var newCount = newBlocks.Count;
+
+        // Safety: if children count is out of sync with tracked blocks, do a full rebuild
+        if (_contentHost.Children.Count != oldCount)
+        {
+            _contentHost.Children.Clear();
+            foreach (var block in newBlocks)
+                _contentHost.Children.Add(CreateControlForBlock(block));
             return;
+        }
 
+        // During streaming, text is a strict prefix so blocks before the last are unchanged.
+        var diffStart = isStreamingAppend && oldCount > 0 ? oldCount - 1 : 0;
+
+        // Track cache keys for skipped unchanged blocks
+        for (int i = 0; i < diffStart; i++)
+            TrackCacheKeysForBlock(newBlocks[i]);
+
+        var minCount = Math.Min(oldCount, newCount);
+
+        // Update/skip from diffStart through the overlap range
+        for (int i = diffStart; i < minCount; i++)
+        {
+            if (oldBlocks[i].Equals(newBlocks[i]))
+            {
+                TrackCacheKeysForBlock(newBlocks[i]);
+                continue;
+            }
+            _contentHost.Children[i] = CreateControlForBlock(newBlocks[i]);
+        }
+
+        // Append new blocks
+        for (int i = minCount; i < newCount; i++)
+            _contentHost.Children.Add(CreateControlForBlock(newBlocks[i]));
+
+        // Remove trailing stale blocks (iterate from end to avoid index shift)
+        for (int i = _contentHost.Children.Count - 1; i >= newCount; i--)
+            _contentHost.Children.RemoveAt(i);
+    }
+
+    /// <summary>
+    /// Tracks cache keys for a block that won't be rebuilt (used for cache eviction).
+    /// </summary>
+    private void TrackCacheKeysForBlock(MdBlock block)
+    {
+        switch (block.Kind)
+        {
+            case MdBlockKind.Chart:
+                _chartKeysUsed.Add(block.Content.Trim());
+                break;
+            case MdBlockKind.Mermaid:
+                var trimmed = block.Content.Trim();
+                var firstLine = trimmed.Split('\n')[0].TrimStart().ToLowerInvariant();
+                if (firstLine.StartsWith("graph") || firstLine.StartsWith("flowchart") ||
+                    firstLine.StartsWith("sequencediagram") || firstLine.StartsWith("statediagram") ||
+                    firstLine.StartsWith("erdiagram") || firstLine.StartsWith("classdiagram") ||
+                    firstLine.StartsWith("timeline") || firstLine.StartsWith("quadrantchart") ||
+                    firstLine.StartsWith("quadrant-chart"))
+                    _diagramKeysUsed.Add("mermaid-diag:" + trimmed);
+                else
+                    _chartKeysUsed.Add("mermaid:" + trimmed);
+                break;
+            case MdBlockKind.Confidence:
+                _confidenceKeysUsed.Add(block.Content.Trim());
+                break;
+            case MdBlockKind.Comparison:
+                _comparisonKeysUsed.Add(block.Content.Trim());
+                break;
+            case MdBlockKind.Card:
+                _cardKeysUsed.Add(block.Content.Trim());
+                break;
+            case MdBlockKind.Sources:
+                _sourcesKeysUsed.Add(block.Content.Trim());
+                break;
+        }
+    }
+
+    /// <summary>Creates a UI control for a parsed block descriptor.</summary>
+    private Control CreateControlForBlock(MdBlock block) => block.Kind switch
+    {
+        MdBlockKind.Paragraph => CreateParagraphControl(block.Content),
+        MdBlockKind.Heading => CreateHeadingControl(block.Content, block.Level),
+        MdBlockKind.Bullet => CreateBulletControl(block.Content, block.Level),
+        MdBlockKind.NumberedItem => CreateNumberedItemControl(block.Content, block.Level),
+        MdBlockKind.CodeBlock => CreateCodeBlockControl(block.Content, block.Language),
+        MdBlockKind.HorizontalRule => CreateHorizontalRuleControl(),
+        MdBlockKind.Table => CreateTableControl(block.Content),
+        MdBlockKind.Chart => CreateChartControl(block.Content),
+        MdBlockKind.Mermaid => CreateMermaidControl(block.Content),
+        MdBlockKind.Confidence => CreateConfidenceControl(block.Content),
+        MdBlockKind.Comparison => CreateComparisonControl(block.Content),
+        MdBlockKind.Card => CreateCardControl(block.Content),
+        MdBlockKind.Sources => CreateSourcesControl(block.Content),
+        _ => new Border(),
+    };
+
+    private void EvictStaleCaches()
+    {
+        EvictFromCache(_chartCache, _chartKeysUsed);
+        EvictFromCache(_diagramCache, _diagramKeysUsed);
+        EvictFromCache(_confidenceCache, _confidenceKeysUsed);
+        EvictFromCache(_comparisonCache, _comparisonKeysUsed);
+        EvictFromCache(_cardCache, _cardKeysUsed);
+        EvictFromCache(_sourcesCache, _sourcesKeysUsed);
+    }
+
+    /// <summary>Remove cache entries not in the used set, without LINQ/ToList allocations.</summary>
+    private void EvictFromCache<T>(Dictionary<string, T> cache, HashSet<string> used)
+    {
+        if (cache.Count == 0) return;
+        _evictBuffer.Clear();
+        foreach (var key in cache.Keys)
+            if (!used.Contains(key))
+                _evictBuffer.Add(key);
+        foreach (var key in _evictBuffer)
+            cache.Remove(key);
+    }
+
+    private Control CreateParagraphControl(string text)
+    {
         var paragraph = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
         paragraph.Classes.Add("strata-md-paragraph");
-        _contentHost.Children.Add(paragraph);
+        return paragraph;
     }
 
-    private void AddHeading(int level, string text)
+    private Control CreateHeadingControl(string text, int level)
     {
         var heading = CreateRichText(
             text,
@@ -381,15 +636,12 @@ public class StrataMarkdown : ContentControl
             _bodyFontSize * 1.6,
             TextWrapping.Wrap);
         heading.FontWeight = FontWeight.SemiBold;
-        var topMargin = _contentHost.Children.Count > 0
-            ? level switch { 1 => 14, 2 => 10, _ => 6 }
-            : 0;
-        heading.Margin = new Thickness(0, topMargin, 0, 2);
+        heading.Margin = new Thickness(0, level switch { 1 => 14, 2 => 10, _ => 6 }, 0, 2);
         heading.Classes.Add("strata-md-heading");
-        _contentHost.Children.Add(heading);
+        return heading;
     }
 
-    private void AddBullet(string text, int indentLevel = 0)
+    private Control CreateBulletControl(string text, int indentLevel = 0)
     {
         var row = new Grid
         {
@@ -416,7 +668,7 @@ public class StrataMarkdown : ContentControl
         row.Children.Add(dot);
         row.Children.Add(textBlock);
 
-        _contentHost.Children.Add(row);
+        return row;
     }
 
     private SelectableTextBlock CreateRichText(string text, double fontSize, double lineHeight, TextWrapping wrapping)
@@ -583,7 +835,7 @@ public class StrataMarkdown : ContentControl
     }
 
 
-    private void AddCodeBlock(string code, string language)
+    private Control CreateCodeBlockControl(string code, string language)
     {
         var normalizedCode = code.TrimEnd('\r', '\n');
         var displayCode = string.IsNullOrWhiteSpace(normalizedCode) ? " " : normalizedCode;
@@ -670,24 +922,22 @@ public class StrataMarkdown : ContentControl
         stack.Children.Add(editor);
 
         shell.Child = stack;
-        _contentHost.Children.Add(shell);
+        return shell;
     }
 
-    private void AddChart(string json)
+    private Control CreateChartControl(string json)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            AddChartPlaceholder();
-            return;
-        }
+            return GetChartPlaceholder();
 
         // Reuse cached chart if JSON hasn't changed (preserves animation state during streaming)
         if (_chartCache.TryGetValue(trimmed, out var cached))
         {
             _chartKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(cached);
-            return;
+            if (cached.Parent is Panel oldParent)
+                oldParent.Children.Remove(cached);
+            return cached;
         }
 
         try
@@ -745,23 +995,20 @@ public class StrataMarkdown : ContentControl
 
             _chartCache[trimmed] = chart;
             _chartKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(chart);
+            return chart;
         }
         catch
         {
             // Incomplete/malformed JSON during streaming — show placeholder
-            AddChartPlaceholder();
+            return GetChartPlaceholder();
         }
     }
 
-    private void AddMermaidChart(string mermaidText)
+    private Control CreateMermaidControl(string mermaidText)
     {
         var trimmed = mermaidText.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            AddChartPlaceholder();
-            return;
-        }
+            return GetChartPlaceholder();
 
         var firstLine = trimmed.Split('\n')[0].TrimStart().ToLowerInvariant();
 
@@ -772,8 +1019,7 @@ public class StrataMarkdown : ContentControl
             firstLine.StartsWith("timeline") || firstLine.StartsWith("quadrantchart") ||
             firstLine.StartsWith("quadrant-chart"))
         {
-            AddMermaidDiagram(trimmed);
-            return;
+            return CreateMermaidDiagramControl(trimmed);
         }
 
         // Chart types → StrataChart
@@ -781,8 +1027,9 @@ public class StrataMarkdown : ContentControl
         if (_chartCache.TryGetValue(cacheKey, out var cached))
         {
             _chartKeysUsed.Add(cacheKey);
-            _contentHost.Children.Add(cached);
-            return;
+            if (cached.Parent is Panel oldParent)
+                oldParent.Children.Remove(cached);
+            return cached;
         }
 
         try
@@ -799,33 +1046,34 @@ public class StrataMarkdown : ContentControl
             {
                 _chartCache[cacheKey] = chart;
                 _chartKeysUsed.Add(cacheKey);
-                _contentHost.Children.Add(chart);
+                return chart;
             }
             else
             {
-                AddCodeBlock(trimmed, "mermaid");
+                return CreateCodeBlockControl(trimmed, "mermaid");
             }
         }
         catch
         {
-            AddChartPlaceholder();
+            return GetChartPlaceholder();
         }
     }
 
-    private void AddMermaidDiagram(string mermaidText)
+    private Control CreateMermaidDiagramControl(string mermaidText)
     {
         var cacheKey = "mermaid-diag:" + mermaidText;
         if (_diagramCache.TryGetValue(cacheKey, out var cached))
         {
             _diagramKeysUsed.Add(cacheKey);
-            _contentHost.Children.Add(cached);
-            return;
+            if (cached.Parent is Panel oldParent)
+                oldParent.Children.Remove(cached);
+            return cached;
         }
 
         var diagram = new StrataMermaid { Source = mermaidText };
         _diagramCache[cacheKey] = diagram;
         _diagramKeysUsed.Add(cacheKey);
-        _contentHost.Children.Add(diagram);
+        return diagram;
     }
 
     private static readonly Regex MermaidPieEntryRegex = new(
@@ -1043,7 +1291,7 @@ public class StrataMarkdown : ContentControl
         return results;
     }
 
-    private void AddChartPlaceholder()
+    private Control GetChartPlaceholder()
     {
         // Reuse the cached placeholder so dot animations survive rebuilds
         if (_chartPlaceholder is null)
@@ -1104,11 +1352,11 @@ public class StrataMarkdown : ContentControl
             };
         }
 
-        // Remove from previous parent if still attached (Rebuild cleared children)
+        // Remove from previous parent if still attached
         if (_chartPlaceholder.Parent is Panel oldParent)
             oldParent.Children.Remove(_chartPlaceholder);
 
-        _contentHost.Children.Add(_chartPlaceholder);
+        return _chartPlaceholder;
     }
 
     private static void StartDotPulse(Border dot, int delayMs)
@@ -1143,7 +1391,7 @@ public class StrataMarkdown : ContentControl
         Animate();
     }
 
-    private void AddBlockPlaceholder(string emoji)
+    private Control GetBlockPlaceholder(string emoji)
     {
         if (_blockPlaceholder is null)
         {
@@ -1206,23 +1454,21 @@ public class StrataMarkdown : ContentControl
         if (_blockPlaceholder.Parent is Panel oldParent)
             oldParent.Children.Remove(_blockPlaceholder);
 
-        _contentHost.Children.Add(_blockPlaceholder);
+        return _blockPlaceholder;
     }
 
-    private void AddConfidence(string json)
+    private Control CreateConfidenceControl(string json)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            AddBlockPlaceholder("\U0001F3AF"); // 🎯
-            return;
-        }
+            return GetBlockPlaceholder("\U0001F3AF");
 
         if (_confidenceCache.TryGetValue(trimmed, out var cached))
         {
             _confidenceKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(cached);
-            return;
+            if (cached.Parent is Panel oldParent)
+                oldParent.Children.Remove(cached);
+            return cached;
         }
 
         try
@@ -1246,28 +1492,26 @@ public class StrataMarkdown : ContentControl
 
             _confidenceCache[trimmed] = ctrl;
             _confidenceKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(ctrl);
+            return ctrl;
         }
         catch
         {
-            AddBlockPlaceholder("\U0001F3AF");
+            return GetBlockPlaceholder("\U0001F3AF");
         }
     }
 
-    private void AddComparison(string json)
+    private Control CreateComparisonControl(string json)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            AddBlockPlaceholder("\u2696\uFE0F"); // ⚖️
-            return;
-        }
+            return GetBlockPlaceholder("\u2696\uFE0F");
 
         if (_comparisonCache.TryGetValue(trimmed, out var cached))
         {
             _comparisonKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(cached);
-            return;
+            if (cached.Parent is Panel oldParent)
+                oldParent.Children.Remove(cached);
+            return cached;
         }
 
         try
@@ -1303,28 +1547,26 @@ public class StrataMarkdown : ContentControl
 
             _comparisonCache[trimmed] = ctrl;
             _comparisonKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(ctrl);
+            return ctrl;
         }
         catch
         {
-            AddBlockPlaceholder("\u2696\uFE0F");
+            return GetBlockPlaceholder("\u2696\uFE0F");
         }
     }
 
-    private void AddCard(string json)
+    private Control CreateCardControl(string json)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            AddBlockPlaceholder("\U0001F4CB"); // 📋
-            return;
-        }
+            return GetBlockPlaceholder("\U0001F4CB");
 
         if (_cardCache.TryGetValue(trimmed, out var cached))
         {
             _cardKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(cached);
-            return;
+            if (cached.Parent is Panel oldParent)
+                oldParent.Children.Remove(cached);
+            return cached;
         }
 
         try
@@ -1360,28 +1602,26 @@ public class StrataMarkdown : ContentControl
 
             _cardCache[trimmed] = ctrl;
             _cardKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(ctrl);
+            return ctrl;
         }
         catch
         {
-            AddBlockPlaceholder("\U0001F4CB");
+            return GetBlockPlaceholder("\U0001F4CB");
         }
     }
 
-    private void AddSources(string json)
+    private Control CreateSourcesControl(string json)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            AddBlockPlaceholder("\U0001F4CE"); // 📎
-            return;
-        }
+            return GetBlockPlaceholder("\U0001F4CE");
 
         if (_sourcesCache.TryGetValue(trimmed, out var cached))
         {
             _sourcesKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(cached);
-            return;
+            if (cached.Parent is Panel oldParent)
+                oldParent.Children.Remove(cached);
+            return cached;
         }
 
         try
@@ -1390,10 +1630,7 @@ public class StrataMarkdown : ContentControl
             var root = doc.RootElement;
 
             if (!root.TryGetProperty("sources", out var sourcesProp) || sourcesProp.ValueKind != JsonValueKind.Array)
-            {
-                AddBlockPlaceholder("\U0001F4CE");
-                return;
-            }
+                return GetBlockPlaceholder("\U0001F4CE");
 
             var panel = new WrapPanel
             {
@@ -1424,11 +1661,11 @@ public class StrataMarkdown : ContentControl
 
             _sourcesCache[trimmed] = panel;
             _sourcesKeysUsed.Add(trimmed);
-            _contentHost.Children.Add(panel);
+            return panel;
         }
         catch
         {
-            AddBlockPlaceholder("\U0001F4CE");
+            return GetBlockPlaceholder("\U0001F4CE");
         }
     }
 
@@ -1437,8 +1674,19 @@ public class StrataMarkdown : ContentControl
         try
         {
             var isDark = Application.Current?.ActualThemeVariant == ThemeVariant.Dark;
-            var themeName = isDark ? ThemeName.DarkPlus : ThemeName.LightPlus;
-            var registryOptions = new RegistryOptions(themeName);
+
+            // Reuse cached RegistryOptions — creating one is expensive (~50ms)
+            RegistryOptions registryOptions;
+            if (isDark)
+            {
+                _darkRegistry ??= new RegistryOptions(ThemeName.DarkPlus);
+                registryOptions = _darkRegistry;
+            }
+            else
+            {
+                _lightRegistry ??= new RegistryOptions(ThemeName.LightPlus);
+                registryOptions = _lightRegistry;
+            }
 
             var installation = editor.InstallTextMate(registryOptions);
 
@@ -1530,13 +1778,13 @@ public class StrataMarkdown : ContentControl
         return Brushes.LightGray;
     }
 
-    private static bool TryParseHeading(string line, out int level, out string text)
+    private static bool TryParseHeading(ReadOnlySpan<char> line, out int level, out string text)
     {
         level = 0;
         text = string.Empty;
 
         var trimmed = line.TrimStart();
-        if (!trimmed.StartsWith('#'))
+        if (trimmed.Length == 0 || trimmed[0] != '#')
             return false;
 
         var i = 0;
@@ -1550,56 +1798,67 @@ public class StrataMarkdown : ContentControl
             return false;
 
         level = Math.Min(i, 3);
-        text = trimmed[(i + 1)..].Trim();
-        return !string.IsNullOrWhiteSpace(text);
+        text = trimmed[(i + 1)..].Trim().ToString();
+        return text.Length > 0;
     }
 
-    private static bool TryParseBullet(string line, out string text)
+    private static bool TryParseBullet(ReadOnlySpan<char> line, out string text)
     {
         text = string.Empty;
         var trimmed = line.TrimStart();
 
-        if (trimmed.StartsWith("- ", StringComparison.Ordinal) ||
-            trimmed.StartsWith("* ", StringComparison.Ordinal))
+        if (trimmed.Length >= 2 && (trimmed[0] == '-' || trimmed[0] == '*') && trimmed[1] == ' ')
         {
-            text = trimmed[2..].Trim();
-            return !string.IsNullOrWhiteSpace(text);
+            text = trimmed[2..].Trim().ToString();
+            return text.Length > 0;
         }
 
         return false;
     }
 
-    private static bool TryParseNumberedItem(string line, out int number, out string text)
+    private static bool TryParseNumberedItem(ReadOnlySpan<char> line, out int number, out string text)
     {
         number = 0;
         text = string.Empty;
         var trimmed = line.TrimStart();
 
-        var dotIndex = trimmed.IndexOf(". ", StringComparison.Ordinal);
+        // Look for "N. " pattern (1-3 digit number followed by ". ")
+        var dotIndex = trimmed.IndexOf(stackalloc char[] { '.', ' ' });
         if (dotIndex is < 1 or > 3) return false;
-        if (!int.TryParse(trimmed[..dotIndex], out number))
-            return false;
 
-        text = trimmed[(dotIndex + 2)..].Trim();
-        return !string.IsNullOrWhiteSpace(text);
+        // Verify digits before the dot
+        var numSpan = trimmed[..dotIndex];
+        number = 0;
+        foreach (var c in numSpan)
+        {
+            if (c < '0' || c > '9') return false;
+            number = number * 10 + (c - '0');
+        }
+
+        if (dotIndex + 2 > trimmed.Length) return false;
+        text = trimmed[(dotIndex + 2)..].Trim().ToString();
+        return text.Length > 0;
     }
 
-    private static bool IsHorizontalRule(string line)
+    private static bool IsHorizontalRule(ReadOnlySpan<char> line)
     {
         var trimmed = line.Trim();
-        var withoutSpaces = trimmed.Replace(" ", "");
-        if (withoutSpaces.Length < 3) return false;
+        if (trimmed.Length < 3) return false;
 
-        var first = withoutSpaces[0];
+        var first = trimmed[0];
         if (first is not ('-' or '*' or '_')) return false;
 
-        foreach (var c in withoutSpaces)
-            if (c != first) return false;
-
-        return true;
+        // Count rule chars, skipping spaces
+        var ruleChars = 0;
+        foreach (var c in trimmed)
+        {
+            if (c == first) ruleChars++;
+            else if (c != ' ') return false;
+        }
+        return ruleChars >= 3;
     }
 
-    private static int GetIndentLevel(string line)
+    private static int GetIndentLevel(ReadOnlySpan<char> line)
     {
         var spaces = 0;
         foreach (var c in line)
@@ -1611,12 +1870,11 @@ public class StrataMarkdown : ContentControl
         return Math.Min(spaces / 2, 3);
     }
 
-    private void AddNumberedItem(int number, string text, int indentLevel = 0)
+    private Control CreateNumberedItemControl(string text, int number)
     {
         var row = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,6,*"),
-            Margin = new Thickness(indentLevel * 16, 0, 0, 0)
         };
 
         var numBlock = new SelectableTextBlock
@@ -1636,10 +1894,10 @@ public class StrataMarkdown : ContentControl
         row.Children.Add(numBlock);
         row.Children.Add(textBlock);
 
-        _contentHost.Children.Add(row);
+        return row;
     }
 
-    private void AddHorizontalRule()
+    private static Control CreateHorizontalRuleControl()
     {
         var rule = new Border
         {
@@ -1648,13 +1906,13 @@ public class StrataMarkdown : ContentControl
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
         rule.Classes.Add("strata-md-hr");
-        _contentHost.Children.Add(rule);
+        return rule;
     }
 
-    private static bool IsTableLine(string line)
+    private static bool IsTableLine(ReadOnlySpan<char> line)
     {
         var trimmed = line.Trim();
-        return trimmed.Length > 1 && trimmed[0] == '|' && trimmed.IndexOf('|', 1) >= 0;
+        return trimmed.Length > 1 && trimmed[0] == '|' && trimmed[1..].IndexOf('|') >= 0;
     }
 
     private static bool IsTableSeparator(string line)
@@ -1671,20 +1929,20 @@ public class StrataMarkdown : ContentControl
         return trimmed.Split('|');
     }
 
-    private void FlushTable(List<string> tableLines)
+    private Control CreateTableControl(string tableContent)
     {
-        if (tableLines.Count == 0) return;
+        var tableLines = tableContent.Split('\n').ToList();
 
         if (tableLines.Count < 2 || !IsTableSeparator(tableLines[1]))
         {
+            var stack = new StackPanel { Spacing = 4 };
             foreach (var line in tableLines)
             {
                 var para = CreateRichText(line, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
                 para.Classes.Add("strata-md-paragraph");
-                _contentHost.Children.Add(para);
+                stack.Children.Add(para);
             }
-            tableLines.Clear();
-            return;
+            return stack;
         }
 
         var headers = SplitTableCells(tableLines[0]).Select(h => h.Trim()).ToArray();
@@ -1699,11 +1957,10 @@ public class StrataMarkdown : ContentControl
             rows.Add(padded);
         }
 
-        AddTable(headers, rows);
-        tableLines.Clear();
+        return CreateDataGridForTable(headers, rows);
     }
 
-    private void AddTable(string[] headers, List<string[]> rows)
+    private Control CreateDataGridForTable(string[] headers, List<string[]> rows)
     {
         var dataGrid = new DataGrid
         {
@@ -1736,10 +1993,9 @@ public class StrataMarkdown : ContentControl
         var items = rows.Select(r => r.ToList()).ToList();
         dataGrid.ItemsSource = items;
 
-        // Size to content, capped at MaxHeight
         var estimatedHeight = 40 + (rows.Count * 36) + 4;
         dataGrid.Height = Math.Min(estimatedHeight, 400);
 
-        _contentHost.Children.Add(dataGrid);
+        return dataGrid;
     }
 }

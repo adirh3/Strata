@@ -5,4 +5,10 @@
   <Folder Name="/demo/">
     <Project Path="demo/StrataDemo/StrataDemo.csproj" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/StrataBenchmark/StrataBenchmark.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/StrataTheme.Tests/StrataTheme.Tests.csproj" />
+  </Folder>
 </Solution>

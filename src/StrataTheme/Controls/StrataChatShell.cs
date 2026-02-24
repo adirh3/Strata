@@ -49,6 +49,9 @@ public class StrataChatShell : TemplatedControl
     private bool _userScrolledAway;
     private bool _isProgrammaticScroll;
     private bool _alignmentQueued;
+    private bool _scrollQueued;
+    private int _lastAlignedMessageCount;
+    private IReadOnlyCollection<StrataChatMessage>? _cachedMessages;
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
@@ -75,7 +78,12 @@ public class StrataChatShell : TemplatedControl
         IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
         HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
         PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
-        TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.ScheduleApplyTranscriptAlignment());
+        TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
+        {
+            c._cachedMessages = null;
+            c._lastAlignedMessageCount = 0;
+            c.ScheduleApplyTranscriptAlignment();
+        });
     }
 
     public object? Header { get => GetValue(HeaderProperty); set => SetValue(HeaderProperty, value); }
@@ -170,8 +178,15 @@ public class StrataChatShell : TemplatedControl
 
     private void OnLayoutUpdated(object? sender, EventArgs e)
     {
-        // Debounce: coalesce multiple layout passes into a single alignment pass.
-        ScheduleApplyTranscriptAlignment();
+        // Only re-apply alignment if the transcript child count changed (new message added).
+        // This avoids the expensive tree walk on every frame.
+        var panel = Transcript as Panel;
+        var currentCount = panel?.Children.Count ?? 0;
+        if (currentCount != _lastAlignedMessageCount)
+        {
+            _cachedMessages = null; // Invalidate cache
+            ScheduleApplyTranscriptAlignment();
+        }
     }
 
     private void ScheduleApplyTranscriptAlignment()
@@ -187,12 +202,15 @@ public class StrataChatShell : TemplatedControl
 
     private void ApplyTranscriptAlignment()
     {
-        var messages = CollectTranscriptMessages();
+        _cachedMessages ??= CollectTranscriptMessages();
+        var messages = _cachedMessages;
+        var panel = Transcript as Panel;
+        _lastAlignedMessageCount = panel?.Children.Count ?? 0;
+
         foreach (var message in messages)
         {
             var alignment = message.Role switch
             {
-                // Logical end/start alignment mirrors automatically with RTL flow direction.
                 StrataChatRole.User => HorizontalAlignment.Right,
                 StrataChatRole.Assistant => HorizontalAlignment.Left,
                 StrataChatRole.System => HorizontalAlignment.Left,
@@ -295,16 +313,23 @@ public class StrataChatShell : TemplatedControl
     /// Scrolls transcript to the bottom. Call this during streaming/generation.
     /// Respects user scroll-away: if the user scrolled up, this is a no-op
     /// until <see cref="ResetAutoScroll"/> is called.
-    /// The compositor implicit animation handles visual smoothing.
+    /// Debounced: multiple calls within the same frame coalesce into one scroll.
     /// </summary>
     public void ScrollToEnd()
     {
         if (_scrollViewer is null || _userScrolledAway)
             return;
 
-        _isProgrammaticScroll = true;
-        _scrollViewer.ScrollToEnd();
-        Dispatcher.UIThread.Post(() => _isProgrammaticScroll = false, DispatcherPriority.Loaded);
+        if (_scrollQueued) return;
+        _scrollQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _scrollQueued = false;
+            if (_scrollViewer is null || _userScrolledAway) return;
+            _isProgrammaticScroll = true;
+            _scrollViewer.ScrollToEnd();
+            Dispatcher.UIThread.Post(() => _isProgrammaticScroll = false, DispatcherPriority.Loaded);
+        }, DispatcherPriority.Render);
     }
 
     /// <summary>
