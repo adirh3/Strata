@@ -1,11 +1,15 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
@@ -13,6 +17,7 @@ namespace StrataTheme.Controls;
 /// Full chat shell: a scrollable transcript area stacked above a docked composer,
 /// with an optional header row and presence indicator. Provides smart auto-scroll
 /// that pauses when the user scrolls up to read history.
+/// Also aligns transcript message roles (User/Assistant/System/Tool) based on the shell flow direction.
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage:</b></para>
@@ -43,6 +48,7 @@ public class StrataChatShell : TemplatedControl
     private ScrollViewer? _scrollViewer;
     private bool _userScrolledAway;
     private bool _isProgrammaticScroll;
+    private bool _alignmentQueued;
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
@@ -69,6 +75,7 @@ public class StrataChatShell : TemplatedControl
         IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
         HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
         PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
+        TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.ScheduleApplyTranscriptAlignment());
     }
 
     public object? Header { get => GetValue(HeaderProperty); set => SetValue(HeaderProperty, value); }
@@ -95,7 +102,11 @@ public class StrataChatShell : TemplatedControl
                 Dispatcher.UIThread.Post(() => SetupCompositorSmoothing(scrollContent), DispatcherPriority.Loaded);
         }
 
+        LayoutUpdated -= OnLayoutUpdated;
+        LayoutUpdated += OnLayoutUpdated;
+
         Refresh();
+        ScheduleApplyTranscriptAlignment();
     }
 
     /// <summary>
@@ -122,12 +133,24 @@ public class StrataChatShell : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        Dispatcher.UIThread.Post(Refresh, DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(() =>
+        {
+            Refresh();
+            ApplyTranscriptAlignment();
+        }, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        LayoutUpdated -= OnLayoutUpdated;
         base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == FlowDirectionProperty)
+            ScheduleApplyTranscriptAlignment();
     }
 
     private void Refresh()
@@ -141,6 +164,94 @@ public class StrataChatShell : TemplatedControl
             StartPresencePulse();
         else
             StopPresencePulse();
+
+        ScheduleApplyTranscriptAlignment();
+    }
+
+    private void OnLayoutUpdated(object? sender, EventArgs e)
+    {
+        // Debounce: coalesce multiple layout passes into a single alignment pass.
+        ScheduleApplyTranscriptAlignment();
+    }
+
+    private void ScheduleApplyTranscriptAlignment()
+    {
+        if (_alignmentQueued) return;
+        _alignmentQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _alignmentQueued = false;
+            ApplyTranscriptAlignment();
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void ApplyTranscriptAlignment()
+    {
+        var messages = CollectTranscriptMessages();
+        foreach (var message in messages)
+        {
+            var alignment = message.Role switch
+            {
+                // Logical end/start alignment mirrors automatically with RTL flow direction.
+                StrataChatRole.User => HorizontalAlignment.Right,
+                StrataChatRole.Assistant => HorizontalAlignment.Left,
+                StrataChatRole.System => HorizontalAlignment.Left,
+                StrataChatRole.Tool => HorizontalAlignment.Left,
+                _ => HorizontalAlignment.Stretch
+            };
+
+            var maxWidth = message.Role switch
+            {
+                StrataChatRole.User => 600d,
+                StrataChatRole.Assistant => 600d,
+                StrataChatRole.System => 700d,
+                StrataChatRole.Tool => 700d,
+                _ => double.PositiveInfinity
+            };
+
+            if (message.HorizontalAlignment != alignment)
+                message.HorizontalAlignment = alignment;
+
+            if (message.MaxWidth != maxWidth)
+                message.MaxWidth = maxWidth;
+        }
+    }
+
+    private IReadOnlyCollection<StrataChatMessage> CollectTranscriptMessages()
+    {
+        var result = new HashSet<StrataChatMessage>();
+        CollectFromTranscriptObject(Transcript, result);
+        return result;
+    }
+
+    private static void CollectFromTranscriptObject(object? node, ISet<StrataChatMessage> collector)
+    {
+        if (node is null)
+            return;
+
+        if (node is StrataChatMessage message)
+        {
+            collector.Add(message);
+            return;
+        }
+
+        if (node is ContentControl contentControl)
+        {
+            CollectFromTranscriptObject(contentControl.Content, collector);
+            return;
+        }
+
+        if (node is Decorator decorator)
+        {
+            CollectFromTranscriptObject(decorator.Child, collector);
+            return;
+        }
+
+        if (node is Panel panel)
+        {
+            foreach (var child in panel.Children)
+                CollectFromTranscriptObject(child, collector);
+        }
     }
 
     private void StartPresencePulse()

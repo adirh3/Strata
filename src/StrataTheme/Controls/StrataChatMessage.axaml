@@ -15,7 +15,7 @@
         <Setter Property="Focusable" Value="True" />
         <Setter Property="Template">
           <ControlTemplate>
-            <StackPanel Name="PART_Root" Spacing="0" HorizontalAlignment="Stretch" Background="Transparent">
+            <StackPanel Name="PART_Root" Spacing="0" Background="Transparent">
 
               <!-- Optional metadata row -->
               <StackPanel Name="PART_MetaRow" IsVisible="False" Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
@@ -229,10 +229,6 @@
         </Style>
 
         <!-- ══ USER: right-aligned subtle pill ══ -->
-        <Style Selector="^:user /template/ StackPanel#PART_Root">
-          <Setter Property="HorizontalAlignment" Value="Right" />
-          <Setter Property="MaxWidth" Value="600" />
-        </Style>
         <Style Selector="^:user /template/ Border#PART_Bubble">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
           <Setter Property="CornerRadius" Value="14" />
@@ -246,9 +242,6 @@
         </Style>
 
         <!-- ══ SYSTEM ══ -->
-        <Style Selector="^:system /template/ StackPanel#PART_Root">
-          <Setter Property="HorizontalAlignment" Value="Left" />
-        </Style>
         <Style Selector="^:system /template/ Border#PART_Bubble">
           <Setter Property="Padding" Value="0,4,0,4" />
         </Style>

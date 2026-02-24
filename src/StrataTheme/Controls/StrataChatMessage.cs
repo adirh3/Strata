@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -11,6 +13,7 @@ using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
@@ -49,6 +52,13 @@ public enum StrataChatRole
 /// </remarks>
 public class StrataChatMessage : TemplatedControl
 {
+    private enum TextDirection
+    {
+        Neutral,
+        LeftToRight,
+        RightToLeft
+    }
+
     private Border? _streamBar;
     private Border? _bubble;
     private Border? _editSeparator;
@@ -57,6 +67,8 @@ public class StrataChatMessage : TemplatedControl
     private Button? _editButton;
     private Button? _retryButton;
     private ContextMenu? _contextMenu;
+    private readonly HashSet<TextBlock> _observedTextBlocks = new();
+    private readonly HashSet<StrataMarkdown> _observedMarkdownControls = new();
 
     /// <summary>Message role. Controls alignment, colour, and available actions.</summary>
     public static readonly StyledProperty<StrataChatRole> RoleProperty =
@@ -113,6 +125,7 @@ public class StrataChatMessage : TemplatedControl
     static StrataChatMessage()
     {
         RoleProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.UpdatePseudoClasses());
+        ContentProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnContentChanged());
         IsStreamingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStreamingChanged());
         IsEditingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditingChanged());
         IsEditableProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.UpdatePseudoClasses());
@@ -180,9 +193,16 @@ public class StrataChatMessage : TemplatedControl
         AttachContextMenu();
 
         UpdatePseudoClasses();
+        OnContentChanged();
         UpdateActionBarLayout();
         if (IsStreaming)
             Dispatcher.UIThread.Post(StartStreamPulse, DispatcherPriority.Loaded);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        DetachContentObservers();
+        base.OnDetachedFromVisualTree(e);
     }
 
     protected override async void OnKeyDown(KeyEventArgs e)
@@ -400,6 +420,167 @@ public class StrataChatMessage : TemplatedControl
     private void OnEditingChanged()
     {
         UpdatePseudoClasses();
+    }
+
+    private void OnContentChanged()
+    {
+        DetachContentObservers();
+        AttachContentObserversAndApply(Content);
+    }
+
+    private void DetachContentObservers()
+    {
+        foreach (var textBlock in _observedTextBlocks)
+            textBlock.PropertyChanged -= OnObservedTextBlockPropertyChanged;
+        _observedTextBlocks.Clear();
+
+        foreach (var markdown in _observedMarkdownControls)
+            markdown.PropertyChanged -= OnObservedMarkdownPropertyChanged;
+        _observedMarkdownControls.Clear();
+    }
+
+    private void AttachContentObserversAndApply(object? content)
+    {
+        if (content is null)
+            return;
+
+        if (content is TextBlock textBlock)
+        {
+            if (_observedTextBlocks.Add(textBlock))
+                textBlock.PropertyChanged += OnObservedTextBlockPropertyChanged;
+            ApplyDirectionalTextAlignment(textBlock);
+            return;
+        }
+
+        if (content is StrataMarkdown markdown)
+        {
+            if (_observedMarkdownControls.Add(markdown))
+                markdown.PropertyChanged += OnObservedMarkdownPropertyChanged;
+            ApplyDirectionalMarkdownAlignment(markdown);
+            return;
+        }
+
+        if (content is ContentControl contentControl)
+        {
+            AttachContentObserversAndApply(contentControl.Content);
+            return;
+        }
+
+        if (content is Decorator decorator)
+        {
+            AttachContentObserversAndApply(decorator.Child);
+            return;
+        }
+
+        if (content is Panel panel)
+        {
+            foreach (var child in panel.Children)
+                AttachContentObserversAndApply(child);
+            return;
+        }
+
+        if (content is Control control)
+        {
+            foreach (var child in control.GetVisualDescendants().OfType<Control>())
+                AttachContentObserversAndApply(child);
+        }
+    }
+
+    private void OnObservedTextBlockPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (sender is TextBlock textBlock && e.Property == TextBlock.TextProperty)
+            ApplyDirectionalTextAlignment(textBlock);
+    }
+
+    private void OnObservedMarkdownPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (sender is StrataMarkdown markdown && e.Property == StrataMarkdown.MarkdownProperty)
+            ApplyDirectionalMarkdownAlignment(markdown);
+    }
+
+    private static void ApplyDirectionalTextAlignment(TextBlock textBlock)
+    {
+        var direction = DetectLeadingDirection(textBlock.Text);
+        if (direction == TextDirection.Neutral)
+            return;
+
+        textBlock.FlowDirection = direction == TextDirection.RightToLeft
+            ? FlowDirection.RightToLeft
+            : FlowDirection.LeftToRight;
+
+        textBlock.TextAlignment = direction == TextDirection.RightToLeft
+            ? TextAlignment.Right
+            : TextAlignment.Left;
+    }
+
+    private static void ApplyDirectionalMarkdownAlignment(StrataMarkdown markdown)
+    {
+        var direction = DetectLeadingDirection(markdown.Markdown);
+        if (direction == TextDirection.Neutral)
+            return;
+
+        markdown.FlowDirection = direction == TextDirection.RightToLeft
+            ? FlowDirection.RightToLeft
+            : FlowDirection.LeftToRight;
+    }
+
+    private static TextDirection DetectLeadingDirection(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return TextDirection.Neutral;
+
+        foreach (var rune in text.EnumerateRunes())
+        {
+            var category = Rune.GetUnicodeCategory(rune);
+
+            if (category is UnicodeCategory.SpaceSeparator
+                or UnicodeCategory.LineSeparator
+                or UnicodeCategory.ParagraphSeparator
+                or UnicodeCategory.Control
+                or UnicodeCategory.Format
+                or UnicodeCategory.NonSpacingMark
+                or UnicodeCategory.SpacingCombiningMark
+                or UnicodeCategory.EnclosingMark
+                or UnicodeCategory.ConnectorPunctuation
+                or UnicodeCategory.DashPunctuation
+                or UnicodeCategory.OpenPunctuation
+                or UnicodeCategory.ClosePunctuation
+                or UnicodeCategory.InitialQuotePunctuation
+                or UnicodeCategory.FinalQuotePunctuation
+                or UnicodeCategory.OtherPunctuation
+                or UnicodeCategory.MathSymbol
+                or UnicodeCategory.CurrencySymbol
+                or UnicodeCategory.ModifierSymbol
+                or UnicodeCategory.OtherSymbol
+                or UnicodeCategory.DecimalDigitNumber)
+            {
+                continue;
+            }
+
+            if (IsStrongRtlRune(rune.Value))
+                return TextDirection.RightToLeft;
+
+            if (category is UnicodeCategory.UppercaseLetter
+                or UnicodeCategory.LowercaseLetter
+                or UnicodeCategory.TitlecaseLetter
+                or UnicodeCategory.ModifierLetter
+                or UnicodeCategory.OtherLetter)
+            {
+                return TextDirection.LeftToRight;
+            }
+        }
+
+        return TextDirection.Neutral;
+    }
+
+    private static bool IsStrongRtlRune(int codePoint)
+    {
+        return (codePoint >= 0x0590 && codePoint <= 0x05FF) // Hebrew
+               || (codePoint >= 0x0600 && codePoint <= 0x06FF) // Arabic
+               || (codePoint >= 0x0700 && codePoint <= 0x08FF) // Syriac/Arabic supplements
+               || (codePoint >= 0xFB1D && codePoint <= 0xFDFF) // Hebrew/Arabic presentation forms A
+               || (codePoint >= 0xFE70 && codePoint <= 0xFEFF) // Arabic presentation forms B
+               || (codePoint >= 0x1EE00 && codePoint <= 0x1EEFF); // Arabic Mathematical Alphabetic Symbols
     }
 
     private void OnStreamingChanged()

@@ -783,11 +783,29 @@
               </StackPanel>
 
               <StackPanel Spacing="6">
+                <StackPanel.Styles>
+                  <Style Selector="sc|StrataChatMessage:user">
+                    <Setter Property="HorizontalAlignment" Value="Right" />
+                    <Setter Property="MaxWidth" Value="600" />
+                  </Style>
+                  <Style Selector="sc|StrataChatMessage:assistant">
+                    <Setter Property="HorizontalAlignment" Value="Left" />
+                    <Setter Property="MaxWidth" Value="600" />
+                  </Style>
+                  <Style Selector="sc|StrataChatMessage:tool">
+                    <Setter Property="HorizontalAlignment" Value="Left" />
+                    <Setter Property="MaxWidth" Value="700" />
+                  </Style>
+                  <Style Selector="sc|StrataChatMessage:system">
+                    <Setter Property="HorizontalAlignment" Value="Left" />
+                    <Setter Property="MaxWidth" Value="700" />
+                  </Style>
+                </StackPanel.Styles>
                 <!-- User (editable) -->
                 <sc:StrataChatMessage Role="User" IsEditable="True" Author="You" Timestamp="09:42" StatusText="sent">
                   <sc:StrataChatMessage.Content>
                     <TextBlock TextWrapping="Wrap" FontSize="13"
-                               Text="Review incident IR-4471 and recommend a mitigation plan." />
+                               Text="{Binding Strings[Chat.User1]}" />
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
 
@@ -796,7 +814,23 @@
                   <sc:StrataChatMessage.Content>
                     <TextBlock TextWrapping="Wrap" FontSize="13"
                                Foreground="{DynamicResource Brush.TextPrimary}"
-                               Text="Allocation bursts in the serializer hot path caused GC pause inflation, degrading p95 latency by 340 ms during peak traffic windows." />
+                               Text="{Binding Strings[Chat.Assistant1]}" />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+
+                <!-- Mixed-direction content examples (content direction auto-detected) -->
+                <sc:StrataChatMessage Role="User" IsEditable="True" Author="You" Timestamp="09:42" StatusText="mixed rtl-leading">
+                  <sc:StrataChatMessage.Content>
+                    <TextBlock TextWrapping="Wrap" FontSize="13"
+                               Text="{Binding Strings[Chat.MixedRtlLead]}" />
+                  </sc:StrataChatMessage.Content>
+                </sc:StrataChatMessage>
+
+                <sc:StrataChatMessage Role="Assistant" IsEditable="True" Author="Strata" Timestamp="09:42" StatusText="mixed ltr-leading">
+                  <sc:StrataChatMessage.Content>
+                    <TextBlock TextWrapping="Wrap" FontSize="13"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
+                               Text="{Binding Strings[Chat.MixedLtrLead]}" />
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
 
@@ -804,21 +838,21 @@
                   <sc:StrataChatMessage.Content>
                     <TextBlock TextWrapping="Wrap" FontSize="13"
                                Foreground="{DynamicResource Brush.TextPrimary}"
-                               Text="I'm now comparing against pre-change baselines to isolate regressions introduced by this patch." />
+                               Text="{Binding Strings[Chat.Editing]}" />
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
 
                 <!-- Assistant Markdown + C# code -->
                 <sc:StrataChatMessage Role="Assistant" IsEditable="True" Author="Strata" Timestamp="09:43" StatusText="markdown">
                   <sc:StrataChatMessage.Content>
-                    <sc:StrataMarkdown IsInline="True" Markdown="# Suggested fix&#x0a;Use a staged rollout and cap payload size for hot serializer paths.&#x0a;&#x0a;```csharp&#x0a;public static bool ShouldRollback(double p95Ms, double gcPauseMs)&#x0a;{&#x0a;    if (p95Ms &gt; 250 || gcPauseMs &gt; 80)&#x0a;        return true;&#x0a;&#x0a;    return false;&#x0a;}&#x0a;```&#x0a;&#x0a;- Gate rollout at 10%, 50%, 100%&#x0a;- Roll back immediately on threshold breach" />
+                    <sc:StrataMarkdown IsInline="True" Markdown="{Binding Strings[Chat.Markdown]}" />
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
 
                 <!-- Assistant Markdown with inline code -->
                 <sc:StrataChatMessage Role="Assistant" IsEditable="True" Author="Strata" Timestamp="09:43" StatusText="inline code">
                   <sc:StrataChatMessage.Content>
-                    <sc:StrataMarkdown IsInline="True" Markdown="The config lives in `appsettings.json` under the `Serializer` section. See the file `HotPathSerializer.cs` for the allocation site, and make sure `MaxBatchBytes` is set before deploying." />
+                    <sc:StrataMarkdown IsInline="True" Markdown="{Binding Strings[Chat.InlineCode]}" />
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
 
@@ -831,12 +865,12 @@
                           <TextBlock Text="P2" FontSize="11" FontWeight="Bold"
                                      Foreground="{DynamicResource Brush.DangerDefault}" />
                         </Border>
-                        <TextBlock Text="Scale worker pool and cap batch payload" FontSize="12"
+                        <TextBlock Text="{Binding Strings[Chat.ToolTitle]}" FontSize="12"
                                    FontWeight="SemiBold" VerticalAlignment="Center" />
                       </StackPanel>
                       <TextBlock TextWrapping="Wrap" FontSize="12"
                                  Foreground="{DynamicResource Brush.TextTertiary}"
-                                 Text="Setting batch_max_bytes = 262144 reduces serializer pressure." />
+                                 Text="{Binding Strings[Chat.ToolDesc]}" />
                     </StackPanel>
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
@@ -846,7 +880,7 @@
                   <sc:StrataChatMessage.Content>
                     <TextBlock TextWrapping="Wrap" FontSize="13"
                                Foreground="{DynamicResource Brush.TextPrimary}"
-                               Text="Additionally, I'd recommend setting up an automated alert on the GC pause duration metric…" />
+                               Text="{Binding Strings[Chat.Streaming]}" />
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
 
@@ -855,7 +889,7 @@
                   <sc:StrataChatMessage.Content>
                     <TextBlock FontSize="12" FontStyle="Italic"
                                Foreground="{DynamicResource Brush.TextTertiary}"
-                               Text="Workspace policies loaded. Grounded citations enabled." />
+                               Text="{Binding Strings[Chat.System]}" />
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
               </StackPanel>
@@ -873,11 +907,11 @@
 
               <StackPanel Spacing="12">
                 <sc:StrataTypingIndicator IsActive="True"
-                                         Label="Validating behavior with targeted tests next so findings are evidence-based" />
+                                         Label="{Binding Strings[Chat.TypingLabel1]}" />
                 <sc:StrataTypingIndicator IsActive="True"
-                                         Label="Generating response…" />
+                                         Label="{Binding Strings[Chat.TypingLabel2]}" />
                 <sc:StrataTypingIndicator IsActive="False"
-                                         Label="Paused" />
+                                         Label="{Binding Strings[Chat.TypingPaused]}" />
               </StackPanel>
             </StackPanel>
           </Border>
@@ -891,14 +925,14 @@
                            Text="Bottom-bar input with borderless text area, + attach, model/quality chips, and circular accent send button." />
               </StackPanel>
 
-              <sc:StrataChatComposer Placeholder="Ask for follow-up changes"
+              <sc:StrataChatComposer Placeholder="{Binding Strings[Chat.Placeholder1]}"
                                     Models="{Binding AiModels}"
                                     SelectedModel="GPT-4o"
                                     QualityLevels="{Binding AiQualityLevels}"
                                     SelectedQuality="High" />
 
               <sc:StrataChatComposer x:Name="DemoComposer"
-                                    Placeholder="What would you like to know?"
+                                    Placeholder="{Binding Strings[Chat.Placeholder2]}"
                                     Models="{Binding AiModels}"
                                     SelectedModel="GPT-5.3-Codex"
                                     QualityLevels="{Binding AiQualityLevels}"
@@ -908,9 +942,9 @@
                                     SkillItems="{Binding AiSkills}"
                                     AvailableAgents="{Binding AvailableAgents}"
                                     AvailableSkills="{Binding AvailableSkills}"
-                                    SuggestionA="Summarize"
-                                    SuggestionB="Root cause"
-                                    SuggestionC="Action items" />
+                                    SuggestionA="{Binding Strings[Chat.SuggestionA]}"
+                                    SuggestionB="{Binding Strings[Chat.SuggestionB]}"
+                                    SuggestionC="{Binding Strings[Chat.SuggestionC]}" />
             </StackPanel>
           </Border>
 
@@ -926,31 +960,33 @@
               <sc:StrataChatShell IsOnline="True" MinHeight="340">
                 <sc:StrataChatShell.Header>
                   <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Classes="body-strong" Text="Incident Assistant" />
-                    <TextBlock Classes="caption tertiary" Text="workspace / prod" VerticalAlignment="Center" />
+                    <TextBlock Classes="body-strong" Text="{Binding Strings[Chat.ShellHeader]}" />
+                    <TextBlock Classes="caption tertiary" Text="{Binding Strings[Chat.ShellSubtitle]}" VerticalAlignment="Center" />
                   </StackPanel>
                 </sc:StrataChatShell.Header>
-                <sc:StrataChatShell.PresenceText>Connected</sc:StrataChatShell.PresenceText>
+                <sc:StrataChatShell.PresenceText>
+                  <Binding Path="Strings[Chat.Presence]" />
+                </sc:StrataChatShell.PresenceText>
                 <sc:StrataChatShell.Transcript>
                   <StackPanel Spacing="4">
                     <sc:StrataChatMessage Role="User" Author="You" Timestamp="09:49" StatusText="sent">
                       <sc:StrataChatMessage.Content>
                         <TextBlock TextWrapping="Wrap" FontSize="13"
-                                   Text="What caused the latency spike?" />
+                                   Text="{Binding Strings[Chat.ShellUser]}" />
                       </sc:StrataChatMessage.Content>
                     </sc:StrataChatMessage>
                     <sc:StrataChatMessage Role="Assistant" Author="Strata" Timestamp="09:49" StatusText="grounded">
                       <sc:StrataChatMessage.Content>
                         <TextBlock TextWrapping="Wrap" FontSize="13"
                                    Foreground="{DynamicResource Brush.TextPrimary}"
-                                   Text="GC pause inflation from allocation bursts in the serializer hot path during peak traffic." />
+                                   Text="{Binding Strings[Chat.ShellAssistant]}" />
                       </sc:StrataChatMessage.Content>
                     </sc:StrataChatMessage>
-                    <sc:StrataTypingIndicator IsActive="True" Label="Checking deployment logs…" />
+                    <sc:StrataTypingIndicator IsActive="True" Label="{Binding Strings[Chat.ShellTyping]}" />
                   </StackPanel>
                 </sc:StrataChatShell.Transcript>
                 <sc:StrataChatShell.Composer>
-                  <sc:StrataChatComposer Placeholder="Follow up…"
+                  <sc:StrataChatComposer Placeholder="{Binding Strings[Chat.FollowUp]}"
                                         Models="{Binding AiModels}"
                                         SelectedModel="GPT-4o"
                                         QualityLevels="{Binding AiQualityLevels}"
