@@ -148,6 +148,13 @@
                   <TextBlock Text="{Binding Strings[Nav.ChatExperience]}" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
               </ListBoxItem>
+              <ListBoxItem>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="&#x269B;" FontSize="15" Width="18" TextAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Strings[Nav.ChatPerformance]}" FontWeight="Medium" VerticalAlignment="Center" />
+                </StackPanel>
+              </ListBoxItem>
             </ListBox>
           </StackPanel>
         </ScrollViewer>
@@ -1854,6 +1861,113 @@ async def analyze_incident(report):
                   <Button Classes="subtle" Content="Create rollout checklist" HorizontalAlignment="Stretch" />
                   <Button Classes="subtle" Content="Generate stakeholder email" HorizontalAlignment="Stretch" />
                   <Button Classes="subtle" Content="Export conversation" HorizontalAlignment="Stretch" />
+                </StackPanel>
+              </Border>
+
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Grid>
+
+      <!-- ════════ Page 8: Chat Performance ════════ -->
+      <Grid x:Name="Page8"
+            IsVisible="False"
+            Classes="page-shell"
+            MaxWidth="1260"
+            RowDefinitions="Auto,16,*">
+
+        <Border Grid.Row="0"
+                BorderBrush="{DynamicResource Brush.AccentDefault}"
+                BorderThickness="3,0,0,0"
+                Padding="16,0,0,0">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="headline" Text="{Binding Strings[ChatPerf.Title]}" />
+            <TextBlock Classes="secondary" Text="{Binding Strings[ChatPerf.Subtitle]}" />
+          </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="2.4*,16,1.2*" RowDefinitions="*">
+
+          <Border Grid.Column="0"
+                  Background="Transparent"
+                  BorderBrush="Transparent"
+                  BorderThickness="0"
+                  CornerRadius="0"
+                  Padding="0"
+                  ClipToBounds="True">
+            <sc:StrataChatShell x:Name="PerfChatShell"
+                               IsOnline="True"
+                               PresenceText="{Binding Strings[ChatPerf.Presence]}"
+                               VerticalAlignment="Stretch">
+
+              <sc:StrataChatShell.Header>
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                  <Border Width="24" Height="24" CornerRadius="7"
+                          Background="{DynamicResource Brush.AccentGradient}">
+                    <TextBlock Text="⚡" FontSize="12" FontWeight="Bold"
+                               Foreground="{DynamicResource Brush.TextOnAccent}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Spacing="0">
+                    <TextBlock Classes="body-strong" Text="{Binding Strings[ChatPerf.ShellTitle]}" />
+                    <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.ShellSubtitle]}" />
+                  </StackPanel>
+                </StackPanel>
+              </sc:StrataChatShell.Header>
+
+              <sc:StrataChatShell.Transcript>
+                <StackPanel x:Name="PerfTranscript" Spacing="6" />
+              </sc:StrataChatShell.Transcript>
+
+              <sc:StrataChatShell.Composer>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button x:Name="PerfSeedButton" Classes="subtle" Content="{Binding Strings[ChatPerf.Seed]}" />
+                  <Button x:Name="PerfRunButton" Classes="accent" Content="{Binding Strings[ChatPerf.Run]}" />
+                  <Button x:Name="PerfStopButton" Classes="subtle" Content="{Binding Strings[ChatPerf.Stop]}" />
+                </StackPanel>
+              </sc:StrataChatShell.Composer>
+
+            </sc:StrataChatShell>
+          </Border>
+
+          <ScrollViewer Grid.Column="2"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="16">
+
+              <Border Classes="strata-card" Padding="16">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="subtitle" Text="{Binding Strings[ChatPerf.ScenarioTitle]}" />
+                  <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
+                  <TextBlock Text="{Binding Strings[ChatPerf.Scenario]}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+
+              <Border Classes="strata-card" Padding="16">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="subtitle" Text="{Binding Strings[ChatPerf.ResultsTitle]}" />
+                  <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
+
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.StatusLabel]}" />
+                  <TextBlock x:Name="PerfStatusText"
+                             Text="{Binding Strings[ChatPerf.StatusIdle]}"
+                             TextWrapping="Wrap" />
+
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.BaselineLabel]}" />
+                  <TextBlock x:Name="PerfBaselineText"
+                             Text="{Binding Strings[ChatPerf.NoResults]}"
+                             TextWrapping="Wrap" />
+
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.OptimizedLabel]}" />
+                  <TextBlock x:Name="PerfOptimizedText"
+                             Text="{Binding Strings[ChatPerf.NoResults]}"
+                             TextWrapping="Wrap" />
+
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.UpliftLabel]}" />
+                  <TextBlock x:Name="PerfUpliftText"
+                             Text="{Binding Strings[ChatPerf.NoResults]}"
+                             TextWrapping="Wrap"
+                             FontWeight="SemiBold" />
                 </StackPanel>
               </Border>
 

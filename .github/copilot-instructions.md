@@ -199,7 +199,31 @@ Many tools take a `controlId` parameter. Three formats work:
 - Adding user-facing demo text without localization keys.
 - Build failure due to locked `StrataDemo.exe` when demo is still running.
 
-## 11) Done criteria
+## 11) Performance benchmarking (optional, demo-only)
+
+When performance validation is requested for chat rendering/streaming:
+
+### How to run
+
+- Default benchmark run:
+	- `dotnet run --project demo/StrataDemo/StrataDemo.csproj -- --chat-perf --chat-perf-report artifacts/chat-perf-report.json`
+- With explicit target FPS (optional):
+	- `dotnet run --project demo/StrataDemo/StrataDemo.csproj -- --chat-perf --chat-perf-target-fps 120 --chat-perf-report artifacts/chat-perf-report.json`
+
+### What to collect
+
+- `CHAT_PERF_*` lines from stdout.
+- JSON report at the given `--chat-perf-report` path.
+- Confirm `renderEvidence.pageVisible=true` and `renderEvidence.shellVisible=true`.
+
+### Strict boundaries
+
+- Keep benchmarking code in `demo/StrataDemo` only.
+- Treat benchmarking as complementary; normal demo/theme behavior must remain unchanged.
+- Do not expose benchmark/debug knobs in the public API surface of `src/StrataTheme`.
+- Do not commit generated report files unless the user asks for them.
+
+## 12) Done criteria
 
 A task is complete only when:
 

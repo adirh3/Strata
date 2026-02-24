@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Specialized;
 using System.Collections.Generic;
-using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -46,12 +46,15 @@ public class StrataChatShell : TemplatedControl
 {
     private Border? _presenceDot;
     private ScrollViewer? _scrollViewer;
+    private Panel? _transcriptPanel;
+    private INotifyCollectionChanged? _transcriptCollection;
     private bool _userScrolledAway;
     private bool _isProgrammaticScroll;
     private bool _alignmentQueued;
     private bool _scrollQueued;
+    private bool _forceFullAlignment = true;
+    private int _lastObservedTranscriptCount;
     private int _lastAlignedMessageCount;
-    private IReadOnlyCollection<StrataChatMessage>? _cachedMessages;
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
@@ -80,9 +83,10 @@ public class StrataChatShell : TemplatedControl
         PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
         TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
         {
-            c._cachedMessages = null;
+            c._lastObservedTranscriptCount = 0;
             c._lastAlignedMessageCount = 0;
-            c.ScheduleApplyTranscriptAlignment();
+            c.ConfigureAlignmentSubscription();
+            c.ScheduleApplyTranscriptAlignment(forceFull: true);
         });
     }
 
@@ -95,6 +99,13 @@ public class StrataChatShell : TemplatedControl
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
+
+        if (_scrollViewer is not null)
+        {
+            _scrollViewer.ScrollChanged -= OnScrollChanged;
+            _scrollViewer.PointerWheelChanged -= OnUserWheelScroll;
+        }
+
         _presenceDot = e.NameScope.Find<Border>("PART_PresenceDot");
         _scrollViewer = e.NameScope.Find<ScrollViewer>("PART_TranscriptScroll");
 
@@ -103,39 +114,12 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.ScrollChanged += OnScrollChanged;
             // Detect user scroll-away intent (don't intercept — let ScrollViewer handle natively)
             _scrollViewer.PointerWheelChanged += OnUserWheelScroll;
-
-            // Set up compositor-driven smooth scrolling after template is realized
-            var scrollContent = e.NameScope.Find<Panel>("PART_ScrollContent");
-            if (scrollContent is not null)
-                Dispatcher.UIThread.Post(() => SetupCompositorSmoothing(scrollContent), DispatcherPriority.Loaded);
         }
 
-        LayoutUpdated -= OnLayoutUpdated;
-        LayoutUpdated += OnLayoutUpdated;
+        ConfigureAlignmentSubscription();
 
         Refresh();
-        ScheduleApplyTranscriptAlignment();
-    }
-
-    /// <summary>
-    /// Applies an implicit composition animation on the scroll content's visual Offset,
-    /// so every scroll position change is smoothly animated on the compositor/render thread
-    /// at full vsync rate — independent of UI thread load.
-    /// </summary>
-    private void SetupCompositorSmoothing(Control scrollContent)
-    {
-        var visual = ElementComposition.GetElementVisual(scrollContent);
-        if (visual is null) return;
-
-        var compositor = visual.Compositor;
-        var anim = compositor.CreateVector3KeyFrameAnimation();
-        anim.Target = "Offset";
-        anim.InsertExpressionKeyFrame(1f, "this.FinalValue");
-        anim.Duration = TimeSpan.FromMilliseconds(120);
-
-        var implicitAnims = compositor.CreateImplicitAnimationCollection();
-        implicitAnims["Offset"] = anim;
-        visual.ImplicitAnimations = implicitAnims;
+        ScheduleApplyTranscriptAlignment(forceFull: true);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -144,13 +128,19 @@ public class StrataChatShell : TemplatedControl
         Dispatcher.UIThread.Post(() =>
         {
             Refresh();
-            ApplyTranscriptAlignment();
+            ApplyTranscriptAlignment(forceFull: true);
         }, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        LayoutUpdated -= OnLayoutUpdated;
+        if (_scrollViewer is not null)
+        {
+            _scrollViewer.ScrollChanged -= OnScrollChanged;
+            _scrollViewer.PointerWheelChanged -= OnUserWheelScroll;
+        }
+
+        UnsubscribeTranscriptPanel();
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -158,7 +148,7 @@ public class StrataChatShell : TemplatedControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == FlowDirectionProperty)
-            ScheduleApplyTranscriptAlignment();
+            ScheduleApplyTranscriptAlignment(forceFull: true);
     }
 
     private void Refresh()
@@ -173,76 +163,162 @@ public class StrataChatShell : TemplatedControl
         else
             StopPresencePulse();
 
-        ScheduleApplyTranscriptAlignment();
+        ScheduleApplyTranscriptAlignment(forceFull: true);
     }
 
-    private void OnLayoutUpdated(object? sender, EventArgs e)
+    private void ConfigureAlignmentSubscription()
     {
-        // Only re-apply alignment if the transcript child count changed (new message added).
-        // This avoids the expensive tree walk on every frame.
-        var panel = Transcript as Panel;
-        var currentCount = panel?.Children.Count ?? 0;
-        if (currentCount != _lastAlignedMessageCount)
+        UnsubscribeTranscriptPanel();
+
+        _transcriptPanel = Transcript as Panel;
+        if (_transcriptPanel?.Children is INotifyCollectionChanged children)
         {
-            _cachedMessages = null; // Invalidate cache
-            ScheduleApplyTranscriptAlignment();
+            _transcriptCollection = children;
+            _transcriptCollection.CollectionChanged += OnTranscriptChildrenChanged;
+            _lastObservedTranscriptCount = _transcriptPanel.Children.Count;
         }
     }
 
-    private void ScheduleApplyTranscriptAlignment()
+    private void UnsubscribeTranscriptPanel()
     {
+        if (_transcriptCollection is not null)
+            _transcriptCollection.CollectionChanged -= OnTranscriptChildrenChanged;
+
+        _transcriptCollection = null;
+        _transcriptPanel = null;
+    }
+
+    private void OnTranscriptChildrenChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        var currentCount = _transcriptPanel?.Children.Count ?? 0;
+        _lastObservedTranscriptCount = currentCount;
+
+        var forceFull = e.Action switch
+        {
+            NotifyCollectionChangedAction.Add when e.NewStartingIndex >= _lastAlignedMessageCount => false,
+            NotifyCollectionChangedAction.Add when e.NewStartingIndex < 0 => true,
+            NotifyCollectionChangedAction.Add => true,
+            NotifyCollectionChangedAction.Reset => true,
+            NotifyCollectionChangedAction.Remove => true,
+            NotifyCollectionChangedAction.Replace => true,
+            NotifyCollectionChangedAction.Move => true,
+            _ => true
+        };
+
+        if (currentCount < _lastAlignedMessageCount)
+            forceFull = true;
+
+        ScheduleApplyTranscriptAlignment(forceFull);
+    }
+
+    private void ScheduleApplyTranscriptAlignment(bool forceFull = false)
+    {
+        if (forceFull)
+            _forceFullAlignment = true;
+
         if (_alignmentQueued) return;
         _alignmentQueued = true;
         Dispatcher.UIThread.Post(() =>
         {
             _alignmentQueued = false;
-            ApplyTranscriptAlignment();
+            ApplyTranscriptAlignment(_forceFullAlignment);
+            _forceFullAlignment = false;
         }, DispatcherPriority.Loaded);
     }
 
-    private void ApplyTranscriptAlignment()
+    private void ApplyTranscriptAlignment(bool forceFull)
     {
-        _cachedMessages ??= CollectTranscriptMessages();
-        var messages = _cachedMessages;
         var panel = Transcript as Panel;
-        _lastAlignedMessageCount = panel?.Children.Count ?? 0;
 
-        foreach (var message in messages)
+        if (panel is not null)
         {
-            var alignment = message.Role switch
+            var childCount = panel.Children.Count;
+            if (forceFull || _lastAlignedMessageCount > childCount)
             {
-                StrataChatRole.User => HorizontalAlignment.Right,
-                StrataChatRole.Assistant => HorizontalAlignment.Left,
-                StrataChatRole.System => HorizontalAlignment.Left,
-                StrataChatRole.Tool => HorizontalAlignment.Left,
-                _ => HorizontalAlignment.Stretch
-            };
-
-            var maxWidth = message.Role switch
+                foreach (var child in panel.Children)
+                    AlignMessagesInNode(child);
+            }
+            else
             {
-                StrataChatRole.User => 600d,
-                StrataChatRole.Assistant => 600d,
-                StrataChatRole.System => 700d,
-                StrataChatRole.Tool => 700d,
-                _ => double.PositiveInfinity
-            };
+                for (var i = _lastAlignedMessageCount; i < childCount; i++)
+                    AlignMessagesInNode(panel.Children[i]);
+            }
 
-            if (message.HorizontalAlignment != alignment)
-                message.HorizontalAlignment = alignment;
-
-            if (message.MaxWidth != maxWidth)
-                message.MaxWidth = maxWidth;
+            _lastAlignedMessageCount = childCount;
+            return;
         }
+
+        foreach (var message in CollectTranscriptMessages())
+            ApplyAlignment(message);
+
+        _lastAlignedMessageCount = 0;
+    }
+
+    private void AlignMessagesInNode(object? node)
+    {
+        if (node is null)
+            return;
+
+        if (node is StrataChatMessage message)
+        {
+            ApplyAlignment(message);
+            return;
+        }
+
+        if (node is ContentControl contentControl)
+        {
+            AlignMessagesInNode(contentControl.Content);
+            return;
+        }
+
+        if (node is Decorator decorator)
+        {
+            AlignMessagesInNode(decorator.Child);
+            return;
+        }
+
+        if (node is Panel panel)
+        {
+            foreach (var child in panel.Children)
+                AlignMessagesInNode(child);
+        }
+    }
+
+    private static void ApplyAlignment(StrataChatMessage message)
+    {
+        var alignment = message.Role switch
+        {
+            StrataChatRole.User => HorizontalAlignment.Right,
+            StrataChatRole.Assistant => HorizontalAlignment.Left,
+            StrataChatRole.System => HorizontalAlignment.Left,
+            StrataChatRole.Tool => HorizontalAlignment.Left,
+            _ => HorizontalAlignment.Stretch
+        };
+
+        var maxWidth = message.Role switch
+        {
+            StrataChatRole.User => 600d,
+            StrataChatRole.Assistant => 600d,
+            StrataChatRole.System => 700d,
+            StrataChatRole.Tool => 700d,
+            _ => double.PositiveInfinity
+        };
+
+        if (message.HorizontalAlignment != alignment)
+            message.HorizontalAlignment = alignment;
+
+        if (message.MaxWidth != maxWidth)
+            message.MaxWidth = maxWidth;
     }
 
     private IReadOnlyCollection<StrataChatMessage> CollectTranscriptMessages()
     {
-        var result = new HashSet<StrataChatMessage>();
+        var result = new List<StrataChatMessage>();
         CollectFromTranscriptObject(Transcript, result);
         return result;
     }
 
-    private static void CollectFromTranscriptObject(object? node, ISet<StrataChatMessage> collector)
+    private static void CollectFromTranscriptObject(object? node, ICollection<StrataChatMessage> collector)
     {
         if (node is null)
             return;
@@ -320,12 +396,19 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is null || _userScrolledAway)
             return;
 
+        if (DistanceFromBottom(_scrollViewer) <= 1)
+            return;
+
         if (_scrollQueued) return;
         _scrollQueued = true;
         Dispatcher.UIThread.Post(() =>
         {
             _scrollQueued = false;
             if (_scrollViewer is null || _userScrolledAway) return;
+
+            if (DistanceFromBottom(_scrollViewer) <= 1)
+                return;
+
             _isProgrammaticScroll = true;
             _scrollViewer.ScrollToEnd();
             Dispatcher.UIThread.Post(() => _isProgrammaticScroll = false, DispatcherPriority.Loaded);
@@ -346,7 +429,7 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is null || _isProgrammaticScroll)
             return;
 
-        var distanceFromBottom = _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height - _scrollViewer.Offset.Y;
+        var distanceFromBottom = DistanceFromBottom(_scrollViewer);
         _userScrolledAway = distanceFromBottom > 40;
     }
 
@@ -356,5 +439,10 @@ public class StrataChatShell : TemplatedControl
         // Just detect scroll-away intent so auto-scroll pauses during streaming.
         if (e.Delta.Y > 0)
             _userScrolledAway = true;
+    }
+
+    private static double DistanceFromBottom(ScrollViewer scrollViewer)
+    {
+        return scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y;
     }
 }

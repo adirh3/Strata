@@ -29,6 +29,18 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _generationCts;
     private StrataCanvas? _chatExperienceCanvas;
     private bool _isChatCanvasOpen;
+    private StackPanel? _perfTranscript;
+    private StrataChatShell? _perfChatShell;
+    private TextBlock? _perfStatusText;
+    private TextBlock? _perfBaselineText;
+    private TextBlock? _perfOptimizedText;
+    private TextBlock? _perfUpliftText;
+    private Button? _perfSeedButton;
+    private Button? _perfRunButton;
+    private Button? _perfStopButton;
+    private CancellationTokenSource? _perfRunCts;
+    private bool _perfInitialized;
+    private ChatPerformanceBenchmarkRunner? _perfRunner;
 
     public MainWindow()
     {
@@ -38,7 +50,7 @@ public partial class MainWindow : Window
         Opened += (_, _) => UpdateResponsiveClasses(Bounds.Width);
 
         // Cache page references
-        for (int i = 0; i <= 7; i++)
+        for (int i = 0; i <= 8; i++)
         {
             var page = this.FindControl<Control>($"Page{i}");
             if (page is not null)
@@ -105,6 +117,32 @@ public partial class MainWindow : Window
                     vm.AiSkills.Remove(chip);
             };
         }
+
+        // Chat performance page wiring
+        _perfTranscript = this.FindControl<StackPanel>("PerfTranscript");
+        _perfChatShell = this.FindControl<StrataChatShell>("PerfChatShell");
+        _perfStatusText = this.FindControl<TextBlock>("PerfStatusText");
+        _perfBaselineText = this.FindControl<TextBlock>("PerfBaselineText");
+        _perfOptimizedText = this.FindControl<TextBlock>("PerfOptimizedText");
+        _perfUpliftText = this.FindControl<TextBlock>("PerfUpliftText");
+
+        _perfSeedButton = this.FindControl<Button>("PerfSeedButton");
+        if (_perfSeedButton is not null)
+            _perfSeedButton.Click += OnPerfSeedRequested;
+
+        _perfRunButton = this.FindControl<Button>("PerfRunButton");
+        if (_perfRunButton is not null)
+            _perfRunButton.Click += OnPerfRunRequested;
+
+        _perfStopButton = this.FindControl<Button>("PerfStopButton");
+        if (_perfStopButton is not null)
+        {
+            _perfStopButton.Click += OnPerfStopRequested;
+            _perfStopButton.IsEnabled = false;
+        }
+
+        if (_perfChatShell is not null && _perfTranscript is not null)
+            _perfRunner = new ChatPerformanceBenchmarkRunner(this, _perfChatShell, _perfTranscript);
     }
 
     private void UpdateResponsiveClasses(double width)
@@ -334,6 +372,9 @@ public partial class MainWindow : Window
         // Auto-focus the composer when switching to the Chat Experience page
         if (index == 7)
             _liveComposer?.FocusInput();
+
+        if (index == 8)
+            EnsurePerformanceDemoSeeded(forceReset: false);
     }
 
     private void OnThemeToggleChanged(object? sender, RoutedEventArgs e)
@@ -814,6 +855,152 @@ public partial class MainWindow : Window
 
         _liveTranscript.Children.Add(note);
         _mainChatShell?.ScrollToEnd();
+    }
+
+    private void OnPerfSeedRequested(object? sender, RoutedEventArgs e)
+    {
+        EnsurePerformanceDemoSeeded(forceReset: true);
+    }
+
+    private async void OnPerfRunRequested(object? sender, RoutedEventArgs e)
+    {
+        if (_perfRunner is null)
+            return;
+
+        CancelPerformanceRun();
+        _perfRunCts?.Dispose();
+        _perfRunCts = new CancellationTokenSource();
+
+        try
+        {
+            await RunChatPerformanceBenchmarkAsync(_perfRunCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _perfRunCts?.Dispose();
+            _perfRunCts = null;
+        }
+    }
+
+    internal async Task<ChatPerfBenchmarkResult> RunChatPerformanceBenchmarkAsync(CancellationToken token = default)
+    {
+        if (_perfRunner is null || _perfChatShell is null)
+            throw new InvalidOperationException("Chat performance controls are not available.");
+
+        SetPerformanceButtons(isRunning: true);
+
+        try
+        {
+            ShowPage(8);
+            var navList = this.FindControl<ListBox>("NavList");
+            if (navList is not null && navList.SelectedIndex != 8)
+                navList.SelectedIndex = 8;
+
+            await Task.Delay(220, token);
+
+            var perfPage = this.FindControl<Control>("Page8");
+            var perfPageVisible = perfPage?.IsVisible == true;
+            var shellVisible = _perfChatShell.IsVisible;
+            var shellWidth = _perfChatShell.Bounds.Width;
+            var shellHeight = _perfChatShell.Bounds.Height;
+
+            SetPerformanceStatus("Calibrating idle render ceiling…");
+            var idleMetrics = await _perfRunner.MeasureIdleRenderMetricsAsync(TimeSpan.FromSeconds(3), token);
+
+            EnsurePerformanceDemoSeeded(forceReset: true);
+
+            SetPerformanceStatus(L("ChatPerf.StatusRunningBaseline", "Running baseline scenario (legacy alignment + smoothing)…"));
+            var baseline = await _perfRunner.RunScenarioSeriesAsync(ChatPerfScenarioProfile.Baseline, token);
+            var baselineText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(baseline);
+            _perfBaselineText?.SetCurrentValue(TextBlock.TextProperty, baselineText);
+
+            SetPerformanceStatus(L("ChatPerf.StatusRunningOptimized", "Running optimized scenario (incremental alignment + no smoothing)…"));
+            var optimized = await _perfRunner.RunScenarioSeriesAsync(ChatPerfScenarioProfile.Optimized, token);
+            var optimizedText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(optimized);
+            _perfOptimizedText?.SetCurrentValue(TextBlock.TextProperty, optimizedText);
+
+            var upliftText = ChatPerformanceBenchmarkRunner.FormatUplift(baseline, optimized);
+            _perfUpliftText?.SetCurrentValue(TextBlock.TextProperty, upliftText);
+            SetPerformanceStatus(L("ChatPerf.StatusCompleted", "Benchmark complete. Optimized mode maintains higher FPS and lower frame times under streaming + scroll stress."));
+
+            return new ChatPerfBenchmarkResult(
+                IdleMetrics: idleMetrics,
+                BaselineMetrics: baseline.FrameMetrics,
+                OptimizedMetrics: optimized.FrameMetrics,
+                BaselineText: baselineText,
+                OptimizedText: optimizedText,
+                UpliftText: upliftText,
+                PerfPageVisible: perfPageVisible,
+                ShellVisible: shellVisible,
+                ShellWidth: shellWidth,
+                ShellHeight: shellHeight);
+        }
+        catch (OperationCanceledException)
+        {
+            SetPerformanceStatus(L("ChatPerf.StatusCancelled", "Benchmark canceled."));
+            throw;
+        }
+        finally
+        {
+            _perfRunner.ResetToOptimizedDefaults();
+
+            SetPerformanceButtons(isRunning: false);
+        }
+    }
+
+    private void OnPerfStopRequested(object? sender, RoutedEventArgs e)
+    {
+        CancelPerformanceRun();
+        SetPerformanceStatus(L("ChatPerf.StatusCancelled", "Benchmark canceled."));
+    }
+
+    private void CancelPerformanceRun()
+    {
+        if (_perfRunCts is not null && !_perfRunCts.IsCancellationRequested)
+            _perfRunCts.Cancel();
+    }
+
+    private void SetPerformanceButtons(bool isRunning)
+    {
+        if (_perfSeedButton is not null)
+            _perfSeedButton.IsEnabled = !isRunning;
+        if (_perfRunButton is not null)
+            _perfRunButton.IsEnabled = !isRunning;
+        if (_perfStopButton is not null)
+            _perfStopButton.IsEnabled = isRunning;
+    }
+
+    private void EnsurePerformanceDemoSeeded(bool forceReset)
+    {
+        if (_perfRunner is null)
+            return;
+
+        if (_perfInitialized && !forceReset)
+            return;
+
+        _perfRunner.SeedTranscript();
+
+        _perfInitialized = true;
+        _perfBaselineText?.SetCurrentValue(TextBlock.TextProperty, L("ChatPerf.NoResults", "No results yet."));
+        _perfOptimizedText?.SetCurrentValue(TextBlock.TextProperty, L("ChatPerf.NoResults", "No results yet."));
+        _perfUpliftText?.SetCurrentValue(TextBlock.TextProperty, L("ChatPerf.NoResults", "No results yet."));
+        SetPerformanceStatus(L("ChatPerf.StatusSeeded", "Transcript seeded with many messages. Run benchmark to compare baseline vs optimized."));
+    }
+
+    private void SetPerformanceStatus(string text)
+    {
+        _perfStatusText?.SetCurrentValue(TextBlock.TextProperty, text);
+    }
+
+    private string L(string key, string fallback)
+    {
+        if (DataContext is MainViewModel vm)
+            return vm.Strings[key];
+
+        return fallback;
     }
 
     private void OnChatCanvasCloseRequested(object? sender, RoutedEventArgs e)

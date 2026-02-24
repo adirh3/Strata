@@ -15,7 +15,18 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow();
+            var mainWindow = new MainWindow();
+            desktop.MainWindow = mainWindow;
+
+            if (Program.RunChatPerfBenchmark)
+            {
+                mainWindow.Opened += async (_, _) =>
+                    await ChatPerformanceAutomation.RunAsync(
+                        mainWindow,
+                        desktop,
+                        Program.ChatPerfReportPath,
+                        Program.ChatPerfTargetFps);
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

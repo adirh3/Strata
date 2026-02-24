@@ -126,7 +126,31 @@ Many tools take a `controlId` parameter. Three formats work:
 - Keep `README.md` package example reasonably aligned with current package version.
 - Package output goes to `nupkg/` and should remain ignored by git.
 
-## 11) Commit Hygiene
+## 11) Performance Benchmarking (Demo-only)
+
+Use this when asked to validate chat render/scroll/stream performance.
+
+### Command
+
+- Run benchmark mode (headless-ish automation through the demo app):
+	- `dotnet run --project demo/StrataDemo/StrataDemo.csproj -- --chat-perf --chat-perf-report artifacts/chat-perf-report.json`
+- Optional target render timer:
+	- `dotnet run --project demo/StrataDemo/StrataDemo.csproj -- --chat-perf --chat-perf-target-fps 120 --chat-perf-report artifacts/chat-perf-report.json`
+
+### Output contract
+
+- Writes a JSON report to the path passed in `--chat-perf-report`.
+- Prints `CHAT_PERF_*` lines to stdout for quick extraction.
+- Includes `renderEvidence` fields to confirm the benchmark actually rendered the Chat Performance page.
+
+### Guardrails (important)
+
+- Benchmarking is **complementary and optional**; it must not affect normal app startup.
+- Keep benchmark-only logic under `demo/StrataDemo`.
+- Do **not** add benchmark/debug-only public API to `src/StrataTheme` controls.
+- Do not commit generated benchmark JSON artifacts unless explicitly requested.
+
+## 12) Commit Hygiene
 
 - Use clear, scoped commit messages tied to the actual change set.
 - Group related control + theme + demo updates together.

@@ -62,6 +62,7 @@ public sealed class Strings
             ["Nav.AiControls"] = "AI Controls",
             ["Nav.Settings"] = "Settings",
             ["Nav.ChatExperience"] = "Chat Experience",
+            ["Nav.ChatPerformance"] = "Chat Performance",
 
             // Sidebar toggles
             ["DarkMode"] = "Dark Mode",
@@ -248,6 +249,30 @@ public sealed class Strings
             ["Chat.FollowUp"] = "Follow up\u2026",
             ["Chat.MixedRtlLead"] = "שלום אני adir. זה משפט בדיקה ראשון כדי לוודא שהיישור פועל נכון גם כשיש מילים באנגלית באמצע. עכשיו נוסיף עוד משפט בעברית עם timestamp 09:57 ו-reference לקובץ docs/guide.md.",
             ["Chat.MixedLtrLead"] = "hello I am אדיר. This is the first verification sentence to confirm alignment stays left even when Hebrew appears inline. Next sentence adds more English context with incident IR-4471 and deployment notes.",
+
+            // Chat Performance
+            ["ChatPerf.Title"] = "Chat Performance Lab",
+            ["ChatPerf.Subtitle"] = "Automated stress benchmark for chat scrolling and streaming frame-time stability.",
+            ["ChatPerf.Presence"] = "Perf Lab",
+            ["ChatPerf.ShellTitle"] = "Transcript Stress Harness",
+            ["ChatPerf.ShellSubtitle"] = "baseline vs optimized · auto-scroll + streaming",
+            ["ChatPerf.Seed"] = "Seed Transcript",
+            ["ChatPerf.Run"] = "Run Benchmark",
+            ["ChatPerf.Stop"] = "Stop",
+            ["ChatPerf.ScenarioTitle"] = "Scenario",
+            ["ChatPerf.Scenario"] = "1,200 chat messages + 10-second automated scroll sweep + large markdown streaming payload. Measures FPS, frame-time p95, worst frame, and slow-frame ratio.",
+            ["ChatPerf.ResultsTitle"] = "Results",
+            ["ChatPerf.StatusLabel"] = "Status",
+            ["ChatPerf.StatusIdle"] = "Idle",
+            ["ChatPerf.BaselineLabel"] = "Baseline (Legacy)",
+            ["ChatPerf.OptimizedLabel"] = "Optimized",
+            ["ChatPerf.UpliftLabel"] = "Measured Uplift",
+            ["ChatPerf.NoResults"] = "No results yet.",
+            ["ChatPerf.StatusSeeded"] = "Transcript seeded with many messages. Run benchmark to compare baseline vs optimized.",
+            ["ChatPerf.StatusRunningBaseline"] = "Running baseline scenario profile…",
+            ["ChatPerf.StatusRunningOptimized"] = "Running optimized scenario profile…",
+            ["ChatPerf.StatusCompleted"] = "Benchmark complete. Optimized mode maintains higher FPS and lower frame times under streaming + scroll stress.",
+            ["ChatPerf.StatusCancelled"] = "Benchmark canceled.",
         },
 
         ["he"] = new()
@@ -266,6 +291,7 @@ public sealed class Strings
             ["Nav.AiControls"] = "פקדי AI",
             ["Nav.Settings"] = "הגדרות",
             ["Nav.ChatExperience"] = "חוויית צ׳אט",
+            ["Nav.ChatPerformance"] = "ביצועי צ׳אט",
 
             // Sidebar toggles
             ["DarkMode"] = "מצב כהה",
@@ -452,6 +478,30 @@ public sealed class Strings
             ["Chat.FollowUp"] = "שאלת המשך\u2026",
             ["Chat.MixedRtlLead"] = "שלום אני adir. זה משפט בדיקה ראשון כדי לוודא שהיישור פועל נכון גם כשיש מילים באנגלית באמצע. עכשיו נוסיף עוד משפט בעברית עם timestamp 09:57 ו-reference לקובץ docs/guide.md.",
             ["Chat.MixedLtrLead"] = "hello I am אדיר. This is the first verification sentence to confirm alignment stays left even when Hebrew appears inline. Next sentence adds more English context with incident IR-4471 and deployment notes.",
+
+            // Chat Performance
+            ["ChatPerf.Title"] = "מעבדת ביצועי צ׳אט",
+            ["ChatPerf.Subtitle"] = "בדיקת עומס אוטומטית לגלילה וסטרימינג בצ׳אט עם יציבות זמני פריים.",
+            ["ChatPerf.Presence"] = "מעבדת ביצועים",
+            ["ChatPerf.ShellTitle"] = "רתמת עומס לטרנסקריפט",
+            ["ChatPerf.ShellSubtitle"] = "קו בסיס מול אופטימיזציה · גלילה אוטומטית + סטרימינג",
+            ["ChatPerf.Seed"] = "טעינת טרנסקריפט",
+            ["ChatPerf.Run"] = "הרצת בנצ׳מרק",
+            ["ChatPerf.Stop"] = "עצור",
+            ["ChatPerf.ScenarioTitle"] = "תרחיש",
+            ["ChatPerf.Scenario"] = "1,200 הודעות צ׳אט + 10 שניות גלילה אוטומטית + מטען Markdown גדול בסטרימינג. נמדדים FPS, זמן פריים p95, פריים גרוע ביותר ושיעור פריימים איטיים.",
+            ["ChatPerf.ResultsTitle"] = "תוצאות",
+            ["ChatPerf.StatusLabel"] = "סטטוס",
+            ["ChatPerf.StatusIdle"] = "ממתין",
+            ["ChatPerf.BaselineLabel"] = "קו בסיס (Legacy)",
+            ["ChatPerf.OptimizedLabel"] = "אופטימיזציה",
+            ["ChatPerf.UpliftLabel"] = "שיפור נמדד",
+            ["ChatPerf.NoResults"] = "אין תוצאות עדיין.",
+            ["ChatPerf.StatusSeeded"] = "הטרנסקריפט נטען עם הרבה הודעות. הריצו בנצ׳מרק להשוואת קו בסיס מול אופטימיזציה.",
+            ["ChatPerf.StatusRunningBaseline"] = "מריץ פרופיל קו בסיס…",
+            ["ChatPerf.StatusRunningOptimized"] = "מריץ פרופיל אופטימיזציה…",
+            ["ChatPerf.StatusCompleted"] = "הבנצ׳מרק הושלם. המצב הממוטב שומר על FPS גבוה יותר וזמני פריים נמוכים יותר תחת סטרימינג + גלילה.",
+            ["ChatPerf.StatusCancelled"] = "הבנצ׳מרק בוטל.",
         }
     };
 }
