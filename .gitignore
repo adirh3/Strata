@@ -17,3 +17,7 @@ Desktop.ini
 .DS_Store
 
 nupkg/
+
+## Benchmark / perf generated artifacts
+BenchmarkDotNet.Artifacts/
+artifacts/chat-perf-report*.json

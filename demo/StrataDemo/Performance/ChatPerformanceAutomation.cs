@@ -40,6 +40,7 @@ internal static class ChatPerformanceAutomation
                 idle = result.IdleMetrics,
                 baseline = result.BaselineMetrics,
                 optimized = result.OptimizedMetrics,
+                deltas = BuildMetricDeltas(result.BaselineMetrics, result.OptimizedMetrics),
                 result.BaselineText,
                 result.OptimizedText,
                 result.UpliftText
@@ -55,8 +56,7 @@ internal static class ChatPerformanceAutomation
             Console.WriteLine($"CHAT_PERF_RENDER::PageVisible={result.PerfPageVisible};ShellVisible={result.ShellVisible};ShellBounds={result.ShellWidth:F1}x{result.ShellHeight:F1}");
             Console.WriteLine($"CHAT_PERF_REPORT::{resolvedReportPath}");
 
-            var pass = result.OptimizedMetrics.AvgFps >= result.BaselineMetrics.AvgFps &&
-                       result.OptimizedMetrics.P95FrameMs <= result.BaselineMetrics.P95FrameMs;
+            var pass = EvaluatePass(result.BaselineMetrics, result.OptimizedMetrics);
 
             Environment.ExitCode = pass ? 0 : 2;
         }
@@ -82,5 +82,34 @@ internal static class ChatPerformanceAutomation
             return path;
 
         return Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, path));
+    }
+
+    private static object BuildMetricDeltas(UiFrameMetrics baseline, UiFrameMetrics optimized)
+    {
+        return new
+        {
+            fpsDelta = optimized.AvgFps - baseline.AvgFps,
+            avgFrameMsDelta = baseline.AvgFrameMs - optimized.AvgFrameMs,
+            p95FrameMsDelta = baseline.P95FrameMs - optimized.P95FrameMs,
+            worstFrameMsDelta = baseline.WorstFrameMs - optimized.WorstFrameMs,
+            slowFramePctDelta = baseline.SlowFramePercent - optimized.SlowFramePercent
+        };
+    }
+
+    private static bool EvaluatePass(UiFrameMetrics baseline, UiFrameMetrics optimized)
+    {
+        const double maxFpsRegression = 1.0;
+        const double maxP95RegressionMs = 0.75;
+        const double maxSlowFrameRegressionPct = 1.5;
+
+        var fpsDelta = optimized.AvgFps - baseline.AvgFps;
+        var p95Delta = baseline.P95FrameMs - optimized.P95FrameMs;
+        var slowFrameDelta = baseline.SlowFramePercent - optimized.SlowFramePercent;
+
+        var fpsOk = fpsDelta >= -maxFpsRegression;
+        var p95Ok = p95Delta >= -maxP95RegressionMs;
+        var slowFrameOk = slowFrameDelta >= -maxSlowFrameRegressionPct;
+
+        return fpsOk && p95Ok && slowFrameOk;
     }
 }

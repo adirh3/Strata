@@ -140,21 +140,18 @@ internal sealed class ChatPerformanceBenchmarkRunner
         SeedTranscript();
         await Task.Delay(220, token);
 
-        var useHeavyStreaming = profile == ChatPerfScenarioProfile.Baseline;
-        var streamRenderIntervalMs = useHeavyStreaming
-            ? Math.Max(20, _options.StreamRenderIntervalMs / 2)
-            : _options.StreamRenderIntervalMs;
-
-        var streamingTextBlock = new TextBlock
-        {
-            TextWrapping = TextWrapping.Wrap,
-            Text = string.Empty
-        };
+        var runLegacyMarkdownPipeline = profile == ChatPerfScenarioProfile.Baseline;
+        var streamRenderIntervalMs = Math.Max(16, _options.StreamRenderIntervalMs);
+        var markdownThrottleMs = runLegacyMarkdownPipeline
+            ? _options.LegacyMarkdownThrottleMs
+            : _options.OptimizedMarkdownThrottleMs;
 
         var streamingMarkdown = new StrataMarkdown
         {
             IsInline = true,
-            Markdown = string.Empty
+            Markdown = string.Empty,
+            EnableAppendTailParsing = !runLegacyMarkdownPipeline,
+            StreamingRebuildThrottleMs = Math.Max(0, markdownThrottleMs),
         };
 
         var streamingMessage = new StrataChatMessage
@@ -165,7 +162,7 @@ internal sealed class ChatPerformanceBenchmarkRunner
             StatusText = "streaming",
             IsStreaming = true,
             IsEditable = false,
-            Content = useHeavyStreaming ? streamingMarkdown : streamingTextBlock
+            Content = streamingMarkdown
         };
 
         _transcript.Children.Add(streamingMessage);
@@ -191,10 +188,7 @@ internal sealed class ChatPerformanceBenchmarkRunner
                 if (stopwatch.Elapsed - lastStreamRenderAt >= TimeSpan.FromMilliseconds(streamRenderIntervalMs) ||
                     cursor == fullMarkdown.Length)
                 {
-                    if (useHeavyStreaming)
-                        streamingMarkdown.Markdown = fullMarkdown[..cursor];
-                    else
-                        streamingTextBlock.Text = fullMarkdown[..cursor];
+                    streamingMarkdown.Markdown = fullMarkdown[..cursor];
 
                     streamUpdates++;
                     lastStreamRenderAt = stopwatch.Elapsed;
@@ -213,15 +207,6 @@ internal sealed class ChatPerformanceBenchmarkRunner
             }
 
             await Task.Delay(16, token);
-        }
-
-        if (!useHeavyStreaming)
-        {
-            streamingMessage.Content = new StrataMarkdown
-            {
-                IsInline = true,
-                Markdown = fullMarkdown
-            };
         }
 
         streamingMessage.IsStreaming = false;

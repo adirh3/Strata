@@ -52,6 +52,8 @@ public enum StrataChatRole
 /// </remarks>
 public class StrataChatMessage : TemplatedControl
 {
+    private const int DirectionScanLimitChars = 384;
+
     private enum TextDirection
     {
         Neutral,
@@ -504,13 +506,17 @@ public class StrataChatMessage : TemplatedControl
         if (direction == TextDirection.Neutral)
             return;
 
-        textBlock.FlowDirection = direction == TextDirection.RightToLeft
+        var targetFlowDirection = direction == TextDirection.RightToLeft
             ? FlowDirection.RightToLeft
             : FlowDirection.LeftToRight;
+        if (textBlock.FlowDirection != targetFlowDirection)
+            textBlock.FlowDirection = targetFlowDirection;
 
-        textBlock.TextAlignment = direction == TextDirection.RightToLeft
+        var targetTextAlignment = direction == TextDirection.RightToLeft
             ? TextAlignment.Right
             : TextAlignment.Left;
+        if (textBlock.TextAlignment != targetTextAlignment)
+            textBlock.TextAlignment = targetTextAlignment;
     }
 
     private static void ApplyDirectionalMarkdownAlignment(StrataMarkdown markdown)
@@ -519,9 +525,11 @@ public class StrataChatMessage : TemplatedControl
         if (direction == TextDirection.Neutral)
             return;
 
-        markdown.FlowDirection = direction == TextDirection.RightToLeft
+        var targetFlowDirection = direction == TextDirection.RightToLeft
             ? FlowDirection.RightToLeft
             : FlowDirection.LeftToRight;
+        if (markdown.FlowDirection != targetFlowDirection)
+            markdown.FlowDirection = targetFlowDirection;
     }
 
     private static TextDirection DetectLeadingDirection(string? text)
@@ -529,8 +537,23 @@ public class StrataChatMessage : TemplatedControl
         if (string.IsNullOrWhiteSpace(text))
             return TextDirection.Neutral;
 
+        var scannedChars = 0;
         foreach (var rune in text.EnumerateRunes())
         {
+            scannedChars += rune.Utf16SequenceLength;
+            if (scannedChars > DirectionScanLimitChars)
+                break;
+
+            if (rune.Value <= 0x7F)
+            {
+                var ascii = (char)rune.Value;
+                if (char.IsWhiteSpace(ascii) || char.IsDigit(ascii) || char.IsPunctuation(ascii) || char.IsSymbol(ascii))
+                    continue;
+
+                if ((ascii >= 'A' && ascii <= 'Z') || (ascii >= 'a' && ascii <= 'z'))
+                    return TextDirection.LeftToRight;
+            }
+
             var category = Rune.GetUnicodeCategory(rune);
 
             if (category is UnicodeCategory.SpaceSeparator

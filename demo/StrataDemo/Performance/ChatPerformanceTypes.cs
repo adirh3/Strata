@@ -29,12 +29,16 @@ internal readonly record struct ChatPerformanceRunOptions(
     int ScenarioSeconds,
     int StreamChunkSizeChars,
     int StreamRenderIntervalMs,
-    int Iterations)
+    int Iterations,
+    int LegacyMarkdownThrottleMs,
+    int OptimizedMarkdownThrottleMs)
 {
     public static ChatPerformanceRunOptions Default => new(
-        MessageCount: 1200,
-        ScenarioSeconds: 10,
-        StreamChunkSizeChars: 950,
-        StreamRenderIntervalMs: 85,
-        Iterations: 2);
+        MessageCount: 1000,
+        ScenarioSeconds: 12,
+        StreamChunkSizeChars: 220,
+        StreamRenderIntervalMs: 12,
+        Iterations: 3,
+        LegacyMarkdownThrottleMs: 0,
+        OptimizedMarkdownThrottleMs: 0);
 }

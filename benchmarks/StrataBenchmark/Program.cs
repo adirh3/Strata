@@ -224,9 +224,47 @@ public class IncrementalDiffBenchmarks
         var totalBlocks = 0;
         foreach (var step in _streamingSteps)
         {
-            var blocks = StrataMarkdown.ParseBlocks(step);
+            var blocks = StrataMarkdown.ParseBlocks(NormalizeLineEndings(step));
             totalBlocks += blocks.Count;
         }
+        return totalBlocks;
+    }
+
+    [Benchmark(Description = "Streaming parse only: full reparse each update")]
+    public int StreamingFullParseOnly()
+    {
+        var totalBlocks = 0;
+        foreach (var step in _streamingSteps)
+            totalBlocks += StrataMarkdown.ParseBlocks(NormalizeLineEndings(step)).Count;
+        return totalBlocks;
+    }
+
+    [Benchmark(Description = "Streaming parse only: append-tail incremental parser")]
+    public int StreamingAppendTailParseOnly()
+    {
+        var totalBlocks = 0;
+        List<StrataMarkdown.MdBlock>? previousBlocks = null;
+        string? previousNormalized = null;
+
+        foreach (var step in _streamingSteps)
+        {
+            var normalized = NormalizeLineEndings(step);
+            List<StrataMarkdown.MdBlock> blocks;
+
+            if (previousBlocks is null || previousNormalized is null)
+            {
+                blocks = StrataMarkdown.ParseBlocks(normalized);
+            }
+            else
+            {
+                blocks = StrataMarkdown.ParseBlocksIncrementalAppend(previousNormalized, previousBlocks, normalized);
+            }
+
+            totalBlocks += blocks.Count;
+            previousBlocks = blocks;
+            previousNormalized = normalized;
+        }
+
         return totalBlocks;
     }
 
@@ -240,8 +278,17 @@ public class IncrementalDiffBenchmarks
 
         foreach (var step in _streamingSteps)
         {
-            var normalized = step.Replace("\r\n", "\n");
-            var newBlocks = StrataMarkdown.ParseBlocks(normalized);
+            var normalized = NormalizeLineEndings(step);
+            List<StrataMarkdown.MdBlock> newBlocks;
+
+            if (previousBlocks is null || previousNormalized is null)
+            {
+                newBlocks = StrataMarkdown.ParseBlocks(normalized);
+            }
+            else
+            {
+                newBlocks = StrataMarkdown.ParseBlocksIncrementalAppend(previousNormalized, previousBlocks, normalized);
+            }
 
             if (previousBlocks is not null)
             {
@@ -278,8 +325,17 @@ public class IncrementalDiffBenchmarks
 
         foreach (var step in _streamingSteps)
         {
-            var normalized = step.Replace("\r\n", "\n");
-            var newBlocks = StrataMarkdown.ParseBlocks(normalized);
+            var normalized = NormalizeLineEndings(step);
+            List<StrataMarkdown.MdBlock> newBlocks;
+
+            if (previousBlocks is null || previousNormalized is null)
+            {
+                newBlocks = StrataMarkdown.ParseBlocks(normalized);
+            }
+            else
+            {
+                newBlocks = StrataMarkdown.ParseBlocksIncrementalAppend(previousNormalized, previousBlocks, normalized);
+            }
 
             if (previousBlocks is not null)
             {
@@ -307,6 +363,11 @@ public class IncrementalDiffBenchmarks
             previousNormalized = normalized;
         }
         return (totalUpdates, skippedUpdates);
+    }
+
+    private static string NormalizeLineEndings(string input)
+    {
+        return input.IndexOf('\r') >= 0 ? input.Replace("\r\n", "\n") : input;
     }
 }
 
@@ -391,7 +452,7 @@ public class Program
         stopwatch.Restart();
         for (int i = 0; i < parseIterations; i++)
         {
-            StrataMarkdown.ParseBlocks(fullText);
+            StrataMarkdown.ParseBlocks(NormalizeLineEndings(fullText));
         }
         var parseElapsed = stopwatch.Elapsed;
         Console.WriteLine($"[Parse] {parseIterations} full parses in {parseElapsed.TotalMilliseconds:F2}ms ({parseElapsed.TotalMilliseconds / parseIterations:F4}ms/parse)");
@@ -403,7 +464,7 @@ public class Program
         {
             foreach (var step in steps)
             {
-                var blocks = StrataMarkdown.ParseBlocks(step);
+                var blocks = StrataMarkdown.ParseBlocks(NormalizeLineEndings(step));
                 // Old approach: all blocks would be recreated
                 oldTotalBlockCreations += blocks.Count;
             }
@@ -421,8 +482,17 @@ public class Program
 
             foreach (var step in steps)
             {
-                var norm = step.Replace("\r\n", "\n");
-                var blocks = StrataMarkdown.ParseBlocks(norm);
+                var norm = NormalizeLineEndings(step);
+                List<StrataMarkdown.MdBlock> blocks;
+
+                if (previous is null || previousNorm is null)
+                {
+                    blocks = StrataMarkdown.ParseBlocks(norm);
+                }
+                else
+                {
+                    blocks = StrataMarkdown.ParseBlocksIncrementalAppend(previousNorm, previous, norm);
+                }
 
                 if (previous is null)
                 {
@@ -456,6 +526,7 @@ public class Program
         Console.WriteLine();
         Console.WriteLine($"[Old: Full Rebuild] {oldTotalBlockCreations} block creations total across {steps.Count * 10} streaming updates");
         Console.WriteLine($"[New: Incremental]  {totalBlockCreations} block creations, {totalBlocksSkipped} blocks SKIPPED");
+        Console.WriteLine($"[Timing] Full reparse {oldElapsed.TotalMilliseconds:F2}ms vs incremental {newElapsed.TotalMilliseconds:F2}ms over {steps.Count * 10} updates");
         Console.WriteLine();
 
         var skipRate = totalBlocksSkipped * 100.0 / (totalBlockCreations + totalBlocksSkipped);
@@ -466,8 +537,12 @@ public class Program
         // The real savings: each skipped block saves ~0.5-2ms of UI work
         // (SelectableTextBlock creation + inline regex + layout) 
         var estimatedSavingsMs = totalBlocksSkipped * 0.8; // conservative 0.8ms per block
+        var parseSpeedupPct = oldElapsed.TotalMilliseconds <= 0
+            ? 0
+            : ((oldElapsed.TotalMilliseconds - newElapsed.TotalMilliseconds) / oldElapsed.TotalMilliseconds) * 100.0;
         Console.WriteLine($">>> Estimated UI savings: ~{estimatedSavingsMs:F0}ms of avoided work per 10 streaming sessions");
         Console.WriteLine($">>> Per streaming update: ~{estimatedSavingsMs / (steps.Count * 10):F2}ms saved");
+        Console.WriteLine($">>> Parse-time uplift: {parseSpeedupPct:+0.0;-0.0;0}%");
         Console.WriteLine();
 
         // Verify correctness: final parse should produce consistent blocks
@@ -482,5 +557,10 @@ public class Program
 
         Console.WriteLine();
         Console.WriteLine("=== Validation Complete ===");
+    }
+
+    private static string NormalizeLineEndings(string input)
+    {
+        return input.IndexOf('\r') >= 0 ? input.Replace("\r\n", "\n") : input;
     }
 }

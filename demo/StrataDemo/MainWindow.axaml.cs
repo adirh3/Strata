@@ -912,12 +912,12 @@ public partial class MainWindow : Window
 
             EnsurePerformanceDemoSeeded(forceReset: true);
 
-            SetPerformanceStatus(L("ChatPerf.StatusRunningBaseline", "Running baseline scenario (legacy alignment + smoothing)…"));
+            SetPerformanceStatus(L("ChatPerf.StatusRunningBaseline", "Running baseline scenario (legacy markdown pipeline)…"));
             var baseline = await _perfRunner.RunScenarioSeriesAsync(ChatPerfScenarioProfile.Baseline, token);
             var baselineText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(baseline);
             _perfBaselineText?.SetCurrentValue(TextBlock.TextProperty, baselineText);
 
-            SetPerformanceStatus(L("ChatPerf.StatusRunningOptimized", "Running optimized scenario (incremental alignment + no smoothing)…"));
+            SetPerformanceStatus(L("ChatPerf.StatusRunningOptimized", "Running optimized scenario (append-tail parse + throttled rebuild)…"));
             var optimized = await _perfRunner.RunScenarioSeriesAsync(ChatPerfScenarioProfile.Optimized, token);
             var optimizedText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(optimized);
             _perfOptimizedText?.SetCurrentValue(TextBlock.TextProperty, optimizedText);

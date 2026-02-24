@@ -63,6 +63,7 @@ public class StrataMarkdown : ContentControl
         public string Content { get; init; }
         public int Level { get; init; }       // heading level, indent, item number
         public string Language { get; init; }  // code block language
+        public int SourceStart { get; init; }
 
         public bool Equals(MdBlock other) =>
             Kind == other.Kind && Level == other.Level &&
@@ -111,6 +112,8 @@ public class StrataMarkdown : ContentControl
 
     // ── Rebuild debouncing for rapid streaming ──
     private bool _rebuildQueued;
+    private System.Threading.CancellationTokenSource? _rebuildDelayCts;
+    private DateTime _lastRebuildAtUtc;
 
     // ── Shared TextMate registries (expensive to create) ──
     private static RegistryOptions? _darkRegistry;
@@ -135,12 +138,28 @@ public class StrataMarkdown : ContentControl
     public static readonly StyledProperty<bool> IsInlineProperty =
         AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(IsInline));
 
+    /// <summary>
+    /// Internal performance test toggle: when true, append updates reparse only the
+    /// last unstable block instead of the full document.
+    /// </summary>
+    internal static readonly StyledProperty<bool> EnableAppendTailParsingProperty =
+        AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(EnableAppendTailParsing), true);
+
+    /// <summary>
+    /// Internal performance test toggle: minimum delay between rebuild passes
+    /// during rapid markdown updates.
+    /// </summary>
+    internal static readonly StyledProperty<int> StreamingRebuildThrottleMsProperty =
+        AvaloniaProperty.Register<StrataMarkdown, int>(nameof(StreamingRebuildThrottleMs), 42);
+
     static StrataMarkdown()
     {
         MarkdownProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         TitleProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateTitle());
         ShowTitleProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateTitle());
         IsInlineProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateSurfaceMode());
+        EnableAppendTailParsingProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
+        StreamingRebuildThrottleMsProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
     }
 
     /// <summary>
@@ -149,13 +168,60 @@ public class StrataMarkdown : ContentControl
     /// </summary>
     private void ScheduleRebuild()
     {
-        if (_rebuildQueued) return;
+        if (_rebuildQueued)
+            return;
+
+        var throttleMs = Math.Max(0, StreamingRebuildThrottleMs);
+        var elapsedSinceLastRebuildMs = _lastRebuildAtUtc == default
+            ? int.MaxValue
+            : (int)Math.Max(0, (DateTime.UtcNow - _lastRebuildAtUtc).TotalMilliseconds);
+        var delayMs = throttleMs <= 0
+            ? 0
+            : Math.Max(0, throttleMs - elapsedSinceLastRebuildMs);
+
         _rebuildQueued = true;
-        Dispatcher.UIThread.Post(() =>
+
+        _rebuildDelayCts?.Cancel();
+        _rebuildDelayCts?.Dispose();
+        _rebuildDelayCts = null;
+
+        if (delayMs <= 0)
         {
-            _rebuildQueued = false;
-            Rebuild();
-        }, DispatcherPriority.Loaded);
+            Dispatcher.UIThread.Post(FlushQueuedRebuild, DispatcherPriority.Loaded);
+            return;
+        }
+
+        var cts = new System.Threading.CancellationTokenSource();
+        _rebuildDelayCts = cts;
+
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                await Task.Delay(delayMs, cts.Token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+
+            if (cts.IsCancellationRequested)
+                return;
+
+            FlushQueuedRebuild();
+        }, DispatcherPriority.Background);
+    }
+
+    private void FlushQueuedRebuild()
+    {
+        if (!_rebuildQueued)
+            return;
+
+        _rebuildQueued = false;
+        _lastRebuildAtUtc = DateTime.UtcNow;
+        _rebuildDelayCts?.Dispose();
+        _rebuildDelayCts = null;
+        Rebuild();
     }
 
     public string? Markdown
@@ -180,6 +246,18 @@ public class StrataMarkdown : ContentControl
     {
         get => GetValue(IsInlineProperty);
         set => SetValue(IsInlineProperty, value);
+    }
+
+    internal bool EnableAppendTailParsing
+    {
+        get => GetValue(EnableAppendTailParsingProperty);
+        set => SetValue(EnableAppendTailParsingProperty, value);
+    }
+
+    internal int StreamingRebuildThrottleMs
+    {
+        get => GetValue(StreamingRebuildThrottleMsProperty);
+        set => SetValue(StreamingRebuildThrottleMsProperty, value);
     }
 
     public StrataMarkdown()
@@ -292,7 +370,7 @@ public class StrataMarkdown : ContentControl
             return;
         }
 
-        var normalized = source.Replace("\r\n", "\n");
+        var normalized = NormalizeLineEndings(source);
 
         // Fast path: identical content — skip everything
         if (normalized.Length == _previousMarkdownLength &&
@@ -310,7 +388,16 @@ public class StrataMarkdown : ContentControl
                                 normalized.Length > _previousMarkdownLength &&
                                 normalized.AsSpan().StartsWith(_previousMarkdownNormalized.AsSpan());
 
-        var newBlocks = ParseBlocks(normalized);
+        List<MdBlock> newBlocks;
+        if (isStreamingAppend && EnableAppendTailParsing &&
+            _previousMarkdownNormalized is not null && _previousBlocks.Count > 0)
+        {
+            newBlocks = ParseBlocksIncrementalAppend(_previousMarkdownNormalized, _previousBlocks, normalized);
+        }
+        else
+        {
+            newBlocks = ParseBlocks(normalized);
+        }
 
         // ── Incremental diff: only touch changed blocks ──
         ApplyBlocksDiff(newBlocks, isStreamingAppend);
@@ -329,8 +416,40 @@ public class StrataMarkdown : ContentControl
     internal static List<MdBlock> ParseBlocks(string normalized)
     {
         var blocks = new List<MdBlock>();
-        ParseBlocksCore(normalized.AsSpan(), blocks, new StringBuilder(), new StringBuilder(), new List<string>());
+        ParseBlocksCore(normalized.AsSpan(), blocks, new StringBuilder(), new StringBuilder(), new List<string>(), 0);
         return blocks;
+    }
+
+    internal static List<MdBlock> ParseBlocksIncrementalAppend(
+        string previousNormalized,
+        IReadOnlyList<MdBlock> previousBlocks,
+        string nextNormalized)
+    {
+        if (previousBlocks.Count == 0 ||
+            string.IsNullOrEmpty(previousNormalized) ||
+            nextNormalized.Length <= previousNormalized.Length ||
+            !nextNormalized.AsSpan().StartsWith(previousNormalized.AsSpan()))
+        {
+            return ParseBlocks(nextNormalized);
+        }
+
+        var lastBlockStart = previousBlocks[^1].SourceStart;
+        if (lastBlockStart < 0 || lastBlockStart > nextNormalized.Length)
+            return ParseBlocks(nextNormalized);
+
+        var merged = new List<MdBlock>(Math.Max(previousBlocks.Count + 8, 16));
+        for (var i = 0; i < previousBlocks.Count - 1; i++)
+            merged.Add(previousBlocks[i]);
+
+        ParseBlocksCore(
+            nextNormalized.AsSpan(lastBlockStart),
+            merged,
+            new StringBuilder(),
+            new StringBuilder(),
+            new List<string>(),
+            lastBlockStart);
+
+        return merged;
     }
 
     /// <summary>
@@ -339,7 +458,8 @@ public class StrataMarkdown : ContentControl
     /// </summary>
     private static void ParseBlocksCore(
         ReadOnlySpan<char> source, List<MdBlock> blocks,
-        StringBuilder paragraphBuffer, StringBuilder codeBuffer, List<string> tableBuffer)
+        StringBuilder paragraphBuffer, StringBuilder codeBuffer, List<string> tableBuffer,
+        int baseOffset)
     {
         paragraphBuffer.Clear();
         codeBuffer.Clear();
@@ -347,72 +467,106 @@ public class StrataMarkdown : ContentControl
         var inCodeBlock = false;
         var codeLanguage = string.Empty;
 
+        var paragraphStart = -1;
+        var codeStart = -1;
+        var tableStart = -1;
+
         // Enumerate lines using span slicing — no Split allocation
         var remaining = source;
+        var localOffset = 0;
         while (remaining.Length > 0)
         {
             int nlPos = remaining.IndexOf('\n');
             ReadOnlySpan<char> lineSpan;
+            int consumedLength;
             if (nlPos >= 0)
             {
                 lineSpan = remaining[..nlPos];
-                remaining = remaining[(nlPos + 1)..];
+                consumedLength = nlPos + 1;
+                remaining = remaining[consumedLength..];
             }
             else
             {
                 lineSpan = remaining;
+                consumedLength = remaining.Length;
                 remaining = ReadOnlySpan<char>.Empty;
             }
+
+            var absoluteLineStart = baseOffset + localOffset;
+            localOffset += consumedLength;
 
             // Trim trailing \r if present
             if (lineSpan.Length > 0 && lineSpan[^1] == '\r')
                 lineSpan = lineSpan[..^1];
 
-            var line = lineSpan.ToString(); // Need string for block content storage
-
             if (lineSpan.Length >= 3 && lineSpan[0] == '`' && lineSpan[1] == '`' && lineSpan[2] == '`')
             {
-                FlushParagraphBlock(paragraphBuffer, blocks);
-                FlushTableBlock(tableBuffer, blocks);
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
+                FlushTableBlock(tableBuffer, blocks, tableStart);
+                tableStart = -1;
 
                 if (!inCodeBlock)
                 {
                     inCodeBlock = true;
                     codeLanguage = lineSpan.Length > 3 ? lineSpan[3..].Trim().ToString() : string.Empty;
                     codeBuffer.Clear();
+                    codeStart = absoluteLineStart;
                 }
                 else
                 {
                     var code = codeBuffer.ToString();
                     var kind = MapCodeLanguageToBlockKind(codeLanguage);
-                    blocks.Add(new MdBlock { Kind = kind, Content = code, Language = codeLanguage });
+                    blocks.Add(new MdBlock
+                    {
+                        Kind = kind,
+                        Content = code,
+                        Language = codeLanguage,
+                        SourceStart = codeStart >= 0 ? codeStart : absoluteLineStart,
+                    });
                     inCodeBlock = false;
                     codeLanguage = string.Empty;
                     codeBuffer.Clear();
+                    codeStart = -1;
                 }
                 continue;
             }
 
             if (inCodeBlock)
             {
-                codeBuffer.AppendLine(line);
+                if (codeBuffer.Length > 0)
+                    codeBuffer.Append('\n');
+                codeBuffer.Append(lineSpan);
                 continue;
             }
 
             if (IsTableLine(lineSpan))
             {
-                FlushParagraphBlock(paragraphBuffer, blocks);
-                tableBuffer.Add(line);
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
+                if (tableBuffer.Count == 0)
+                    tableStart = absoluteLineStart;
+                tableBuffer.Add(lineSpan.ToString());
                 continue;
             }
 
             if (tableBuffer.Count > 0)
-                FlushTableBlock(tableBuffer, blocks);
+            {
+                FlushTableBlock(tableBuffer, blocks, tableStart);
+                tableStart = -1;
+            }
 
             if (TryParseHeading(lineSpan, out var level, out var headingText))
             {
-                FlushParagraphBlock(paragraphBuffer, blocks);
-                blocks.Add(new MdBlock { Kind = MdBlockKind.Heading, Content = headingText, Level = level });
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
+                blocks.Add(new MdBlock
+                {
+                    Kind = MdBlockKind.Heading,
+                    Content = headingText,
+                    Level = level,
+                    SourceStart = absoluteLineStart,
+                });
                 continue;
             }
 
@@ -421,45 +575,78 @@ public class StrataMarkdown : ContentControl
             // or non-rule content, so genuine bullets like "- Item" fall through safely.
             if (IsHorizontalRule(lineSpan))
             {
-                FlushParagraphBlock(paragraphBuffer, blocks);
-                blocks.Add(new MdBlock { Kind = MdBlockKind.HorizontalRule, Content = string.Empty });
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
+                blocks.Add(new MdBlock
+                {
+                    Kind = MdBlockKind.HorizontalRule,
+                    Content = string.Empty,
+                    SourceStart = absoluteLineStart,
+                });
                 continue;
             }
 
             if (TryParseBullet(lineSpan, out var bulletText))
             {
-                FlushParagraphBlock(paragraphBuffer, blocks);
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
                 var indentLevel = GetIndentLevel(lineSpan);
-                blocks.Add(new MdBlock { Kind = MdBlockKind.Bullet, Content = bulletText, Level = indentLevel });
+                blocks.Add(new MdBlock
+                {
+                    Kind = MdBlockKind.Bullet,
+                    Content = bulletText,
+                    Level = indentLevel,
+                    SourceStart = absoluteLineStart,
+                });
                 continue;
             }
 
             if (TryParseNumberedItem(lineSpan, out var number, out var numText))
             {
-                FlushParagraphBlock(paragraphBuffer, blocks);
-                blocks.Add(new MdBlock { Kind = MdBlockKind.NumberedItem, Content = numText, Level = number });
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
+                blocks.Add(new MdBlock
+                {
+                    Kind = MdBlockKind.NumberedItem,
+                    Content = numText,
+                    Level = number,
+                    SourceStart = absoluteLineStart,
+                });
                 continue;
             }
 
             if (lineSpan.IsWhiteSpace())
             {
-                FlushParagraphBlock(paragraphBuffer, blocks);
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
                 continue;
             }
 
-            paragraphBuffer.AppendLine(line);
+            if (paragraphStart < 0)
+                paragraphStart = absoluteLineStart;
+            if (paragraphBuffer.Length > 0)
+                paragraphBuffer.Append('\n');
+            paragraphBuffer.Append(lineSpan);
         }
+
+        var endOffset = baseOffset + source.Length;
 
         // Handle unclosed code block
         if (inCodeBlock)
         {
             var code = codeBuffer.ToString();
             var kind = MapCodeLanguageToBlockKind(codeLanguage);
-            blocks.Add(new MdBlock { Kind = kind, Content = code, Language = codeLanguage });
+            blocks.Add(new MdBlock
+            {
+                Kind = kind,
+                Content = code,
+                Language = codeLanguage,
+                SourceStart = codeStart >= 0 ? codeStart : endOffset,
+            });
         }
 
-        FlushTableBlock(tableBuffer, blocks);
-        FlushParagraphBlock(paragraphBuffer, blocks);
+        FlushTableBlock(tableBuffer, blocks, tableStart);
+        FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, endOffset);
     }
 
     private static MdBlockKind MapCodeLanguageToBlockKind(string language)
@@ -473,20 +660,39 @@ public class StrataMarkdown : ContentControl
         return MdBlockKind.CodeBlock;
     }
 
-    private static void FlushParagraphBlock(StringBuilder buffer, List<MdBlock> blocks)
+    private static void FlushParagraphBlock(StringBuilder buffer, List<MdBlock> blocks, int paragraphStart, int fallbackStart)
     {
         var text = buffer.ToString().Trim();
         buffer.Clear();
         if (!string.IsNullOrWhiteSpace(text))
-            blocks.Add(new MdBlock { Kind = MdBlockKind.Paragraph, Content = text });
+        {
+            blocks.Add(new MdBlock
+            {
+                Kind = MdBlockKind.Paragraph,
+                Content = text,
+                SourceStart = paragraphStart >= 0 ? paragraphStart : fallbackStart,
+            });
+        }
     }
 
-    private static void FlushTableBlock(List<string> tableLines, List<MdBlock> blocks)
+    private static void FlushTableBlock(List<string> tableLines, List<MdBlock> blocks, int tableStart)
     {
         if (tableLines.Count == 0) return;
         // Store the full table as joined lines
-        blocks.Add(new MdBlock { Kind = MdBlockKind.Table, Content = string.Join("\n", tableLines) });
+        blocks.Add(new MdBlock
+        {
+            Kind = MdBlockKind.Table,
+            Content = string.Join("\n", tableLines),
+            SourceStart = tableStart,
+        });
         tableLines.Clear();
+    }
+
+    private static string NormalizeLineEndings(string source)
+    {
+        return source.IndexOf('\r') >= 0
+            ? source.Replace("\r\n", "\n")
+            : source;
     }
 
     /// <summary>

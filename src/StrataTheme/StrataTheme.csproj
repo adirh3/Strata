@@ -15,6 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="StrataDemo" />
     <InternalsVisibleTo Include="StrataBenchmark" />
     <InternalsVisibleTo Include="StrataTheme.Tests" />
   </ItemGroup>
