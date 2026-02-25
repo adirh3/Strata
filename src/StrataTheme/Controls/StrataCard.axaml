@@ -6,98 +6,227 @@
 
       <ControlTheme x:Key="{x:Type controls:StrataCard}" TargetType="controls:StrataCard">
         <Setter Property="Focusable" Value="True" />
-        <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
-        <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
-        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="ClipToBounds" Value="True" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="Template">
           <ControlTemplate>
-            <Border Name="PART_RootBorder"
-                    Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}"
-                    CornerRadius="{TemplateBinding CornerRadius}"
-                    ClipToBounds="True">
-              <Border.Transitions>
-                <Transitions>
-                  <BrushTransition Property="Background" Duration="0:0:0.2" />
-                  <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
-                </Transitions>
-              </Border.Transitions>
-              <DockPanel>
-                <!-- Stratum accent line -->
-                <Border Name="PART_StratumLine"
-                        DockPanel.Dock="Left"
-                        Width="3"
-                        Background="{DynamicResource Brush.BorderSubtle}">
-                  <Border.Transitions>
-                    <Transitions>
-                      <BrushTransition Property="Background" Duration="0:0:0.3" />
-                      <DoubleTransition Property="Width" Duration="0:0:0.2" />
-                    </Transitions>
-                  </Border.Transitions>
-                </Border>
+            <Panel>
+              <!-- Focus ring (outer, Strata pattern) -->
+              <Border Name="PART_FocusRing"
+                      CornerRadius="10"
+                      BorderThickness="2"
+                      BorderBrush="Transparent"
+                      Margin="-2"
+                      IsHitTestVisible="False" />
 
-                <DockPanel Margin="14,10,14,12">
-                  <!-- Header row with chevron -->
-                  <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-                    <Border Name="PART_Chevron"
-                            DockPanel.Dock="Right"
-                            Width="16" Height="16"
-                            VerticalAlignment="Center"
-                            RenderTransformOrigin="0.5,0.5"
-                            RenderTransform="rotate(0deg)">
-                      <Border.Transitions>
-                        <Transitions>
-                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24" Easing="CubicEaseOut" />
-                        </Transitions>
-                      </Border.Transitions>
-                      <TextBlock Text="›"
-                                 FontSize="16"
-                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center" />
-                    </Border>
-                    <ContentPresenter Name="PART_HeaderPresenter"
-                                      Content="{TemplateBinding Header}" />
-                  </DockPanel>
+              <Border Name="PART_Root"
+                      Background="{DynamicResource Brush.Surface0}"
+                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                      BorderThickness="1"
+                      CornerRadius="8"
+                      ClipToBounds="True"
+                      Cursor="Hand">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                  </Transitions>
+                </Border.Transitions>
 
-                  <!-- Animated content area -->
-                  <Border Name="PART_ContentHost" ClipToBounds="True">
-                    <Panel>
-                      <ContentPresenter Name="PART_SummaryPresenter"
-                                        Content="{TemplateBinding Summary}"
-                                        IsVisible="True" />
-                      <ContentPresenter Name="PART_DetailPresenter"
-                                        Content="{TemplateBinding Detail}"
-                                        IsVisible="False" />
-                    </Panel>
+                <StackPanel Spacing="0">
+                  <!-- Stratum accent line — Strata signature gradient -->
+                  <Border Name="PART_Stratum"
+                          Height="2"
+                          Background="{DynamicResource Brush.AccentGradient}"
+                          Opacity="0.6">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                      </Transitions>
+                    </Border.Transitions>
                   </Border>
-                </DockPanel>
-              </DockPanel>
-            </Border>
+
+                  <!-- Clickable header row -->
+                  <Border Name="PART_Header"
+                          Padding="12,8,10,8"
+                          Background="Transparent">
+                    <Grid ColumnDefinitions="Auto,8,*,8,Auto">
+                      <!-- Status dot -->
+                      <Border Name="PART_StatusDot"
+                              Width="6" Height="6"
+                              CornerRadius="3"
+                              VerticalAlignment="Center"
+                              Background="{DynamicResource Brush.BorderSubtle}"
+                              IsVisible="False">
+                        <Border.Transitions>
+                          <Transitions>
+                            <BrushTransition Property="Background" Duration="0:0:0.2" />
+                          </Transitions>
+                        </Border.Transitions>
+                      </Border>
+
+                      <!-- Header text stack -->
+                      <StackPanel Grid.Column="2" Spacing="1" VerticalAlignment="Center">
+                        <ContentPresenter Name="PART_HeaderPresenter"
+                                          Content="{TemplateBinding Header}"
+                                          TextElement.FontSize="12.5"
+                                          TextElement.FontWeight="SemiBold" />
+                        <TextBlock Name="PART_Subtitle"
+                                   Text="{TemplateBinding Subtitle}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource Brush.TextTertiary}"
+                                   TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+
+                      <!-- Status pill -->
+                      <Border Name="PART_StatusPill"
+                              Grid.Column="4"
+                              Padding="7,2"
+                              CornerRadius="999"
+                              Background="{DynamicResource Brush.AccentSubtle}"
+                              VerticalAlignment="Center"
+                              IsVisible="False">
+                        <TextBlock Name="PART_StatusLabel"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brush.AccentDefault}" />
+                      </Border>
+                    </Grid>
+                  </Border>
+
+                  <!-- Summary — compact preview, hidden when expanded -->
+                  <Border Name="PART_SummaryHost"
+                          Padding="12,0,12,8">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+                      </Transitions>
+                    </Border.Transitions>
+                    <ContentPresenter Content="{TemplateBinding Summary}"
+                                      TextElement.FontSize="12"
+                                      TextElement.Foreground="{DynamicResource Brush.TextSecondary}" />
+                  </Border>
+
+                  <!-- Detail — animated reveal -->
+                  <Border Name="PART_Detail"
+                          ClipToBounds="True"
+                          MaxHeight="0"
+                          Opacity="0"
+                          Padding="12,0,12,10"
+                          RenderTransformOrigin="0.5,0"
+                          RenderTransform="translateY(-4px) scaleY(0.96)">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="MaxHeight" Duration="0:0:0.26" Easing="CubicEaseOut" />
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Border.Transitions>
+                    <StackPanel Spacing="8">
+                      <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
+                      <ContentPresenter Content="{TemplateBinding Detail}" />
+                      <!-- Footer inside detail area -->
+                      <Border Name="PART_FooterHost" IsVisible="False">
+                        <StackPanel Spacing="6">
+                          <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
+                          <ContentPresenter Content="{TemplateBinding Footer}"
+                                            TextElement.FontSize="11"
+                                            TextElement.Foreground="{DynamicResource Brush.TextTertiary}" />
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+              </Border>
+            </Panel>
           </ControlTemplate>
         </Setter>
 
-        <!-- Hover -->
-        <Style Selector="^:pointerover /template/ Border#PART_RootBorder">
+        <!-- ─── Expanded ─── -->
+        <Style Selector="^:expanded /template/ Border#PART_Detail">
+          <Setter Property="MaxHeight" Value="2000" />
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
+        </Style>
+        <Style Selector="^:expanded /template/ Border#PART_Stratum">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:expanded /template/ Border#PART_SummaryHost">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- ─── Hover ─── -->
+        <Style Selector="^:pointerover /template/ Border#PART_Root">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
         </Style>
 
-        <Style Selector="^:focus-visible /template/ Border#PART_RootBorder">
+        <!-- ─── Focus ─── -->
+        <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
         </Style>
 
-        <!-- Expanded: accent left bar and rotate chevron -->
-        <Style Selector="^[IsExpanded=True] /template/ Border#PART_StratumLine">
+        <!-- ─── Footer visible ─── -->
+        <Style Selector="^:has-footer /template/ Border#PART_FooterHost">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- ─── Status dot + pill visible when status set ─── -->
+        <Style Selector="^:info /template/ Border#PART_StatusDot">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^:info /template/ Border#PART_StatusPill">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:info /template/ Border#PART_Stratum">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
         </Style>
 
-        <Style Selector="^[IsExpanded=True] /template/ Border#PART_Chevron">
-          <Setter Property="RenderTransform" Value="rotate(90deg)" />
+        <Style Selector="^:success /template/ Border#PART_StatusDot">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
         </Style>
+        <Style Selector="^:success /template/ Border#PART_StatusPill">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.SuccessSubtle}" />
+        </Style>
+        <Style Selector="^:success /template/ TextBlock#PART_StatusLabel">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+        </Style>
+        <Style Selector="^:success /template/ Border#PART_Stratum">
+          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
+        </Style>
+
+        <Style Selector="^:warning /template/ Border#PART_StatusDot">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
+        <Style Selector="^:warning /template/ Border#PART_StatusPill">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningSubtle}" />
+        </Style>
+        <Style Selector="^:warning /template/ TextBlock#PART_StatusLabel">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
+        <Style Selector="^:warning /template/ Border#PART_Stratum">
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
+
+        <Style Selector="^:error /template/ Border#PART_StatusDot">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+        <Style Selector="^:error /template/ Border#PART_StatusPill">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerSubtle}" />
+        </Style>
+        <Style Selector="^:error /template/ TextBlock#PART_StatusLabel">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+        <Style Selector="^:error /template/ Border#PART_Stratum">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+
       </ControlTheme>
 
     </ResourceDictionary>

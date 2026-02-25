@@ -1,39 +1,56 @@
-using System;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Rendering.Composition;
 
 namespace StrataTheme.Controls;
 
 /// <summary>
-/// An expanding summary card. Shows a compact summary that, when clicked,
-/// smoothly expands to reveal full content with animated height, cross-fading
-/// content, and a pulsing stratum accent line.
+/// Status values for <see cref="StrataCard"/>.
+/// </summary>
+public enum StrataCardStatus
+{
+    /// <summary>Neutral / default appearance.</summary>
+    None,
+    /// <summary>Informational accent.</summary>
+    Info,
+    /// <summary>Positive / success accent.</summary>
+    Success,
+    /// <summary>Warning accent.</summary>
+    Warning,
+    /// <summary>Error / danger accent.</summary>
+    Error,
+}
+
+/// <summary>
+/// A compact, expanding summary card with a status-aware stratum accent line,
+/// status dot, and optional status pill. Shows a summary when collapsed and
+/// animated detail content when expanded. Follows the Strata visual language
+/// used by StrataAiToolCall and StrataTurnSummary.
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage:</b></para>
 /// <code>
-/// &lt;controls:StrataCard&gt;
-///     &lt;controls:StrataCard.Header&gt;&lt;TextBlock Text="Result" /&gt;&lt;/controls:StrataCard.Header&gt;
-///     &lt;controls:StrataCard.Summary&gt;&lt;TextBlock Text="3 items found" /&gt;&lt;/controls:StrataCard.Summary&gt;
-///     &lt;controls:StrataCard.Detail&gt;&lt;TextBlock Text="Item 1, 2, 3 details..." /&gt;&lt;/controls:StrataCard.Detail&gt;
+/// &lt;controls:StrataCard Header="Deployment Complete"
+///                       Subtitle="3 services updated"
+///                       Status="Success" StatusText="Healthy"&gt;
+///     &lt;controls:StrataCard.Summary&gt;&lt;TextBlock Text="All checks passed" /&gt;&lt;/controls:StrataCard.Summary&gt;
+///     &lt;controls:StrataCard.Detail&gt;&lt;TextBlock Text="Service A, B, C details" /&gt;&lt;/controls:StrataCard.Detail&gt;
+///     &lt;controls:StrataCard.Footer&gt;&lt;TextBlock Text="2 min ago" /&gt;&lt;/controls:StrataCard.Footer&gt;
 /// &lt;/controls:StrataCard&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_StratumLine (Border), PART_ContentHost (Border),
-/// PART_SummaryPresenter (ContentPresenter), PART_DetailPresenter (ContentPresenter).</para>
+/// <para><b>Template parts:</b> PART_Root (Border), PART_FocusRing (Border),
+/// PART_Stratum (Border), PART_StatusDot (Border), PART_StatusPill (Border),
+/// PART_Detail (Border).</para>
+/// <para><b>Pseudo-classes:</b> :expanded, :info, :success, :warning, :error, :has-footer.</para>
 /// </remarks>
 public class StrataCard : TemplatedControl
 {
-    private Border? _stratumLine;
-    private Border? _contentHost;
-    private ContentPresenter? _summaryPresenter;
-    private ContentPresenter? _detailPresenter;
-
     public static readonly StyledProperty<object?> HeaderProperty =
         AvaloniaProperty.Register<StrataCard, object?>(nameof(Header));
+
+    public static readonly StyledProperty<string?> SubtitleProperty =
+        AvaloniaProperty.Register<StrataCard, string?>(nameof(Subtitle));
 
     public static readonly StyledProperty<object?> SummaryProperty =
         AvaloniaProperty.Register<StrataCard, object?>(nameof(Summary));
@@ -41,40 +58,54 @@ public class StrataCard : TemplatedControl
     public static readonly StyledProperty<object?> DetailProperty =
         AvaloniaProperty.Register<StrataCard, object?>(nameof(Detail));
 
+    public static readonly StyledProperty<object?> FooterProperty =
+        AvaloniaProperty.Register<StrataCard, object?>(nameof(Footer));
+
     public static readonly StyledProperty<bool> IsExpandedProperty =
         AvaloniaProperty.Register<StrataCard, bool>(nameof(IsExpanded));
 
-    public object? Header
+    public static readonly StyledProperty<StrataCardStatus> StatusProperty =
+        AvaloniaProperty.Register<StrataCard, StrataCardStatus>(nameof(Status));
+
+    public static readonly StyledProperty<string?> StatusTextProperty =
+        AvaloniaProperty.Register<StrataCard, string?>(nameof(StatusText));
+
+    static StrataCard()
     {
-        get => GetValue(HeaderProperty);
-        set => SetValue(HeaderProperty, value);
+        IsExpandedProperty.Changed.AddClassHandler<StrataCard>((c, _) => c.UpdatePseudoClasses());
+        StatusProperty.Changed.AddClassHandler<StrataCard>((c, _) => c.UpdatePseudoClasses());
+        FooterProperty.Changed.AddClassHandler<StrataCard>((c, _) => c.UpdatePseudoClasses());
     }
 
-    public object? Summary
-    {
-        get => GetValue(SummaryProperty);
-        set => SetValue(SummaryProperty, value);
-    }
+    /// <summary>Gets or sets the header content (title).</summary>
+    public object? Header { get => GetValue(HeaderProperty); set => SetValue(HeaderProperty, value); }
 
-    public object? Detail
-    {
-        get => GetValue(DetailProperty);
-        set => SetValue(DetailProperty, value);
-    }
+    /// <summary>Gets or sets a secondary subtitle below the header.</summary>
+    public string? Subtitle { get => GetValue(SubtitleProperty); set => SetValue(SubtitleProperty, value); }
 
-    public bool IsExpanded
-    {
-        get => GetValue(IsExpandedProperty);
-        set => SetValue(IsExpandedProperty, value);
-    }
+    /// <summary>Gets or sets the collapsed summary content.</summary>
+    public object? Summary { get => GetValue(SummaryProperty); set => SetValue(SummaryProperty, value); }
+
+    /// <summary>Gets or sets the expanded detail content.</summary>
+    public object? Detail { get => GetValue(DetailProperty); set => SetValue(DetailProperty, value); }
+
+    /// <summary>Gets or sets optional footer content below the detail area.</summary>
+    public object? Footer { get => GetValue(FooterProperty); set => SetValue(FooterProperty, value); }
+
+    /// <summary>Gets or sets whether the card is expanded to show detail.</summary>
+    public bool IsExpanded { get => GetValue(IsExpandedProperty); set => SetValue(IsExpandedProperty, value); }
+
+    /// <summary>Gets or sets the status which drives accent color and status dot.</summary>
+    public StrataCardStatus Status { get => GetValue(StatusProperty); set => SetValue(StatusProperty, value); }
+
+    /// <summary>Gets or sets the label shown in the status pill badge.</summary>
+    public string? StatusText { get => GetValue(StatusTextProperty); set => SetValue(StatusTextProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
-        _stratumLine = e.NameScope.Find<Border>("PART_StratumLine");
-        _contentHost = e.NameScope.Find<Border>("PART_ContentHost");
-        _summaryPresenter = e.NameScope.Find<ContentPresenter>("PART_SummaryPresenter");
-        _detailPresenter = e.NameScope.Find<ContentPresenter>("PART_DetailPresenter");
+        SyncStatusLabel(e);
+        UpdatePseudoClasses();
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -84,51 +115,36 @@ public class StrataCard : TemplatedControl
             return;
 
         e.Handled = true;
-        Toggle();
+        IsExpanded = !IsExpanded;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-
         if (e.Key is Key.Enter or Key.Space)
         {
             e.Handled = true;
-            Toggle();
+            IsExpanded = !IsExpanded;
         }
     }
 
-    private void Toggle()
+    private void UpdatePseudoClasses()
     {
-        if (_summaryPresenter is null || _detailPresenter is null)
-            return;
-
-        IsExpanded = !IsExpanded;
-
-        _summaryPresenter.IsVisible = !IsExpanded;
-        _detailPresenter.IsVisible = IsExpanded;
-
-        AnimateStratumLine();
+        PseudoClasses.Set(":expanded", IsExpanded);
+        PseudoClasses.Set(":info", Status == StrataCardStatus.Info);
+        PseudoClasses.Set(":success", Status == StrataCardStatus.Success);
+        PseudoClasses.Set(":warning", Status == StrataCardStatus.Warning);
+        PseudoClasses.Set(":error", Status == StrataCardStatus.Error);
+        PseudoClasses.Set(":has-footer", Footer is not null);
     }
 
-    private void AnimateStratumLine()
+    private void SyncStatusLabel(TemplateAppliedEventArgs e)
     {
-        if (_stratumLine is null) return;
-        var visual = ElementComposition.GetElementVisual(_stratumLine);
-        if (visual is null) return;
+        var label = e.NameScope.Find<Avalonia.Controls.TextBlock>("PART_StatusLabel");
+        if (label is null) return;
 
-        var comp = visual.Compositor;
-        visual.CenterPoint = new Avalonia.Vector3D(
-            _stratumLine.Bounds.Width / 2,
-            _stratumLine.Bounds.Height / 2, 0);
-
-        var scaleAnim = comp.CreateVector3KeyFrameAnimation();
-        scaleAnim.Target = "Scale";
-        scaleAnim.InsertKeyFrame(0f, new System.Numerics.Vector3(1f, 1f, 1f));
-        scaleAnim.InsertKeyFrame(0.35f, new System.Numerics.Vector3(1f, 2f, 1f));
-        scaleAnim.InsertKeyFrame(1f, new System.Numerics.Vector3(1f, 1f, 1f));
-        scaleAnim.Duration = TimeSpan.FromMilliseconds(400);
-        visual.StartAnimation("Scale", scaleAnim);
+        // Use explicit StatusText, or fall back to status name
+        label.Text = StatusText ?? (Status != StrataCardStatus.None ? Status.ToString() : null);
     }
 }
 

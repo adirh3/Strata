@@ -656,6 +656,109 @@
             </StackPanel>
           </Border>
 
+          <!-- ── StrataCard ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataCard" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="Compact expanding card with status dot, pill badge, and animated detail reveal. Mirrors the StrataAiToolCall visual language." />
+              </StackPanel>
+
+              <StackPanel Spacing="8">
+                <!-- Default / neutral -->
+                <sc:StrataCard Header="Quarterly Review"
+                               Subtitle="Finance · Q4 2025">
+                  <sc:StrataCard.Summary>
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Revenue grew 12.5% QoQ with 3 enterprise contracts closed." />
+                  </sc:StrataCard.Summary>
+                  <sc:StrataCard.Detail>
+                    <StackPanel Spacing="4">
+                      <TextBlock TextWrapping="Wrap"
+                                 Text="Q4 reached $84,250 MRR. Enterprise accounts contributed 68% of new ARR through seat expansion and annual plan upgrades." />
+                      <TextBlock TextWrapping="Wrap" Classes="secondary"
+                                 Text="Average deal size increased 23% quarter-over-quarter." />
+                    </StackPanel>
+                  </sc:StrataCard.Detail>
+                </sc:StrataCard>
+
+                <!-- Success -->
+                <sc:StrataCard Header="Deployment Complete"
+                               Subtitle="3 services updated"
+                               Status="Success" StatusText="Healthy">
+                  <sc:StrataCard.Summary>
+                    <TextBlock TextWrapping="Wrap"
+                               Text="All health checks passed. Services running at target capacity." />
+                  </sc:StrataCard.Summary>
+                  <sc:StrataCard.Detail>
+                    <StackPanel Spacing="4">
+                      <TextBlock TextWrapping="Wrap" Text="API Gateway v3.2.1 — healthy (12 pods)" />
+                      <TextBlock TextWrapping="Wrap" Text="Auth Service v2.8.0 — healthy (4 pods)" />
+                      <TextBlock TextWrapping="Wrap" Text="Worker Pool v1.5.3 — healthy (8 pods)" />
+                    </StackPanel>
+                  </sc:StrataCard.Detail>
+                  <sc:StrataCard.Footer>
+                    <TextBlock Text="Completed 2 minutes ago" />
+                  </sc:StrataCard.Footer>
+                </sc:StrataCard>
+
+                <!-- Warning -->
+                <sc:StrataCard Header="High Memory Usage"
+                               Subtitle="worker-pool-7d4f8"
+                               Status="Warning" StatusText="87%">
+                  <sc:StrataCard.Summary>
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Approaching configured threshold of 90%." />
+                  </sc:StrataCard.Summary>
+                  <sc:StrataCard.Detail>
+                    <StackPanel Spacing="4">
+                      <TextBlock TextWrapping="Wrap" Text="Current: 3.48 GB / 4.00 GB allocated" />
+                      <TextBlock TextWrapping="Wrap" Text="Peak: 3.61 GB (12 min ago)" />
+                      <TextBlock TextWrapping="Wrap" Classes="secondary" Text="Consider scaling horizontally or increasing memory limits." />
+                    </StackPanel>
+                  </sc:StrataCard.Detail>
+                </sc:StrataCard>
+
+                <!-- Error -->
+                <sc:StrataCard Header="Pipeline Failed"
+                               Subtitle="main · a3f7c21"
+                               Status="Error" StatusText="2 failures">
+                  <sc:StrataCard.Summary>
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Build stage failed after 4m 32s." />
+                  </sc:StrataCard.Summary>
+                  <sc:StrataCard.Detail>
+                    <StackPanel Spacing="4">
+                      <TextBlock TextWrapping="Wrap" Text="IntegrationTests.AuthFlowTests — 2 failures" />
+                      <TextBlock TextWrapping="Wrap" Text="UnitTests.TokenValidation — 1 failure" />
+                      <TextBlock TextWrapping="Wrap" Classes="secondary" Text="847 tests passed across 12 other suites." />
+                    </StackPanel>
+                  </sc:StrataCard.Detail>
+                  <sc:StrataCard.Footer>
+                    <TextBlock Text="Failed 8 minutes ago" />
+                  </sc:StrataCard.Footer>
+                </sc:StrataCard>
+
+                <!-- Info -->
+                <sc:StrataCard Header="What's new in v2.4"
+                               Status="Info" StatusText="Release">
+                  <sc:StrataCard.Summary>
+                    <TextBlock TextWrapping="Wrap"
+                               Text="5 features, 12 fixes, improved dark mode." />
+                  </sc:StrataCard.Summary>
+                  <sc:StrataCard.Detail>
+                    <StackPanel Spacing="4">
+                      <TextBlock TextWrapping="Wrap" Text="• StrataCard with status and animated expand" />
+                      <TextBlock TextWrapping="Wrap" Text="• Mermaid diagram rendering in markdown" />
+                      <TextBlock TextWrapping="Wrap" Text="• Focus ring clipping fix in scroll regions" />
+                    </StackPanel>
+                  </sc:StrataCard.Detail>
+                </sc:StrataCard>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
           <!-- ── StrataOrb ── -->
           <Border Classes="strata-card" Padding="24,20">
             <StackPanel Spacing="14">
