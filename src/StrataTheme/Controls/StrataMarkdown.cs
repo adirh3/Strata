@@ -709,14 +709,13 @@ public class StrataMarkdown : ContentControl
         // Safety: if children count is out of sync with tracked blocks, do a full rebuild
         if (_contentHost.Children.Count != oldCount)
         {
-            _contentHost.Children.Clear();
-            foreach (var block in newBlocks)
-                _contentHost.Children.Add(CreateControlForBlock(block));
+            RebuildChildrenFromBlocks(newBlocks);
             return;
         }
 
         // During streaming, text is a strict prefix so blocks before the last are unchanged.
         var diffStart = isStreamingAppend && oldCount > 0 ? oldCount - 1 : 0;
+        diffStart = Math.Min(diffStart, newCount);
 
         // Track cache keys for skipped unchanged blocks
         for (int i = 0; i < diffStart; i++)
@@ -732,7 +731,25 @@ public class StrataMarkdown : ContentControl
                 TrackCacheKeysForBlock(newBlocks[i]);
                 continue;
             }
-            _contentHost.Children[i] = CreateControlForBlock(newBlocks[i]);
+
+            var replacement = CreateControlForBlock(newBlocks[i]);
+
+            // Some cached controls are stateful and can be attached elsewhere.
+            // If creating a replacement mutated the host's child collection, fall back
+            // to a full rebuild to avoid out-of-range indexed assignments.
+            if (_contentHost.Children.Count != oldCount || i >= _contentHost.Children.Count)
+            {
+                RebuildChildrenFromBlocks(newBlocks);
+                return;
+            }
+
+            _contentHost.Children[i] = replacement;
+        }
+
+        if (_contentHost.Children.Count < minCount)
+        {
+            RebuildChildrenFromBlocks(newBlocks);
+            return;
         }
 
         // Append new blocks
@@ -742,6 +759,19 @@ public class StrataMarkdown : ContentControl
         // Remove trailing stale blocks (iterate from end to avoid index shift)
         for (int i = _contentHost.Children.Count - 1; i >= newCount; i--)
             _contentHost.Children.RemoveAt(i);
+    }
+
+    private void RebuildChildrenFromBlocks(IReadOnlyList<MdBlock> blocks)
+    {
+        _contentHost.Children.Clear();
+        foreach (var block in blocks)
+            _contentHost.Children.Add(CreateControlForBlock(block));
+    }
+
+    private void DetachFromForeignParent(Control control)
+    {
+        if (control.Parent is Panel oldParent && !ReferenceEquals(oldParent, _contentHost))
+            oldParent.Children.Remove(control);
     }
 
     /// <summary>
@@ -1141,8 +1171,7 @@ public class StrataMarkdown : ContentControl
         if (_chartCache.TryGetValue(trimmed, out var cached))
         {
             _chartKeysUsed.Add(trimmed);
-            if (cached.Parent is Panel oldParent)
-                oldParent.Children.Remove(cached);
+            DetachFromForeignParent(cached);
             return cached;
         }
 
@@ -1233,8 +1262,7 @@ public class StrataMarkdown : ContentControl
         if (_chartCache.TryGetValue(cacheKey, out var cached))
         {
             _chartKeysUsed.Add(cacheKey);
-            if (cached.Parent is Panel oldParent)
-                oldParent.Children.Remove(cached);
+            DetachFromForeignParent(cached);
             return cached;
         }
 
@@ -1271,8 +1299,7 @@ public class StrataMarkdown : ContentControl
         if (_diagramCache.TryGetValue(cacheKey, out var cached))
         {
             _diagramKeysUsed.Add(cacheKey);
-            if (cached.Parent is Panel oldParent)
-                oldParent.Children.Remove(cached);
+            DetachFromForeignParent(cached);
             return cached;
         }
 
@@ -1558,9 +1585,8 @@ public class StrataMarkdown : ContentControl
             };
         }
 
-        // Remove from previous parent if still attached
-        if (_chartPlaceholder.Parent is Panel oldParent)
-            oldParent.Children.Remove(_chartPlaceholder);
+        // Remove from previous parent if attached to another host
+        DetachFromForeignParent(_chartPlaceholder);
 
         return _chartPlaceholder;
     }
@@ -1657,8 +1683,7 @@ public class StrataMarkdown : ContentControl
             };
         }
 
-        if (_blockPlaceholder.Parent is Panel oldParent)
-            oldParent.Children.Remove(_blockPlaceholder);
+        DetachFromForeignParent(_blockPlaceholder);
 
         return _blockPlaceholder;
     }
@@ -1672,8 +1697,7 @@ public class StrataMarkdown : ContentControl
         if (_confidenceCache.TryGetValue(trimmed, out var cached))
         {
             _confidenceKeysUsed.Add(trimmed);
-            if (cached.Parent is Panel oldParent)
-                oldParent.Children.Remove(cached);
+            DetachFromForeignParent(cached);
             return cached;
         }
 
@@ -1715,8 +1739,7 @@ public class StrataMarkdown : ContentControl
         if (_comparisonCache.TryGetValue(trimmed, out var cached))
         {
             _comparisonKeysUsed.Add(trimmed);
-            if (cached.Parent is Panel oldParent)
-                oldParent.Children.Remove(cached);
+            DetachFromForeignParent(cached);
             return cached;
         }
 
@@ -1770,8 +1793,7 @@ public class StrataMarkdown : ContentControl
         if (_cardCache.TryGetValue(trimmed, out var cached))
         {
             _cardKeysUsed.Add(trimmed);
-            if (cached.Parent is Panel oldParent)
-                oldParent.Children.Remove(cached);
+            DetachFromForeignParent(cached);
             return cached;
         }
 
@@ -1825,8 +1847,7 @@ public class StrataMarkdown : ContentControl
         if (_sourcesCache.TryGetValue(trimmed, out var cached))
         {
             _sourcesKeysUsed.Add(trimmed);
-            if (cached.Parent is Panel oldParent)
-                oldParent.Children.Remove(cached);
+            DetachFromForeignParent(cached);
             return cached;
         }
 
