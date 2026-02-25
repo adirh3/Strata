@@ -552,22 +552,29 @@ public partial class MainWindow : Window
         _liveTranscript.Children.Add(assistantMessage);
         _mainChatShell?.ScrollToEnd();
 
-        // Stream markdown in batches — accumulate words quickly, push to
-        // StrataMarkdown in chunks so the user sees formatted content
-        // progressively without per-word parse overhead.
-        var words = fullMarkdown.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // Stream markdown token-by-token. Split on spaces but also break on
+        // embedded newlines so table rows / headings arrive as distinct tokens
+        // with visible delay between lines.
+        var tokens = TokenizeForStreaming(fullMarkdown);
         var accumulated = new System.Text.StringBuilder(fullMarkdown.Length);
         const int batchSize = 6;
 
-        for (var i = 0; i < words.Length; i++)
+        for (var i = 0; i < tokens.Count; i++)
         {
             token.ThrowIfCancellationRequested();
 
-            if (accumulated.Length > 0) accumulated.Append(' ');
-            accumulated.Append(words[i]);
+            var tok = tokens[i];
+            if (tok == "\n")
+                accumulated.Append('\n');
+            else
+            {
+                if (accumulated.Length > 0 && accumulated[^1] != '\n')
+                    accumulated.Append(' ');
+                accumulated.Append(tok);
+            }
 
             // Push to markdown renderer every batch
-            if (i % batchSize == batchSize - 1 || i == words.Length - 1)
+            if (i % batchSize == batchSize - 1 || i == tokens.Count - 1)
             {
                 streamingMd.Markdown = accumulated.ToString();
                 _mainChatShell?.ScrollToEnd();
@@ -764,7 +771,7 @@ public partial class MainWindow : Window
 
         if (p.Contains("summary") || p.Contains("incident"))
         {
-            return "## Incident summary\nThe latency spike was driven by allocation bursts in serializer hot paths, amplifying GC pauses under peak load" + inlineCites + ".\n\n```csharp\npublic static bool IsSloHealthy(double p95Ms, double gcPauseMs)\n{\n    return p95Ms <= 250 && gcPauseMs <= 80;\n}\n```\n\n- Roll out in stages (10% \u2192 50% \u2192 100%)\n- Roll back immediately when thresholds are breached" + refs;
+            return "## Incident summary\nThe latency spike was driven by allocation bursts in serializer hot paths, amplifying GC pauses under peak load" + inlineCites + ".\n\n| Metric | Before | After | Delta |\n| --- | --- | --- | --- |\n| p95 latency | 120 ms | 460 ms | +340 ms |\n| GC pause | 18 ms | 97 ms | +79 ms |\n| Error rate | 0.02% | 1.8% | +1.78% |\n| Alloc/sec | 1.2 M | 4.7 M | +3.5 M |\n\n```csharp\npublic static bool IsSloHealthy(double p95Ms, double gcPauseMs)\n{\n    return p95Ms <= 250 && gcPauseMs <= 80;\n}\n```\n\n- Roll out in stages (10% \u2192 50% \u2192 100%)\n- Roll back immediately when thresholds are breached" + refs;
         }
 
         if (p.Contains("email") || p.Contains("update") || p.Contains("stakeholder"))
@@ -778,6 +785,27 @@ public partial class MainWindow : Window
         }
 
         return "## Response\nI can help with that. I will break this down into summary, root cause, and next actions with measurable gates and fallback steps" + inlineCites + ".\n\n```csharp\npublic sealed class Guardrail\n{\n    public double P95Ms { get; init; }\n    public double GcPauseMs { get; init; }\n\n    public bool IsHealthy() => P95Ms <= 250 && GcPauseMs <= 80;\n}\n```" + refs;
+    }
+
+    /// <summary>
+    /// Splits markdown into streaming tokens: words separated by spaces,
+    /// with embedded newlines extracted as individual "\n" tokens so that
+    /// table rows and headings arrive line-by-line with visible delay.
+    /// </summary>
+    private static List<string> TokenizeForStreaming(string markdown)
+    {
+        var result = new List<string>(markdown.Length / 4);
+        var lines = markdown.Replace("\r\n", "\n").Split('\n');
+        for (var li = 0; li < lines.Length; li++)
+        {
+            if (li > 0)
+                result.Add("\n");
+
+            var words = lines[li].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var w in words)
+                result.Add(w);
+        }
+        return result;
     }
 
     private static string StripMarkdown(string markdown)

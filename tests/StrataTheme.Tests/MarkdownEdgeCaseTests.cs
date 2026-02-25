@@ -247,6 +247,57 @@ public class MarkdownEdgeCaseTests
         Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
     }
 
+    [Fact]
+    public void Table_StreamingPartialRow_StaysInTable()
+    {
+        // During streaming the last row may only have an opening pipe
+        var md = "| Name | Value |\n| --- | --- |\n| A | 1 |\n|";
+        var blocks = StrataMarkdown.ParseBlocks(md);
+        // The partial "| " line should be absorbed into the table, not split out
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
+    }
+
+    [Fact]
+    public void Table_StreamingPartialSeparator_StaysInTable()
+    {
+        // Mid-stream: separator row has only received its opening pipe
+        var md = "| Name | Value |\n| ---";
+        var blocks = StrataMarkdown.ParseBlocks(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
+    }
+
+    [Fact]
+    public void Table_HeaderOnly_StillTable()
+    {
+        // Just the header row — should still parse as Table, not Paragraph
+        var md = "| Name | Value |";
+        var blocks = StrataMarkdown.ParseBlocks(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
+    }
+
+    [Fact]
+    public void Table_StreamingRowByRow_AlwaysTable()
+    {
+        // Simulate streaming a table row by row
+        var steps = new[]
+        {
+            "| A | B |",
+            "| A | B |\n| --- | --- |",
+            "| A | B |\n| --- | --- |\n| 1 | 2 |",
+            "| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |",
+        };
+
+        foreach (var step in steps)
+        {
+            var blocks = StrataMarkdown.ParseBlocks(step);
+            Assert.Single(blocks);
+            Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
+        }
+    }
+
     // ─── Boundary: empty/minimal inputs ─────────────────────────
 
     [Fact]
@@ -399,5 +450,149 @@ public class MarkdownEdgeCaseTests
         var blocks = StrataMarkdown.ParseBlocks(sb.ToString());
         // 100 sections × 4 blocks each = 400
         Assert.Equal(400, blocks.Count);
+    }
+
+    // ─── Regression: streaming table with newline-aware tokenizer ─
+
+    /// <summary>
+    /// Simulates the exact streaming path used in the demo: the markdown
+    /// is split into tokens by spaces + newlines, accumulated progressively,
+    /// and pushed to ParseBlocks every <c>batchSize</c> tokens. Every
+    /// intermediate snapshot must parse without crash and the final result
+    /// must contain a Table block with 4 data rows.
+    /// </summary>
+    [Fact]
+    public void StreamingTable_NewlineAwareTokenizer_AllIntermediateStatesValid()
+    {
+        // Exact markdown produced by BuildMockMarkdown for "incident summary"
+        var fullMarkdown =
+            "## Incident summary\n" +
+            "The latency spike was driven by allocation bursts in serializer hot paths, amplifying GC pauses under peak load [1](incidents/IR-4471.md) [2](runbooks/infra/autoscale.md).\n" +
+            "\n" +
+            "| Metric | Before | After | Delta |\n" +
+            "| --- | --- | --- | --- |\n" +
+            "| p95 latency | 120 ms | 460 ms | +340 ms |\n" +
+            "| GC pause | 18 ms | 97 ms | +79 ms |\n" +
+            "| Error rate | 0.02% | 1.8% | +1.78% |\n" +
+            "| Alloc/sec | 1.2 M | 4.7 M | +3.5 M |\n" +
+            "\n" +
+            "```csharp\n" +
+            "public static bool IsSloHealthy(double p95Ms, double gcPauseMs)\n" +
+            "{\n" +
+            "    return p95Ms <= 250 && gcPauseMs <= 80;\n" +
+            "}\n" +
+            "```\n" +
+            "\n" +
+            "- Roll out in stages (10% \u2192 50% \u2192 100%)\n" +
+            "- Roll back immediately when thresholds are breached\n" +
+            "\n" +
+            "### References\n" +
+            "- [incidents/IR-4471.md](incidents/IR-4471.md)\n" +
+            "- [runbooks/infra/autoscale.md](runbooks/infra/autoscale.md)";
+
+        // Replicate TokenizeForStreaming: split on newlines first, then by spaces
+        var tokens = new List<string>();
+        var lines = fullMarkdown.Replace("\r\n", "\n").Split('\n');
+        for (var li = 0; li < lines.Length; li++)
+        {
+            if (li > 0)
+                tokens.Add("\n");
+            var words = lines[li].Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+            foreach (var w in words)
+                tokens.Add(w);
+        }
+
+        // Replicate the streaming accumulation loop with batchSize = 6
+        const int batchSize = 6;
+        var accumulated = new System.Text.StringBuilder(fullMarkdown.Length);
+        var snapshots = new List<string>();
+
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var tok = tokens[i];
+            if (tok == "\n")
+                accumulated.Append('\n');
+            else
+            {
+                if (accumulated.Length > 0 && accumulated[^1] != '\n')
+                    accumulated.Append(' ');
+                accumulated.Append(tok);
+            }
+
+            if (i % batchSize == batchSize - 1 || i == tokens.Count - 1)
+                snapshots.Add(accumulated.ToString());
+        }
+
+        // Every snapshot must parse without exception and produce at least 1 block
+        foreach (var snapshot in snapshots)
+        {
+            var blocks = StrataMarkdown.ParseBlocks(snapshot);
+            Assert.True(blocks.Count >= 1,
+                $"Expected at least 1 block at snapshot length {snapshot.Length}");
+        }
+
+        // Final snapshot must parse identically to the original markdown
+        // (exact string may differ in whitespace within code blocks since the
+        // tokenizer normalises indentation, but the parse tree must match)
+        var originalBlocks = StrataMarkdown.ParseBlocks(fullMarkdown);
+        var final = StrataMarkdown.ParseBlocks(snapshots[^1]);
+        Assert.Equal(originalBlocks.Count, final.Count);
+        for (var b = 0; b < originalBlocks.Count; b++)
+            Assert.Equal(originalBlocks[b].Kind, final[b].Kind);
+        Assert.Contains(final, b => b.Kind == MdBlockKind.Heading && b.Content == "Incident summary");
+        Assert.Contains(final, b => b.Kind == MdBlockKind.Table);
+        Assert.Contains(final, b => b.Kind == MdBlockKind.CodeBlock);
+        Assert.Contains(final, b => b.Kind == MdBlockKind.Bullet);
+
+        // Table block must have 4 data rows (header + separator + 4 data rows)
+        var tableBlock = final.First(b => b.Kind == MdBlockKind.Table);
+        var tableLines = tableBlock.Content.Split('\n',
+            System.StringSplitOptions.RemoveEmptyEntries);
+        // header row + separator row + 4 data rows = 6
+        Assert.Equal(6, tableLines.Length);
+    }
+
+    /// <summary>
+    /// Verifies that newline tokens in the tokenizer output produce
+    /// correct line boundaries — no extra leading spaces on lines
+    /// that follow a newline token.
+    /// </summary>
+    [Fact]
+    public void StreamingTable_AccumulatedOutput_NoSpuriousLeadingSpaces()
+    {
+        var md = "## Title\n| A | B |\n| --- | --- |\n| 1 | 2 |";
+
+        var tokens = new List<string>();
+        var lines = md.Replace("\r\n", "\n").Split('\n');
+        for (var li = 0; li < lines.Length; li++)
+        {
+            if (li > 0)
+                tokens.Add("\n");
+            var words = lines[li].Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+            foreach (var w in words)
+                tokens.Add(w);
+        }
+
+        var accumulated = new System.Text.StringBuilder();
+        foreach (var tok in tokens)
+        {
+            if (tok == "\n")
+                accumulated.Append('\n');
+            else
+            {
+                if (accumulated.Length > 0 && accumulated[^1] != '\n')
+                    accumulated.Append(' ');
+                accumulated.Append(tok);
+            }
+        }
+
+        var result = accumulated.ToString();
+
+        // No line should start with a space
+        foreach (var line in result.Split('\n'))
+            Assert.False(line.StartsWith(' '), $"Line starts with space: '{line}'");
+
+        // Round-trip: should match original
+        Assert.Equal(md, result);
     }
 }

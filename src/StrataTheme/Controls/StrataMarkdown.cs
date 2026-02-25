@@ -103,6 +103,9 @@ public class StrataMarkdown : ContentControl
     private readonly Dictionary<string, Control> _sourcesCache = new();
     private readonly HashSet<string> _sourcesKeysUsed = new();
 
+    private readonly Dictionary<string, DataGrid> _tableCache = new();
+    private readonly HashSet<string> _tableKeysUsed = new();
+
     private Border? _blockPlaceholder;
 
     // ── Incremental state ──
@@ -359,6 +362,7 @@ public class StrataMarkdown : ContentControl
         _comparisonKeysUsed.Clear();
         _cardKeysUsed.Clear();
         _sourcesKeysUsed.Clear();
+        _tableKeysUsed.Clear();
 
         var source = Markdown;
         if (string.IsNullOrWhiteSpace(source))
@@ -547,6 +551,14 @@ public class StrataMarkdown : ContentControl
                 paragraphStart = -1;
                 if (tableBuffer.Count == 0)
                     tableStart = absoluteLineStart;
+                tableBuffer.Add(lineSpan.ToString());
+                continue;
+            }
+
+            // During streaming, a partial table line (starts with | but missing
+            // closing pipe) should continue the table rather than flush it.
+            if (tableBuffer.Count > 0 && StartsWithPipe(lineSpan))
+            {
                 tableBuffer.Add(lineSpan.ToString());
                 continue;
             }
@@ -809,6 +821,9 @@ public class StrataMarkdown : ContentControl
             case MdBlockKind.Sources:
                 _sourcesKeysUsed.Add(block.Content.Trim());
                 break;
+            case MdBlockKind.Table:
+                _tableKeysUsed.Add(GetTableCacheKey(block.Content));
+                break;
         }
     }
 
@@ -839,6 +854,7 @@ public class StrataMarkdown : ContentControl
         EvictFromCache(_comparisonCache, _comparisonKeysUsed);
         EvictFromCache(_cardCache, _cardKeysUsed);
         EvictFromCache(_sourcesCache, _sourcesKeysUsed);
+        EvictFromCache(_tableCache, _tableKeysUsed);
     }
 
     /// <summary>Remove cache entries not in the used set, without LINQ/ToList allocations.</summary>
@@ -2152,6 +2168,24 @@ public class StrataMarkdown : ContentControl
         return trimmed.Length > 1 && trimmed[0] == '|' && trimmed[1..].IndexOf('|') >= 0;
     }
 
+    /// <summary>
+    /// Returns true when a line starts with a pipe character.
+    /// Used to keep partial table rows (missing the closing pipe during streaming)
+    /// inside the table buffer instead of flushing the table prematurely.
+    /// </summary>
+    private static bool StartsWithPipe(ReadOnlySpan<char> line)
+    {
+        var trimmed = line.TrimStart();
+        return trimmed.Length > 0 && trimmed[0] == '|';
+    }
+
+    /// <summary>Cache key for a table block: the trimmed header row.</summary>
+    private static string GetTableCacheKey(string tableContent)
+    {
+        var nl = tableContent.IndexOf('\n');
+        return (nl >= 0 ? tableContent[..nl] : tableContent).Trim();
+    }
+
     private static bool IsTableSeparator(string line)
     {
         var cells = SplitTableCells(line);
@@ -2170,23 +2204,36 @@ public class StrataMarkdown : ContentControl
     {
         var tableLines = tableContent.Split('\n').ToList();
 
-        if (tableLines.Count < 2 || !IsTableSeparator(tableLines[1]))
+        // Drop trailing incomplete lines (streaming: last line may be a partial row
+        // with only an opening pipe and no closing pipe).
+        while (tableLines.Count > 1)
         {
-            var stack = new StackPanel { Spacing = 4 };
-            foreach (var line in tableLines)
-            {
-                var para = CreateRichText(line, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
-                para.Classes.Add("strata-md-paragraph");
-                stack.Children.Add(para);
-            }
-            return stack;
+            var last = tableLines[^1].Trim();
+            if (last.Length > 0 && last.Count(c => c == '|') >= 2)
+                break;
+            tableLines.RemoveAt(tableLines.Count - 1);
         }
 
-        var headers = SplitTableCells(tableLines[0]).Select(h => h.Trim()).ToArray();
-        var rows = new List<string[]>();
+        if (tableLines.Count == 0)
+            return new Border();
 
-        for (var i = 2; i < tableLines.Count; i++)
+        var headerLine = tableLines[0];
+        var headers = SplitTableCells(headerLine).Select(h => h.Trim()).ToArray();
+        if (headers.Length == 0)
+            return new Border();
+
+        // Determine where data rows start.
+        // With a valid separator on line 2 this is the normal path;
+        // without one (still streaming) we treat remaining lines as data.
+        var dataStartIndex = 1;
+        if (tableLines.Count >= 2 && IsTableSeparator(tableLines[1]))
+            dataStartIndex = 2;
+
+        var rows = new List<string[]>();
+        for (var i = dataStartIndex; i < tableLines.Count; i++)
         {
+            if (IsTableSeparator(tableLines[i]))
+                continue; // skip separators that appear mid-stream
             var cells = SplitTableCells(tableLines[i]).Select(c => c.Trim()).ToArray();
             var padded = new string[headers.Length];
             for (var j = 0; j < headers.Length; j++)
@@ -2194,10 +2241,24 @@ public class StrataMarkdown : ContentControl
             rows.Add(padded);
         }
 
-        return CreateDataGridForTable(headers, rows);
+        var cacheKey = headerLine.Trim();
+        _tableKeysUsed.Add(cacheKey);
+
+        // Reuse cached DataGrid when headers match — during streaming only rows change.
+        if (_tableCache.TryGetValue(cacheKey, out var cached))
+        {
+            DetachFromForeignParent(cached);
+            var items = rows.Select(r => r.ToList()).ToList();
+            cached.ItemsSource = items;
+            var h = 40 + (rows.Count * 36) + 4;
+            cached.Height = Math.Min(Math.Max(h, 40), 400);
+            return cached;
+        }
+
+        return CreateDataGridForTable(headers, rows, cacheKey);
     }
 
-    private Control CreateDataGridForTable(string[] headers, List<string[]> rows)
+    private Control CreateDataGridForTable(string[] headers, List<string[]> rows, string cacheKey)
     {
         var dataGrid = new DataGrid
         {
@@ -2231,8 +2292,9 @@ public class StrataMarkdown : ContentControl
         dataGrid.ItemsSource = items;
 
         var estimatedHeight = 40 + (rows.Count * 36) + 4;
-        dataGrid.Height = Math.Min(estimatedHeight, 400);
+        dataGrid.Height = Math.Min(Math.Max(estimatedHeight, 40), 400);
 
+        _tableCache[cacheKey] = dataGrid;
         return dataGrid;
     }
 }
