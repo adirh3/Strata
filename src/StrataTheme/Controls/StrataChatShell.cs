@@ -396,9 +396,6 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is null || _userScrolledAway)
             return;
 
-        if (DistanceFromBottom(_scrollViewer) <= 1)
-            return;
-
         if (_scrollQueued) return;
         _scrollQueued = true;
         Dispatcher.UIThread.Post(() =>
@@ -406,12 +403,18 @@ public class StrataChatShell : TemplatedControl
             _scrollQueued = false;
             if (_scrollViewer is null || _userScrolledAway) return;
 
-            if (DistanceFromBottom(_scrollViewer) <= 1)
-                return;
-
             _isProgrammaticScroll = true;
             _scrollViewer.ScrollToEnd();
-            Dispatcher.UIThread.Post(() => _isProgrammaticScroll = false, DispatcherPriority.Loaded);
+
+            // Scroll once more after layout settles so streaming content growth
+            // (e.g., markdown reflow) still keeps the viewport pinned to the bottom.
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_scrollViewer is not null && !_userScrolledAway)
+                    _scrollViewer.ScrollToEnd();
+
+                _isProgrammaticScroll = false;
+            }, DispatcherPriority.Loaded);
         }, DispatcherPriority.Render);
     }
 
@@ -427,6 +430,11 @@ public class StrataChatShell : TemplatedControl
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         if (_scrollViewer is null || _isProgrammaticScroll)
+            return;
+
+        // Ignore extent-only changes from streaming/layout updates.
+        // We only treat explicit viewport movement as user scroll intent.
+        if (Math.Abs(e.OffsetDelta.Y) <= 0.5)
             return;
 
         var distanceFromBottom = DistanceFromBottom(_scrollViewer);
