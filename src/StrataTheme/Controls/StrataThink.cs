@@ -1,5 +1,6 @@
 using System;
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -31,13 +32,25 @@ public class StrataThink : TemplatedControl
 {
     private Border? _dot;
     private Border? _pill;
-    private StackPanel? _headerRow;
+    private Control? _headerRow;
+    private Transitions? _savedPillTransitions;
+    private bool _initialWidthTransitionSuppressed;
 
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<StrataThink, string>(nameof(Label), "Thinking\u2026");
 
+    public static readonly StyledProperty<string?> MetaProperty =
+        AvaloniaProperty.Register<StrataThink, string?>(nameof(Meta));
+
     public static readonly StyledProperty<object?> ContentProperty =
         AvaloniaProperty.Register<StrataThink, object?>(nameof(Content));
+
+    /// <summary>
+    /// Optional progress percentage (0-100) shown as a compact progress line under the header.
+    /// Set to a negative value to hide.
+    /// </summary>
+    public static readonly StyledProperty<double> ProgressValueProperty =
+        AvaloniaProperty.Register<StrataThink, double>(nameof(ProgressValue), -1);
 
     public static readonly StyledProperty<bool> IsExpandedProperty =
         AvaloniaProperty.Register<StrataThink, bool>(nameof(IsExpanded));
@@ -50,10 +63,18 @@ public class StrataThink : TemplatedControl
         IsActiveProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdatePseudoClasses());
         IsExpandedProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.ApplyWidthForState());
         LabelProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.ApplyCollapsedWidth());
+        MetaProperty.Changed.AddClassHandler<StrataThink>((t, _) =>
+        {
+            t.UpdatePseudoClasses();
+            t.ApplyCollapsedWidth();
+        });
+        ProgressValueProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdatePseudoClasses());
     }
 
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
+    public string? Meta { get => GetValue(MetaProperty); set => SetValue(MetaProperty, value); }
     public object? Content { get => GetValue(ContentProperty); set => SetValue(ContentProperty, value); }
+    public double ProgressValue { get => GetValue(ProgressValueProperty); set => SetValue(ProgressValueProperty, value); }
     public bool IsExpanded { get => GetValue(IsExpandedProperty); set => SetValue(IsExpandedProperty, value); }
     public bool IsActive { get => GetValue(IsActiveProperty); set => SetValue(IsActiveProperty, value); }
 
@@ -63,14 +84,26 @@ public class StrataThink : TemplatedControl
 
         _dot = e.NameScope.Find<Border>("PART_Dot");
         _pill = e.NameScope.Find<Border>("PART_Pill");
-        _headerRow = e.NameScope.Find<StackPanel>("PART_HeaderRow");
+        _headerRow = e.NameScope.Find<Control>("PART_HeaderRow");
 
         var pill = e.NameScope.Find<Border>("PART_Pill");
         if (pill is not null)
             pill.PointerPressed += (_, _) => IsExpanded = !IsExpanded;
 
+        if (_pill is not null && !IsExpanded)
+        {
+            // Seed with a safe compact width so first paint is never full-width.
+            _pill.Width = 56;
+            SuppressInitialWidthTransition();
+        }
+
+        // Apply immediately to avoid one-frame full-width flash on initial render.
+        ApplyWidthForState();
+
+        // Run one corrective pass after layout settles.
         Dispatcher.UIThread.Post(() =>
         {
+            RestoreWidthTransitionIfNeeded();
             ApplyWidthForState();
         }, DispatcherPriority.Loaded);
 
@@ -109,6 +142,10 @@ public class StrataThink : TemplatedControl
     private void UpdatePseudoClasses()
     {
         PseudoClasses.Set(":active", IsActive);
+        PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Meta));
+        PseudoClasses.Set(":has-progress", ProgressValue >= 0);
+        PseudoClasses.Set(":complete", ProgressValue >= 99.999);
+
         if (IsActive)
             StartPulse();
         else
@@ -119,6 +156,8 @@ public class StrataThink : TemplatedControl
     {
         if (IsExpanded)
             ApplyExpandedWidth();
+        else
+            ApplyCollapsedWidth();
     }
 
     private void ApplyWidthForState()
@@ -137,17 +176,17 @@ public class StrataThink : TemplatedControl
         if (_pill is null || _headerRow is null || IsExpanded)
             return;
 
-        // Post to next layout pass so the header row has settled its size
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_pill is null || _headerRow is null || IsExpanded)
-                return;
+        _headerRow.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var horizontalPadding = _pill.Padding.Left + _pill.Padding.Right;
+        var width = Math.Max(56, _headerRow.DesiredSize.Width + horizontalPadding);
 
-            _headerRow.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            var horizontalPadding = _pill.Padding.Left + _pill.Padding.Right;
-            var width = Math.Max(56, _headerRow.DesiredSize.Width + horizontalPadding);
-            _pill.Width = width;
-        }, DispatcherPriority.Loaded);
+        if (Parent is Control parent && parent.Bounds.Width > 1)
+        {
+            // Keep collapsed chip inside available transcript width.
+            width = Math.Min(width, parent.Bounds.Width);
+        }
+
+        _pill.Width = width;
     }
 
     private void ApplyExpandedWidth()
@@ -197,5 +236,42 @@ public class StrataThink : TemplatedControl
         reset.IterationBehavior = AnimationIterationBehavior.Count;
         reset.IterationCount = 1;
         visual.StartAnimation("Opacity", reset);
+    }
+
+    private void SuppressInitialWidthTransition()
+    {
+        if (_pill is null || _pill.Transitions is not Transitions transitions || transitions.Count == 0)
+            return;
+
+        var filtered = new Transitions();
+        var removedWidthTransition = false;
+
+        foreach (var transition in transitions)
+        {
+            if (transition is DoubleTransition dt && dt.Property == WidthProperty)
+            {
+                removedWidthTransition = true;
+                continue;
+            }
+
+            filtered.Add(transition);
+        }
+
+        if (!removedWidthTransition)
+            return;
+
+        _savedPillTransitions = transitions;
+        _pill.Transitions = filtered;
+        _initialWidthTransitionSuppressed = true;
+    }
+
+    private void RestoreWidthTransitionIfNeeded()
+    {
+        if (!_initialWidthTransitionSuppressed || _pill is null)
+            return;
+
+        _pill.Transitions = _savedPillTransitions;
+        _savedPillTransitions = null;
+        _initialWidthTransitionSuppressed = false;
     }
 }

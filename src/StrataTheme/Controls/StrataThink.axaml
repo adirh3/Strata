@@ -14,8 +14,9 @@
                     BorderBrush="{DynamicResource Brush.ControlElevationBorder}"
                     BorderThickness="{DynamicResource Stroke.Thin}"
                     CornerRadius="{DynamicResource Radius.Base}"
-                  Padding="12,7,12,7"
+                    Padding="12,7,12,7"
                     BoxShadow="0 1 2 0 #0A000000"
+                  ClipToBounds="True"
                     HorizontalAlignment="Left">
               <Border.Transitions>
                 <Transitions>
@@ -30,7 +31,7 @@
 
               <StackPanel Spacing="0">
                 <!-- Compact header row -->
-                <StackPanel Name="PART_HeaderRow" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                <Grid Name="PART_HeaderRow" ColumnDefinitions="Auto,6,Auto,8,Auto" VerticalAlignment="Center">
                   <Border Name="PART_Dot"
                           Width="6" Height="6"
                           CornerRadius="3"
@@ -42,10 +43,35 @@
                     </Border.Transitions>
                   </Border>
                   <TextBlock Text="{TemplateBinding Label}"
+                         Grid.Column="2"
                              FontSize="{DynamicResource Font.SizeCaption}"
                              FontWeight="SemiBold"
-                             Foreground="{DynamicResource Brush.TextSecondary}" />
-                </StackPanel>
+                         Foreground="{DynamicResource Brush.TextSecondary}"
+                       MaxWidth="360"
+                         TextTrimming="CharacterEllipsis"
+                         MaxLines="1" />
+
+                    <TextBlock Name="PART_MetaText"
+                         Grid.Column="4"
+                         Text="{TemplateBinding Meta}"
+                         FontSize="10.5"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource Brush.TextTertiary}"
+                           MaxWidth="180"
+                         TextTrimming="CharacterEllipsis"
+                         MaxLines="1"
+                         IsVisible="False" />
+                  </Grid>
+
+                  <Border Name="PART_ProgressHost"
+                    IsVisible="False"
+                    Margin="0,6,0,0">
+                    <ProgressBar Name="PART_Progress"
+                           Minimum="0"
+                           Maximum="100"
+                           Height="3"
+                           Value="{TemplateBinding ProgressValue}" />
+                  </Border>
 
                 <!-- Content area — animated MaxHeight reveal -->
                 <Border Name="PART_ContentHost"
@@ -92,6 +118,18 @@
         <!-- Active state: accent dot -->
         <Style Selector="^:active /template/ Border#PART_Dot">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <Style Selector="^:has-meta /template/ TextBlock#PART_MetaText">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:has-progress /template/ Border#PART_ProgressHost">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:complete /template/ ProgressBar#PART_Progress">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
         </Style>
 
         <!-- Hover -->
