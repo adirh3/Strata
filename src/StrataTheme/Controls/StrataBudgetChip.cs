@@ -93,8 +93,21 @@ public class StrataBudgetChip : TemplatedControl
         if (!IsEditable || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
 
+        PseudoClasses.Set(":pressed", true);
         e.Handled = true;
         ToggleDisplayMode();
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        PseudoClasses.Set(":pressed", false);
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        PseudoClasses.Set(":pressed", false);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

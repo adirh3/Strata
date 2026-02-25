@@ -160,10 +160,13 @@
             <Border x:Name="LayoutRoot"
                     Background="{TemplateBinding Background}"
                     CornerRadius="{TemplateBinding CornerRadius}"
-                    Padding="{TemplateBinding Padding}">
+                    Padding="{TemplateBinding Padding}"
+                    RenderTransformOrigin="0,0.5"
+                    RenderTransform="translateX(0)">
               <Border.Transitions>
                 <Transitions>
                   <BrushTransition Property="Background" Duration="0:0:0.12" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
                 </Transitions>
               </Border.Transitions>
               <ContentPresenter x:Name="PART_ContentPresenter"
@@ -176,6 +179,7 @@
 
         <Style Selector="^:pointerover /template/ Border#LayoutRoot">
           <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+          <Setter Property="RenderTransform" Value="translateX(2px)" />
         </Style>
         <Style Selector="^:pressed /template/ Border#LayoutRoot">
           <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />

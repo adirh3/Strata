@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:strata="using:StrataTheme">
 
   <!-- ═══════════════════════════════════════════════════════════
        STRATA UI – Menu, ContextMenu, MenuFlyout, Flyout, MenuItem
@@ -11,6 +12,7 @@
 
       <!-- ── ContextMenu ── -->
       <ControlTheme x:Key="{x:Type ContextMenu}" TargetType="ContextMenu">
+        <Setter Property="(strata:OverlayAnimationHelper.AnimateOpen)" Value="True" />
         <Setter Property="Background" Value="{DynamicResource Brush.SurfaceOverlay}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
         <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
@@ -51,6 +53,7 @@
 
       <!-- ── MenuFlyoutPresenter (hosts MenuFlyout items) ── -->
       <ControlTheme x:Key="{x:Type MenuFlyoutPresenter}" TargetType="MenuFlyoutPresenter">
+        <Setter Property="(strata:OverlayAnimationHelper.AnimateOpen)" Value="True" />
         <Setter Property="Background" Value="{DynamicResource Brush.SurfaceOverlay}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
         <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
@@ -83,6 +86,7 @@
 
       <!-- ── FlyoutPresenter (hosts non-menu Flyout content) ── -->
       <ControlTheme x:Key="{x:Type FlyoutPresenter}" TargetType="FlyoutPresenter">
+        <Setter Property="(strata:OverlayAnimationHelper.AnimateOpen)" Value="True" />
         <Setter Property="Background" Value="{DynamicResource Brush.SurfaceOverlay}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
         <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
@@ -127,10 +131,13 @@
                       Background="{TemplateBinding Background}"
                       CornerRadius="{TemplateBinding CornerRadius}"
                       Padding="{TemplateBinding Padding}"
-                      MinHeight="{TemplateBinding MinHeight}">
+                      MinHeight="{TemplateBinding MinHeight}"
+                      RenderTransformOrigin="0,0.5"
+                      RenderTransform="translateX(0)">
                 <Border.Transitions>
                   <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.1" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
                   </Transitions>
                 </Border.Transitions>
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto">
@@ -179,7 +186,8 @@
                      Placement="RightEdgeAlignedTop"
                      HorizontalOffset="-2"
                      IsLightDismissEnabled="False"
-                     IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}">
+                     IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}"
+                     strata:PopupAnimationHelper.EnableOverlayAnimation="True">
                 <Border Background="{DynamicResource Brush.SurfaceOverlay}"
                         BorderBrush="{DynamicResource Brush.BorderDefault}"
                         BorderThickness="{DynamicResource Stroke.Thin}"
@@ -209,6 +217,7 @@
         <!-- Hover -->
         <Style Selector="^:pointerover /template/ Border#PART_LayoutRoot">
           <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+          <Setter Property="RenderTransform" Value="translateX(2px)" />
         </Style>
 
         <!-- Pressed -->

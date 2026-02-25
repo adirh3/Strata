@@ -17,8 +17,15 @@
                       IsVisible="{TemplateBinding ShowSeparator}" />
 
               <!-- Setting row -->
-              <Grid ColumnDefinitions="Auto,*,Auto"
-                    MinHeight="{DynamicResource Size.ControlHeightM}">
+              <Grid Name="PART_Row"
+                    ColumnDefinitions="Auto,*,Auto"
+                    MinHeight="{DynamicResource Size.ControlHeightM}"
+                    Background="Transparent">
+                <Grid.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                  </Transitions>
+                </Grid.Transitions>
 
                 <!-- Highlight accent bar (left edge indicator for search) -->
                 <Border Name="PART_HighlightBar"
@@ -107,6 +114,11 @@
         </Style>
         <Style Selector="^:highlighted /template/ TextBlock#PART_HeaderText">
           <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <!-- Hover: subtle row highlight -->
+        <Style Selector="^:pointerover /template/ Grid#PART_Row">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
         </Style>
       </ControlTheme>
     </ResourceDictionary>

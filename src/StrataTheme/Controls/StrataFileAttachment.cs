@@ -174,6 +174,25 @@ public class StrataFileAttachment : TemplatedControl
         base.OnDetachedFromVisualTree(e);
     }
 
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            PseudoClasses.Set(":pressed", true);
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        PseudoClasses.Set(":pressed", false);
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        PseudoClasses.Set(":pressed", false);
+    }
+
     private void UpdateState()
     {
         RaisePropertyChanged(StatusTextProperty, default!, StatusText);

@@ -16,6 +16,8 @@
               <Border.Transitions>
                 <Transitions>
                   <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
+                  <BrushTransition Property="Background" Duration="0:0:0.14" />
+                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
                 </Transitions>
               </Border.Transitions>
               <StackPanel Spacing="10">
@@ -84,6 +86,7 @@
 
         <Style Selector="^:pointerover /template/ Border#PART_Root">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+          <Setter Property="BoxShadow" Value="0 2 8 0 #0D000000" />
         </Style>
         <Style Selector="^:focus-visible /template/ Border#PART_Root">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />

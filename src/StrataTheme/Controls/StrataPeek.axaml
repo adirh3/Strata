@@ -16,6 +16,11 @@
               <Border Name="PART_ContentHost"
                       MaxHeight="{TemplateBinding CollapsedHeight}"
                       ClipToBounds="True">
+                <Border.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="MaxHeight" Duration="0:0:0.3" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
                 <Panel>
                   <ContentPresenter Name="PART_ContentPresenter"
                                     Content="{TemplateBinding Content}" />
@@ -24,6 +29,11 @@
                           VerticalAlignment="Bottom"
                           Height="48"
                           IsHitTestVisible="False">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.25" />
+                      </Transitions>
+                    </Border.Transitions>
                     <Border.Background>
                       <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
                         <GradientStop Color="#00000000" Offset="0" />
@@ -69,6 +79,12 @@
         <!-- Revealed: switch toggle text -->
         <Style Selector="^[IsRevealed=True] /template/ TextBlock#PART_ToggleText">
           <Setter Property="Text" Value="{Binding CollapseText, RelativeSource={RelativeSource TemplatedParent}}" />
+        </Style>
+
+        <!-- Revealed: hide fade overlay -->
+        <Style Selector="^[IsRevealed=True] /template/ Border#PART_FadeOverlay">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="IsHitTestVisible" Value="False" />
         </Style>
       </ControlTheme>
 

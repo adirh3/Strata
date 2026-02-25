@@ -61,8 +61,21 @@ public class StrataCueSwitch : TemplatedControl
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || IsLocked)
             return;
 
+        PseudoClasses.Set(":pressed", true);
         e.Handled = true;
         CycleMode();
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        PseudoClasses.Set(":pressed", false);
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        PseudoClasses.Set(":pressed", false);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

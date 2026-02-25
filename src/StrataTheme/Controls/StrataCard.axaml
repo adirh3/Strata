@@ -24,11 +24,15 @@
                       BorderThickness="1"
                       CornerRadius="8"
                       ClipToBounds="True"
-                      Cursor="Hand">
+                      Cursor="Hand"
+                      RenderTransformOrigin="0.5,0.5"
+                      RenderTransform="scale(1)">
                 <Border.Transitions>
                   <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.14" />
                     <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
                   </Transitions>
                 </Border.Transitions>
 
@@ -158,6 +162,14 @@
         <!-- ─── Hover ─── -->
         <Style Selector="^:pointerover /template/ Border#PART_Root">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+          <Setter Property="BoxShadow" Value="0 2 8 0 #0D000000" />
+        </Style>
+
+        <!-- ─── Pressed ─── -->
+        <Style Selector="^:pressed /template/ Border#PART_Root">
+          <Setter Property="RenderTransform" Value="scale(0.99)" />
+          <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
         </Style>
 
         <!-- ─── Focus ─── -->

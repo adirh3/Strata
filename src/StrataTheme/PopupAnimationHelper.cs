@@ -18,9 +18,14 @@ public static class PopupAnimationHelper
         AvaloniaProperty.RegisterAttached<Popup, bool>(
             "EnableOpenAnimation", typeof(PopupAnimationHelper));
 
+    public static readonly AttachedProperty<bool> EnableOverlayAnimationProperty =
+        AvaloniaProperty.RegisterAttached<Popup, bool>(
+            "EnableOverlayAnimation", typeof(PopupAnimationHelper));
+
     static PopupAnimationHelper()
     {
         EnableOpenAnimationProperty.Changed.AddClassHandler<Popup>(OnEnableOpenAnimationChanged);
+        EnableOverlayAnimationProperty.Changed.AddClassHandler<Popup>(OnEnableOverlayAnimationChanged);
     }
 
     public static bool GetEnableOpenAnimation(Popup popup) =>
@@ -29,12 +34,26 @@ public static class PopupAnimationHelper
     public static void SetEnableOpenAnimation(Popup popup, bool value) =>
         popup.SetValue(EnableOpenAnimationProperty, value);
 
+    public static bool GetEnableOverlayAnimation(Popup popup) =>
+        popup.GetValue(EnableOverlayAnimationProperty);
+
+    public static void SetEnableOverlayAnimation(Popup popup, bool value) =>
+        popup.SetValue(EnableOverlayAnimationProperty, value);
+
     private static void OnEnableOpenAnimationChanged(Popup popup, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.NewValue is true)
             popup.Opened += OnPopupOpened;
         else
             popup.Opened -= OnPopupOpened;
+    }
+
+    private static void OnEnableOverlayAnimationChanged(Popup popup, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true)
+            popup.Opened += OnPopupOpenedOverlay;
+        else
+            popup.Opened -= OnPopupOpenedOverlay;
     }
 
     private static void OnPopupOpened(object? sender, EventArgs e)
@@ -67,6 +86,43 @@ public static class PopupAnimationHelper
         opacityAnim.InsertKeyFrame(0.3f, 1f);
         opacityAnim.InsertKeyFrame(1f, 1f);
         opacityAnim.Duration = TimeSpan.FromMilliseconds(200);
+
+        var group = compositor.CreateAnimationGroup();
+        group.Add(scaleAnim);
+        group.Add(opacityAnim);
+
+        visual.StartAnimationGroup(group);
+    }
+
+    private static void OnPopupOpenedOverlay(object? sender, EventArgs e)
+    {
+        if (sender is not Popup { Host: PopupRoot popupRoot })
+            return;
+
+        var visual = ElementComposition.GetElementVisual(popupRoot);
+        if (visual is null)
+            return;
+
+        var compositor = visual.Compositor;
+
+        var bounds = popupRoot.Bounds;
+        var w = bounds.Width > 0 ? bounds.Width : popupRoot.DesiredSize.Width;
+
+        // Scale from top-center for side/overlay popups
+        visual.CenterPoint = new Vector3((float)(w / 2f), 0f, 0f);
+
+        var scaleAnim = compositor.CreateVector3KeyFrameAnimation();
+        scaleAnim.Target = "Scale";
+        scaleAnim.InsertKeyFrame(0f, new Vector3(0.96f, 0.94f, 1f));
+        scaleAnim.InsertKeyFrame(1f, new Vector3(1f));
+        scaleAnim.Duration = TimeSpan.FromMilliseconds(160);
+
+        var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
+        opacityAnim.Target = "Opacity";
+        opacityAnim.InsertKeyFrame(0f, 0f);
+        opacityAnim.InsertKeyFrame(0.3f, 1f);
+        opacityAnim.InsertKeyFrame(1f, 1f);
+        opacityAnim.Duration = TimeSpan.FromMilliseconds(160);
 
         var group = compositor.CreateAnimationGroup();
         group.Add(scaleAnim);

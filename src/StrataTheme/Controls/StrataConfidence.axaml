@@ -26,11 +26,22 @@
                           CornerRadius="999"
                           Padding="8,2"
                           Background="{DynamicResource Brush.AccentSubtle}">
+                    <Border.Transitions>
+                      <Transitions>
+                        <BrushTransition Property="Background" Duration="0:0:0.2" />
+                      </Transitions>
+                    </Border.Transitions>
                     <TextBlock Name="PART_BandText"
                                Classes="caption"
                                Foreground="{DynamicResource Brush.AccentDefault}"
                                FontWeight="SemiBold"
-                               Text="Medium" />
+                               Text="Medium">
+                      <TextBlock.Transitions>
+                        <Transitions>
+                          <BrushTransition Property="Foreground" Duration="0:0:0.2" />
+                        </Transitions>
+                      </TextBlock.Transitions>
+                    </TextBlock>
                   </Border>
                 </StackPanel>
               </DockPanel>
