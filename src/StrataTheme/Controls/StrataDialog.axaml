@@ -1,0 +1,81 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataDialog}" TargetType="controls:StrataDialog">
+        <Setter Property="IsVisible" Value="False" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <!-- Scrim -->
+              <Border Name="PART_Scrim"
+                      Background="{DynamicResource Brush.OverlayScrim}">
+                <Border.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                  </Transitions>
+                </Border.Transitions>
+              </Border>
+
+              <!-- Dialog card -->
+              <Border Name="PART_Card"
+                      Background="{DynamicResource Brush.SurfaceOverlay}"
+                      BorderBrush="{DynamicResource Brush.BorderDefault}"
+                      BorderThickness="1"
+                      CornerRadius="{DynamicResource Radius.Overlay}"
+                      BoxShadow="0 8 32 0 #28000000, 0 2 8 0 #14000000"
+                      MaxWidth="{TemplateBinding MaxDialogWidth}"
+                      MaxHeight="640"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Margin="32"
+                      ClipToBounds="True">
+                <DockPanel>
+                  <!-- Title bar -->
+                  <Border DockPanel.Dock="Top"
+                          Padding="20,14,12,14"
+                          BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                          BorderThickness="0,0,0,1">
+                    <DockPanel>
+                      <Button Name="PART_CloseButton"
+                              DockPanel.Dock="Right"
+                              Classes="subtle"
+                              Padding="6"
+                              MinHeight="0" MinWidth="0"
+                              VerticalAlignment="Center"
+                              ToolTip.Tip="Close">
+                        <PathIcon Width="12" Height="12"
+                                  Foreground="{DynamicResource Brush.TextSecondary}">
+                          <PathIcon.Data>
+                            <StreamGeometry>M18 6L6 18M6 6l12 12</StreamGeometry>
+                          </PathIcon.Data>
+                        </PathIcon>
+                      </Button>
+                      <TextBlock Text="{TemplateBinding Title}"
+                                 FontSize="{DynamicResource Font.SizeBody}"
+                                 FontWeight="SemiBold"
+                                 VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                  </Border>
+
+                  <!-- Content area with scroll -->
+                  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                HorizontalScrollBarVisibility="Disabled">
+                    <ContentPresenter Content="{TemplateBinding DialogContent}"
+                                      Margin="20,16,20,20" />
+                  </ScrollViewer>
+                </DockPanel>
+              </Border>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+</Styles>
