@@ -1329,7 +1329,11 @@ public class StrataMarkdown : ContentControl
             return cached;
         }
 
-        var diagram = new StrataMermaid { Source = mermaidText };
+        var diagram = new StrataMermaid
+        {
+            Source = mermaidText,
+            MinHeight = 180,
+        };
         _diagramCache[cacheKey] = diagram;
         _diagramKeysUsed.Add(cacheKey);
         return diagram;

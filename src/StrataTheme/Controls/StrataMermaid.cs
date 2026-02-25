@@ -106,10 +106,10 @@ public class StrataMermaid : TemplatedControl
     internal void UpdateZoomLabel()
     {
         if (_zoomLabel is null || _canvas is null) return;
-        var pct = (int)Math.Round(_canvas.UserZoom * 100);
+        var pct = (int)Math.Round(_canvas.EffectiveScale * 100);
         _zoomLabel.Text = $"{pct}%";
         if (_zoomBar is not null)
-            _zoomBar.Opacity = Math.Abs(_canvas.UserZoom - 1.0) > 0.01 || _canvas.HasPan ? 1.0 : 0.0;
+            _zoomBar.Opacity = Math.Abs(_canvas.EffectiveScale - 1.0) > 0.01 || _canvas.HasPan ? 1.0 : 0.0;
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -155,6 +155,16 @@ public class StrataMermaid : TemplatedControl
         public string From = "", To = "";
         public string? Label;
         public EStyle Style;
+    }
+
+    private sealed class FSubgraph
+    {
+        public string Id = "";
+        public List<string> NodeOrder = new();
+        public HashSet<string> NodeSet = new(StringComparer.Ordinal);
+
+        public string? FirstNode => NodeOrder.Count > 0 ? NodeOrder[0] : null;
+        public string? LastNode => NodeOrder.Count > 0 ? NodeOrder[^1] : null;
     }
 
     private sealed class SParticipant { public string Id = "", Label = ""; public double X; }
@@ -306,6 +316,7 @@ public class StrataMermaid : TemplatedControl
         }
 
         internal double UserZoom => _userZoom;
+        internal double EffectiveScale => _baseScale * _userZoom;
         internal bool HasPan => Math.Abs(_panX) > 1 || Math.Abs(_panY) > 1;
 
         internal void ZoomBy(double factor)
@@ -413,16 +424,18 @@ public class StrataMermaid : TemplatedControl
         {
             if (!_parsed) DoParse();
 
-            var w = double.IsInfinity(available.Width) ? 600 : available.Width;
+            var w = double.IsInfinity(available.Width) ? 600 : Math.Max(280, available.Width);
             ComputeLayout(w);
 
             _baseScale = 1.0;
             if (_layW + Pad * 2 > w && _layW > 0)
                 _baseScale = (w - 12) / (_layW + Pad * 2);
 
+            _owner.UpdateZoomLabel();
+
             return new Size(
                 Math.Min(w, _layW + Pad * 2),
-                Math.Max(40, (_layH + Pad * 2) * _baseScale));
+                Math.Max(140, (_layH + Pad * 2) * _baseScale));
         }
 
         // ── PARSING ────────────────────────────────────────────
@@ -468,39 +481,104 @@ public class StrataMermaid : TemplatedControl
 
         // ── Flowchart parse ────────────────────────────────────
 
+        private const string NodeIdPattern = @"[A-Za-z0-9_:.\-/]+";
+
         private static readonly (Regex rx, NShape shape)[] NodeRxs =
         {
-            (new(@"(\w+)\s*\(\((.+?)\)\)", RegexOptions.Compiled), NShape.Circle),
-            (new(@"(\w+)\s*\(\[(.+?)\]\)", RegexOptions.Compiled), NShape.Stadium),
-            (new(@"(\w+)\s*\{(.+?)\}", RegexOptions.Compiled), NShape.Diamond),
-            (new(@"(\w+)\s*\[([^\]]+)\]", RegexOptions.Compiled), NShape.Rect),
-            (new(@"(\w+)\s*\(([^)]+)\)", RegexOptions.Compiled), NShape.Rounded),
+            (new($@"({NodeIdPattern})\s*\(\((.+?)\)\)", RegexOptions.Compiled), NShape.Circle),
+            (new($@"({NodeIdPattern})\s*\(\[(.+?)\]\)", RegexOptions.Compiled), NShape.Stadium),
+            (new($@"({NodeIdPattern})\s*\{{(.+?)\}}", RegexOptions.Compiled), NShape.Diamond),
+            (new($@"({NodeIdPattern})\s*\[([^\]]+)\]", RegexOptions.Compiled), NShape.Rect),
+            (new($@"({NodeIdPattern})\s*\(([^)]+)\)", RegexOptions.Compiled), NShape.Rounded),
         };
 
-        private static readonly string[] Arrows = { "-.->", "==>", "-->", "---" };
+        private static readonly Regex SubgraphStartRegex = new(
+            $@"^subgraph\s+(?<id>{NodeIdPattern})",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static readonly Regex EndpointRightRegex = new(
+            $@"(?<id>{NodeIdPattern})\s*$",
+            RegexOptions.Compiled);
+
+        private static readonly Regex EndpointLeftRegex = new(
+            $@"^\s*(?<id>{NodeIdPattern})",
+            RegexOptions.Compiled);
+
+        private static readonly string[] Arrows = { "<-.->", "<==>", "<-->", "<--", "-.->", "==>", "-->", "---" };
 
         private void ParseFlow(string[] lines)
         {
+            var subgraphs = new Dictionary<string, FSubgraph>(StringComparer.Ordinal);
+            var subgraphStack = new Stack<FSubgraph>();
+
+            static FSubgraph GetOrCreateSubgraph(Dictionary<string, FSubgraph> map, string id)
+            {
+                if (!map.TryGetValue(id, out var subgraph))
+                {
+                    subgraph = new FSubgraph { Id = id };
+                    map[id] = subgraph;
+                }
+
+                return subgraph;
+            }
+
+            static void AddNodeToSubgraph(FSubgraph subgraph, string nodeId)
+            {
+                if (subgraph.NodeSet.Add(nodeId))
+                    subgraph.NodeOrder.Add(nodeId);
+            }
+
             foreach (var raw in lines.Skip(1))
             {
                 var line = raw.Trim();
                 if (line.Length == 0 || line.StartsWith("%%") ||
-                    line.StartsWith("subgraph", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(line, "end", StringComparison.OrdinalIgnoreCase) ||
                     line.StartsWith("style ", StringComparison.OrdinalIgnoreCase) ||
                     line.StartsWith("classDef", StringComparison.OrdinalIgnoreCase) ||
                     line.StartsWith("class ", StringComparison.OrdinalIgnoreCase) ||
                     line.StartsWith("click ", StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                var subgraphMatch = SubgraphStartRegex.Match(line);
+                if (subgraphMatch.Success)
+                {
+                    var subgraphId = subgraphMatch.Groups["id"].Value;
+                    if (!string.IsNullOrWhiteSpace(subgraphId))
+                    {
+                        var subgraph = GetOrCreateSubgraph(subgraphs, subgraphId);
+                        subgraphStack.Push(subgraph);
+                    }
+
+                    continue;
+                }
+
+                if (string.Equals(line, "end", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (subgraphStack.Count > 0)
+                        subgraphStack.Pop();
+                    continue;
+                }
+
+                var lineNodeIds = new List<string>();
+
                 // Extract nodes
                 foreach (var (rx, shape) in NodeRxs)
                     foreach (Match m in rx.Matches(line))
                     {
+                        if (IsInsideBracketLabel(line, m.Index))
+                            continue;
+
                         var id = m.Groups[1].Value;
+                        lineNodeIds.Add(id);
                         if (!_fNodes.ContainsKey(id))
                             _fNodes[id] = new FNode { Id = id, Text = m.Groups[2].Value.Trim(), Shape = shape };
                     }
+
+                if (subgraphStack.Count > 0 && lineNodeIds.Count > 0)
+                {
+                    foreach (var subgraph in subgraphStack)
+                        foreach (var nodeId in lineNodeIds)
+                            AddNodeToSubgraph(subgraph, nodeId);
+                }
 
                 // Extract edges — strip bracket content first
                 var stripped = Regex.Replace(line, @"\(\([^)]*\)\)|\(\[[^\]]*\]\)|\{[^}]*\}|\[[^\]]*\]|\([^)]*\)", "");
@@ -510,6 +588,10 @@ public class StrataMermaid : TemplatedControl
                     // Handle chained: A --> B --> C
                     var parts = stripped.Split(new[] { arrow }, StringSplitOptions.None);
                     if (parts.Length < 2) continue;
+
+                    var isBidirectional = IsBidirectionalArrow(arrow);
+                    var isRightToLeft = IsRightToLeftArrow(arrow);
+                    var style = MapFlowEdgeStyle(arrow);
 
                     for (int i = 0; i < parts.Length - 1; i++)
                     {
@@ -529,14 +611,18 @@ public class StrataMermaid : TemplatedControl
                         var toId = FirstWord(toPart);
                         if (fromId.Length == 0 || toId.Length == 0) continue;
 
-                        var style = arrow switch
-                        {
-                            "-.->'" => EStyle.Dotted,
-                            "==>" => EStyle.Thick,
-                            "---" => EStyle.Line,
-                            _ => EStyle.Arrow
-                        };
-                        _fEdges.Add(new FEdge { From = fromId, To = toId, Label = label, Style = style });
+                        if (subgraphs.TryGetValue(fromId, out var fromSubgraph) && !string.IsNullOrWhiteSpace(fromSubgraph.LastNode))
+                            fromId = fromSubgraph.LastNode!;
+
+                        if (subgraphs.TryGetValue(toId, out var toSubgraph) && !string.IsNullOrWhiteSpace(toSubgraph.FirstNode))
+                            toId = toSubgraph.FirstNode!;
+
+                        if (isRightToLeft)
+                            (fromId, toId) = (toId, fromId);
+
+                        AddUniqueFlowEdge(fromId, toId, label, style);
+                        if (isBidirectional)
+                            AddUniqueFlowEdge(toId, fromId, label, style);
                     }
                     break; // One arrow type per line
                 }
@@ -550,6 +636,47 @@ public class StrataMermaid : TemplatedControl
                 if (!_fNodes.ContainsKey(e.To))
                     _fNodes[e.To] = new FNode { Id = e.To, Text = e.To, Shape = NShape.Rect };
             }
+
+            foreach (var subgraph in subgraphs.Values)
+            {
+                if (subgraph.NodeOrder.Count < 2)
+                    continue;
+
+                var hasInternalEdges = _fEdges.Any(e =>
+                    subgraph.NodeSet.Contains(e.From) && subgraph.NodeSet.Contains(e.To));
+
+                if (hasInternalEdges)
+                    continue;
+
+                for (var i = 0; i < subgraph.NodeOrder.Count - 1; i++)
+                    AddUniqueFlowEdge(subgraph.NodeOrder[i], subgraph.NodeOrder[i + 1], null, EStyle.Arrow);
+            }
+        }
+
+        private void AddUniqueFlowEdge(string fromId, string toId, string? label, EStyle style)
+        {
+            if (_fEdges.Any(e =>
+                string.Equals(e.From, fromId, StringComparison.Ordinal) &&
+                string.Equals(e.To, toId, StringComparison.Ordinal) &&
+                string.Equals(e.Label, label, StringComparison.Ordinal) &&
+                e.Style == style))
+                return;
+
+            _fEdges.Add(new FEdge { From = fromId, To = toId, Label = label, Style = style });
+        }
+
+        private static bool IsBidirectionalArrow(string arrow) =>
+            arrow.StartsWith('<') && arrow.EndsWith('>');
+
+        private static bool IsRightToLeftArrow(string arrow) =>
+            arrow.StartsWith('<') && !arrow.EndsWith('>');
+
+        private static EStyle MapFlowEdgeStyle(string arrow)
+        {
+            if (arrow.Contains('.', StringComparison.Ordinal)) return EStyle.Dotted;
+            if (arrow.Contains('=', StringComparison.Ordinal)) return EStyle.Thick;
+            if (arrow.Contains("---", StringComparison.Ordinal)) return EStyle.Line;
+            return EStyle.Arrow;
         }
 
         // ── Sequence parse ─────────────────────────────────────
@@ -932,7 +1059,7 @@ public class StrataMermaid : TemplatedControl
         {
             switch (_kind)
             {
-                case DiagramKind.Flowchart: LayoutFlow(); break;
+                case DiagramKind.Flowchart: LayoutFlow(availW); break;
                 case DiagramKind.Sequence: LayoutSeq(availW); break;
                 case DiagramKind.State: LayoutState(); break;
                 case DiagramKind.Er: LayoutEr(availW); break;
@@ -942,16 +1069,31 @@ public class StrataMermaid : TemplatedControl
             }
         }
 
-        private void LayoutFlow()
+        private void LayoutFlow(double availW)
         {
             if (_fNodes.Count == 0) { _layW = _layH = 0; return; }
+
+            var maxNodeTextWidth = Math.Clamp(availW * 0.32, 120, 190);
+            var lineHeight = Txt("Ag", Fs).Height;
 
             // Measure
             foreach (var n in _fNodes.Values)
             {
-                var ft = Txt(n.Text, Fs);
-                n.W = Math.Max(NMinW, ft.Width + NPadH * 2);
-                n.H = n.Shape == NShape.Diamond ? Math.Max(NH + 8, ft.Height + NPadV * 4) : NH;
+                n.Text = WrapNodeText(n.Text, Fs, maxNodeTextWidth);
+                var lines = n.Text.Split('\n');
+                var maxLineW = 0.0;
+                foreach (var line in lines)
+                {
+                    var ft = Txt(line, Fs);
+                    if (ft.Width > maxLineW)
+                        maxLineW = ft.Width;
+                }
+
+                var textH = lines.Length * lineHeight + Math.Max(0, (lines.Length - 1) * 2);
+                n.W = Math.Max(NMinW, maxLineW + NPadH * 2);
+                n.H = n.Shape == NShape.Diamond
+                    ? Math.Max(NH + 8, textH + NPadV * 2)
+                    : Math.Max(NH, textH + NPadV * 2);
             }
 
             // Cycle-safe longest-path ranking (DFS finds back edges, then longest path on DAG)
@@ -996,6 +1138,9 @@ public class StrataMermaid : TemplatedControl
 
             var ranks = _fNodes.Values.GroupBy(n => n.Rank).OrderBy(g => g.Key).Select(g => g.ToList()).ToList();
 
+            var horizontalGap = _fNodes.Count > 10 ? 24 : NGapH;
+            var rankWrapWidth = Math.Max(220, availW - Pad * 2);
+
             if (_ltr)
             {
                 double x = 0;
@@ -1009,30 +1154,108 @@ public class StrataMermaid : TemplatedControl
                         rank[i].Y = y;
                         y += rank[i].H + NGapV * 0.6;
                     }
-                    x += maxW + NGapH;
+                    x += maxW + horizontalGap;
                 }
             }
             else
             {
-                // Center each rank
-                var maxRankW = ranks.Max(r => r.Sum(n => n.W) + (r.Count - 1) * NGapH);
                 double y = 0;
                 foreach (var rank in ranks)
                 {
-                    var rankW = rank.Sum(n => n.W) + (rank.Count - 1) * NGapH;
-                    var sx = (maxRankW - rankW) / 2;
-                    for (int i = 0; i < rank.Count; i++)
+                    var rows = BuildWrappedRows(rank, rankWrapWidth, horizontalGap);
+                    var rowGap = Math.Max(10, NGapV * 0.35);
+                    var rankBlockY = y;
+                    foreach (var row in rows)
                     {
-                        rank[i].X = sx;
-                        rank[i].Y = y;
-                        sx += rank[i].W + NGapH;
+                        var rowW = row.Sum(n => n.W) + Math.Max(0, row.Count - 1) * horizontalGap;
+                        var sx = Math.Max(0, (rankWrapWidth - rowW) / 2);
+                        var rowH = row.Max(n => n.H);
+
+                        for (int i = 0; i < row.Count; i++)
+                        {
+                            row[i].X = sx;
+                            row[i].Y = rankBlockY;
+                            sx += row[i].W + horizontalGap;
+                        }
+
+                        rankBlockY += rowH + rowGap;
                     }
-                    y += rank.Max(n => n.H) + NGapV;
+
+                    if (rows.Count > 0)
+                        rankBlockY -= rowGap;
+
+                    y = rankBlockY + NGapV;
                 }
             }
 
             _layW = _fNodes.Values.Max(n => n.X + n.W);
             _layH = _fNodes.Values.Max(n => n.Y + n.H);
+        }
+
+        private static List<List<FNode>> BuildWrappedRows(List<FNode> nodes, double maxWidth, double gap)
+        {
+            var rows = new List<List<FNode>>();
+            var current = new List<FNode>();
+            var currentWidth = 0.0;
+
+            foreach (var node in nodes)
+            {
+                var nextWidth = current.Count == 0
+                    ? node.W
+                    : currentWidth + gap + node.W;
+
+                if (current.Count > 0 && nextWidth > maxWidth)
+                {
+                    rows.Add(current);
+                    current = new List<FNode> { node };
+                    currentWidth = node.W;
+                }
+                else
+                {
+                    current.Add(node);
+                    currentWidth = nextWidth;
+                }
+            }
+
+            if (current.Count > 0)
+                rows.Add(current);
+
+            return rows;
+        }
+
+        private static string WrapNodeText(string text, double fontSize, double maxWidth)
+        {
+            if (string.IsNullOrWhiteSpace(text) || text.Contains('\n'))
+                return text;
+
+            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length <= 1)
+                return text;
+
+            var lines = new List<string>();
+            var current = string.Empty;
+
+            foreach (var word in words)
+            {
+                var candidate = string.IsNullOrEmpty(current)
+                    ? word
+                    : $"{current} {word}";
+
+                if (Txt(candidate, fontSize).Width <= maxWidth || string.IsNullOrEmpty(current))
+                {
+                    current = candidate;
+                }
+                else
+                {
+                    lines.Add(current);
+                    current = word;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(current))
+                lines.Add(current);
+
+            return string.Join("\n", lines);
         }
 
         private void LayoutSeq(double availW)
@@ -2380,16 +2603,60 @@ public class StrataMermaid : TemplatedControl
 
         private static string LastWord(string s)
         {
-            var t = s.Trim().TrimEnd(';');
+            var t = s.Trim().TrimEnd(';', ',');
+            var match = EndpointRightRegex.Match(t);
+            if (match.Success)
+                return match.Groups["id"].Value;
+
             var idx = t.LastIndexOf(' ');
             return idx >= 0 ? t[(idx + 1)..] : t;
         }
 
         private static string FirstWord(string s)
         {
-            var t = s.Trim().TrimEnd(';');
+            var t = s.Trim().TrimStart('"', '\'', '`').TrimEnd(';', ',');
+            var match = EndpointLeftRegex.Match(t);
+            if (match.Success)
+                return match.Groups["id"].Value;
+
             var idx = t.IndexOf(' ');
             return idx >= 0 ? t[..idx] : t;
+        }
+
+        private static bool IsInsideBracketLabel(string line, int index)
+        {
+            if (index <= 0) return false;
+
+            var inDouble = false;
+            var inSingle = false;
+            var squareDepth = 0;
+
+            for (var i = 0; i < index && i < line.Length; i++)
+            {
+                var ch = line[i];
+
+                if (ch == '"' && !inSingle)
+                {
+                    inDouble = !inDouble;
+                    continue;
+                }
+
+                if (ch == '\'' && !inDouble)
+                {
+                    inSingle = !inSingle;
+                    continue;
+                }
+
+                if (inDouble || inSingle)
+                    continue;
+
+                if (ch == '[')
+                    squareDepth++;
+                else if (ch == ']' && squareDepth > 0)
+                    squareDepth--;
+            }
+
+            return inDouble || inSingle || squareDepth > 0;
         }
     }
 }
