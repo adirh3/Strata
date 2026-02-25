@@ -158,6 +158,7 @@ public class StrataMarkdown : ContentControl
         TitleProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateTitle());
         ShowTitleProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateTitle());
         IsInlineProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateSurfaceMode());
+        FlowDirectionProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         EnableAppendTailParsingProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         StreamingRebuildThrottleMsProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
     }
@@ -909,11 +910,20 @@ public class StrataMarkdown : ContentControl
 
     private SelectableTextBlock CreateRichText(string text, double fontSize, double lineHeight, TextWrapping wrapping)
     {
+        var isRtl = FlowDirection == FlowDirection.RightToLeft;
         var textBlock = new SelectableTextBlock
         {
             FontSize = fontSize,
             LineHeight = lineHeight,
-            TextWrapping = wrapping
+            TextWrapping = wrapping,
+            TextAlignment = isRtl
+                ? TextAlignment.Right
+                : TextAlignment.Left,
+            ClipToBounds = false,
+            Padding = isRtl
+                ? new Thickness(0, 0, 4, 0)
+                : new Thickness(0),
+            Margin = new Thickness(0)
         };
 
         AppendFormattedInlines(textBlock, text);

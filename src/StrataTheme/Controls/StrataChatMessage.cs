@@ -537,6 +537,9 @@ public class StrataChatMessage : TemplatedControl
         if (string.IsNullOrWhiteSpace(text))
             return TextDirection.Neutral;
 
+        var firstStrongDirection = TextDirection.Neutral;
+        var rtlStrongCount = 0;
+        var ltrStrongCount = 0;
         var scannedChars = 0;
         foreach (var rune in text.EnumerateRunes())
         {
@@ -551,7 +554,12 @@ public class StrataChatMessage : TemplatedControl
                     continue;
 
                 if ((ascii >= 'A' && ascii <= 'Z') || (ascii >= 'a' && ascii <= 'z'))
-                    return TextDirection.LeftToRight;
+                {
+                    if (firstStrongDirection == TextDirection.Neutral)
+                        firstStrongDirection = TextDirection.LeftToRight;
+                    ltrStrongCount++;
+                    continue;
+                }
             }
 
             var category = Rune.GetUnicodeCategory(rune);
@@ -581,7 +589,12 @@ public class StrataChatMessage : TemplatedControl
             }
 
             if (IsStrongRtlRune(rune.Value))
-                return TextDirection.RightToLeft;
+            {
+                if (firstStrongDirection == TextDirection.Neutral)
+                    firstStrongDirection = TextDirection.RightToLeft;
+                rtlStrongCount++;
+                continue;
+            }
 
             if (category is UnicodeCategory.UppercaseLetter
                 or UnicodeCategory.LowercaseLetter
@@ -589,11 +602,24 @@ public class StrataChatMessage : TemplatedControl
                 or UnicodeCategory.ModifierLetter
                 or UnicodeCategory.OtherLetter)
             {
-                return TextDirection.LeftToRight;
+                if (firstStrongDirection == TextDirection.Neutral)
+                    firstStrongDirection = TextDirection.LeftToRight;
+                ltrStrongCount++;
+                continue;
             }
         }
 
-        return TextDirection.Neutral;
+        if (rtlStrongCount == 0 && ltrStrongCount == 0)
+            return TextDirection.Neutral;
+
+        if (rtlStrongCount == ltrStrongCount)
+            return firstStrongDirection == TextDirection.Neutral
+                ? TextDirection.LeftToRight
+                : firstStrongDirection;
+
+        return rtlStrongCount > ltrStrongCount
+            ? TextDirection.RightToLeft
+            : TextDirection.LeftToRight;
     }
 
     private static bool IsStrongRtlRune(int codePoint)
