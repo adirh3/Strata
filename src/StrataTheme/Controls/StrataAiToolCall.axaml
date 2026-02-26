@@ -43,7 +43,7 @@
                           Cursor="Hand"
                           Padding="10,6"
                           Background="Transparent">
-                    <Grid ColumnDefinitions="Auto,8,*,8,Auto">
+                    <Grid ColumnDefinitions="Auto,8,*,Auto,8,Auto">
                       <Border Name="PART_StateDot"
                               Width="6" Height="6"
                               CornerRadius="3"
@@ -57,8 +57,14 @@
                                  VerticalAlignment="Center"
                                  TextTrimming="CharacterEllipsis" />
 
+                      <ContentPresenter Name="PART_HeaderAction"
+                                        Grid.Column="3"
+                                        Content="{TemplateBinding HeaderAction}"
+                                        VerticalAlignment="Center"
+                                        IsVisible="{Binding HeaderAction, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
                       <Border Name="PART_StatusPill"
-                              Grid.Column="4"
+                              Grid.Column="5"
                               Padding="7,2"
                               CornerRadius="999"
                               Background="{DynamicResource Brush.AccentSubtle}">

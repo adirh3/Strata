@@ -69,6 +69,10 @@ public class StrataAiToolCall : TemplatedControl
     public static readonly StyledProperty<StrataAiToolCallStatus> StatusProperty =
         AvaloniaProperty.Register<StrataAiToolCall, StrataAiToolCallStatus>(nameof(Status), StrataAiToolCallStatus.InProgress);
 
+    /// <summary>Optional content displayed in the header row (e.g. a "Show diff" button).</summary>
+    public static readonly StyledProperty<object?> HeaderActionProperty =
+        AvaloniaProperty.Register<StrataAiToolCall, object?>(nameof(HeaderAction));
+
     /// <summary>Whether the detail pane (parameters, info, duration) is visible.</summary>
     public static readonly StyledProperty<bool> IsExpandedProperty =
         AvaloniaProperty.Register<StrataAiToolCall, bool>(nameof(IsExpanded), false);
@@ -110,6 +114,12 @@ public class StrataAiToolCall : TemplatedControl
     {
         get => GetValue(DurationMsProperty);
         set => SetValue(DurationMsProperty, value);
+    }
+
+    public object? HeaderAction
+    {
+        get => GetValue(HeaderActionProperty);
+        set => SetValue(HeaderActionProperty, value);
     }
 
     public StrataAiToolCallStatus Status
