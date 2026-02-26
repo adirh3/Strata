@@ -45,13 +45,6 @@
           </ControlTemplate>
         </Setter>
 
-        <!-- Hover: subtle card upgrade -->
-        <Style Selector="^:pointerover /template/ Border#PART_Card">
-          <Setter Property="Background" Value="{DynamicResource Brush.SurfaceCardHover}" />
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
-          <Setter Property="BoxShadow" Value="0 2 8 0 #0C000000, 0 6 20 0 #08000000" />
-        </Style>
-
         <!-- Focus-within: accent border -->
         <Style Selector="^:focus-within /template/ Border#PART_Card">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
