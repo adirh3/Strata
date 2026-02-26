@@ -203,6 +203,16 @@ public class StrataChatComposer : TemplatedControl
     {
         PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
         {
+            // Clamp selection to new text length to prevent Avalonia crash in
+            // TextPresenter.Render when text shrinks while a selection exists.
+            if (c._input is not null)
+            {
+                var len = c.PromptText?.Length ?? 0;
+                if (c._input.SelectionStart > len)
+                    c._input.SelectionStart = len;
+                if (c._input.SelectionEnd > len)
+                    c._input.SelectionEnd = len;
+            }
             c.Sync();
             // Defer so the TextBox has updated its CaretIndex
             Dispatcher.UIThread.Post(() => c.CheckAutoComplete(), DispatcherPriority.Input);
