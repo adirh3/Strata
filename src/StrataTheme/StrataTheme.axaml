@@ -44,6 +44,7 @@
   <StyleInclude Source="avares://StrataTheme/Controls/ProgressBar.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/ToolTip.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/Expander.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/ToggleButton.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/ToggleSwitch.axaml" />
 
   <!-- Mixed files (ControlTheme + Style selectors) -->
@@ -93,5 +94,6 @@
   <StyleInclude Source="avares://StrataTheme/Controls/StrataChart.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataMermaid.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataDialog.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataQuestionCard.axaml" />
 
 </Styles>
