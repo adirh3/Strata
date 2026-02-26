@@ -52,37 +52,56 @@
               <Border Name="PART_EditArea"
                       IsVisible="False"
                       Background="{DynamicResource Brush.Surface1}"
-                      BorderBrush="{DynamicResource Brush.AccentDefault}"
+                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
                       BorderThickness="1"
-                      CornerRadius="8"
-                      Padding="4">
-                <StackPanel Spacing="6">
+                      CornerRadius="10"
+                      Padding="4"
+                      Opacity="0"
+                      RenderTransformOrigin="0.5,0"
+                      RenderTransform="translateY(-4px)">
+                <Border.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+                <StackPanel Spacing="0">
                   <TextBox Name="PART_EditBox"
                            Classes="message-edit-embed"
                            Text="{Binding EditText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                            AcceptsReturn="True"
                            TextWrapping="Wrap"
-                           MinHeight="32" MaxHeight="200"
+                           MinHeight="40" MaxHeight="400"
                            BorderThickness="0"
                            Background="Transparent"
                            Padding="10,8"
-                           FontSize="13" />
-                  <StackPanel Orientation="Horizontal" Spacing="6"
-                              HorizontalAlignment="Right" Margin="0,0,4,2">
-                    <Button Name="PART_CancelButton" Classes="subtle"
-                            Padding="10,4" MinHeight="0" CornerRadius="6"
-                            FontSize="11">
-                      <TextBlock Text="Cancel"
-                                 Foreground="{DynamicResource Brush.TextTertiary}" />
-                    </Button>
-                    <Button Name="PART_SaveButton"
-                            Padding="10,4" MinHeight="0" CornerRadius="6"
-                            FontSize="11"
-                            Background="{DynamicResource Brush.AccentDefault}"
-                            Foreground="{DynamicResource Brush.TextOnAccent}">
-                      <TextBlock Text="Save" />
-                    </Button>
-                  </StackPanel>
+                           FontSize="13"
+                           FontFamily="{DynamicResource Font.Default}" />
+                  <DockPanel Margin="6,2,6,4">
+                    <TextBlock Name="PART_EditHint"
+                               DockPanel.Dock="Left"
+                               FontSize="10.5"
+                               Foreground="{DynamicResource Brush.TextTertiary}"
+                               Opacity="0.7"
+                               VerticalAlignment="Center"
+                               Text="Enter to save · Esc to cancel · Shift+Enter for newline" />
+                    <StackPanel Orientation="Horizontal" Spacing="4"
+                                DockPanel.Dock="Right"
+                                HorizontalAlignment="Right">
+                      <Button Name="PART_CancelButton" Classes="subtle"
+                              Padding="10,4" MinHeight="0" CornerRadius="6"
+                              FontSize="11" ToolTip.Tip="Cancel (Esc)">
+                        <TextBlock Text="Cancel"
+                                   Foreground="{DynamicResource Brush.TextTertiary}" />
+                      </Button>
+                      <Button Name="PART_SaveButton" Classes="accent"
+                              Padding="10,4" MinHeight="0" CornerRadius="6"
+                              FontSize="11" FontWeight="SemiBold"
+                              ToolTip.Tip="Save (Enter)">
+                        <TextBlock Text="Save" />
+                      </Button>
+                    </StackPanel>
+                  </DockPanel>
                 </StackPanel>
               </Border>
 
@@ -198,6 +217,9 @@
         </Style>
         <Style Selector="^:editing /template/ Border#PART_EditArea">
           <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="translateY(0)" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
         </Style>
         <Style Selector="^:editing /template/ Border#PART_ActionLayer">
           <Setter Property="IsVisible" Value="False" />

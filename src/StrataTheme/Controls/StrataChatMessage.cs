@@ -66,11 +66,13 @@ public class StrataChatMessage : TemplatedControl
     private Border? _editSeparator;
     private Border? _retrySeparator;
     private TextBox? _editBox;
+    private TextBlock? _editHint;
     private Button? _editButton;
     private Button? _retryButton;
     private ContextMenu? _contextMenu;
     private readonly HashSet<TextBlock> _observedTextBlocks = new();
     private readonly HashSet<StrataMarkdown> _observedMarkdownControls = new();
+    private bool _originalContentWasMarkdown;
 
     /// <summary>Message role. Controls alignment, colour, and available actions.</summary>
     public static readonly StyledProperty<StrataChatRole> RoleProperty =
@@ -162,6 +164,7 @@ public class StrataChatMessage : TemplatedControl
         _streamBar = e.NameScope.Find<Border>("PART_StreamBar");
         _bubble = e.NameScope.Find<Border>("PART_Bubble");
         _editBox = e.NameScope.Find<TextBox>("PART_EditBox");
+        _editHint = e.NameScope.Find<TextBlock>("PART_EditHint");
 
         var copyBtn = e.NameScope.Find<Button>("PART_CopyButton");
         var regenBtn = e.NameScope.Find<Button>("PART_RegenerateButton");
@@ -199,6 +202,11 @@ public class StrataChatMessage : TemplatedControl
         UpdateActionBarLayout();
         if (IsStreaming)
             Dispatcher.UIThread.Post(StartStreamPulse, DispatcherPriority.Loaded);
+
+        // Seed EditText when entering editing from XAML (Content may not be set
+        // yet when IsEditing fires during initialization).
+        if (IsEditing)
+            Dispatcher.UIThread.Post(SeedEditTextFromContent, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -371,26 +379,54 @@ public class StrataChatMessage : TemplatedControl
 
     private void BeginEdit()
     {
-        // Extract plain text from content for editing
-        if (Content is TextBlock tb)
-            EditText = tb.Text;
+        // Extract text from content, handling StrataMarkdown properly
+        if (Content is StrataMarkdown markdown)
+        {
+            EditText = markdown.Markdown ?? string.Empty;
+            _originalContentWasMarkdown = true;
+        }
+        else if (Content is TextBlock tb)
+        {
+            EditText = tb.Text ?? string.Empty;
+            _originalContentWasMarkdown = false;
+        }
         else
-            EditText = Content?.ToString() ?? string.Empty;
+        {
+            EditText = ExtractObjectText(Content).Trim();
+            _originalContentWasMarkdown = false;
+        }
 
         IsEditing = true;
         RaiseEvent(new RoutedEventArgs(EditRequestedEvent));
 
-        // Focus the edit box
-        Dispatcher.UIThread.Post(() => _editBox?.Focus(), DispatcherPriority.Loaded);
+        // Focus the edit box and place cursor at end
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_editBox is null) return;
+            _editBox.Focus();
+            _editBox.CaretIndex = _editBox.Text?.Length ?? 0;
+        }, DispatcherPriority.Loaded);
     }
 
     private void ConfirmEdit()
     {
         if (ApplyEditToContent && EditText is not null)
         {
-            if (Content is TextBlock existingTextBlock)
+            if (Content is StrataMarkdown existingMarkdown)
+            {
+                existingMarkdown.Markdown = EditText;
+            }
+            else if (Content is TextBlock existingTextBlock)
             {
                 existingTextBlock.Text = EditText;
+            }
+            else if (_originalContentWasMarkdown)
+            {
+                Content = new StrataMarkdown
+                {
+                    Markdown = EditText,
+                    IsInline = true
+                };
             }
             else
             {
@@ -422,6 +458,32 @@ public class StrataChatMessage : TemplatedControl
     private void OnEditingChanged()
     {
         UpdatePseudoClasses();
+
+        // Auto-seed EditText from Content when entering edit mode via property
+        if (IsEditing)
+            SeedEditTextFromContent();
+    }
+
+    private void SeedEditTextFromContent()
+    {
+        if (!string.IsNullOrEmpty(EditText))
+            return;
+
+        if (Content is StrataMarkdown markdown)
+        {
+            EditText = markdown.Markdown ?? string.Empty;
+            _originalContentWasMarkdown = true;
+        }
+        else if (Content is TextBlock tb)
+        {
+            EditText = tb.Text ?? string.Empty;
+            _originalContentWasMarkdown = false;
+        }
+        else if (Content is not null)
+        {
+            EditText = ExtractObjectText(Content).Trim();
+            _originalContentWasMarkdown = false;
+        }
     }
 
     private void OnContentChanged()

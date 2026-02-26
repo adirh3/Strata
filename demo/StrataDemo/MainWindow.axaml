@@ -944,7 +944,9 @@
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
 
-                <sc:StrataChatMessage Role="Assistant" IsEditable="True" IsEditing="True" Author="Strata" Timestamp="09:43" StatusText="editing">
+                <sc:StrataChatMessage Role="Assistant" IsEditable="True" IsEditing="True"
+                                      EditText="{Binding Strings[Chat.Editing]}"
+                                      Author="Strata" Timestamp="09:43" StatusText="editing">
                   <sc:StrataChatMessage.Content>
                     <TextBlock TextWrapping="Wrap" FontSize="13"
                                Foreground="{DynamicResource Brush.TextPrimary}"
