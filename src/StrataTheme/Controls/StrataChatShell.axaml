@@ -96,9 +96,9 @@
                   <ScrollViewer Name="PART_TranscriptScroll"
                                 VerticalScrollBarVisibility="Auto"
                                 HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Name="PART_ScrollContent" Margin="16,12,16,12">
+                    <Border Name="PART_ScrollContent" Padding="16,12,16,12">
                       <ContentPresenter Content="{TemplateBinding Transcript}" />
-                    </StackPanel>
+                    </Border>
                   </ScrollViewer>
                 </Border>
               </DockPanel>

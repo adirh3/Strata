@@ -10,12 +10,15 @@ internal readonly record struct ChatPerfScenarioResult(
     UiFrameMetrics FrameMetrics,
     int StreamUpdates,
     int MessageCount,
-    int StreamedChars);
+    int StreamedChars,
+    double SeedDurationMs,
+    int RealizedMessages,
+    long HeapBytes);
 
 internal readonly record struct ChatPerfBenchmarkResult(
     UiFrameMetrics IdleMetrics,
-    UiFrameMetrics BaselineMetrics,
-    UiFrameMetrics OptimizedMetrics,
+    ChatPerfScenarioResult Baseline,
+    ChatPerfScenarioResult Optimized,
     string BaselineText,
     string OptimizedText,
     string UpliftText,
@@ -34,11 +37,11 @@ internal readonly record struct ChatPerformanceRunOptions(
     int OptimizedMarkdownThrottleMs)
 {
     public static ChatPerformanceRunOptions Default => new(
-        MessageCount: 1000,
-        ScenarioSeconds: 12,
+        MessageCount: 12000,
+        ScenarioSeconds: 14,
         StreamChunkSizeChars: 220,
         StreamRenderIntervalMs: 12,
-        Iterations: 3,
+        Iterations: 1,
         LegacyMarkdownThrottleMs: 0,
         OptimizedMarkdownThrottleMs: 0);
 }

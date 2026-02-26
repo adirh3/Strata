@@ -18,7 +18,7 @@ namespace StrataDemo;
 public partial class MainWindow : Window
 {
     private readonly List<Control> _pages = new();
-    private StackPanel? _liveTranscript;
+    private StrataChatTranscript? _liveTranscript;
     private StrataChatComposer? _liveComposer;
     private StrataChatShell? _mainChatShell;
     private StrataConfidence? _liveConfRootCause;
@@ -29,7 +29,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _generationCts;
     private StrataCanvas? _chatExperienceCanvas;
     private bool _isChatCanvasOpen;
-    private StackPanel? _perfTranscript;
+    private StrataChatTranscript? _perfTranscript;
     private StrataChatShell? _perfChatShell;
     private TextBlock? _perfStatusText;
     private TextBlock? _perfBaselineText;
@@ -78,7 +78,7 @@ public partial class MainWindow : Window
         ShowPage(0);
 
         // Interactive chat page wiring
-        _liveTranscript = this.FindControl<StackPanel>("LiveTranscript");
+        _liveTranscript = this.FindControl<StrataChatTranscript>("LiveTranscript");
         _liveComposer = this.FindControl<StrataChatComposer>("LiveComposer");
         _mainChatShell = this.FindControl<StrataChatShell>("MainChatShell");
         _liveConfRootCause = this.FindControl<StrataConfidence>("LiveConfRootCause");
@@ -119,7 +119,7 @@ public partial class MainWindow : Window
         }
 
         // Chat performance page wiring
-        _perfTranscript = this.FindControl<StackPanel>("PerfTranscript");
+        _perfTranscript = this.FindControl<StrataChatTranscript>("PerfTranscript");
         _perfChatShell = this.FindControl<StrataChatShell>("PerfChatShell");
         _perfStatusText = this.FindControl<TextBlock>("PerfStatusText");
         _perfBaselineText = this.FindControl<TextBlock>("PerfBaselineText");
@@ -519,8 +519,8 @@ public partial class MainWindow : Window
             Label = "Composing response…"
         };
 
-        _liveTranscript.Children.Add(think);
-        _liveTranscript.Children.Add(typing);
+        _liveTranscript.Items.Add(think);
+        _liveTranscript.Items.Add(typing);
         _mainChatShell?.ScrollToEnd();
 
         // Clear suggestions after first use
@@ -549,7 +549,7 @@ public partial class MainWindow : Window
             Content = streamingMd
         };
 
-        _liveTranscript.Children.Add(assistantMessage);
+        _liveTranscript.Items.Add(assistantMessage);
         _mainChatShell?.ScrollToEnd();
 
         // Stream markdown token-by-token. Split on spaces but also break on
@@ -600,7 +600,7 @@ public partial class MainWindow : Window
         think.IsExpanded = false;
         think.Label = "Thought process";
 
-        _liveTranscript.Children.Remove(typing);
+        _liveTranscript.Items.Remove(typing);
 
         await CompleteToolCallsAsync(toolBatch.Calls, rng, token);
         CollapseToolCalls(toolBatch.Calls);
@@ -694,7 +694,7 @@ public partial class MainWindow : Window
             Content = toolsGrid
         };
 
-        _liveTranscript.Children.Add(toolsMessage);
+        _liveTranscript.Items.Add(toolsMessage);
         _mainChatShell?.ScrollToEnd();
 
         if (_livePulse is not null)
@@ -858,7 +858,7 @@ public partial class MainWindow : Window
             Content = new SelectableTextBlock { Text = text, TextWrapping = TextWrapping.Wrap }
         };
 
-        _liveTranscript.Children.Add(user);
+        _liveTranscript.Items.Add(user);
         _mainChatShell?.ScrollToEnd();
     }
 
@@ -881,7 +881,7 @@ public partial class MainWindow : Window
             }
         };
 
-        _liveTranscript.Children.Add(note);
+        _liveTranscript.Items.Add(note);
         _mainChatShell?.ScrollToEnd();
     }
 
@@ -940,12 +940,12 @@ public partial class MainWindow : Window
 
             EnsurePerformanceDemoSeeded(forceReset: true);
 
-            SetPerformanceStatus(L("ChatPerf.StatusRunningBaseline", "Running baseline scenario (legacy markdown pipeline)…"));
+            SetPerformanceStatus(L("ChatPerf.StatusRunningBaseline", "Running baseline scenario (non-virtualized transcript)…"));
             var baseline = await _perfRunner.RunScenarioSeriesAsync(ChatPerfScenarioProfile.Baseline, token);
             var baselineText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(baseline);
             _perfBaselineText?.SetCurrentValue(TextBlock.TextProperty, baselineText);
 
-            SetPerformanceStatus(L("ChatPerf.StatusRunningOptimized", "Running optimized scenario (append-tail parse + throttled rebuild)…"));
+            SetPerformanceStatus(L("ChatPerf.StatusRunningOptimized", "Running optimized scenario (chat-virtualized transcript)…"));
             var optimized = await _perfRunner.RunScenarioSeriesAsync(ChatPerfScenarioProfile.Optimized, token);
             var optimizedText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(optimized);
             _perfOptimizedText?.SetCurrentValue(TextBlock.TextProperty, optimizedText);
@@ -956,8 +956,8 @@ public partial class MainWindow : Window
 
             return new ChatPerfBenchmarkResult(
                 IdleMetrics: idleMetrics,
-                BaselineMetrics: baseline.FrameMetrics,
-                OptimizedMetrics: optimized.FrameMetrics,
+                Baseline: baseline,
+                Optimized: optimized,
                 BaselineText: baselineText,
                 OptimizedText: optimizedText,
                 UpliftText: upliftText,

@@ -16,26 +16,35 @@ internal sealed class ChatPerformanceBenchmarkRunner
 {
     private readonly TopLevel _renderRoot;
     private readonly StrataChatShell _chatShell;
-    private readonly StackPanel _transcript;
+    private readonly StrataChatTranscript _optimizedTranscript;
+    private readonly StackPanel _baselineTranscript;
     private readonly ChatPerformanceRunOptions _options;
     private ScrollViewer? _transcriptScrollViewer;
     private string? _largeMarkdown;
+    private object? _activeTranscript;
 
     public ChatPerformanceBenchmarkRunner(
         TopLevel renderRoot,
         StrataChatShell chatShell,
-        StackPanel transcript,
+        StrataChatTranscript transcript,
         ChatPerformanceRunOptions? options = null)
     {
         _renderRoot = renderRoot;
         _chatShell = chatShell;
-        _transcript = transcript;
+        _optimizedTranscript = transcript;
+        _baselineTranscript = new StackPanel { Spacing = 6 };
         _options = options ?? ChatPerformanceRunOptions.Default;
+
+        SetTranscriptMode(useVirtualizedTranscript: true);
     }
 
     public void SeedTranscript()
     {
-        _transcript.Children.Clear();
+        if (_activeTranscript is null)
+            SetTranscriptMode(useVirtualizedTranscript: true);
+
+        ClearTranscript(_baselineTranscript);
+        ClearTranscript(_optimizedTranscript);
         _transcriptScrollViewer = null;
         var startTime = DateTime.Today.AddHours(9).AddMinutes(5);
 
@@ -56,7 +65,7 @@ internal sealed class ChatPerformanceBenchmarkRunner
                 text += " Validate canary pool, watch error budgets, and keep mitigation plan pinned for rapid rollback.";
             }
 
-            _transcript.Children.Add(new StrataChatMessage
+            AddTranscriptItem(new StrataChatMessage
             {
                 Role = role,
                 Author = author,
@@ -71,7 +80,6 @@ internal sealed class ChatPerformanceBenchmarkRunner
             });
         }
 
-        ResetToOptimizedDefaults();
         _chatShell.ResetAutoScroll();
         _chatShell.ScrollToEnd();
     }
@@ -105,6 +113,7 @@ internal sealed class ChatPerformanceBenchmarkRunner
 
     public void ResetToOptimizedDefaults()
     {
+        SetTranscriptMode(useVirtualizedTranscript: true);
         _chatShell.ResetAutoScroll();
     }
 
@@ -113,7 +122,8 @@ internal sealed class ChatPerformanceBenchmarkRunner
         if (result.FrameMetrics.Frames == 0)
             return "No frame samples captured.";
 
-        return $"FPS {result.FrameMetrics.AvgFps:F1} · avg {result.FrameMetrics.AvgFrameMs:F1} ms · p95 {result.FrameMetrics.P95FrameMs:F1} ms · worst {result.FrameMetrics.WorstFrameMs:F1} ms · slow>20ms {result.FrameMetrics.SlowFramePercent:F1}% · frames {result.FrameMetrics.Frames} · stream updates {result.StreamUpdates}";
+        var heapMb = result.HeapBytes / (1024d * 1024d);
+        return $"FPS {result.FrameMetrics.AvgFps:F1} · avg {result.FrameMetrics.AvgFrameMs:F1} ms · p95 {result.FrameMetrics.P95FrameMs:F1} ms · worst {result.FrameMetrics.WorstFrameMs:F1} ms · slow>20ms {result.FrameMetrics.SlowFramePercent:F1}% · frames {result.FrameMetrics.Frames} · stream updates {result.StreamUpdates} · seed {result.SeedDurationMs:F0} ms · realized {result.RealizedMessages} · heap {heapMb:F1} MB";
     }
 
     public static string FormatUplift(ChatPerfScenarioResult baseline, ChatPerfScenarioResult optimized)
@@ -127,8 +137,15 @@ internal sealed class ChatPerformanceBenchmarkRunner
 
         var p95ImprovementMs = baseline.FrameMetrics.P95FrameMs - optimized.FrameMetrics.P95FrameMs;
         var slowFrameImprovementPct = baseline.FrameMetrics.SlowFramePercent - optimized.FrameMetrics.SlowFramePercent;
+        var seedImprovementMs = baseline.SeedDurationMs - optimized.SeedDurationMs;
+        var realizedReductionPct = baseline.RealizedMessages <= 0
+            ? 0
+            : ((baseline.RealizedMessages - optimized.RealizedMessages) / (double)baseline.RealizedMessages) * 100d;
+        var heapReductionPct = baseline.HeapBytes <= 0
+            ? 0
+            : ((baseline.HeapBytes - optimized.HeapBytes) / (double)baseline.HeapBytes) * 100d;
 
-        return $"FPS uplift {fpsGainPct:+0.0;-0.0;0}% · p95 improvement {p95ImprovementMs:+0.0;-0.0;0} ms · slow-frame reduction {slowFrameImprovementPct:+0.0;-0.0;0}%";
+        return $"FPS uplift {fpsGainPct:+0.0;-0.0;0}% · p95 improvement {p95ImprovementMs:+0.0;-0.0;0} ms · slow-frame reduction {slowFrameImprovementPct:+0.0;-0.0;0}% · seed improvement {seedImprovementMs:+0;-0;0} ms · realized reduction {realizedReductionPct:+0.0;-0.0;0}% · heap reduction {heapReductionPct:+0.0;-0.0;0}%";
     }
 
     private async Task<ChatPerfScenarioResult> RunScenarioAsync(ChatPerfScenarioProfile profile, CancellationToken token)
@@ -137,21 +154,26 @@ internal sealed class ChatPerformanceBenchmarkRunner
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
+        var useVirtualizedTranscript = profile == ChatPerfScenarioProfile.Optimized;
+        SetTranscriptMode(useVirtualizedTranscript);
+        await Task.Delay(80, token);
+
+        var seedStopwatch = System.Diagnostics.Stopwatch.StartNew();
         SeedTranscript();
         await Task.Delay(220, token);
+        seedStopwatch.Stop();
 
-        var runLegacyMarkdownPipeline = profile == ChatPerfScenarioProfile.Baseline;
         var streamRenderIntervalMs = Math.Max(16, _options.StreamRenderIntervalMs);
-        var markdownThrottleMs = runLegacyMarkdownPipeline
-            ? _options.LegacyMarkdownThrottleMs
-            : _options.OptimizedMarkdownThrottleMs;
+        var markdownThrottleMs = Math.Max(0, _options.OptimizedMarkdownThrottleMs);
+        var realizedMessages = CountRealizedMessages();
+        var heapBytes = GC.GetTotalMemory(forceFullCollection: false);
 
         var streamingMarkdown = new StrataMarkdown
         {
             IsInline = true,
             Markdown = string.Empty,
-            EnableAppendTailParsing = !runLegacyMarkdownPipeline,
-            StreamingRebuildThrottleMs = Math.Max(0, markdownThrottleMs),
+            EnableAppendTailParsing = true,
+            StreamingRebuildThrottleMs = markdownThrottleMs,
         };
 
         var streamingMessage = new StrataChatMessage
@@ -165,7 +187,7 @@ internal sealed class ChatPerformanceBenchmarkRunner
             Content = streamingMarkdown
         };
 
-        _transcript.Children.Add(streamingMessage);
+        AddTranscriptItem(streamingMessage);
         _chatShell.ScrollToEnd();
         await Task.Delay(180, token);
 
@@ -200,9 +222,13 @@ internal sealed class ChatPerformanceBenchmarkRunner
                 var maxOffset = Math.Max(0, extentHeight - viewportHeight);
                 if (maxOffset > 0)
                 {
-                    var sweep = (stopwatch.Elapsed.TotalMilliseconds / 2600d) % 2d;
-                    var triangle = sweep <= 1d ? sweep : 2d - sweep;
-                    ScrollToVerticalOffset(maxOffset * triangle);
+                    // Realistic chat behavior: stay near recent history while streaming,
+                    // with moderate up/down motion rather than full-history sweeps.
+                    var recentBandStart = Math.Max(0, maxOffset - (viewportHeight * 10));
+                    var recentBandRange = Math.Min(maxOffset - recentBandStart, viewportHeight * 6);
+                    var wave = (Math.Sin(stopwatch.Elapsed.TotalMilliseconds / 900d) + 1d) * 0.5d;
+                    var target = recentBandStart + (recentBandRange * wave);
+                    ScrollToVerticalOffset(target);
                 }
             }
 
@@ -218,8 +244,73 @@ internal sealed class ChatPerformanceBenchmarkRunner
         return new ChatPerfScenarioResult(
             FrameMetrics: frameMetrics,
             StreamUpdates: streamUpdates,
-            MessageCount: _transcript.Children.Count,
-            StreamedChars: fullMarkdown.Length);
+            MessageCount: GetTranscriptItemCount(),
+            StreamedChars: fullMarkdown.Length,
+            SeedDurationMs: seedStopwatch.Elapsed.TotalMilliseconds,
+            RealizedMessages: realizedMessages,
+            HeapBytes: heapBytes);
+    }
+
+    private void SetTranscriptMode(bool useVirtualizedTranscript)
+    {
+        var transcript = useVirtualizedTranscript
+            ? (object)_optimizedTranscript
+            : _baselineTranscript;
+
+        if (ReferenceEquals(_activeTranscript, transcript))
+            return;
+
+        _activeTranscript = transcript;
+        _chatShell.Transcript = transcript;
+        _transcriptScrollViewer = null;
+    }
+
+    private static void ClearTranscript(object transcript)
+    {
+        switch (transcript)
+        {
+            case StrataChatTranscript itemsControl:
+                itemsControl.Items.Clear();
+                break;
+            case StackPanel panel:
+                panel.Children.Clear();
+                break;
+        }
+    }
+
+    private void AddTranscriptItem(Control item)
+    {
+        switch (_activeTranscript)
+        {
+            case StrataChatTranscript transcript:
+                transcript.Items.Add(item);
+                break;
+            case StackPanel panel:
+                panel.Children.Add(item);
+                break;
+            default:
+                throw new InvalidOperationException("Transcript mode is not initialized.");
+        }
+    }
+
+    private int GetTranscriptItemCount()
+    {
+        return _activeTranscript switch
+        {
+            StrataChatTranscript transcript => transcript.Items.Count,
+            StackPanel panel => panel.Children.Count,
+            _ => 0
+        };
+    }
+
+    private int CountRealizedMessages()
+    {
+        return _activeTranscript switch
+        {
+            StrataChatTranscript transcript when transcript.ItemsPanelRoot is Panel panel => panel.Children.Count,
+            StackPanel panel => panel.Children.Count,
+            _ => 0,
+        };
     }
 
     private bool TryGetScrollMetrics(out double extentHeight, out double viewportHeight)
@@ -313,7 +404,10 @@ internal sealed class ChatPerformanceBenchmarkRunner
             FrameMetrics: aggregatedMetrics,
             StreamUpdates: (int)Math.Round(Median(samples.Select(s => (double)s.StreamUpdates))),
             MessageCount: (int)Math.Round(Median(samples.Select(s => (double)s.MessageCount))),
-            StreamedChars: (int)Math.Round(Median(samples.Select(s => (double)s.StreamedChars))));
+            StreamedChars: (int)Math.Round(Median(samples.Select(s => (double)s.StreamedChars))),
+            SeedDurationMs: Median(samples.Select(s => s.SeedDurationMs)),
+            RealizedMessages: (int)Math.Round(Median(samples.Select(s => (double)s.RealizedMessages))),
+            HeapBytes: (long)Math.Round(Median(samples.Select(s => (double)s.HeapBytes))));
     }
 
     private static double Median(IEnumerable<double> values)

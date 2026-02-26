@@ -1,0 +1,26 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataChatTranscript}" TargetType="controls:StrataChatTranscript">
+        <Setter Property="ItemsPanel">
+          <ItemsPanelTemplate>
+            <controls:StrataChatVirtualizingPanel CacheLength="2.0" />
+          </ItemsPanelTemplate>
+        </Setter>
+        <Setter Property="Template">
+          <ControlTemplate>
+            <ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" />
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ controls|StrataChatVirtualizingPanel > :is(Control)">
+          <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+</Styles>
