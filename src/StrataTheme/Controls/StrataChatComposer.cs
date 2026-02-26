@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -201,9 +202,20 @@ public class StrataChatComposer : TemplatedControl
 
     static StrataChatComposer()
     {
-        PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
+        PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, e) =>
         {
+            // Clamp selection to new text length to prevent Avalonia crash in
+            // TextPresenter.Render when text shrinks while a selection exists.
+            if (c._input is not null)
+            {
+                var len = c.PromptText?.Length ?? 0;
+                if (c._input.SelectionStart > len)
+                    c._input.SelectionStart = len;
+                if (c._input.SelectionEnd > len)
+                    c._input.SelectionEnd = len;
+            }
             c.Sync();
+            c.UpdateInputDirection(e.NewValue as string);
             // Defer so the TextBox has updated its CaretIndex
             Dispatcher.UIThread.Post(() => c.CheckAutoComplete(), DispatcherPriority.Input);
         });
@@ -318,6 +330,22 @@ public class StrataChatComposer : TemplatedControl
     public void FocusInput()
     {
         Dispatcher.UIThread.Post(() => _input?.Focus(), DispatcherPriority.Loaded);
+    }
+
+    private void UpdateInputDirection(string? text)
+    {
+        if (_input is null) return;
+        var direction = StrataChatMessage.DetectLeadingDirection(text);
+        var targetFlow = direction == StrataChatMessage.TextDirection.RightToLeft
+            ? FlowDirection.RightToLeft
+            : FlowDirection.LeftToRight;
+        if (_input.FlowDirection != targetFlow)
+            _input.FlowDirection = targetFlow;
+        var targetAlignment = direction == StrataChatMessage.TextDirection.RightToLeft
+            ? TextAlignment.Right
+            : TextAlignment.Left;
+        if (_input.TextAlignment != targetAlignment)
+            _input.TextAlignment = targetAlignment;
     }
 
     private static ContextMenu BuildInputContextMenu(TextBox textBox)

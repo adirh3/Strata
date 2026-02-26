@@ -756,6 +756,16 @@ public class StrataMarkdown : ContentControl
                 return;
             }
 
+            // If the replacement is already a child of _contentHost (cached control
+            // reused at a different index), a direct indexed set would crash because
+            // Avalonia forbids adding a control that already has a visual parent.
+            // Fall back to a full rebuild which clears children first.
+            if (ReferenceEquals(replacement.Parent, _contentHost))
+            {
+                RebuildChildrenFromBlocks(newBlocks);
+                return;
+            }
+
             _contentHost.Children[i] = replacement;
         }
 
@@ -767,7 +777,15 @@ public class StrataMarkdown : ContentControl
 
         // Append new blocks
         for (int i = minCount; i < newCount; i++)
-            _contentHost.Children.Add(CreateControlForBlock(newBlocks[i]));
+        {
+            var control = CreateControlForBlock(newBlocks[i]);
+            if (ReferenceEquals(control.Parent, _contentHost))
+            {
+                RebuildChildrenFromBlocks(newBlocks);
+                return;
+            }
+            _contentHost.Children.Add(control);
+        }
 
         // Remove trailing stale blocks (iterate from end to avoid index shift)
         for (int i = _contentHost.Children.Count - 1; i >= newCount; i--)
