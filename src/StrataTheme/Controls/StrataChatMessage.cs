@@ -52,9 +52,9 @@ public enum StrataChatRole
 /// </remarks>
 public class StrataChatMessage : TemplatedControl
 {
-    private const int DirectionScanLimitChars = 384;
+    internal const int DirectionScanLimitChars = 384;
 
-    private enum TextDirection
+    internal enum TextDirection
     {
         Neutral,
         LeftToRight,
@@ -594,7 +594,7 @@ public class StrataChatMessage : TemplatedControl
             markdown.FlowDirection = targetFlowDirection;
     }
 
-    private static TextDirection DetectLeadingDirection(string? text)
+    internal static TextDirection DetectLeadingDirection(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return TextDirection.Neutral;
@@ -684,7 +684,7 @@ public class StrataChatMessage : TemplatedControl
             : TextDirection.LeftToRight;
     }
 
-    private static bool IsStrongRtlRune(int codePoint)
+    internal static bool IsStrongRtlRune(int codePoint)
     {
         return (codePoint >= 0x0590 && codePoint <= 0x05FF) // Hebrew
                || (codePoint >= 0x0600 && codePoint <= 0x06FF) // Arabic
