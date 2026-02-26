@@ -796,7 +796,15 @@ public class StrataMarkdown : ContentControl
     {
         _contentHost.Children.Clear();
         foreach (var block in blocks)
-            _contentHost.Children.Add(CreateControlForBlock(block));
+        {
+            var control = CreateControlForBlock(block);
+            // A cached control may still be parented — either added earlier in this
+            // loop (duplicate cache key) or attached to another panel. Detach it
+            // before adding to avoid "already has a visual parent" crashes.
+            if (control.Parent is Panel parent)
+                parent.Children.Remove(control);
+            _contentHost.Children.Add(control);
+        }
     }
 
     private void DetachFromForeignParent(Control control)
