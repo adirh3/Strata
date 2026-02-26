@@ -75,6 +75,7 @@
   <StyleInclude Source="avares://StrataTheme/Controls/StrataTrace.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataPulse.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataAiToolCall.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataTerminalPreview.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataAiSkill.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataAiAgent.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataChatMessage.axaml" />
