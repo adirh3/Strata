@@ -57,6 +57,12 @@ public class StrataTypingIndicator : TemplatedControl
         Dispatcher.UIThread.Post(Refresh, DispatcherPriority.Loaded);
     }
 
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        StopPulse();
+        base.OnDetachedFromVisualTree(e);
+    }
+
     private void Refresh()
     {
         PseudoClasses.Set(":active", IsActive);
