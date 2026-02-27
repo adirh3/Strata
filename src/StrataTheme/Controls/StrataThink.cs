@@ -201,6 +201,9 @@ public class StrataThink : TemplatedControl
         if (width < 1)
             width = 420;
 
+        // Cap expanded width so the pill doesn't stretch across the full chat area.
+        width = Math.Min(width, 480);
+
         _pill.Width = width;
     }
 

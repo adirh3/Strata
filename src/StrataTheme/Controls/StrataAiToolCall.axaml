@@ -8,7 +8,6 @@
         <Setter Property="Focusable" Value="True" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="VerticalAlignment" Value="Top" />
-        <Setter Property="MinWidth" Value="220" />
         <Setter Property="Template">
           <ControlTemplate>
             <Panel>

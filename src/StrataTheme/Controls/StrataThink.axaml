@@ -16,7 +16,7 @@
                     CornerRadius="{DynamicResource Radius.Base}"
                     Padding="12,7,12,7"
                     BoxShadow="0 1 2 0 #0A000000"
-                  ClipToBounds="True"
+                    ClipToBounds="True"
                     HorizontalAlignment="Left">
               <Border.Transitions>
                 <Transitions>
@@ -93,7 +93,8 @@
                                   VerticalScrollBarVisibility="Auto"
                                   MaxHeight="480">
                       <Border Padding="0,0,2,0">
-                        <ContentPresenter Content="{TemplateBinding Content}" />
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Left" />
                       </Border>
                     </ScrollViewer>
                   </StackPanel>
