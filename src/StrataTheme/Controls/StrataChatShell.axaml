@@ -85,12 +85,6 @@
                   <ContentPresenter Content="{TemplateBinding Composer}" />
                 </Border>
 
-                <!-- Thin separator above composer -->
-                <Border DockPanel.Dock="Bottom"
-                        Height="1"
-                        Background="{DynamicResource Brush.StratumLine}"
-                        Opacity="0.34" />
-
                 <!-- Scrollable transcript fills remaining space -->
                 <Border Name="PART_TranscriptHost">
                   <ScrollViewer Name="PART_TranscriptScroll"
