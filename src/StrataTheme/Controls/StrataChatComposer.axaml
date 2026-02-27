@@ -117,7 +117,7 @@
                   <WrapPanel Grid.Column="0"
                              Orientation="Horizontal"
                              Margin="0,0,8,0"
-                             VerticalAlignment="Center">
+                             VerticalAlignment="Bottom">
 
                     <!-- Attach button -->
                     <Button Name="PART_AttachButton"
@@ -160,7 +160,7 @@
                               ItemsSource="{TemplateBinding Models}"
                               SelectedItem="{Binding SelectedModel, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                               MinWidth="100"
-                              MinHeight="0" Padding="8,4,6,4"
+                              Height="28" MinHeight="0" Padding="8,4,6,4"
                               FontSize="12"
                               CornerRadius="6"
                               Background="{DynamicResource Brush.Surface2}"
@@ -174,7 +174,7 @@
                               ItemsSource="{TemplateBinding QualityLevels}"
                               SelectedItem="{Binding SelectedQuality, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                               MinWidth="82"
-                              MinHeight="0" Padding="8,4,6,4"
+                              Height="28" MinHeight="0" Padding="8,4,6,4"
                               FontSize="12"
                               CornerRadius="6"
                               Background="{DynamicResource Brush.Surface2}"
@@ -246,35 +246,38 @@
                     <!-- Suggestion chips -->
                     <Button Name="PART_ActionA" Classes="subtle"
                             Content="{TemplateBinding SuggestionA}"
-                            Padding="8,4" MinHeight="0" MaxWidth="170"
+                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="170"
                             CornerRadius="6" FontSize="12"
                             VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
                             Margin="0,0,6,6"
                             Foreground="{DynamicResource Brush.TextSecondary}" />
                     <Button Name="PART_ActionB" Classes="subtle"
                             Content="{TemplateBinding SuggestionB}"
-                            Padding="8,4" MinHeight="0" MaxWidth="170"
+                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="170"
                             CornerRadius="6" FontSize="12"
                             VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
                             Margin="0,0,6,6"
                             Foreground="{DynamicResource Brush.TextSecondary}" />
                     <Button Name="PART_ActionC" Classes="subtle"
                             Content="{TemplateBinding SuggestionC}"
-                            Padding="8,4" MinHeight="0" MaxWidth="170"
+                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="170"
                             CornerRadius="6" FontSize="12"
                             VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
                             Margin="0,0,6,6"
                             Foreground="{DynamicResource Brush.TextSecondary}" />
                       </WrapPanel>
 
                   <!-- Right: voice + send -->
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom" Margin="0,0,0,6">
                     <Button Name="PART_VoiceButton"
                             Classes="subtle"
                             Width="28" Height="28"
                             Padding="0" MinHeight="0" MinWidth="0"
                             CornerRadius="6"
-                            VerticalAlignment="Center"
+                            VerticalAlignment="Bottom"
                             ToolTip.Tip="Voice">
                       <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Path Stretch="Uniform"
@@ -294,7 +297,8 @@
                             Foreground="{DynamicResource Brush.TextOnAccent}"
                             VerticalAlignment="Bottom"
                             ToolTip.Tip="Send (Enter)"
-                            RenderTransformOrigin="0.5,0.5">
+                          RenderTransformOrigin="0.5,0.5"
+                          RenderTransform="translateY(3px)">
                       <Button.Transitions>
                         <Transitions>
                           <BrushTransition Property="Background" Duration="0:0:0.1" />
@@ -340,11 +344,11 @@
         <!-- Send button hover/press -->
         <Style Selector="^ /template/ Button#PART_SendButton:pointerover">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
-          <Setter Property="RenderTransform" Value="scale(1.05)" />
+          <Setter Property="RenderTransform" Value="translateY(3px) scale(1.05)" />
         </Style>
         <Style Selector="^ /template/ Button#PART_SendButton:pressed">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientPressed}" />
-          <Setter Property="RenderTransform" Value="scale(0.93)" />
+          <Setter Property="RenderTransform" Value="translateY(3px) scale(0.93)" />
         </Style>
 
         <!-- Busy: stop mode -->
