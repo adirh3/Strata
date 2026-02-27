@@ -100,7 +100,7 @@
           <Setter Property="RenderTransform" Value="translateX(1px)" />
         </Style>
         <Style Selector="^:pressed /template/ Border#LayoutRoot">
-          <Setter Property="RenderTransform" Value="scale(0.97)" />
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
         </Style>
         <Style Selector="^:selected /template/ Border#LayoutRoot">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
