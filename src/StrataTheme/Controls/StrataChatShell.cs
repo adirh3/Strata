@@ -44,14 +44,20 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataChatShell : TemplatedControl
 {
+    private const int AutoScrollInteractionCooldownMs = 220;
+    private static readonly TimeSpan ProgrammaticScrollMinInterval = TimeSpan.FromMilliseconds(90);
+
     private Border? _presenceDot;
     private ScrollViewer? _scrollViewer;
     private Panel? _transcriptPanel;
+    private ItemsControl? _transcriptItemsControl;
     private INotifyCollectionChanged? _transcriptCollection;
     private bool _userScrolledAway;
     private bool _isProgrammaticScroll;
     private bool _alignmentQueued;
     private bool _scrollQueued;
+    private DateTime _suspendAutoScrollUntilUtc;
+    private DateTime _lastProgrammaticScrollUtc;
     private bool _forceFullAlignment = true;
     private int _lastObservedTranscriptCount;
     private int _lastAlignedMessageCount;
@@ -60,7 +66,10 @@ public class StrataChatShell : TemplatedControl
     public static readonly StyledProperty<object?> HeaderProperty =
         AvaloniaProperty.Register<StrataChatShell, object?>(nameof(Header));
 
-    /// <summary>Scrollable transcript content (typically a StackPanel of StrataChatMessage).</summary>
+    /// <summary>
+    /// Scrollable transcript content. Use <see cref="StrataChatTranscript"/> for
+    /// long conversations to enable dedicated chat virtualization.
+    /// </summary>
     public static readonly StyledProperty<object?> TranscriptProperty =
         AvaloniaProperty.Register<StrataChatShell, object?>(nameof(Transcript));
 
@@ -171,11 +180,21 @@ public class StrataChatShell : TemplatedControl
         UnsubscribeTranscriptPanel();
 
         _transcriptPanel = Transcript as Panel;
-        if (_transcriptPanel?.Children is INotifyCollectionChanged children)
+
+        if (_transcriptPanel?.Children is INotifyCollectionChanged panelChildren)
         {
-            _transcriptCollection = children;
+            _transcriptCollection = panelChildren;
             _transcriptCollection.CollectionChanged += OnTranscriptChildrenChanged;
             _lastObservedTranscriptCount = _transcriptPanel.Children.Count;
+            return;
+        }
+
+        _transcriptItemsControl = Transcript as ItemsControl;
+        if (_transcriptItemsControl?.Items is INotifyCollectionChanged itemCollection)
+        {
+            _transcriptCollection = itemCollection;
+            _transcriptCollection.CollectionChanged += OnTranscriptChildrenChanged;
+            _lastObservedTranscriptCount = _transcriptItemsControl.Items.Count;
         }
     }
 
@@ -186,11 +205,15 @@ public class StrataChatShell : TemplatedControl
 
         _transcriptCollection = null;
         _transcriptPanel = null;
+        _transcriptItemsControl = null;
     }
 
     private void OnTranscriptChildrenChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        var currentCount = _transcriptPanel?.Children.Count ?? 0;
+        var currentCount = _transcriptPanel?.Children.Count
+            ?? _transcriptItemsControl?.Items.Count
+            ?? 0;
+
         _lastObservedTranscriptCount = currentCount;
 
         var forceFull = e.Action switch
@@ -245,6 +268,25 @@ public class StrataChatShell : TemplatedControl
             }
 
             _lastAlignedMessageCount = childCount;
+            return;
+        }
+
+        var itemsControl = Transcript as ItemsControl;
+        if (itemsControl is not null)
+        {
+            var itemCount = itemsControl.Items.Count;
+            if (forceFull || _lastAlignedMessageCount > itemCount)
+            {
+                for (var i = 0; i < itemCount; i++)
+                    AlignMessagesInNode(itemsControl.ContainerFromIndex(i) ?? itemsControl.Items[i]);
+            }
+            else
+            {
+                for (var i = _lastAlignedMessageCount; i < itemCount; i++)
+                    AlignMessagesInNode(itemsControl.ContainerFromIndex(i) ?? itemsControl.Items[i]);
+            }
+
+            _lastAlignedMessageCount = itemCount;
             return;
         }
 
@@ -345,6 +387,14 @@ public class StrataChatShell : TemplatedControl
         {
             foreach (var child in panel.Children)
                 CollectFromTranscriptObject(child, collector);
+
+            return;
+        }
+
+        if (node is ItemsControl itemsControl)
+        {
+            for (var i = 0; i < itemsControl.Items.Count; i++)
+                CollectFromTranscriptObject(itemsControl.ContainerFromIndex(i) ?? itemsControl.Items[i], collector);
         }
     }
 
@@ -393,7 +443,11 @@ public class StrataChatShell : TemplatedControl
     /// </summary>
     public void ScrollToEnd()
     {
-        if (_scrollViewer is null || _userScrolledAway)
+        if (_scrollViewer is null || _userScrolledAway || IsAutoScrollSuspended())
+            return;
+
+        var now = DateTime.UtcNow;
+        if (_lastProgrammaticScrollUtc != default && (now - _lastProgrammaticScrollUtc) < ProgrammaticScrollMinInterval)
             return;
 
         if (_scrollQueued) return;
@@ -401,17 +455,21 @@ public class StrataChatShell : TemplatedControl
         Dispatcher.UIThread.Post(() =>
         {
             _scrollQueued = false;
-            if (_scrollViewer is null || _userScrolledAway) return;
+            if (_scrollViewer is null || _userScrolledAway || IsAutoScrollSuspended()) return;
 
             _isProgrammaticScroll = true;
+            _lastProgrammaticScrollUtc = DateTime.UtcNow;
             _scrollViewer.ScrollToEnd();
 
             // Scroll once more after layout settles so streaming content growth
             // (e.g., markdown reflow) still keeps the viewport pinned to the bottom.
             Dispatcher.UIThread.Post(() =>
             {
-                if (_scrollViewer is not null && !_userScrolledAway)
+                if (_scrollViewer is not null && !_userScrolledAway && !IsAutoScrollSuspended())
+                {
+                    _lastProgrammaticScrollUtc = DateTime.UtcNow;
                     _scrollViewer.ScrollToEnd();
+                }
 
                 _isProgrammaticScroll = false;
             }, DispatcherPriority.Loaded);
@@ -425,6 +483,7 @@ public class StrataChatShell : TemplatedControl
     public void ResetAutoScroll()
     {
         _userScrolledAway = false;
+        _suspendAutoScrollUntilUtc = default;
     }
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
@@ -437,6 +496,8 @@ public class StrataChatShell : TemplatedControl
         if (Math.Abs(e.OffsetDelta.Y) <= 0.5)
             return;
 
+        SuspendAutoScrollBriefly();
+
         var distanceFromBottom = DistanceFromBottom(_scrollViewer);
         _userScrolledAway = distanceFromBottom > 40;
     }
@@ -445,8 +506,19 @@ public class StrataChatShell : TemplatedControl
     {
         // Don't intercept — let ScrollViewer handle natively (especially for touchpad).
         // Just detect scroll-away intent so auto-scroll pauses during streaming.
+        SuspendAutoScrollBriefly();
         if (e.Delta.Y > 0)
             _userScrolledAway = true;
+    }
+
+    private bool IsAutoScrollSuspended()
+    {
+        return DateTime.UtcNow < _suspendAutoScrollUntilUtc;
+    }
+
+    private void SuspendAutoScrollBriefly()
+    {
+        _suspendAutoScrollUntilUtc = DateTime.UtcNow.AddMilliseconds(AutoScrollInteractionCooldownMs);
     }
 
     private static double DistanceFromBottom(ScrollViewer scrollViewer)

@@ -52,7 +52,7 @@
       </ControlTheme>
 
       <ControlTheme x:Key="{x:Type ListBoxItem}" TargetType="ListBoxItem">
-        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Background" Value="#00000000" />
         <Setter Property="ClipToBounds" Value="False" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         <Setter Property="Padding" Value="11,8" />
@@ -96,11 +96,11 @@
         </Setter>
 
         <Style Selector="^:pointerover /template/ Border#LayoutRoot">
-          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
           <Setter Property="RenderTransform" Value="translateX(1px)" />
         </Style>
         <Style Selector="^:pressed /template/ Border#LayoutRoot">
-          <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+          <Setter Property="RenderTransform" Value="scale(0.97)" />
         </Style>
         <Style Selector="^:selected /template/ Border#LayoutRoot">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />

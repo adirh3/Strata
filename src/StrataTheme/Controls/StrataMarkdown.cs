@@ -504,7 +504,10 @@ public class StrataMarkdown : ContentControl
             if (lineSpan.Length > 0 && lineSpan[^1] == '\r')
                 lineSpan = lineSpan[..^1];
 
-            if (lineSpan.Length >= 3 && lineSpan[0] == '`' && lineSpan[1] == '`' && lineSpan[2] == '`')
+            // Check for fenced code blocks — trim leading whitespace so indented fences
+            // (e.g. inside list items) are recognized
+            var trimmedSpan = lineSpan.TrimStart();
+            if (trimmedSpan.Length >= 3 && trimmedSpan[0] == '`' && trimmedSpan[1] == '`' && trimmedSpan[2] == '`')
             {
                 FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
                 paragraphStart = -1;
@@ -514,7 +517,7 @@ public class StrataMarkdown : ContentControl
                 if (!inCodeBlock)
                 {
                     inCodeBlock = true;
-                    codeLanguage = lineSpan.Length > 3 ? lineSpan[3..].Trim().ToString() : string.Empty;
+                    codeLanguage = trimmedSpan.Length > 3 ? trimmedSpan[3..].Trim().ToString() : string.Empty;
                     codeBuffer.Clear();
                     codeStart = absoluteLineStart;
                 }
@@ -990,6 +993,40 @@ public class StrataMarkdown : ContentControl
         @"(?<code>`[^`]+`)|(?<bolditalic>\*\*\*(?<bi_text>.+?)\*\*\*)|(?<bold>\*\*(?<b_text>.+?)\*\*)|(?<italic>\*(?<i_text>.+?)\*)|(?<link>\[(?<l_text>[^\]]+)\]\((?<l_url>[^)]+)\))",
         RegexOptions.Compiled | RegexOptions.Singleline);
 
+    private static readonly Regex NestedCodeRegex = new(
+        @"`[^`]+`",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// Adds runs for text that may contain inline code (`code`) inside a bold/italic span.
+    /// Plain segments get the supplied weight/style; code segments get a bordered chip.
+    /// </summary>
+    private void AppendNestedInlines(SelectableTextBlock target, string text,
+        FontWeight weight, FontStyle style)
+    {
+        var matches = NestedCodeRegex.Matches(text);
+        if (matches.Count == 0)
+        {
+            target.Inlines?.Add(new Run(text) { FontWeight = weight, FontStyle = style });
+            return;
+        }
+
+        var lastIndex = 0;
+        foreach (Match m in matches)
+        {
+            if (m.Index > lastIndex)
+                target.Inlines?.Add(new Run(text[lastIndex..m.Index]) { FontWeight = weight, FontStyle = style });
+
+            var codeText = m.Value[1..^1];
+            target.Inlines?.Add(CreateInlineCode(codeText, target.FontSize, weight, style));
+
+            lastIndex = m.Index + m.Length;
+        }
+
+        if (lastIndex < text.Length)
+            target.Inlines?.Add(new Run(text[lastIndex..]) { FontWeight = weight, FontStyle = style });
+    }
+
     private void AppendFormattedInlines(SelectableTextBlock target, string text)
     {
         if (string.IsNullOrEmpty(text))
@@ -1012,34 +1049,22 @@ public class StrataMarkdown : ContentControl
             if (match.Groups["code"].Success)
             {
                 var codeText = match.Value[1..^1]; // strip backticks
-                target.Inlines?.Add(new Run(" " + codeText + " ")
-                {
-                    FontFamily = ResolveMonoFont(),
-                    FontSize = target.FontSize > 1 ? target.FontSize - 1 : target.FontSize,
-                    Background = _inlineCodeBrush ??= ResolveInlineCodeBrush()
-                });
+                target.Inlines?.Add(CreateInlineCode(codeText, target.FontSize));
             }
             else if (match.Groups["bolditalic"].Success)
             {
-                target.Inlines?.Add(new Run(match.Groups["bi_text"].Value)
-                {
-                    FontWeight = FontWeight.Bold,
-                    FontStyle = FontStyle.Italic
-                });
+                AppendNestedInlines(target, match.Groups["bi_text"].Value,
+                    FontWeight.Bold, FontStyle.Italic);
             }
             else if (match.Groups["bold"].Success)
             {
-                target.Inlines?.Add(new Run(match.Groups["b_text"].Value)
-                {
-                    FontWeight = FontWeight.Bold
-                });
+                AppendNestedInlines(target, match.Groups["b_text"].Value,
+                    FontWeight.Bold, FontStyle.Normal);
             }
             else if (match.Groups["italic"].Success)
             {
-                target.Inlines?.Add(new Run(match.Groups["i_text"].Value)
-                {
-                    FontStyle = FontStyle.Italic
-                });
+                AppendNestedInlines(target, match.Groups["i_text"].Value,
+                    FontWeight.Normal, FontStyle.Italic);
             }
             else if (match.Groups["link"].Success)
             {
@@ -2049,16 +2074,57 @@ public class StrataMarkdown : ContentControl
         return Brushes.DodgerBlue;
     }
 
-    private static IBrush ResolveInlineCodeBrush()
+    private Inline CreateInlineCode(string codeText, double fontSize,
+        FontWeight weight = default, FontStyle style = default)
+    {
+        var textBlock = new TextBlock
+        {
+            Text = codeText,
+            FontSize = fontSize * 0.9,
+            FontWeight = weight == default ? FontWeight.Normal : weight,
+            FontStyle = style,
+        };
+
+        var border = new Border
+        {
+            Child = textBlock,
+            Background = _inlineCodeBrush ??= ResolveInlineCodeBrush(),
+            BorderBrush = ResolveInlineCodeBorderBrush(),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(4, 0, 4, 0),
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(1, 0, 1, -6),
+        };
+
+        return new InlineUIContainer(border)
+        {
+            BaselineAlignment = BaselineAlignment.Baseline,
+        };
+    }
+
+    private static IBrush ResolveInlineCodeBorderBrush()
     {
         if (Application.Current is not null &&
-            Application.Current.TryGetResource("Brush.AccentSubtle", Application.Current.ActualThemeVariant, out var res) &&
+            Application.Current.TryGetResource("Brush.BorderSubtle", Application.Current.ActualThemeVariant, out var res) &&
             res is IBrush brush)
         {
             return brush;
         }
 
-        return Brushes.LightGray;
+        return new SolidColorBrush(Color.FromArgb(40, 128, 128, 128));
+    }
+
+    private static IBrush ResolveInlineCodeBrush()
+    {
+        if (Application.Current is not null &&
+            Application.Current.TryGetResource("Brush.Surface2", Application.Current.ActualThemeVariant, out var res) &&
+            res is IBrush brush)
+        {
+            return brush;
+        }
+
+        return new SolidColorBrush(Color.FromArgb(25, 128, 128, 128));
     }
 
     private static bool TryParseHeading(ReadOnlySpan<char> line, out int level, out string text)

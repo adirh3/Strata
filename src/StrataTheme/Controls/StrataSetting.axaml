@@ -17,81 +17,85 @@
                       IsVisible="{TemplateBinding ShowSeparator}" />
 
               <!-- Setting row -->
-              <Grid Name="PART_Row"
-                    ColumnDefinitions="Auto,*,Auto"
-                    MinHeight="{DynamicResource Size.ControlHeightM}"
-                    Background="Transparent">
-                <Grid.Transitions>
+              <Border Name="PART_RowBorder"
+                      CornerRadius="{DynamicResource Radius.Base}"
+                      Background="Transparent"
+                      Padding="10,6">
+                <Border.Transitions>
                   <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.12" />
                   </Transitions>
-                </Grid.Transitions>
+                </Border.Transitions>
+                <Grid Name="PART_Row"
+                      ColumnDefinitions="Auto,*,Auto"
+                      MinHeight="{DynamicResource Size.ControlHeightM}">
 
-                <!-- Highlight accent bar (left edge indicator for search) -->
-                <Border Name="PART_HighlightBar"
-                        Grid.Column="0"
-                        Width="3" CornerRadius="2"
-                        Margin="0,2,8,2"
-                        Opacity="0"
-                        Background="{DynamicResource Brush.AccentDefault}">
-                  <Border.Transitions>
-                    <Transitions>
-                      <DoubleTransition Property="Opacity" Duration="0:0:0.25" Easing="CubicEaseOut" />
-                    </Transitions>
-                  </Border.Transitions>
-                </Border>
+                  <!-- Highlight accent bar (left edge indicator for search) -->
+                  <Border Name="PART_HighlightBar"
+                          Grid.Column="0"
+                          Width="3" CornerRadius="2"
+                          Margin="0,2,8,2"
+                          Opacity="0"
+                          Background="{DynamicResource Brush.AccentDefault}">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Border.Transitions>
+                  </Border>
 
-                <!-- Header + description + inline revert -->
-                <StackPanel Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Spacing="2"
-                            Margin="0,0,16,0">
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Name="PART_HeaderText"
-                               Text="{TemplateBinding Header}"
-                               FontWeight="Medium"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource Brush.TextPrimary}">
-                      <TextBlock.Transitions>
-                        <Transitions>
-                          <BrushTransition Property="Foreground" Duration="0:0:0.15" />
-                        </Transitions>
-                      </TextBlock.Transitions>
-                    </TextBlock>
-                    <!-- Revert indicator (inline with header) -->
-                    <Button Name="PART_RevertButton"
-                            Classes="subtle"
-                            VerticalAlignment="Center"
-                            Padding="4,2"
-                            MinWidth="0"
-                            MinHeight="0"
-                            IsVisible="False"
-                            ToolTip.Tip="Revert to default"
-                            RenderTransformOrigin="0.5,0.5"
-                            RenderTransform="scale(0.85)"
-                            Opacity="0">
-                      <Button.Transitions>
-                        <Transitions>
-                          <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
-                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
-                        </Transitions>
-                      </Button.Transitions>
-                      <TextBlock Text="↺" FontSize="12" />
-                    </Button>
+                  <!-- Header + description + inline revert -->
+                  <StackPanel Grid.Column="1"
+                              VerticalAlignment="Center"
+                              Spacing="2"
+                              Margin="0,0,16,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <TextBlock Name="PART_HeaderText"
+                                 Text="{TemplateBinding Header}"
+                                 FontWeight="Medium"
+                                 VerticalAlignment="Center"
+                                 Foreground="{DynamicResource Brush.TextPrimary}">
+                        <TextBlock.Transitions>
+                          <Transitions>
+                            <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+                          </Transitions>
+                        </TextBlock.Transitions>
+                      </TextBlock>
+                      <!-- Revert indicator (inline with header) -->
+                      <Button Name="PART_RevertButton"
+                              Classes="subtle"
+                              VerticalAlignment="Center"
+                              Padding="4,2"
+                              MinWidth="0"
+                              MinHeight="0"
+                              IsVisible="False"
+                              ToolTip.Tip="Revert to default"
+                              RenderTransformOrigin="0.5,0.5"
+                              RenderTransform="scale(0.85)"
+                              Opacity="0">
+                        <Button.Transitions>
+                          <Transitions>
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                          </Transitions>
+                        </Button.Transitions>
+                        <TextBlock Text="↺" FontSize="12" />
+                      </Button>
+                    </StackPanel>
+                    <TextBlock Name="PART_Description"
+                               Text="{TemplateBinding Description}"
+                               Classes="caption"
+                               Foreground="{DynamicResource Brush.TextTertiary}"
+                               TextWrapping="Wrap"
+                               IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                   </StackPanel>
-                  <TextBlock Name="PART_Description"
-                             Text="{TemplateBinding Description}"
-                             Classes="caption"
-                             Foreground="{DynamicResource Brush.TextTertiary}"
-                             TextWrapping="Wrap"
-                             IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                </StackPanel>
 
-                <!-- Setting control -->
-                <ContentPresenter Grid.Column="2"
-                                  Content="{TemplateBinding SettingContent}"
-                                  VerticalAlignment="Center" />
-              </Grid>
+                  <!-- Setting control -->
+                  <ContentPresenter Grid.Column="2"
+                                    Content="{TemplateBinding SettingContent}"
+                                    VerticalAlignment="Center" />
+                </Grid>
+              </Border>
             </StackPanel>
           </ControlTemplate>
         </Setter>
@@ -117,7 +121,7 @@
         </Style>
 
         <!-- Hover: subtle row highlight -->
-        <Style Selector="^:pointerover /template/ Grid#PART_Row">
+        <Style Selector="^:pointerover /template/ Border#PART_RowBorder">
           <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
         </Style>
       </ControlTheme>

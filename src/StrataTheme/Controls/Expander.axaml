@@ -35,7 +35,7 @@
                               IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
                               HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Stretch"
-                              Background="Transparent"
+                              Background="#00000000"
                               BorderThickness="0"
                               Padding="0"
                               Foreground="{TemplateBinding Foreground}"
@@ -175,7 +175,7 @@
           <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
         </Style>
         <Style Selector="^ /template/ ToggleButton#PART_toggle:checked">
-          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Background" Value="#00000000" />
         </Style>
         <Style Selector="^:pointerover /template/ Path#ExpanderArrowDown">
           <Setter Property="Stroke" Value="{DynamicResource Brush.TextSecondary}" />

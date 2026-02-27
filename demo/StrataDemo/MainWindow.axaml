@@ -1855,7 +1855,7 @@ async def analyze_incident(report):
               </sc:StrataChatShell.Header>
 
               <sc:StrataChatShell.Transcript>
-                <StackPanel x:Name="LiveTranscript" Spacing="8" />
+                <sc:StrataChatTranscript x:Name="LiveTranscript" />
               </sc:StrataChatShell.Transcript>
 
               <sc:StrataChatShell.Composer>
@@ -2021,7 +2021,7 @@ async def analyze_incident(report):
               </sc:StrataChatShell.Header>
 
               <sc:StrataChatShell.Transcript>
-                <StackPanel x:Name="PerfTranscript" Spacing="6" />
+                <sc:StrataChatTranscript x:Name="PerfTranscript" />
               </sc:StrataChatShell.Transcript>
 
               <sc:StrataChatShell.Composer>

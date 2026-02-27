@@ -1,0 +1,217 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+
+  <ControlTheme x:Key="{x:Type controls:StrataQuestionCard}" TargetType="controls:StrataQuestionCard">
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="MaxWidth" Value="480" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="PART_Root"
+                Background="{DynamicResource Brush.Surface0}"
+                BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                BorderThickness="1"
+                CornerRadius="10"
+                ClipToBounds="True"
+                Padding="0"
+                RenderTransformOrigin="0.5,0.5"
+                RenderTransform="scale(1)">
+          <Border.Transitions>
+            <Transitions>
+              <BrushTransition Property="Background" Duration="0:0:0.14" />
+              <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+              <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
+            </Transitions>
+          </Border.Transitions>
+
+          <StackPanel Spacing="0">
+            <!-- Stratum accent line -->
+            <Border Name="PART_Stratum"
+                    Height="2"
+                    Background="{DynamicResource Brush.AccentGradient}"
+                    Opacity="0.7">
+              <Border.Transitions>
+                <Transitions>
+                  <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                </Transitions>
+              </Border.Transitions>
+            </Border>
+
+            <!-- Question header -->
+            <StackPanel Margin="16,14,16,4" Spacing="4">
+              <!-- Question icon + label row -->
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="?"
+                           FontSize="13"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource Brush.AccentDefault}"
+                           VerticalAlignment="Center"
+                           Opacity="0.9" />
+                <TextBlock Text="Question"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource Brush.AccentDefault}"
+                           VerticalAlignment="Center"
+                           Opacity="0.85" />
+              </StackPanel>
+
+              <!-- Question text -->
+              <TextBlock Name="PART_QuestionText"
+                         Text="{TemplateBinding Question}"
+                         FontSize="13.5"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource Brush.TextPrimary}"
+                         TextWrapping="Wrap"
+                         Margin="0,4,0,0" />
+            </StackPanel>
+
+            <!-- Separator -->
+            <Border Height="1"
+                    Background="{DynamicResource Brush.BorderSubtle}"
+                    Margin="16,10,16,0"
+                    Opacity="0.6" />
+
+            <!-- Options wrap panel -->
+            <WrapPanel Name="PART_OptionsPanel"
+                       Margin="16,12,16,4"
+                       HorizontalAlignment="Left">
+              <WrapPanel.Styles>
+                <Style Selector="Button.question-option">
+                  <Setter Property="Padding" Value="14,7" />
+                  <Setter Property="Margin" Value="0,0,8,8" />
+                  <Setter Property="FontSize" Value="12.5" />
+                  <Setter Property="FontWeight" Value="Medium" />
+                  <Setter Property="CornerRadius" Value="16" />
+                  <Setter Property="Background" Value="{DynamicResource Brush.ControlDefault}" />
+                  <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                  <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+                  <Setter Property="BorderThickness" Value="1" />
+                  <Setter Property="Cursor" Value="Hand" />
+                  <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+                  <Setter Property="RenderTransform" Value="scale(1)" />
+                  <Setter Property="Transitions">
+                    <Transitions>
+                      <BrushTransition Property="Background" Duration="0:0:0.12" />
+                      <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                      <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Setter>
+                </Style>
+                <Style Selector="Button.question-option:pointerover">
+                  <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+                  <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+                  <Setter Property="Foreground" Value="{DynamicResource Brush.AccentHover}" />
+                </Style>
+                <Style Selector="Button.question-option:pressed">
+                  <Setter Property="RenderTransform" Value="scale(0.97)" />
+                  <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtleHover}" />
+                </Style>
+                <Style Selector="Button.question-option.selected">
+                  <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+                  <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+                  <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+                </Style>
+                <Style Selector="Button.question-option:disabled">
+                  <Setter Property="Opacity" Value="0.5" />
+                </Style>
+                <Style Selector="Button.question-option.selected:disabled">
+                  <Setter Property="Opacity" Value="1" />
+                </Style>
+              </WrapPanel.Styles>
+            </WrapPanel>
+
+            <!-- Free text input area -->
+            <Grid Name="PART_FreeTextArea"
+                  Margin="16,4,16,14"
+                  ColumnDefinitions="*,Auto"
+                  IsVisible="False">
+              <TextBox Name="PART_FreeTextBox"
+                       Watermark="{TemplateBinding FreeTextPlaceholder}"
+                       FontSize="12.5"
+                       Padding="10,7"
+                       CornerRadius="8"
+                       Margin="0,0,8,0" />
+              <Button Name="PART_FreeTextSubmit"
+                      Grid.Column="1"
+                      Width="28" Height="28"
+                      Padding="0"
+                      MinHeight="0" MinWidth="0"
+                      CornerRadius="999"
+                      Background="{DynamicResource Brush.AccentGradient}"
+                      Foreground="{DynamicResource Brush.TextOnAccent}"
+                      VerticalAlignment="Center"
+                      Cursor="Hand">
+                <Viewbox Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <Path Stretch="Uniform"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Fill="{DynamicResource Brush.TextOnAccent}"
+                        Data="M8,1.5 L13,6.5 H10.2 V14.5 H5.8 V6.5 H3 Z" />
+                </Viewbox>
+              </Button>
+            </Grid>
+
+            <!-- Answered state: show selected answer -->
+            <Border Name="PART_AnswerBadge"
+                    Margin="16,10,16,14"
+                    Padding="10,6"
+                    CornerRadius="8"
+                    Background="{DynamicResource Brush.AccentSubtle}"
+                    IsVisible="False"
+                    HorizontalAlignment="Left">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="✓"
+                           FontSize="12"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource Brush.AccentDefault}"
+                           VerticalAlignment="Center" />
+                <TextBlock Name="PART_AnswerText"
+                           Text="{TemplateBinding SelectedAnswer}"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource Brush.AccentDefault}"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <!-- ─── Hover ─── -->
+    <Style Selector="^:not(:answered):pointerover /template/ Border#PART_Root">
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+      <Setter Property="BoxShadow" Value="0 2 10 0 #0D000000" />
+    </Style>
+
+    <!-- ─── Has free text ─── -->
+    <Style Selector="^:has-free-text /template/ Grid#PART_FreeTextArea">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <!-- ─── Answered ─── -->
+    <Style Selector="^:answered /template/ Border#PART_Stratum">
+      <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
+      <Setter Property="Opacity" Value="0.8" />
+    </Style>
+    <Style Selector="^:answered /template/ Grid#PART_FreeTextArea">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:answered /template/ WrapPanel#PART_OptionsPanel">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:answered /template/ Border#PART_AnswerBadge">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:answered /template/ Border#PART_Root">
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    </Style>
+
+  </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

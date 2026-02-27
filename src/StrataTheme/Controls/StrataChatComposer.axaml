@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:StrataTheme.Controls">
+        xmlns:controls="using:StrataTheme.Controls"
+        xmlns:strata="using:StrataTheme">
 
   <!-- ═══════════════════════════════════════════════════════════════
        StrataChatComposer
@@ -90,7 +91,8 @@
                          Placement="AnchorAndGravity"
                          PlacementAnchor="BottomLeft"
                          PlacementGravity="BottomRight"
-                         WindowManagerAddShadowHint="False">
+                         WindowManagerAddShadowHint="False"
+                         strata:PopupAnimationHelper.EnableOpenAnimation="True">
                     <Border Background="{DynamicResource Brush.Surface1}"
                             BorderBrush="{DynamicResource Brush.BorderDefault}"
                             BorderThickness="1"
@@ -208,7 +210,8 @@
                              IsLightDismissEnabled="True"
                              Placement="Top"
                              PlacementTarget="{Binding #PART_McpButton}"
-                             WindowManagerAddShadowHint="False">
+                             WindowManagerAddShadowHint="False"
+                             strata:PopupAnimationHelper.EnableOpenAnimation="True">
                         <Border Background="{DynamicResource Brush.Surface1}"
                                 BorderBrush="{DynamicResource Brush.BorderSubtle}"
                                 BorderThickness="1"

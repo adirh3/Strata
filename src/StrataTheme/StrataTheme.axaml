@@ -44,6 +44,7 @@
   <StyleInclude Source="avares://StrataTheme/Controls/ProgressBar.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/ToolTip.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/Expander.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/ToggleButton.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/ToggleSwitch.axaml" />
 
   <!-- Mixed files (ControlTheme + Style selectors) -->
@@ -75,11 +76,13 @@
   <StyleInclude Source="avares://StrataTheme/Controls/StrataTrace.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataPulse.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataAiToolCall.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataTerminalPreview.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataAiSkill.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataAiAgent.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataChatMessage.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataTypingIndicator.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataChatComposer.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataChatTranscript.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataChatShell.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataFileAttachment.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataAttachmentList.axaml" />
@@ -91,5 +94,6 @@
   <StyleInclude Source="avares://StrataTheme/Controls/StrataChart.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataMermaid.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataDialog.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataQuestionCard.axaml" />
 
 </Styles>

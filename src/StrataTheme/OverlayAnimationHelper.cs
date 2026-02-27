@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Rendering.Composition;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace StrataTheme;
 
@@ -43,11 +44,23 @@ public static class OverlayAnimationHelper
         if (sender is not Control control)
             return;
 
-        // Only animate when appearing inside a popup
-        if (e.Root is not PopupRoot)
+        // Only animate when appearing inside a popup (native or overlay)
+        if (e.Root is not PopupRoot && !IsInsideOverlayPopup(control))
             return;
 
         Dispatcher.UIThread.Post(() => PlayEntrance(control), DispatcherPriority.Loaded);
+    }
+
+    private static bool IsInsideOverlayPopup(Control control)
+    {
+        Visual? v = control.GetVisualParent();
+        while (v is not null)
+        {
+            if (v is OverlayPopupHost)
+                return true;
+            v = v.GetVisualParent();
+        }
+        return false;
     }
 
     private static void PlayEntrance(Control control)
