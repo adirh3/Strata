@@ -13,7 +13,7 @@
               <!-- Clickable header row — no card, just an inline disclosure -->
               <Border Name="PART_Header"
                       Cursor="Hand"
-                      Background="Transparent"
+                      Background="#00000000"
                       CornerRadius="{DynamicResource Radius.Base}"
                       Padding="4,5,8,5">
                 <Border.Transitions>

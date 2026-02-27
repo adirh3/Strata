@@ -116,7 +116,7 @@
 
       <!-- ── MenuItem ── -->
       <ControlTheme x:Key="{x:Type MenuItem}" TargetType="MenuItem">
-        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Background" Value="#00000000" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         <Setter Property="Padding" Value="8,4,8,4" />
         <Setter Property="MinHeight" Value="26" />
