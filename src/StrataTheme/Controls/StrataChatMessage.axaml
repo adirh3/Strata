@@ -251,13 +251,23 @@
         </Style>
 
         <!-- ══ USER: right-aligned subtle pill ══ -->
+        <Style Selector="^:user">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+        </Style>
         <Style Selector="^:user /template/ Border#PART_Bubble">
-          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="Background" Value="{DynamicResource Brush.ChatUserBubble}" />
           <Setter Property="CornerRadius" Value="14" />
           <Setter Property="Padding" Value="16,10,16,10" />
+          <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="^:user /template/ StackPanel#PART_MetaRow">
+          <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
         <Style Selector="^:user /template/ StackPanel#PART_MetaRow TextBlock">
           <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        </Style>
+        <Style Selector="^:user /template/ Border#PART_ActionLayer">
+          <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
         <Style Selector="^:user /template/ Button#PART_RegenerateButton">
           <Setter Property="IsVisible" Value="False" />
@@ -298,6 +308,15 @@
   </Styles.Resources>
 
   <!-- Embedded edit TextBox chrome removal (regular styles, outside ControlTheme) -->
+
+  <!-- User bubble: override markdown text color so it contrasts with the indigo background -->
+  <Style Selector="controls|StrataChatMessage:user controls|StrataMarkdown">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+  </Style>
+  <Style Selector="controls|StrataChatMessage:user Border.strata-md-bullet-dot">
+    <Setter Property="Background" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+  </Style>
+
   <Style Selector="TextBox.message-edit-embed /template/ Border#PART_Border">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />

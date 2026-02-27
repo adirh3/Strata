@@ -2,7 +2,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
         xmlns:ctxt="clr-namespace:ColorTextBlock.Avalonia;assembly=ColorTextBlock.Avalonia"
-        xmlns:avedit="https://github.com/avaloniaui/avaloniaedit">
+        xmlns:avedit="https://github.com/avaloniaui/avaloniaedit"
+        xmlns:controls="clr-namespace:StrataTheme.Controls">
+
+  <!-- Default text color for all markdown content (inherited by children) -->
+  <Style Selector="controls|StrataMarkdown">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
 
   <Style Selector="TextBlock.strata-md-title">
     <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
@@ -11,36 +17,8 @@
     <Setter Property="Margin" Value="2,0,0,0" />
   </Style>
 
-  <Style Selector="TextBlock.strata-md-paragraph">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
-  </Style>
-  <Style Selector="SelectableTextBlock.strata-md-paragraph">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
-  </Style>
-
-  <Style Selector="TextBlock.strata-md-heading">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
-  </Style>
-  <Style Selector="SelectableTextBlock.strata-md-heading">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
-  </Style>
-
   <Style Selector="Border.strata-md-bullet-dot">
     <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
-  </Style>
-
-  <Style Selector="TextBlock.strata-md-bullet-text">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
-  </Style>
-  <Style Selector="SelectableTextBlock.strata-md-bullet-text">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
-  </Style>
-
-  <Style Selector="TextBlock.strata-md-number">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-  </Style>
-  <Style Selector="SelectableTextBlock.strata-md-number">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
   </Style>
 
   <Style Selector="Border.strata-md-hr">

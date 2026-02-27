@@ -89,6 +89,11 @@
 
   <Color x:Key="Color.OverlayScrim">#40000000</Color>
 
+  <!-- ── Chat Semantic Colors ── -->
+  <Color x:Key="Color.ChatUserBubble">#DDD6FE</Color>
+  <Color x:Key="Color.ChatUserBubbleText">#1E1B3A</Color>
+  <Color x:Key="Color.ChatUserBubbleTextSecondary">#3B3660</Color>
+
   <!-- ── Brushes ── -->
   <SolidColorBrush x:Key="Brush.Background" Color="{DynamicResource Color.Background}" />
   <SolidColorBrush x:Key="Brush.Surface0" Color="{DynamicResource Color.Surface0}" />
@@ -146,6 +151,10 @@
   <SolidColorBrush x:Key="Brush.SelectionText" Color="{DynamicResource Color.SelectionText}" />
 
   <SolidColorBrush x:Key="Brush.OverlayScrim" Color="{DynamicResource Color.OverlayScrim}" />
+
+  <SolidColorBrush x:Key="Brush.ChatUserBubble" Color="{DynamicResource Color.ChatUserBubble}" />
+  <SolidColorBrush x:Key="Brush.ChatUserBubbleText" Color="{DynamicResource Color.ChatUserBubbleText}" />
+  <SolidColorBrush x:Key="Brush.ChatUserBubbleTextSecondary" Color="{DynamicResource Color.ChatUserBubbleTextSecondary}" />
 
   <SolidColorBrush x:Key="Brush.SuccessDefault" Color="{DynamicResource Palette.Success500}" />
   <SolidColorBrush x:Key="Brush.SuccessSubtle" Color="{DynamicResource Palette.Success100}" />
