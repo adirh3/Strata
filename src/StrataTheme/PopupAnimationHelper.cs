@@ -58,18 +58,18 @@ public static class PopupAnimationHelper
 
     private static void OnPopupOpened(object? sender, EventArgs e)
     {
-        if (sender is not Popup { Host: PopupRoot popupRoot })
+        if (sender is not Popup { Host: Control popupHost })
             return;
 
-        var visual = ElementComposition.GetElementVisual(popupRoot);
+        var visual = ElementComposition.GetElementVisual(popupHost);
         if (visual is null)
             return;
 
         var compositor = visual.Compositor;
 
-        var bounds = popupRoot.Bounds;
-        var w = bounds.Width > 0 ? bounds.Width : popupRoot.DesiredSize.Width;
-        var h = bounds.Height > 0 ? bounds.Height : popupRoot.DesiredSize.Height;
+        var bounds = popupHost.Bounds;
+        var w = bounds.Width > 0 ? bounds.Width : popupHost.DesiredSize.Width;
+        var h = bounds.Height > 0 ? bounds.Height : popupHost.DesiredSize.Height;
 
         // Scale from center — looks like the combobox itself is expanding
         visual.CenterPoint = new Vector3((float)(w / 2f), (float)(h / 2f), 0f);
@@ -96,17 +96,17 @@ public static class PopupAnimationHelper
 
     private static void OnPopupOpenedOverlay(object? sender, EventArgs e)
     {
-        if (sender is not Popup { Host: PopupRoot popupRoot })
+        if (sender is not Popup { Host: Control popupHost })
             return;
 
-        var visual = ElementComposition.GetElementVisual(popupRoot);
+        var visual = ElementComposition.GetElementVisual(popupHost);
         if (visual is null)
             return;
 
         var compositor = visual.Compositor;
 
-        var bounds = popupRoot.Bounds;
-        var w = bounds.Width > 0 ? bounds.Width : popupRoot.DesiredSize.Width;
+        var bounds = popupHost.Bounds;
+        var w = bounds.Width > 0 ? bounds.Width : popupHost.DesiredSize.Width;
 
         // Scale from top-center for side/overlay popups
         visual.CenterPoint = new Vector3((float)(w / 2f), 0f, 0f);
