@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia;
@@ -13,7 +12,6 @@ using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
@@ -74,6 +72,15 @@ public class StrataChatMessage : TemplatedControl
     private readonly HashSet<StrataMarkdown> _observedMarkdownControls = new();
     private bool _originalContentWasMarkdown;
 
+    // ── Cached state to skip redundant updates ──
+    private bool _cachedEditVisible;
+    private bool _cachedRetryVisible;
+    private bool _contextMenuBuilt;
+    private StrataChatRole _lastMenuRole;
+    private bool _lastMenuIsEditing;
+    private bool _lastMenuIsEditable;
+    private bool _lastMenuIsStreaming;
+
     /// <summary>Message role. Controls alignment, colour, and available actions.</summary>
     public static readonly StyledProperty<StrataChatRole> RoleProperty =
         AvaloniaProperty.Register<StrataChatMessage, StrataChatRole>(nameof(Role), StrataChatRole.Assistant);
@@ -128,14 +135,14 @@ public class StrataChatMessage : TemplatedControl
 
     static StrataChatMessage()
     {
-        RoleProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.UpdatePseudoClasses());
+        RoleProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnRoleChanged());
         ContentProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnContentChanged());
         IsStreamingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStreamingChanged());
         IsEditingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditingChanged());
-        IsEditableProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.UpdatePseudoClasses());
-        AuthorProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.UpdatePseudoClasses());
-        TimestampProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.UpdatePseudoClasses());
-        StatusTextProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.UpdatePseudoClasses());
+        IsEditableProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditableChanged());
+        AuthorProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnMetaChanged());
+        TimestampProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnMetaChanged());
+        StatusTextProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStatusChanged());
     }
 
     public event EventHandler<RoutedEventArgs>? CopyRequested
@@ -197,9 +204,9 @@ public class StrataChatMessage : TemplatedControl
 
         AttachContextMenu();
 
-        UpdatePseudoClasses();
+        UpdateAllPseudoClasses();
         OnContentChanged();
-        UpdateActionBarLayout();
+        UpdateActionBarLayout(force: true);
         if (IsStreaming)
             Dispatcher.UIThread.Post(StartStreamPulse, DispatcherPriority.Loaded);
 
@@ -236,7 +243,6 @@ public class StrataChatMessage : TemplatedControl
         _contextMenu.Opening -= OnContextMenuOpening;
         _contextMenu.Opening += OnContextMenuOpening;
 
-        RebuildContextMenuItems();
         _bubble.ContextMenu = _contextMenu;
         ContextMenu = _contextMenu;
     }
@@ -250,6 +256,20 @@ public class StrataChatMessage : TemplatedControl
     {
         if (_contextMenu is null)
             return;
+
+        // Skip rebuild if state hasn't changed since last build
+        if (_contextMenuBuilt &&
+            _lastMenuRole == Role &&
+            _lastMenuIsEditing == IsEditing &&
+            _lastMenuIsEditable == IsEditable &&
+            _lastMenuIsStreaming == IsStreaming)
+            return;
+
+        _lastMenuRole = Role;
+        _lastMenuIsEditing = IsEditing;
+        _lastMenuIsEditable = IsEditable;
+        _lastMenuIsStreaming = IsStreaming;
+        _contextMenuBuilt = true;
 
         var items = new List<object>();
 
@@ -300,6 +320,11 @@ public class StrataChatMessage : TemplatedControl
         }
 
         _contextMenu.ItemsSource = items;
+    }
+
+    private void InvalidateContextMenu()
+    {
+        _contextMenuBuilt = false;
     }
 
     private static TextBlock CreateMenuIcon(string glyph)
@@ -367,11 +392,21 @@ public class StrataChatMessage : TemplatedControl
 
         if (value is Panel panel)
         {
-            var lines = panel.Children
-                .Select(child => ExtractObjectText(child))
-                .Where(line => !string.IsNullOrWhiteSpace(line));
+            var children = panel.Children;
+            if (children.Count == 0)
+                return string.Empty;
 
-            return string.Join(Environment.NewLine, lines);
+            var sb = new StringBuilder();
+            for (var i = 0; i < children.Count; i++)
+            {
+                var line = ExtractObjectText(children[i]);
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+                if (sb.Length > 0)
+                    sb.Append(Environment.NewLine);
+                sb.Append(line);
+            }
+            return sb.ToString();
         }
 
         return value.ToString() ?? string.Empty;
@@ -455,9 +490,39 @@ public class StrataChatMessage : TemplatedControl
         { e.Handled = true; ConfirmEdit(); }
     }
 
+    private void OnRoleChanged()
+    {
+        var role = Role;
+        PseudoClasses.Set(":assistant", role == StrataChatRole.Assistant);
+        PseudoClasses.Set(":user", role == StrataChatRole.User);
+        PseudoClasses.Set(":system", role == StrataChatRole.System);
+        PseudoClasses.Set(":tool", role == StrataChatRole.Tool);
+        UpdateActionBarLayout();
+        InvalidateContextMenu();
+    }
+
+    private void OnEditableChanged()
+    {
+        PseudoClasses.Set(":editable", IsEditable);
+        UpdateActionBarLayout();
+        InvalidateContextMenu();
+    }
+
+    private void OnMetaChanged()
+    {
+        PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Timestamp));
+    }
+
+    private void OnStatusChanged()
+    {
+        PseudoClasses.Set(":has-status", !string.IsNullOrWhiteSpace(StatusText));
+    }
+
     private void OnEditingChanged()
     {
-        UpdatePseudoClasses();
+        PseudoClasses.Set(":editing", IsEditing);
+        UpdateActionBarLayout();
+        InvalidateContextMenu();
 
         // Auto-seed EditText from Content when entering edit mode via property
         if (IsEditing)
@@ -540,14 +605,12 @@ public class StrataChatMessage : TemplatedControl
         {
             foreach (var child in panel.Children)
                 AttachContentObserversAndApply(child);
-            return;
         }
 
-        if (content is Control control)
-        {
-            foreach (var child in control.GetVisualDescendants().OfType<Control>())
-                AttachContentObserversAndApply(child);
-        }
+        // Removed: full visual tree scan via GetVisualDescendants().
+        // Known content types (TextBlock, StrataMarkdown, Panel, Decorator,
+        // ContentControl) are handled above. Unknown controls don't need
+        // directional-text observation.
     }
 
     private void OnObservedTextBlockPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -696,30 +759,39 @@ public class StrataChatMessage : TemplatedControl
 
     private void OnStreamingChanged()
     {
-        UpdatePseudoClasses();
+        PseudoClasses.Set(":streaming", IsStreaming);
+        UpdateActionBarLayout();
+        InvalidateContextMenu();
         if (IsStreaming) StartStreamPulse(); else StopStreamPulse();
     }
 
-    private void UpdatePseudoClasses()
+    /// <summary>Sets all pseudo-classes. Used only during initial template application.</summary>
+    private void UpdateAllPseudoClasses()
     {
-        PseudoClasses.Set(":assistant", Role == StrataChatRole.Assistant);
-        PseudoClasses.Set(":user", Role == StrataChatRole.User);
-        PseudoClasses.Set(":system", Role == StrataChatRole.System);
-        PseudoClasses.Set(":tool", Role == StrataChatRole.Tool);
+        var role = Role;
+        PseudoClasses.Set(":assistant", role == StrataChatRole.Assistant);
+        PseudoClasses.Set(":user", role == StrataChatRole.User);
+        PseudoClasses.Set(":system", role == StrataChatRole.System);
+        PseudoClasses.Set(":tool", role == StrataChatRole.Tool);
         PseudoClasses.Set(":streaming", IsStreaming);
         PseudoClasses.Set(":editing", IsEditing);
         PseudoClasses.Set(":editable", IsEditable);
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Timestamp));
         PseudoClasses.Set(":has-status", !string.IsNullOrWhiteSpace(StatusText));
-
-        UpdateActionBarLayout();
     }
 
-    private void UpdateActionBarLayout()
+    private void UpdateActionBarLayout(bool force = false)
     {
         var canShowActions = !IsEditing && Role != StrataChatRole.System;
         var showEdit = canShowActions && IsEditable;
         var showRetry = canShowActions && !IsStreaming && Role is StrataChatRole.Assistant or StrataChatRole.Tool;
+
+        // Skip DOM updates when values haven't changed
+        if (!force && showEdit == _cachedEditVisible && showRetry == _cachedRetryVisible)
+            return;
+
+        _cachedEditVisible = showEdit;
+        _cachedRetryVisible = showRetry;
 
         if (_editButton is not null)
             _editButton.IsVisible = showEdit;
@@ -756,12 +828,7 @@ public class StrataChatMessage : TemplatedControl
         var visual = ElementComposition.GetElementVisual(_streamBar);
         if (visual is null) return;
 
-        var r = visual.Compositor.CreateScalarKeyFrameAnimation();
-        r.Target = "Opacity";
-        r.InsertKeyFrame(0f, 0f);
-        r.Duration = TimeSpan.FromMilliseconds(1);
-        r.IterationBehavior = AnimationIterationBehavior.Count;
-        r.IterationCount = 1;
-        visual.StartAnimation("Opacity", r);
+        visual.StopAnimation("Opacity");
+        visual.Opacity = 0f;
     }
 }
