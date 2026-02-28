@@ -74,13 +74,13 @@ public class StrataMarkdown : ContentControl
         public override int GetHashCode() => HashCode.Combine(Kind, Content, Level, Language);
     }
 
-    private static readonly Regex LinkRegex = new(@"\[(?<text>[^\]]+)\]\((?<url>[^)]+)\)", RegexOptions.Compiled);
 
     private readonly StackPanel _root;
     private readonly Border _surface;
     private readonly TextBlock _title;
     private readonly StackPanel _contentHost;
     private IBrush? _inlineCodeBrush;
+    private IBrush? _inlineCodeBorderBrush;
     private IBrush? _linkBrush;
     private readonly Dictionary<Run, string> _linkRuns = new();
     private string _lastThemeVariant = string.Empty;
@@ -109,7 +109,9 @@ public class StrataMarkdown : ContentControl
     private Border? _blockPlaceholder;
 
     // ── Incremental state ──
-    private List<MdBlock> _previousBlocks = new();
+    private readonly List<MdBlock> _blockListA = new();
+    private readonly List<MdBlock> _blockListB = new();
+    private List<MdBlock> _previousBlocks;
     private string? _previousMarkdownNormalized;
     private int _previousMarkdownLength;
 
@@ -122,8 +124,11 @@ public class StrataMarkdown : ContentControl
     private static RegistryOptions? _darkRegistry;
     private static RegistryOptions? _lightRegistry;
 
-    // ── Reusable buffer to avoid per-rebuild allocations ──
+    // ── Reusable buffers to avoid per-rebuild allocations ──
     private readonly List<string> _evictBuffer = new();
+    private readonly StringBuilder _reusableParagraphBuffer = new();
+    private readonly StringBuilder _reusableCodeBuffer = new();
+    private readonly List<string> _reusableTableBuffer = new();
 
     /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
     public static readonly StyledProperty<string?> MarkdownProperty =
@@ -283,6 +288,7 @@ public class StrataMarkdown : ContentControl
         _root.Children.Add(_surface);
 
         Content = _root;
+        _previousBlocks = _blockListA;
         _lastThemeVariant = (Application.Current?.ActualThemeVariant ?? ThemeVariant.Light).ToString();
         Rebuild();
         UpdateTitle();
@@ -311,6 +317,7 @@ public class StrataMarkdown : ContentControl
 
         _lastThemeVariant = currentVariant;
         _inlineCodeBrush = null;
+        _inlineCodeBorderBrush = null;
         _linkBrush = null;
         // Force full rebuild (not incremental) since brushes changed
         _previousBlocks.Clear();
@@ -354,7 +361,6 @@ public class StrataMarkdown : ContentControl
 
     private void Rebuild()
     {
-        _linkRuns.Clear();
         _bodyFontSize = GetBodyFontSize();
         _chartKeysUsed.Clear();
         _diagramKeysUsed.Clear();
@@ -368,6 +374,7 @@ public class StrataMarkdown : ContentControl
         if (string.IsNullOrWhiteSpace(source))
         {
             _contentHost.Children.Clear();
+            _linkRuns.Clear();
             _previousBlocks.Clear();
             _previousMarkdownNormalized = null;
             _previousMarkdownLength = 0;
@@ -393,15 +400,16 @@ public class StrataMarkdown : ContentControl
                                 normalized.Length > _previousMarkdownLength &&
                                 normalized.AsSpan().StartsWith(_previousMarkdownNormalized.AsSpan());
 
-        List<MdBlock> newBlocks;
+        // Use the list NOT currently holding previous blocks to avoid allocation
+        var newBlocks = ReferenceEquals(_previousBlocks, _blockListA) ? _blockListB : _blockListA;
         if (isStreamingAppend && EnableAppendTailParsing &&
             _previousMarkdownNormalized is not null && _previousBlocks.Count > 0)
         {
-            newBlocks = ParseBlocksIncrementalAppend(_previousMarkdownNormalized, _previousBlocks, normalized);
+            ParseBlocksIncrementalAppendPooled(_previousMarkdownNormalized, _previousBlocks, normalized, newBlocks);
         }
         else
         {
-            newBlocks = ParseBlocks(normalized);
+            ParseBlocksPooled(normalized, newBlocks);
         }
 
         // ── Incremental diff: only touch changed blocks ──
@@ -423,6 +431,18 @@ public class StrataMarkdown : ContentControl
         var blocks = new List<MdBlock>();
         ParseBlocksCore(normalized.AsSpan(), blocks, new StringBuilder(), new StringBuilder(), new List<string>(), 0);
         return blocks;
+    }
+
+    /// <summary>
+    /// Instance-level parse that reuses cached StringBuilders and a pooled target list.
+    /// </summary>
+    private void ParseBlocksPooled(string normalized, List<MdBlock> target)
+    {
+        target.Clear();
+        _reusableParagraphBuffer.Clear();
+        _reusableCodeBuffer.Clear();
+        _reusableTableBuffer.Clear();
+        ParseBlocksCore(normalized.AsSpan(), target, _reusableParagraphBuffer, _reusableCodeBuffer, _reusableTableBuffer, 0);
     }
 
     internal static List<MdBlock> ParseBlocksIncrementalAppend(
@@ -455,6 +475,50 @@ public class StrataMarkdown : ContentControl
             lastBlockStart);
 
         return merged;
+    }
+
+    /// <summary>
+    /// Instance-level incremental append that reuses cached StringBuilders and a pooled target list.
+    /// </summary>
+    private void ParseBlocksIncrementalAppendPooled(
+        string previousNormalized,
+        IReadOnlyList<MdBlock> previousBlocks,
+        string nextNormalized,
+        List<MdBlock> target)
+    {
+        if (previousBlocks.Count == 0 ||
+            string.IsNullOrEmpty(previousNormalized) ||
+            nextNormalized.Length <= previousNormalized.Length ||
+            !nextNormalized.AsSpan().StartsWith(previousNormalized.AsSpan()))
+        {
+            ParseBlocksPooled(nextNormalized, target);
+            return;
+        }
+
+        var lastBlockStart = previousBlocks[^1].SourceStart;
+        if (lastBlockStart < 0 || lastBlockStart > nextNormalized.Length)
+        {
+            ParseBlocksPooled(nextNormalized, target);
+            return;
+        }
+
+        target.Clear();
+        var neededCapacity = Math.Max(previousBlocks.Count + 8, 16);
+        if (target.Capacity < neededCapacity)
+            target.Capacity = neededCapacity;
+        for (var i = 0; i < previousBlocks.Count - 1; i++)
+            target.Add(previousBlocks[i]);
+
+        _reusableParagraphBuffer.Clear();
+        _reusableCodeBuffer.Clear();
+        _reusableTableBuffer.Clear();
+        ParseBlocksCore(
+            nextNormalized.AsSpan(lastBlockStart),
+            target,
+            _reusableParagraphBuffer,
+            _reusableCodeBuffer,
+            _reusableTableBuffer,
+            lastBlockStart);
     }
 
     /// <summary>
@@ -678,17 +742,32 @@ public class StrataMarkdown : ContentControl
 
     private static void FlushParagraphBlock(StringBuilder buffer, List<MdBlock> blocks, int paragraphStart, int fallbackStart)
     {
-        var text = buffer.ToString().Trim();
-        buffer.Clear();
-        if (!string.IsNullOrWhiteSpace(text))
+        if (buffer.Length == 0)
+            return;
+
+        // Compute trim bounds on the StringBuilder directly to produce a single
+        // string allocation instead of the two from buffer.ToString() + .Trim().
+        int start = 0;
+        while (start < buffer.Length && char.IsWhiteSpace(buffer[start])) start++;
+        if (start >= buffer.Length)
         {
-            blocks.Add(new MdBlock
-            {
-                Kind = MdBlockKind.Paragraph,
-                Content = text,
-                SourceStart = paragraphStart >= 0 ? paragraphStart : fallbackStart,
-            });
+            buffer.Clear();
+            return;
         }
+        int end = buffer.Length;
+        while (end > start && char.IsWhiteSpace(buffer[end - 1])) end--;
+
+        var text = (start == 0 && end == buffer.Length)
+            ? buffer.ToString()
+            : buffer.ToString(start, end - start);
+        buffer.Clear();
+
+        blocks.Add(new MdBlock
+        {
+            Kind = MdBlockKind.Paragraph,
+            Content = text,
+            SourceStart = paragraphStart >= 0 ? paragraphStart : fallbackStart,
+        });
     }
 
     private static void FlushTableBlock(List<string> tableLines, List<MdBlock> blocks, int tableStart)
@@ -748,6 +827,29 @@ public class StrataMarkdown : ContentControl
                 continue;
             }
 
+            // Fast path: code block with same language — update TextEditor.Text in-place
+            // instead of recreating TextEditor + TextMate installation (very expensive).
+            if (oldBlocks[i].Kind == MdBlockKind.CodeBlock &&
+                newBlocks[i].Kind == MdBlockKind.CodeBlock &&
+                string.Equals(oldBlocks[i].Language, newBlocks[i].Language, StringComparison.Ordinal) &&
+                i < _contentHost.Children.Count &&
+                TryUpdateCodeBlockInPlace(_contentHost.Children[i], newBlocks[i].Content))
+            {
+                continue;
+            }
+
+            // Fast path: text-bearing blocks (paragraph, heading, bullet, numbered)
+            // — update the SelectableTextBlock’s inlines in-place instead of recreating
+            // the entire control subtree (Grid/Border/SelectableTextBlock).
+            if (oldBlocks[i].Kind == newBlocks[i].Kind &&
+                oldBlocks[i].Level == newBlocks[i].Level &&
+                IsTextBlockKind(newBlocks[i].Kind) &&
+                i < _contentHost.Children.Count &&
+                TryUpdateTextBlockInPlace(_contentHost.Children[i], newBlocks[i].Content))
+            {
+                continue;
+            }
+
             var replacement = CreateControlForBlock(newBlocks[i]);
 
             // Some cached controls are stateful and can be attached elsewhere.
@@ -758,6 +860,9 @@ public class StrataMarkdown : ContentControl
                 RebuildChildrenFromBlocks(newBlocks);
                 return;
             }
+
+            // Clean up link tracking for the old control being replaced
+            RemoveLinkRunsForControl(_contentHost.Children[i]);
 
             // If the replacement is already a child of _contentHost (cached control
             // reused at a different index), a direct indexed set would crash because
@@ -792,12 +897,16 @@ public class StrataMarkdown : ContentControl
 
         // Remove trailing stale blocks (iterate from end to avoid index shift)
         for (int i = _contentHost.Children.Count - 1; i >= newCount; i--)
+        {
+            RemoveLinkRunsForControl(_contentHost.Children[i]);
             _contentHost.Children.RemoveAt(i);
+        }
     }
 
     private void RebuildChildrenFromBlocks(IReadOnlyList<MdBlock> blocks)
     {
         _contentHost.Children.Clear();
+        _linkRuns.Clear();
         foreach (var block in blocks)
         {
             var control = CreateControlForBlock(block);
@@ -828,12 +937,18 @@ public class StrataMarkdown : ContentControl
                 break;
             case MdBlockKind.Mermaid:
                 var trimmed = block.Content.Trim();
-                var firstLine = trimmed.Split('\n')[0].TrimStart().ToLowerInvariant();
-                if (firstLine.StartsWith("graph") || firstLine.StartsWith("flowchart") ||
-                    firstLine.StartsWith("sequencediagram") || firstLine.StartsWith("statediagram") ||
-                    firstLine.StartsWith("erdiagram") || firstLine.StartsWith("classdiagram") ||
-                    firstLine.StartsWith("timeline") || firstLine.StartsWith("quadrantchart") ||
-                    firstLine.StartsWith("quadrant-chart"))
+                var trimmedSpan = trimmed.AsSpan().TrimStart();
+                var nlIdx = trimmedSpan.IndexOf('\n');
+                var firstLine = nlIdx >= 0 ? trimmedSpan[..nlIdx].TrimStart() : trimmedSpan;
+                if (firstLine.StartsWith("graph", StringComparison.OrdinalIgnoreCase) ||
+                    firstLine.StartsWith("flowchart", StringComparison.OrdinalIgnoreCase) ||
+                    firstLine.StartsWith("sequencediagram", StringComparison.OrdinalIgnoreCase) ||
+                    firstLine.StartsWith("statediagram", StringComparison.OrdinalIgnoreCase) ||
+                    firstLine.StartsWith("erdiagram", StringComparison.OrdinalIgnoreCase) ||
+                    firstLine.StartsWith("classdiagram", StringComparison.OrdinalIgnoreCase) ||
+                    firstLine.StartsWith("timeline", StringComparison.OrdinalIgnoreCase) ||
+                    firstLine.StartsWith("quadrantchart", StringComparison.OrdinalIgnoreCase) ||
+                    firstLine.StartsWith("quadrant-chart", StringComparison.OrdinalIgnoreCase))
                     _diagramKeysUsed.Add("mermaid-diag:" + trimmed);
                 else
                     _chartKeysUsed.Add("mermaid:" + trimmed);
@@ -989,102 +1104,249 @@ public class StrataMarkdown : ContentControl
         return textBlock;
     }
 
-    private static readonly Regex InlineRegex = new(
-        @"(?<code>`[^`]+`)|(?<bolditalic>\*\*\*(?<bi_text>.+?)\*\*\*)|(?<bold>\*\*(?<b_text>.+?)\*\*)|(?<italic>\*(?<i_text>.+?)\*)|(?<link>\[(?<l_text>[^\]]+)\]\((?<l_url>[^)]+)\))",
-        RegexOptions.Compiled | RegexOptions.Singleline);
-
-    private static readonly Regex NestedCodeRegex = new(
-        @"`[^`]+`",
-        RegexOptions.Compiled);
-
     /// <summary>
-    /// Adds runs for text that may contain inline code (`code`) inside a bold/italic span.
-    /// Plain segments get the supplied weight/style; code segments get a bordered chip.
+    /// Span-based inline parser. Scans text character-by-character to find inline
+    /// code, bold, italic, bold-italic, and links without allocating regex Match objects.
+    /// Inspired by FastAvaloniaMarkdown's zero-allocation inline parser.
     /// </summary>
-    private void AppendNestedInlines(SelectableTextBlock target, string text,
-        FontWeight weight, FontStyle style)
-    {
-        var matches = NestedCodeRegex.Matches(text);
-        if (matches.Count == 0)
-        {
-            target.Inlines?.Add(new Run(text) { FontWeight = weight, FontStyle = style });
-            return;
-        }
-
-        var lastIndex = 0;
-        foreach (Match m in matches)
-        {
-            if (m.Index > lastIndex)
-                target.Inlines?.Add(new Run(text[lastIndex..m.Index]) { FontWeight = weight, FontStyle = style });
-
-            var codeText = m.Value[1..^1];
-            target.Inlines?.Add(CreateInlineCode(codeText, target.FontSize, weight, style));
-
-            lastIndex = m.Index + m.Length;
-        }
-
-        if (lastIndex < text.Length)
-            target.Inlines?.Add(new Run(text[lastIndex..]) { FontWeight = weight, FontStyle = style });
-    }
-
     private void AppendFormattedInlines(SelectableTextBlock target, string text)
     {
         if (string.IsNullOrEmpty(text))
             return;
 
-        var matches = InlineRegex.Matches(text);
-        if (matches.Count == 0)
+        var span = text.AsSpan();
+
+        // Fast path: no special characters — set Text directly (no Inlines list)
+        if (span.IndexOfAny('`', '*', '[') < 0)
         {
             target.Text = text;
             return;
         }
 
-        var lastIndex = 0;
+        int pos = 0;
+        int textStart = 0;
 
-        foreach (Match match in matches)
+        while (pos < span.Length)
         {
-            if (match.Index > lastIndex)
-                target.Inlines?.Add(new Run(text[lastIndex..match.Index]));
+            var c = span[pos];
 
-            if (match.Groups["code"].Success)
+            // Inline code: `code`
+            if (c == '`')
             {
-                var codeText = match.Value[1..^1]; // strip backticks
-                target.Inlines?.Add(CreateInlineCode(codeText, target.FontSize));
-            }
-            else if (match.Groups["bolditalic"].Success)
-            {
-                AppendNestedInlines(target, match.Groups["bi_text"].Value,
-                    FontWeight.Bold, FontStyle.Italic);
-            }
-            else if (match.Groups["bold"].Success)
-            {
-                AppendNestedInlines(target, match.Groups["b_text"].Value,
-                    FontWeight.Bold, FontStyle.Normal);
-            }
-            else if (match.Groups["italic"].Success)
-            {
-                AppendNestedInlines(target, match.Groups["i_text"].Value,
-                    FontWeight.Normal, FontStyle.Italic);
-            }
-            else if (match.Groups["link"].Success)
-            {
-                var linkLabel = match.Groups["l_text"].Value;
-                var linkTarget = match.Groups["l_url"].Value.Trim();
-
-                var linkRun = new Run(linkLabel)
+                int closePos = span[(pos + 1)..].IndexOf('`');
+                if (closePos >= 0)
                 {
-                    Foreground = _linkBrush ??= ResolveLinkBrush(),
-                    TextDecorations = TextDecorations.Underline,
-                };
-                _linkRuns[linkRun] = linkTarget;
-                target.Inlines?.Add(linkRun);
+                    closePos += pos + 1;
+                    // Flush preceding plain text
+                    if (pos > textStart)
+                        target.Inlines?.Add(new Run(text[textStart..pos]));
+
+                    var codeText = text[(pos + 1)..closePos];
+                    target.Inlines?.Add(CreateInlineCode(codeText, target.FontSize));
+                    pos = closePos + 1;
+                    textStart = pos;
+                    continue;
+                }
             }
 
-            lastIndex = match.Index + match.Length;
+            // Bold/Italic with *
+            if (c == '*')
+            {
+                // Count consecutive asterisks
+                int starCount = 1;
+                while (pos + starCount < span.Length && span[pos + starCount] == '*')
+                    starCount++;
+
+                if (starCount >= 3)
+                {
+                    // Try bold-italic: ***text***
+                    int closeIdx = FindClosingDelimiter(span, pos + 3, '*', 3);
+                    if (closeIdx >= 0)
+                    {
+                        if (pos > textStart)
+                            target.Inlines?.Add(new Run(text[textStart..pos]));
+
+                        var innerText = text[(pos + 3)..closeIdx];
+                        AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Italic);
+                        pos = closeIdx + 3;
+                        textStart = pos;
+                        continue;
+                    }
+                }
+
+                if (starCount >= 2)
+                {
+                    // Try bold: **text**
+                    int closeIdx = FindClosingDelimiter(span, pos + 2, '*', 2);
+                    if (closeIdx >= 0)
+                    {
+                        if (pos > textStart)
+                            target.Inlines?.Add(new Run(text[textStart..pos]));
+
+                        var innerText = text[(pos + 2)..closeIdx];
+                        AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Normal);
+                        pos = closeIdx + 2;
+                        textStart = pos;
+                        continue;
+                    }
+                }
+
+                if (starCount >= 1)
+                {
+                    // Try italic: *text*
+                    int closeIdx = FindClosingDelimiter(span, pos + 1, '*', 1);
+                    if (closeIdx >= 0)
+                    {
+                        if (pos > textStart)
+                            target.Inlines?.Add(new Run(text[textStart..pos]));
+
+                        var innerText = text[(pos + 1)..closeIdx];
+                        AppendNestedCodeInlines(target, innerText, FontWeight.Normal, FontStyle.Italic);
+                        pos = closeIdx + 1;
+                        textStart = pos;
+                        continue;
+                    }
+                }
+            }
+
+            // Link: [text](url)
+            if (c == '[')
+            {
+                int bracketClose = FindClosingBracket(span, pos + 1);
+                if (bracketClose >= 0 && bracketClose + 1 < span.Length && span[bracketClose + 1] == '(')
+                {
+                    int parenClose = FindClosingParen(span, bracketClose + 2);
+                    if (parenClose >= 0)
+                    {
+                        if (pos > textStart)
+                            target.Inlines?.Add(new Run(text[textStart..pos]));
+
+                        var linkLabel = text[(pos + 1)..bracketClose];
+                        var linkTarget = text[(bracketClose + 2)..parenClose].Trim();
+
+                        var linkRun = new Run(linkLabel)
+                        {
+                            Foreground = _linkBrush ??= ResolveLinkBrush(),
+                            TextDecorations = TextDecorations.Underline,
+                        };
+                        _linkRuns[linkRun] = linkTarget;
+                        target.Inlines?.Add(linkRun);
+                        pos = parenClose + 1;
+                        textStart = pos;
+                        continue;
+                    }
+                }
+            }
+
+            pos++;
         }
 
-        if (lastIndex < text.Length)
-            target.Inlines?.Add(new Run(text[lastIndex..]));
+        // Flush remaining plain text
+        if (textStart == 0 && pos == span.Length)
+        {
+            // No formatting found — set Text directly (avoids creating Inlines)
+            if (target.Inlines == null || target.Inlines.Count == 0)
+                target.Text = text;
+            else
+                target.Inlines.Add(new Run(text));
+        }
+        else if (textStart < span.Length)
+        {
+            target.Inlines?.Add(new Run(text[textStart..]));
+        }
+    }
+
+    /// <summary>
+    /// Span-based nested code scanner for bold/italic content. Replaces regex-based
+    /// AppendNestedInlines to avoid MatchCollection allocations.
+    /// </summary>
+    private void AppendNestedCodeInlines(SelectableTextBlock target, string text,
+        FontWeight weight, FontStyle style)
+    {
+        var span = text.AsSpan();
+        int pos = 0;
+        int textStart = 0;
+        bool foundCode = false;
+
+        while (pos < span.Length)
+        {
+            if (span[pos] == '`')
+            {
+                int closePos = span[(pos + 1)..].IndexOf('`');
+                if (closePos >= 0)
+                {
+                    closePos += pos + 1;
+                    foundCode = true;
+
+                    if (pos > textStart)
+                        target.Inlines?.Add(new Run(text[textStart..pos]) { FontWeight = weight, FontStyle = style });
+
+                    var codeText = text[(pos + 1)..closePos];
+                    target.Inlines?.Add(CreateInlineCode(codeText, target.FontSize, weight, style));
+                    pos = closePos + 1;
+                    textStart = pos;
+                    continue;
+                }
+            }
+            pos++;
+        }
+
+        if (!foundCode)
+        {
+            target.Inlines?.Add(new Run(text) { FontWeight = weight, FontStyle = style });
+        }
+        else if (textStart < span.Length)
+        {
+            target.Inlines?.Add(new Run(text[textStart..]) { FontWeight = weight, FontStyle = style });
+        }
+    }
+
+    /// <summary>
+    /// Finds closing delimiter sequence (e.g., **, ***) starting from <paramref name="start"/>.
+    /// Returns index of the first char of the closing delimiter, or -1 if not found.
+    /// </summary>
+    private static int FindClosingDelimiter(ReadOnlySpan<char> span, int start, char delimiter, int count)
+    {
+        for (int i = start; i <= span.Length - count; i++)
+        {
+            if (span[i] == delimiter)
+            {
+                int matchCount = 1;
+                while (matchCount < count && i + matchCount < span.Length && span[i + matchCount] == delimiter)
+                    matchCount++;
+
+                if (matchCount >= count)
+                    return i;
+            }
+        }
+        return -1;
+    }
+
+    /// <summary>Finds matching ] for a [ starting from <paramref name="start"/>.</summary>
+    private static int FindClosingBracket(ReadOnlySpan<char> span, int start)
+    {
+        for (int i = start; i < span.Length; i++)
+        {
+            if (span[i] == ']') return i;
+            if (span[i] == '[') return -1; // nested brackets not supported
+        }
+        return -1;
+    }
+
+    /// <summary>Finds matching ) for a ( starting from <paramref name="start"/>.</summary>
+    private static int FindClosingParen(ReadOnlySpan<char> span, int start)
+    {
+        int depth = 1;
+        for (int i = start; i < span.Length; i++)
+        {
+            if (span[i] == '(') depth++;
+            else if (span[i] == ')')
+            {
+                depth--;
+                if (depth == 0) return i;
+            }
+        }
+        return -1;
     }
 
     private static void OpenLink(string linkTarget)
@@ -1148,11 +1410,134 @@ public class StrataMarkdown : ContentControl
     }
 
 
+    /// <summary>
+    /// Updates a code block control in-place during streaming, avoiding full TextEditor
+    /// and TextMate re-creation. Returns false if the control structure doesn't match.
+    /// </summary>
+    private static bool TryUpdateCodeBlockInPlace(Control existing, string newContent)
+    {
+        // Navigate: Border (shell) -> StackPanel -> [1] TextEditor
+        if (existing is not Border { Child: StackPanel stack } || stack.Children.Count < 2)
+            return false;
+
+        if (stack.Children[1] is not TextEditor editor)
+            return false;
+
+        var normalizedCode = newContent.TrimEnd('\r', '\n');
+        var displayCode = string.IsNullOrWhiteSpace(normalizedCode) ? " " : normalizedCode;
+
+        editor.Text = displayCode;
+        var lineCount = CountLines(displayCode);
+        editor.MinHeight = Math.Min(lineCount * 18 + 12, 400);
+        return true;
+    }
+
+    /// <summary>Returns true for block kinds whose control contains an updatable SelectableTextBlock.</summary>
+    private static bool IsTextBlockKind(MdBlockKind kind) =>
+        kind is MdBlockKind.Paragraph or MdBlockKind.Heading or MdBlockKind.Bullet or MdBlockKind.NumberedItem;
+
+    /// <summary>
+    /// Updates the SelectableTextBlock inside an existing paragraph/heading/bullet/numbered
+    /// control in-place. Avoids recreating the Grid/Border/SelectableTextBlock subtree.
+    /// Returns false if the control structure doesn't match expectations.
+    /// </summary>
+    private bool TryUpdateTextBlockInPlace(Control existing, string newContent)
+    {
+        var tb = FindSelectableTextBlock(existing);
+        if (tb is null)
+            return false;
+
+        // Remove old link runs for this text block before clearing inlines
+        RemoveLinkRunsForTextBlock(tb);
+
+        tb.Text = null;
+        tb.Inlines?.Clear();
+        AppendFormattedInlines(tb, newContent);
+
+        // Re-wire link handlers if needed
+        if (tb.Inlines != null)
+        {
+            bool hasLinks = false;
+            foreach (var inline in tb.Inlines)
+            {
+                if (inline is Run run && _linkRuns.ContainsKey(run))
+                {
+                    hasLinks = true;
+                    break;
+                }
+            }
+
+            // Detach/attach handlers as needed
+            tb.Tapped -= OnLinkTapped;
+            tb.PointerMoved -= OnTextBlockPointerMoved;
+            if (hasLinks)
+            {
+                tb.Tapped += OnLinkTapped;
+                tb.PointerMoved += OnTextBlockPointerMoved;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Finds the SelectableTextBlock inside paragraph/heading/bullet/numbered controls.</summary>
+    private static SelectableTextBlock? FindSelectableTextBlock(Control control)
+    {
+        // Paragraph/Heading: the control IS a SelectableTextBlock
+        if (control is SelectableTextBlock stb)
+            return stb;
+
+        // Bullet/NumberedItem: Grid with SelectableTextBlock at column 2
+        if (control is Grid grid)
+        {
+            for (int i = 0; i < grid.Children.Count; i++)
+            {
+                if (grid.Children[i] is SelectableTextBlock child && Grid.GetColumn(child) == 2)
+                    return child;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Removes link tracking entries for Run objects belonging to a specific text block.</summary>
+    private void RemoveLinkRunsForTextBlock(SelectableTextBlock tb)
+    {
+        if (_linkRuns.Count == 0 || tb.Inlines == null)
+            return;
+
+        foreach (var inline in tb.Inlines)
+        {
+            if (inline is Run run)
+                _linkRuns.Remove(run);
+        }
+    }
+
+    /// <summary>Cleans up link tracking for all SelectableTextBlocks inside a control being removed.</summary>
+    private void RemoveLinkRunsForControl(Control control)
+    {
+        if (_linkRuns.Count == 0)
+            return;
+
+        var tb = FindSelectableTextBlock(control);
+        if (tb is not null)
+            RemoveLinkRunsForTextBlock(tb);
+    }
+
+    /// <summary>Counts newline characters in a string + 1, without allocating a Split array.</summary>
+    private static int CountLines(string text)
+    {
+        int count = 1;
+        for (int i = 0; i < text.Length; i++)
+            if (text[i] == '\n') count++;
+        return count;
+    }
+
     private Control CreateCodeBlockControl(string code, string language)
     {
         var normalizedCode = code.TrimEnd('\r', '\n');
         var displayCode = string.IsNullOrWhiteSpace(normalizedCode) ? " " : normalizedCode;
-        var lineCount = displayCode.Split('\n').Length;
+        var lineCount = CountLines(displayCode);
 
         var shell = new Border();
         shell.Classes.Add("strata-md-code-block");
@@ -1197,21 +1582,6 @@ public class StrataMarkdown : ContentControl
         DockPanel.SetDock(copyBtn, Dock.Right);
         headerRow.Children.Insert(0, copyBtn);
 
-        var capturedCode = displayCode;
-        copyBtn.Click += async (_, _) =>
-        {
-            var topLevel = TopLevel.GetTopLevel(copyBtn);
-            if (topLevel?.Clipboard is not null)
-                await topLevel.Clipboard.SetTextAsync(capturedCode);
-
-            if (copyBtn.Content is TextBlock tb)
-            {
-                tb.Text = "Copied!";
-                await Task.Delay(1200);
-                tb.Text = "Copy";
-            }
-        };
-
         // Syntax-highlighted editor
         var editor = new TextEditor
         {
@@ -1227,6 +1597,22 @@ public class StrataMarkdown : ContentControl
             MaxHeight = 400
         };
         editor.Classes.Add("strata-md-code-editor");
+
+        // Read text from the editor directly (not a closure capture) so in-place
+        // streaming updates to editor.Text are reflected in the copy action.
+        copyBtn.Click += async (_, _) =>
+        {
+            var topLevel = TopLevel.GetTopLevel(copyBtn);
+            if (topLevel?.Clipboard is not null)
+                await topLevel.Clipboard.SetTextAsync(editor.Text ?? "");
+
+            if (copyBtn.Content is TextBlock tb)
+            {
+                tb.Text = "Copied!";
+                await Task.Delay(1200);
+                tb.Text = "Copy";
+            }
+        };
 
         ApplyTextMateHighlighting(editor, langText);
 
@@ -1322,14 +1708,20 @@ public class StrataMarkdown : ContentControl
         if (string.IsNullOrWhiteSpace(trimmed))
             return GetChartPlaceholder();
 
-        var firstLine = trimmed.Split('\n')[0].TrimStart().ToLowerInvariant();
+        var trimmedSpan = trimmed.AsSpan();
+        var nlIndex = trimmedSpan.IndexOf('\n');
+        var firstLine = (nlIndex >= 0 ? trimmedSpan[..nlIndex] : trimmedSpan).TrimStart();
 
         // Diagram types → StrataMermaid
-        if (firstLine.StartsWith("graph") || firstLine.StartsWith("flowchart") ||
-            firstLine.StartsWith("sequencediagram") || firstLine.StartsWith("statediagram") ||
-            firstLine.StartsWith("erdiagram") || firstLine.StartsWith("classdiagram") ||
-            firstLine.StartsWith("timeline") || firstLine.StartsWith("quadrantchart") ||
-            firstLine.StartsWith("quadrant-chart"))
+        if (firstLine.StartsWith("graph", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("flowchart", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("sequencediagram", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("statediagram", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("erdiagram", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("classdiagram", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("timeline", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("quadrantchart", StringComparison.OrdinalIgnoreCase) ||
+            firstLine.StartsWith("quadrant-chart", StringComparison.OrdinalIgnoreCase))
         {
             return CreateMermaidDiagramControl(trimmed);
         }
@@ -2089,7 +2481,7 @@ public class StrataMarkdown : ContentControl
         {
             Child = textBlock,
             Background = _inlineCodeBrush ??= ResolveInlineCodeBrush(),
-            BorderBrush = ResolveInlineCodeBorderBrush(),
+            BorderBrush = _inlineCodeBorderBrush ??= ResolveInlineCodeBorderBrush(),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(4, 0, 4, 0),
@@ -2284,8 +2676,45 @@ public class StrataMarkdown : ContentControl
 
     private static bool IsTableSeparator(string line)
     {
-        var cells = SplitTableCells(line);
-        return cells.Length > 0 && cells.All(c => Regex.IsMatch(c.Trim(), @"^:?-+:?$"));
+        var span = line.AsSpan().Trim();
+        if (span.Length == 0) return false;
+
+        // Strip leading/trailing pipes
+        if (span[0] == '|') span = span[1..];
+        if (span.Length > 0 && span[^1] == '|') span = span[..^1];
+        if (span.Length == 0) return false;
+
+        // Check each cell separated by | matches :?-+:? pattern
+        int cellCount = 0;
+        while (span.Length > 0)
+        {
+            int pipeIdx = span.IndexOf('|');
+            var cell = pipeIdx >= 0 ? span[..pipeIdx] : span;
+            cell = cell.Trim();
+
+            if (!IsTableSeparatorCell(cell))
+                return false;
+
+            cellCount++;
+            span = pipeIdx >= 0 ? span[(pipeIdx + 1)..] : ReadOnlySpan<char>.Empty;
+        }
+
+        return cellCount > 0;
+    }
+
+    /// <summary>
+    /// Checks if a cell matches the table separator pattern :?-+:? without regex allocation.
+    /// </summary>
+    private static bool IsTableSeparatorCell(ReadOnlySpan<char> cell)
+    {
+        if (cell.Length == 0) return false;
+        int i = 0;
+        if (cell[i] == ':') i++;
+        int dashStart = i;
+        while (i < cell.Length && cell[i] == '-') i++;
+        if (i == dashStart) return false; // no dashes
+        if (i < cell.Length && cell[i] == ':') i++;
+        return i == cell.Length;
     }
 
     private static string[] SplitTableCells(string line)
@@ -2296,25 +2725,53 @@ public class StrataMarkdown : ContentControl
         return trimmed.Split('|');
     }
 
+    /// <summary>Trims each cell string in-place, avoiding LINQ Select/ToArray allocation.</summary>
+    private static string[] TrimCells(string[] cells)
+    {
+        for (int i = 0; i < cells.Length; i++)
+            cells[i] = cells[i].Trim();
+        return cells;
+    }
+
+    /// <summary>Counts occurrences of a character in a span without LINQ allocation.</summary>
+    private static int CountChar(ReadOnlySpan<char> span, char c)
+    {
+        int count = 0;
+        for (int i = 0; i < span.Length; i++)
+            if (span[i] == c) count++;
+        return count;
+    }
+
+    /// <summary>Converts rows (string[][]) to List&lt;List&lt;string&gt;&gt; without LINQ closure allocations.</summary>
+    private static List<List<string>> RowsToListOfLists(List<string[]> rows)
+    {
+        var result = new List<List<string>>(rows.Count);
+        for (int i = 0; i < rows.Count; i++)
+            result.Add(new List<string>(rows[i]));
+        return result;
+    }
+
     private Control CreateTableControl(string tableContent)
     {
-        var tableLines = tableContent.Split('\n').ToList();
+        var tableLines = tableContent.Split('\n');
+        int lineCount = tableLines.Length;
 
         // Drop trailing incomplete lines (streaming: last line may be a partial row
         // with only an opening pipe and no closing pipe).
-        while (tableLines.Count > 1)
+        while (lineCount > 1)
         {
-            var last = tableLines[^1].Trim();
-            if (last.Length > 0 && last.Count(c => c == '|') >= 2)
+            var last = tableLines[lineCount - 1].AsSpan().Trim();
+            if (last.Length > 0 && CountChar(last, '|') >= 2)
                 break;
-            tableLines.RemoveAt(tableLines.Count - 1);
+            lineCount--;
         }
 
-        if (tableLines.Count == 0)
+        if (lineCount == 0)
             return new Border();
 
         var headerLine = tableLines[0];
-        var headers = SplitTableCells(headerLine).Select(h => h.Trim()).ToArray();
+        var headerCells = SplitTableCells(headerLine);
+        var headers = TrimCells(headerCells);
         if (headers.Length == 0)
             return new Border();
 
@@ -2322,15 +2779,15 @@ public class StrataMarkdown : ContentControl
         // With a valid separator on line 2 this is the normal path;
         // without one (still streaming) we treat remaining lines as data.
         var dataStartIndex = 1;
-        if (tableLines.Count >= 2 && IsTableSeparator(tableLines[1]))
+        if (lineCount >= 2 && IsTableSeparator(tableLines[1]))
             dataStartIndex = 2;
 
         var rows = new List<string[]>();
-        for (var i = dataStartIndex; i < tableLines.Count; i++)
+        for (var i = dataStartIndex; i < lineCount; i++)
         {
             if (IsTableSeparator(tableLines[i]))
                 continue; // skip separators that appear mid-stream
-            var cells = SplitTableCells(tableLines[i]).Select(c => c.Trim()).ToArray();
+            var cells = TrimCells(SplitTableCells(tableLines[i]));
             var padded = new string[headers.Length];
             for (var j = 0; j < headers.Length; j++)
                 padded[j] = j < cells.Length ? cells[j] : string.Empty;
@@ -2344,7 +2801,7 @@ public class StrataMarkdown : ContentControl
         if (_tableCache.TryGetValue(cacheKey, out var cached))
         {
             DetachFromForeignParent(cached);
-            var items = rows.Select(r => r.ToList()).ToList();
+            var items = RowsToListOfLists(rows);
             cached.ItemsSource = items;
             var h = 40 + (rows.Count * 36) + 4;
             cached.Height = Math.Min(Math.Max(h, 40), 400);
@@ -2384,7 +2841,7 @@ public class StrataMarkdown : ContentControl
             });
         }
 
-        var items = rows.Select(r => r.ToList()).ToList();
+        var items = RowsToListOfLists(rows);
         dataGrid.ItemsSource = items;
 
         var estimatedHeight = 40 + (rows.Count * 36) + 4;
