@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Specialized;
-using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -61,6 +60,7 @@ public class StrataChatShell : TemplatedControl
     private bool _forceFullAlignment = true;
     private int _lastObservedTranscriptCount;
     private int _lastAlignedMessageCount;
+    private bool _isPulseRunning;
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
@@ -87,9 +87,10 @@ public class StrataChatShell : TemplatedControl
 
     static StrataChatShell()
     {
-        IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
-        HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
-        PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.Refresh());
+        IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnIsOnlineChanged());
+        HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
+            c.PseudoClasses.Set(":has-header", c.Header is not null));
+        PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnPresenceTextChanged());
         TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
         {
             c._lastObservedTranscriptCount = 0;
@@ -121,22 +122,31 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is not null)
         {
             _scrollViewer.ScrollChanged += OnScrollChanged;
-            // Detect user scroll-away intent (don't intercept — let ScrollViewer handle natively)
             _scrollViewer.PointerWheelChanged += OnUserWheelScroll;
         }
 
         ConfigureAlignmentSubscription();
 
-        Refresh();
+        // Apply all pseudo-classes once; targeted handlers maintain them afterwards.
+        var online = IsOnline;
+        PseudoClasses.Set(":online", online);
+        PseudoClasses.Set(":offline", !online);
+        PseudoClasses.Set(":has-header", Header is not null);
+        PseudoClasses.Set(":has-presence", !string.IsNullOrWhiteSpace(PresenceText));
+
+        _isPulseRunning = false;
+        UpdatePresencePulse();
         ScheduleApplyTranscriptAlignment(forceFull: true);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        // Compositor visual may have been recreated on re-attach.
+        _isPulseRunning = false;
         Dispatcher.UIThread.Post(() =>
         {
-            Refresh();
+            UpdatePresencePulse();
             ApplyTranscriptAlignment(forceFull: true);
         }, DispatcherPriority.Loaded);
     }
@@ -150,6 +160,7 @@ public class StrataChatShell : TemplatedControl
         }
 
         UnsubscribeTranscriptPanel();
+        _isPulseRunning = false;
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -160,19 +171,26 @@ public class StrataChatShell : TemplatedControl
             ScheduleApplyTranscriptAlignment(forceFull: true);
     }
 
-    private void Refresh()
+    private void OnIsOnlineChanged()
     {
-        PseudoClasses.Set(":online", IsOnline);
-        PseudoClasses.Set(":offline", !IsOnline);
-        PseudoClasses.Set(":has-header", Header is not null);
-        PseudoClasses.Set(":has-presence", !string.IsNullOrWhiteSpace(PresenceText));
+        var online = IsOnline;
+        PseudoClasses.Set(":online", online);
+        PseudoClasses.Set(":offline", !online);
+        UpdatePresencePulse();
+    }
 
+    private void OnPresenceTextChanged()
+    {
+        PseudoClasses.Set(":has-presence", !string.IsNullOrWhiteSpace(PresenceText));
+        UpdatePresencePulse();
+    }
+
+    private void UpdatePresencePulse()
+    {
         if (IsOnline && !string.IsNullOrWhiteSpace(PresenceText))
             StartPresencePulse();
         else
             StopPresencePulse();
-
-        ScheduleApplyTranscriptAlignment(forceFull: true);
     }
 
     private void ConfigureAlignmentSubscription()
@@ -216,20 +234,11 @@ public class StrataChatShell : TemplatedControl
 
         _lastObservedTranscriptCount = currentCount;
 
-        var forceFull = e.Action switch
-        {
-            NotifyCollectionChangedAction.Add when e.NewStartingIndex >= _lastAlignedMessageCount => false,
-            NotifyCollectionChangedAction.Add when e.NewStartingIndex < 0 => true,
-            NotifyCollectionChangedAction.Add => true,
-            NotifyCollectionChangedAction.Reset => true,
-            NotifyCollectionChangedAction.Remove => true,
-            NotifyCollectionChangedAction.Replace => true,
-            NotifyCollectionChangedAction.Move => true,
-            _ => true
-        };
-
-        if (currentCount < _lastAlignedMessageCount)
-            forceFull = true;
+        // Only incremental alignment when items are appended at the end.
+        var forceFull = e.Action != NotifyCollectionChangedAction.Add
+            || e.NewStartingIndex < 0
+            || e.NewStartingIndex < _lastAlignedMessageCount
+            || currentCount < _lastAlignedMessageCount;
 
         ScheduleApplyTranscriptAlignment(forceFull);
     }
@@ -290,9 +299,7 @@ public class StrataChatShell : TemplatedControl
             return;
         }
 
-        foreach (var message in CollectTranscriptMessages())
-            ApplyAlignment(message);
-
+        ApplyAlignmentRecursive(Transcript);
         _lastAlignedMessageCount = 0;
     }
 
@@ -353,40 +360,37 @@ public class StrataChatShell : TemplatedControl
             message.MaxWidth = maxWidth;
     }
 
-    private IReadOnlyCollection<StrataChatMessage> CollectTranscriptMessages()
-    {
-        var result = new List<StrataChatMessage>();
-        CollectFromTranscriptObject(Transcript, result);
-        return result;
-    }
-
-    private static void CollectFromTranscriptObject(object? node, ICollection<StrataChatMessage> collector)
+    /// <summary>
+    /// Walks the transcript tree and applies alignment directly, avoiding
+    /// the intermediate list allocation that CollectTranscriptMessages used.
+    /// </summary>
+    private static void ApplyAlignmentRecursive(object? node)
     {
         if (node is null)
             return;
 
         if (node is StrataChatMessage message)
         {
-            collector.Add(message);
+            ApplyAlignment(message);
             return;
         }
 
         if (node is ContentControl contentControl)
         {
-            CollectFromTranscriptObject(contentControl.Content, collector);
+            ApplyAlignmentRecursive(contentControl.Content);
             return;
         }
 
         if (node is Decorator decorator)
         {
-            CollectFromTranscriptObject(decorator.Child, collector);
+            ApplyAlignmentRecursive(decorator.Child);
             return;
         }
 
         if (node is Panel panel)
         {
             foreach (var child in panel.Children)
-                CollectFromTranscriptObject(child, collector);
+                ApplyAlignmentRecursive(child);
 
             return;
         }
@@ -394,19 +398,20 @@ public class StrataChatShell : TemplatedControl
         if (node is ItemsControl itemsControl)
         {
             for (var i = 0; i < itemsControl.Items.Count; i++)
-                CollectFromTranscriptObject(itemsControl.ContainerFromIndex(i) ?? itemsControl.Items[i], collector);
+                ApplyAlignmentRecursive(itemsControl.ContainerFromIndex(i) ?? itemsControl.Items[i]);
         }
     }
 
     private void StartPresencePulse()
     {
-        if (_presenceDot is null)
+        if (_presenceDot is null || _isPulseRunning)
             return;
 
         var visual = ElementComposition.GetElementVisual(_presenceDot);
         if (visual is null)
             return;
 
+        _isPulseRunning = true;
         var anim = visual.Compositor.CreateScalarKeyFrameAnimation();
         anim.Target = "Opacity";
         anim.InsertKeyFrame(0f, 1f);
@@ -419,9 +424,10 @@ public class StrataChatShell : TemplatedControl
 
     private void StopPresencePulse()
     {
-        if (_presenceDot is null)
+        if (_presenceDot is null || !_isPulseRunning)
             return;
 
+        _isPulseRunning = false;
         var visual = ElementComposition.GetElementVisual(_presenceDot);
         if (visual is null)
             return;
