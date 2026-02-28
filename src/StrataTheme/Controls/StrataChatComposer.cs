@@ -196,6 +196,13 @@ public class StrataChatComposer : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> VoiceRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(VoiceRequested), RoutingStrategies.Bubble);
 
+    /// <summary>
+    /// Raised when the user pastes (Ctrl+V) and the clipboard contains an image.
+    /// Hosts can handle this to attach the clipboard image to the current message.
+    /// </summary>
+    public static readonly RoutedEvent<RoutedEventArgs> ClipboardImagePasteRequestedEvent =
+        RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(ClipboardImagePasteRequested), RoutingStrategies.Bubble);
+
     /// <summary>When true, the voice button shows a recording indicator.</summary>
     public static readonly StyledProperty<bool> IsRecordingProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsRecording));
@@ -262,6 +269,8 @@ public class StrataChatComposer : TemplatedControl
     { add => AddHandler(MentionRequestedEvent, value); remove => RemoveHandler(MentionRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? VoiceRequested
     { add => AddHandler(VoiceRequestedEvent, value); remove => RemoveHandler(VoiceRequestedEvent, value); }
+    public event EventHandler<RoutedEventArgs>? ClipboardImagePasteRequested
+    { add => AddHandler(ClipboardImagePasteRequestedEvent, value); remove => RemoveHandler(ClipboardImagePasteRequestedEvent, value); }
 
     public string? PromptText { get => GetValue(PromptTextProperty); set => SetValue(PromptTextProperty, value); }
     public string Placeholder { get => GetValue(PlaceholderProperty); set => SetValue(PlaceholderProperty, value); }
@@ -381,13 +390,7 @@ public class StrataChatComposer : TemplatedControl
             if (clip is null) return;
             var text = await ClipboardExtensions.TryGetTextAsync(clip);
             if (string.IsNullOrEmpty(text)) return;
-            var start = textBox.SelectionStart;
-            var end = textBox.SelectionEnd;
-            var lo = Math.Min(start, end);
-            var hi = Math.Max(start, end);
-            var current = textBox.Text ?? "";
-            textBox.Text = current.Remove(lo, hi - lo).Insert(lo, text);
-            textBox.CaretIndex = lo + text.Length;
+            InsertTextAtSelection(textBox, text);
         }
 
         void DoSelectAll()
@@ -431,6 +434,13 @@ public class StrataChatComposer : TemplatedControl
 
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Key == Key.V && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            e.Handled = true;
+            _ = HandlePasteFromKeyboardAsync();
+            return;
+        }
+
         if (_autoCompletePopup?.IsOpen == true)
         {
             switch (e.Key)
@@ -478,6 +488,56 @@ public class StrataChatComposer : TemplatedControl
                 HandleSendAction();
             }
         }
+    }
+
+    private async Task HandlePasteFromKeyboardAsync()
+    {
+        var input = _input;
+        var clipboard = input is not null ? TopLevel.GetTopLevel(input)?.Clipboard : null;
+        if (input is null || clipboard is null)
+            return;
+
+        try
+        {
+            if (await TryRaiseClipboardImagePasteRequestedAsync(clipboard).ConfigureAwait(true))
+                return;
+
+            var text = await ClipboardExtensions.TryGetTextAsync(clipboard).ConfigureAwait(true);
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            InsertTextAtSelection(input, text);
+        }
+        catch
+        {
+            // Clipboard access can fail on some platforms/transient states.
+        }
+    }
+
+    private async Task<bool> TryRaiseClipboardImagePasteRequestedAsync(IClipboard clipboard)
+    {
+        var dataTransfer = await clipboard.TryGetDataAsync().ConfigureAwait(true);
+        if (dataTransfer is null)
+            return false;
+
+        var bitmap = await dataTransfer.TryGetBitmapAsync().ConfigureAwait(true);
+        if (bitmap is null)
+            return false;
+
+        bitmap.Dispose();
+        RaiseEvent(new RoutedEventArgs(ClipboardImagePasteRequestedEvent));
+        return true;
+    }
+
+    private static void InsertTextAtSelection(TextBox textBox, string text)
+    {
+        var start = textBox.SelectionStart;
+        var end = textBox.SelectionEnd;
+        var lo = Math.Min(start, end);
+        var hi = Math.Max(start, end);
+        var current = textBox.Text ?? "";
+        textBox.Text = current.Remove(lo, hi - lo).Insert(lo, text);
+        textBox.CaretIndex = lo + text.Length;
     }
 
     private void HandleSendAction()
