@@ -1,7 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
-        xmlns:ctxt="clr-namespace:ColorTextBlock.Avalonia;assembly=ColorTextBlock.Avalonia"
         xmlns:avedit="https://github.com/avaloniaui/avaloniaedit"
         xmlns:controls="clr-namespace:StrataTheme.Controls">
 
@@ -89,10 +87,6 @@
     <Setter Property="Padding" Value="0" />
   </Style>
 
-  <Style Selector="md|MarkdownScrollViewer.strata-md-block">
-    <Setter Property="Margin" Value="0,0,0,2" />
-  </Style>
-
   <Style Selector="Border.strata-md-code-block">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
@@ -106,14 +100,6 @@
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-  </Style>
-
-  <Style Selector="ctxt|CCode">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
-    <Setter Property="MonospaceFontFamily" Value="{DynamicResource Font.FamilyMono}" />
-    <Setter Property="Padding" Value="5,2" />
-    <Setter Property="CornerRadius" Value="4" />
   </Style>
 
   <Style Selector="Border.CodeBlock">
