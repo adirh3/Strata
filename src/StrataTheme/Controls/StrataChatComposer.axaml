@@ -243,31 +243,45 @@
                       </Popup>
                     </Panel>
 
+                    <!-- Suggestion loading placeholders -->
+                    <StackPanel Name="PART_SuggestionLoading" Orientation="Horizontal" Spacing="6"
+                                Margin="0,0,6,6" IsVisible="False" IsHitTestVisible="False">
+                      <Border Classes="suggestion-loading-pill phase-a" Width="112" Height="28" CornerRadius="6" />
+                      <Border Classes="suggestion-loading-pill phase-b" Width="136" Height="28" CornerRadius="6" />
+                      <Border Classes="suggestion-loading-pill phase-c" Width="96" Height="28" CornerRadius="6" />
+                    </StackPanel>
+
                     <!-- Suggestion chips -->
-                    <Button Name="PART_ActionA" Classes="subtle"
-                            Content="{TemplateBinding SuggestionA}"
-                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="170"
+                    <Button Name="PART_ActionA" Classes="subtle suggestion-chip"
+                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="260"
                             CornerRadius="6" FontSize="12"
                             VerticalAlignment="Center"
                             VerticalContentAlignment="Center"
                             Margin="0,0,6,6"
-                            Foreground="{DynamicResource Brush.TextSecondary}" />
-                    <Button Name="PART_ActionB" Classes="subtle"
-                            Content="{TemplateBinding SuggestionB}"
-                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="170"
+                            ToolTip.Tip="{TemplateBinding SuggestionA}"
+                            Foreground="{DynamicResource Brush.TextSecondary}">
+                      <TextBlock Text="{TemplateBinding SuggestionA}" TextTrimming="CharacterEllipsis" />
+                    </Button>
+                    <Button Name="PART_ActionB" Classes="subtle suggestion-chip"
+                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="260"
                             CornerRadius="6" FontSize="12"
                             VerticalAlignment="Center"
                             VerticalContentAlignment="Center"
                             Margin="0,0,6,6"
-                            Foreground="{DynamicResource Brush.TextSecondary}" />
-                    <Button Name="PART_ActionC" Classes="subtle"
-                            Content="{TemplateBinding SuggestionC}"
-                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="170"
+                            ToolTip.Tip="{TemplateBinding SuggestionB}"
+                            Foreground="{DynamicResource Brush.TextSecondary}">
+                      <TextBlock Text="{TemplateBinding SuggestionB}" TextTrimming="CharacterEllipsis" />
+                    </Button>
+                    <Button Name="PART_ActionC" Classes="subtle suggestion-chip"
+                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="260"
                             CornerRadius="6" FontSize="12"
                             VerticalAlignment="Center"
                             VerticalContentAlignment="Center"
                             Margin="0,0,6,6"
-                            Foreground="{DynamicResource Brush.TextSecondary}" />
+                            ToolTip.Tip="{TemplateBinding SuggestionC}"
+                            Foreground="{DynamicResource Brush.TextSecondary}">
+                      <TextBlock Text="{TemplateBinding SuggestionC}" TextTrimming="CharacterEllipsis" />
+                    </Button>
                       </WrapPanel>
 
                   <!-- Right: voice + send -->
@@ -370,6 +384,20 @@
           <Setter Property="Opacity" Value="0.35" />
         </Style>
 
+        <!-- Suggestion loading state -->
+        <Style Selector="^:suggestions-generating /template/ StackPanel#PART_SuggestionLoading">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:suggestions-generating /template/ Button#PART_ActionA">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:suggestions-generating /template/ Button#PART_ActionB">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:suggestions-generating /template/ Button#PART_ActionC">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
         <!-- Hide chips when empty -->
         <Style Selector="^:a-empty /template/ Button#PART_ActionA">
           <Setter Property="IsVisible" Value="False" />
@@ -461,6 +489,79 @@
   </Style>
   <Style Selector="ComboBox.composer-select:focus-visible /template/ Border#Border">
     <Setter Property="BoxShadow" Value="0 0 0 1 #28818CF8" />
+  </Style>
+
+  <!-- Suggestion chip polish -->
+  <Style Selector="Button.suggestion-chip">
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <!-- Suggestion loading placeholders -->
+  <Style Selector="Border.suggestion-loading-pill">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="Opacity" Value="0.35" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Border.suggestion-loading-pill.phase-a">
+    <Style.Animations>
+      <Animation Duration="0:0:0.95" IterationCount="INFINITE">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0.28" />
+        </KeyFrame>
+        <KeyFrame Cue="38%">
+          <Setter Property="Opacity" Value="0.62" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="0.28" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <Style Selector="Border.suggestion-loading-pill.phase-b">
+    <Style.Animations>
+      <Animation Duration="0:0:0.95" IterationCount="INFINITE">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0.28" />
+        </KeyFrame>
+        <KeyFrame Cue="18%">
+          <Setter Property="Opacity" Value="0.28" />
+        </KeyFrame>
+        <KeyFrame Cue="56%">
+          <Setter Property="Opacity" Value="0.62" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="0.28" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <Style Selector="Border.suggestion-loading-pill.phase-c">
+    <Style.Animations>
+      <Animation Duration="0:0:0.95" IterationCount="INFINITE">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0.28" />
+        </KeyFrame>
+        <KeyFrame Cue="36%">
+          <Setter Property="Opacity" Value="0.28" />
+        </KeyFrame>
+        <KeyFrame Cue="74%">
+          <Setter Property="Opacity" Value="0.62" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="0.28" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
   </Style>
 
   <!-- Programmatic skill chip styles -->

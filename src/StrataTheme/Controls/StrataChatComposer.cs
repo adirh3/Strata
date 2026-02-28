@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
@@ -11,6 +13,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -59,7 +62,7 @@ public class ComposerChipRemovedEventArgs : RoutedEventArgs
 /// PART_AutoCompletePanel (StackPanel).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :can-attach,
 /// :a-empty, :b-empty, :c-empty, :has-models, :has-quality,
-/// :has-agent, :has-skills, :has-chips.</para>
+/// :has-agent, :has-skills, :has-chips, :suggestions-generating.</para>
 /// </remarks>
 public class StrataChatComposer : TemplatedControl
 {
@@ -71,6 +74,10 @@ public class StrataChatComposer : TemplatedControl
     private StackPanel? _mcpPopupPanel;
     private TextBlock? _mcpCountText;
     private Button? _mcpButton;
+    private Button? _actionA;
+    private Button? _actionB;
+    private Button? _actionC;
+    private bool _hadSuggestions;
     private readonly List<(Border Control, StrataComposerChip Chip, ChipKind Kind)> _autoCompleteEntries = new();
     private int _autoCompleteSelectedIndex = -1;
     private int _triggerIndex = -1;
@@ -207,6 +214,10 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<bool> IsRecordingProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsRecording));
 
+    /// <summary>When true, shows loading placeholders while follow-up suggestions are generated.</summary>
+    public static readonly StyledProperty<bool> IsSuggestionsGeneratingProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsSuggestionsGenerating));
+
     static StrataChatComposer()
     {
         PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, e) =>
@@ -230,9 +241,26 @@ public class StrataChatComposer : TemplatedControl
         SendWithEnterProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanAttachProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsRecordingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
-        SuggestionAProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
-        SuggestionBProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
-        SuggestionCProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        IsSuggestionsGeneratingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
+        {
+            c.Sync();
+            c.AnimateSuggestionsIfNeeded();
+        });
+        SuggestionAProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
+        {
+            c.Sync();
+            c.AnimateSuggestionsIfNeeded();
+        });
+        SuggestionBProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
+        {
+            c.Sync();
+            c.AnimateSuggestionsIfNeeded();
+        });
+        SuggestionCProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
+        {
+            c.Sync();
+            c.AnimateSuggestionsIfNeeded();
+        });
         AgentNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         AgentGlyphProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
@@ -292,6 +320,7 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? McpItems { get => GetValue(McpItemsProperty); set => SetValue(McpItemsProperty, value); }
     public IEnumerable? AvailableMcps { get => GetValue(AvailableMcpsProperty); set => SetValue(AvailableMcpsProperty, value); }
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
+    public bool IsSuggestionsGenerating { get => GetValue(IsSuggestionsGeneratingProperty); set => SetValue(IsSuggestionsGeneratingProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -329,6 +358,10 @@ public class StrataChatComposer : TemplatedControl
         Wire(e, "PART_ActionA", () => Fire(SuggestionA));
         Wire(e, "PART_ActionB", () => Fire(SuggestionB));
         Wire(e, "PART_ActionC", () => Fire(SuggestionC));
+        _actionA = e.NameScope.Find<Button>("PART_ActionA");
+        _actionB = e.NameScope.Find<Button>("PART_ActionB");
+        _actionC = e.NameScope.Find<Button>("PART_ActionC");
+        _hadSuggestions = HasAnySuggestions();
         EnsureSelectedValues();
         Sync();
     }
@@ -889,7 +922,87 @@ public class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":mcp-partial", mcpCount > 0 && mcpCount < totalMcpCount);
         UpdateMcpCountText(mcpCount, totalMcpCount);
         PseudoClasses.Set(":recording", IsRecording);
+        PseudoClasses.Set(":suggestions-generating", IsSuggestionsGenerating);
         PseudoClasses.Set(":has-mcp-options", HasAnyAvailableMcps());
+    }
+
+    private bool HasAnySuggestions() =>
+        !string.IsNullOrWhiteSpace(SuggestionA) ||
+        !string.IsNullOrWhiteSpace(SuggestionB) ||
+        !string.IsNullOrWhiteSpace(SuggestionC);
+
+    private void AnimateSuggestionsIfNeeded()
+    {
+        var hasSuggestions = HasAnySuggestions();
+        if (!IsSuggestionsGenerating && hasSuggestions && !_hadSuggestions)
+        {
+            // Clean cascade reveal: slight lift + fade, staggered across chips.
+            RevealSuggestionChip(_actionA, 0);
+            RevealSuggestionChip(_actionB, 55);
+            RevealSuggestionChip(_actionC, 110);
+        }
+
+        _hadSuggestions = hasSuggestions;
+    }
+
+    private static async void RevealSuggestionChip(Button? button, int delayMs)
+    {
+        if (button is null || !button.IsVisible) return;
+
+        button.Opacity = 0;
+        button.RenderTransform = TransformOperations.Parse("translateY(8px) scale(0.98)");
+
+        button.Transitions ??= new Transitions();
+        EnsureSuggestionTransition(button.Transitions, OpacityProperty, 190);
+        EnsureSuggestionTransformTransition(button.Transitions, 230);
+
+        if (delayMs > 0)
+            await System.Threading.Tasks.Task.Delay(delayMs);
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!button.IsVisible) return;
+            button.Opacity = 1;
+            button.RenderTransform = TransformOperations.Parse("translateY(0) scale(1)");
+        }, DispatcherPriority.Render);
+    }
+
+    private static void EnsureSuggestionTransition(Transitions transitions, AvaloniaProperty property, int durationMs)
+    {
+        foreach (var transition in transitions)
+        {
+            if (transition is DoubleTransition doubleTransition
+                && doubleTransition.Property == property)
+            {
+                return;
+            }
+        }
+
+        transitions.Add(new DoubleTransition
+        {
+            Property = property,
+            Duration = TimeSpan.FromMilliseconds(durationMs),
+            Easing = new CubicEaseOut(),
+        });
+    }
+
+    private static void EnsureSuggestionTransformTransition(Transitions transitions, int durationMs)
+    {
+        foreach (var transition in transitions)
+        {
+            if (transition is TransformOperationsTransition transformTransition
+                && transformTransition.Property == RenderTransformProperty)
+            {
+                return;
+            }
+        }
+
+        transitions.Add(new TransformOperationsTransition
+        {
+            Property = RenderTransformProperty,
+            Duration = TimeSpan.FromMilliseconds(durationMs),
+            Easing = new CubicEaseOut(),
+        });
     }
 
     private bool HasAnySkills()
