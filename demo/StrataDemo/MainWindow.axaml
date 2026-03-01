@@ -645,6 +645,164 @@
               </StackPanel>
             </Border>
           </Grid>
+
+          <!-- ── Flyouts ── -->
+          <Border Classes="strata-card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="subtitle" Text="{Binding Strings[Flyouts]}" />
+              <TextBlock Classes="caption tertiary" Text="{Binding Strings[Flyouts.Subtitle]}" Margin="0,0,0,2" />
+              <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <StackPanel Spacing="6" Margin="0,0,24,0">
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[Flyouts.Simple]}" />
+                  <Button Content="{Binding Strings[Flyouts.ShowInfo]}" HorizontalAlignment="Left">
+                    <Button.Flyout>
+                      <Flyout Placement="Bottom">
+                        <StackPanel Spacing="8" MaxWidth="260">
+                          <TextBlock Classes="body-strong" Text="{Binding Strings[Flyouts.InfoTitle]}" />
+                          <TextBlock Classes="secondary" TextWrapping="Wrap"
+                                     Text="{Binding Strings[Flyouts.InfoBody]}" />
+                        </StackPanel>
+                      </Flyout>
+                    </Button.Flyout>
+                  </Button>
+                </StackPanel>
+                <StackPanel Spacing="6" Margin="0,0,24,0">
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[Flyouts.Confirm]}" />
+                  <Button Classes="accent" Content="{Binding Strings[Flyouts.Delete]}" HorizontalAlignment="Left">
+                    <Button.Flyout>
+                      <Flyout Placement="Bottom">
+                        <StackPanel Spacing="12" MaxWidth="280">
+                          <TextBlock Classes="body-strong" Text="{Binding Strings[Flyouts.DeleteTitle]}" />
+                          <TextBlock Classes="secondary" TextWrapping="Wrap"
+                                     Text="{Binding Strings[Flyouts.DeleteBody]}" />
+                          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                            <Button Content="{Binding Strings[Cancel]}" />
+                            <Button Classes="accent" Content="{Binding Strings[Flyouts.DeleteConfirm]}" />
+                          </StackPanel>
+                        </StackPanel>
+                      </Flyout>
+                    </Button.Flyout>
+                  </Button>
+                </StackPanel>
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[Flyouts.Menu]}" />
+                  <Button Content="{Binding Strings[Flyouts.Actions]}" HorizontalAlignment="Left">
+                    <Button.Flyout>
+                      <MenuFlyout Placement="Bottom">
+                        <MenuItem Header="{Binding Strings[Flyouts.MenuItem.Edit]}">
+                          <MenuItem.Icon>
+                            <TextBlock Text="✏️" />
+                          </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="{Binding Strings[Flyouts.MenuItem.Duplicate]}">
+                          <MenuItem.Icon>
+                            <TextBlock Text="📋" />
+                          </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Header="{Binding Strings[Flyouts.MenuItem.Archive]}">
+                          <MenuItem.Icon>
+                            <TextBlock Text="📦" />
+                          </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="{Binding Strings[Flyouts.MenuItem.Delete]}" Foreground="{DynamicResource Brush.StatusError}">
+                          <MenuItem.Icon>
+                            <TextBlock Text="🗑️" />
+                          </MenuItem.Icon>
+                        </MenuItem>
+                      </MenuFlyout>
+                    </Button.Flyout>
+                  </Button>
+                </StackPanel>
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- ── Context Menus ── -->
+          <Border Classes="strata-card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="subtitle" Text="{Binding Strings[ContextMenus]}" />
+              <TextBlock Classes="caption tertiary" Text="{Binding Strings[ContextMenus.Subtitle]}" Margin="0,0,0,2" />
+              <Grid ColumnDefinitions="*,16,*">
+                <Border Grid.Column="0"
+                        Background="{DynamicResource Brush.Surface1}"
+                        CornerRadius="{DynamicResource Radius.Base}"
+                        Padding="20"
+                        MinHeight="100">
+                  <Border.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="{Binding Strings[ContextMenus.Cut]}" InputGesture="Ctrl+X">
+                        <MenuItem.Icon>
+                          <TextBlock Text="✂️" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{Binding Strings[ContextMenus.Copy]}" InputGesture="Ctrl+C">
+                        <MenuItem.Icon>
+                          <TextBlock Text="📄" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{Binding Strings[ContextMenus.Paste]}" InputGesture="Ctrl+V">
+                        <MenuItem.Icon>
+                          <TextBlock Text="📋" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <Separator />
+                      <MenuItem Header="{Binding Strings[ContextMenus.SelectAll]}" InputGesture="Ctrl+A" />
+                    </ContextMenu>
+                  </Border.ContextMenu>
+                  <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                    <TextBlock Classes="body-strong" Text="{Binding Strings[ContextMenus.EditArea]}" HorizontalAlignment="Center" />
+                    <TextBlock Classes="caption tertiary" Text="{Binding Strings[ContextMenus.EditHint]}" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="2"
+                        Background="{DynamicResource Brush.Surface1}"
+                        CornerRadius="{DynamicResource Radius.Base}"
+                        Padding="20"
+                        MinHeight="100">
+                  <Border.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="{Binding Strings[ContextMenus.ViewDetails]}">
+                        <MenuItem.Icon>
+                          <TextBlock Text="🔍" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{Binding Strings[ContextMenus.Share]}">
+                        <MenuItem.Icon>
+                          <TextBlock Text="🔗" />
+                        </MenuItem.Icon>
+                        <MenuItem Header="{Binding Strings[ContextMenus.ShareEmail]}" />
+                        <MenuItem Header="{Binding Strings[ContextMenus.ShareLink]}" />
+                        <MenuItem Header="{Binding Strings[ContextMenus.ShareSlack]}" />
+                      </MenuItem>
+                      <Separator />
+                      <MenuItem Header="{Binding Strings[ContextMenus.Rename]}">
+                        <MenuItem.Icon>
+                          <TextBlock Text="✏️" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                      <MenuItem Header="{Binding Strings[ContextMenus.MoveTo]}">
+                        <MenuItem Header="{Binding Strings[ContextMenus.Folder.Archive]}" />
+                        <MenuItem Header="{Binding Strings[ContextMenus.Folder.Projects]}" />
+                        <MenuItem Header="{Binding Strings[ContextMenus.Folder.Starred]}" />
+                      </MenuItem>
+                      <Separator />
+                      <MenuItem Header="{Binding Strings[ContextMenus.Delete]}" Foreground="{DynamicResource Brush.StatusError}">
+                        <MenuItem.Icon>
+                          <TextBlock Text="🗑️" />
+                        </MenuItem.Icon>
+                      </MenuItem>
+                    </ContextMenu>
+                  </Border.ContextMenu>
+                  <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                    <TextBlock Classes="body-strong" Text="{Binding Strings[ContextMenus.FileCard]}" HorizontalAlignment="Center" />
+                    <TextBlock Classes="caption tertiary" Text="{Binding Strings[ContextMenus.FileHint]}" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </StackPanel>
+          </Border>
+
         </StackPanel>
       </ScrollViewer>
 

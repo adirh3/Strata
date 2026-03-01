@@ -73,22 +73,24 @@ public static class OverlayAnimationHelper
 
         var bounds = control.Bounds;
         var w = bounds.Width > 0 ? bounds.Width : control.DesiredSize.Width;
+        var h = bounds.Height > 0 ? bounds.Height : control.DesiredSize.Height;
 
-        // Scale from top-center — popup appears to emerge from trigger point
-        visual.CenterPoint = new Vector3((float)(w / 2f), 0f, 0f);
+        // Scale from center for a clean, uniform expansion
+        visual.CenterPoint = new Vector3((float)(w / 2f), (float)(h / 2f), 0f);
 
         var scaleAnim = compositor.CreateVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
-        scaleAnim.InsertKeyFrame(0f, new Vector3(0.97f, 0.95f, 1f));
+        scaleAnim.InsertKeyFrame(0f, new Vector3(0.92f, 0.92f, 1f));
+        scaleAnim.InsertKeyFrame(0.6f, new Vector3(1.005f, 1.005f, 1f));
         scaleAnim.InsertKeyFrame(1f, new Vector3(1f));
-        scaleAnim.Duration = TimeSpan.FromMilliseconds(160);
+        scaleAnim.Duration = TimeSpan.FromMilliseconds(200);
 
         var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
         opacityAnim.Target = "Opacity";
         opacityAnim.InsertKeyFrame(0f, 0f);
-        opacityAnim.InsertKeyFrame(0.35f, 1f);
+        opacityAnim.InsertKeyFrame(0.45f, 1f);
         opacityAnim.InsertKeyFrame(1f, 1f);
-        opacityAnim.Duration = TimeSpan.FromMilliseconds(160);
+        opacityAnim.Duration = TimeSpan.FromMilliseconds(200);
 
         var group = compositor.CreateAnimationGroup();
         group.Add(scaleAnim);
