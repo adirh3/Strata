@@ -96,5 +96,6 @@
   <StyleInclude Source="avares://StrataTheme/Controls/StrataDialog.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataQuestionCard.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/StrataIconPicker.axaml" />
+  <StyleInclude Source="avares://StrataTheme/Controls/StrataComboBox.axaml" />
 
 </Styles>

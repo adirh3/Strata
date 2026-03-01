@@ -358,6 +358,41 @@
             </StackPanel>
           </Border>
 
+          <Border Classes="strata-card">
+            <StackPanel Spacing="16">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="subtitle" Text="{Binding Strings[StrataComboBox]}" />
+                <TextBlock Classes="caption tertiary" Text="{Binding Strings[StrataComboBox.Subtitle]}" />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,16,*,16,*">
+                <!-- Single select -->
+                <StackPanel Grid.Column="0" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[StrataComboBox.Single]}" />
+                  <sc:StrataComboBox ItemsSource="{Binding ComboItems}"
+                                    PlaceholderText="{Binding Strings[ChooseOption]}" />
+                </StackPanel>
+                <!-- Multi select -->
+                <StackPanel Grid.Column="2" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[StrataComboBox.Multi]}" />
+                  <sc:StrataComboBox ItemsSource="{Binding ComboItems}"
+                                    SelectionMode="Multiple"
+                                    PlaceholderText="{Binding Strings[StrataComboBox.MultiPlaceholder]}"
+                                    SelectAllText="{Binding Strings[StrataComboBox.SelectAll]}" />
+                </StackPanel>
+                <!-- Searchable multi select -->
+                <StackPanel Grid.Column="4" Spacing="6">
+                  <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[StrataComboBox.Search]}" />
+                  <sc:StrataComboBox ItemsSource="{Binding ComboItems}"
+                                    SelectionMode="Multiple"
+                                    IsSearchable="True"
+                                    PlaceholderText="{Binding Strings[StrataComboBox.SearchPlaceholder]}"
+                                    SearchWatermark="{Binding Strings[StrataComboBox.SearchWatermark]}"
+                                    SelectAllText="{Binding Strings[StrataComboBox.SelectAll]}" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
           <Grid x:Name="FormChecksGrid" ColumnDefinitions="*,16,*">
             <Border Grid.Column="0" Classes="strata-card">
               <StackPanel Spacing="14">

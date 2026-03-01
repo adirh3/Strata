@@ -1,0 +1,303 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls"
+        xmlns:strata="using:StrataTheme">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STRATA UI – StrataComboBox
+       Enhanced combo box with multi-select and search support.
+       ═══════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <!-- ────────── StrataComboBoxItem ────────── -->
+      <ControlTheme x:Key="{x:Type controls:StrataComboBoxItem}"
+                    TargetType="controls:StrataComboBoxItem">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border x:Name="ItemRoot"
+                    Background="Transparent"
+                    CornerRadius="{DynamicResource Radius.Base}"
+                    Padding="10,7"
+                    Margin="2,1"
+                    RenderTransformOrigin="0,0.5"
+                    RenderTransform="translateX(0)">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="Background" Duration="0:0:0.12" />
+                  <TransformOperationsTransition Property="RenderTransform"
+                                                  Duration="0:0:0.12" Easing="CubicEaseOut" />
+                </Transitions>
+              </Border.Transitions>
+              <Grid ColumnDefinitions="Auto,*">
+                <!-- Checkbox (visible only in multi-select) -->
+                <Panel x:Name="PART_CheckArea"
+                       Width="20" Height="20"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0"
+                       IsVisible="False">
+                  <Border x:Name="CheckBorder"
+                          Width="18" Height="18"
+                          CornerRadius="{DynamicResource Radius.Base}"
+                          Background="{DynamicResource Brush.ControlDefault}"
+                          BorderBrush="{DynamicResource Brush.BorderDefault}"
+                          BorderThickness="{DynamicResource Stroke.Thin}">
+                    <Border.Transitions>
+                      <Transitions>
+                        <BrushTransition Property="Background" Duration="0:0:0.14" />
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                      </Transitions>
+                    </Border.Transitions>
+                    <Path x:Name="CheckGlyph"
+                          Data="M1,4.5 L4.5,8 L11,1"
+                          Stroke="{DynamicResource Brush.TextOnAccent}"
+                          StrokeThickness="1.5"
+                          StrokeLineCap="Round"
+                          StrokeJoin="Round"
+                          Width="10" Height="8"
+                          Stretch="Uniform"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Opacity="0"
+                          RenderTransformOrigin="0.5,0.5"
+                          RenderTransform="scaleX(0) scaleY(0)">
+                      <Path.Transitions>
+                        <Transitions>
+                          <DoubleTransition Property="Opacity" Duration="0:0:0.1" />
+                          <TransformOperationsTransition Property="RenderTransform"
+                                                          Duration="0:0:0.2" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </Path.Transitions>
+                    </Path>
+                  </Border>
+                </Panel>
+
+                <!-- Item text -->
+                <TextBlock x:Name="ItemText"
+                           Grid.Column="1"
+                           Text="{TemplateBinding Text}"
+                           Foreground="{DynamicResource Brush.TextPrimary}"
+                           FontFamily="{DynamicResource Font.Family}"
+                           FontSize="{DynamicResource Font.SizeBody}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+              </Grid>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Multi-select: show check area -->
+        <Style Selector="^[IsMultiSelect=True] /template/ Panel#PART_CheckArea">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- Hover -->
+        <Style Selector="^:pointerover /template/ Border#ItemRoot">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+          <Setter Property="RenderTransform" Value="translateX(2px)" />
+        </Style>
+
+        <!-- Pressed -->
+        <Style Selector="^:pressed /template/ Border#ItemRoot">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+        </Style>
+
+        <!-- Selected (single-select highlight) -->
+        <Style Selector="^:selected /template/ Border#ItemRoot">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+        </Style>
+        <Style Selector="^:selected:pointerover /template/ Border#ItemRoot">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtleHover}" />
+        </Style>
+
+        <!-- Selected check (multi-select) -->
+        <Style Selector="^:selected /template/ Border#CheckBorder">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^:selected /template/ Path#CheckGlyph">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="scaleX(1) scaleY(1)" />
+        </Style>
+
+        <!-- Focus visible -->
+        <Style Selector="^:focus-visible /template/ Border#ItemRoot">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+        </Style>
+      </ControlTheme>
+
+      <!-- ────────── StrataComboBox ────────── -->
+      <ControlTheme x:Key="{x:Type controls:StrataComboBox}"
+                    TargetType="controls:StrataComboBox">
+        <Setter Property="Background" Value="{DynamicResource Brush.ControlDefault}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.ControlElevationBorder}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+        <Setter Property="Padding" Value="12,0,0,0" />
+        <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="FocusAdorner" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <Border x:Name="PART_ToggleButton"
+                      Background="{TemplateBinding Background}"
+                      BorderBrush="{TemplateBinding BorderBrush}"
+                      BorderThickness="{TemplateBinding BorderThickness}"
+                      CornerRadius="{TemplateBinding CornerRadius}"
+                      MinHeight="{TemplateBinding MinHeight}">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                  </Transitions>
+                </Border.Transitions>
+                <Grid ColumnDefinitions="*,32">
+                  <!-- Display text or placeholder -->
+                  <Panel Grid.Column="0" Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
+                    <TextBlock x:Name="PART_DisplayText"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="PART_Placeholder"
+                               Text="{TemplateBinding PlaceholderText}"
+                               Foreground="{DynamicResource Brush.TextTertiary}"
+                               VerticalAlignment="Center"
+                               IsVisible="False" />
+                  </Panel>
+
+                  <!-- Dropdown arrow -->
+                  <Path x:Name="DropDownGlyph"
+                        Grid.Column="1"
+                        Data="M 0,0 L 4,4 L 8,0"
+                        Stroke="{DynamicResource Brush.TextSecondary}"
+                        StrokeThickness="1.5"
+                        StrokeLineCap="Round"
+                        StrokeJoin="Round"
+                        Width="8" Height="4"
+                        Stretch="Uniform"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="0,0,12,0"
+                        RenderTransformOrigin="0.5,0.5"
+                        RenderTransform="rotate(0deg)">
+                    <Path.Transitions>
+                      <Transitions>
+                        <BrushTransition Property="Stroke" Duration="0:0:0.15" />
+                        <TransformOperationsTransition Property="RenderTransform"
+                                                        Duration="0:0:0.2" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Path.Transitions>
+                  </Path>
+                </Grid>
+              </Border>
+
+              <!-- Dropdown popup -->
+              <Popup x:Name="PART_Popup"
+                     WindowManagerAddShadowHint="False"
+                     IsOpen="{TemplateBinding IsDropDownOpen, Mode=TwoWay}"
+                     MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                     PlacementTarget="PART_ToggleButton"
+                     Placement="Center"
+                     IsLightDismissEnabled="True"
+                     InheritsTransform="True"
+                     strata:PopupAnimationHelper.EnableOpenAnimation="True">
+                <Border x:Name="PopupBorder"
+                        Background="{DynamicResource Brush.SurfaceOverlay}"
+                        BorderBrush="{DynamicResource Brush.BorderDefault}"
+                        BorderThickness="{DynamicResource Stroke.Thin}"
+                        CornerRadius="{DynamicResource Radius.Base}"
+                        Padding="4"
+                        Margin="16"
+                        MinWidth="{Binding Bounds.Width, RelativeSource={RelativeSource TemplatedParent}}"
+                        BoxShadow="0 16 48 -8 #30000000, 0 6 16 0 #18000000, 0 0 0 1 #0C000000">
+                  <DockPanel>
+                    <!-- Search box (visible when IsSearchable) -->
+                    <TextBox x:Name="PART_SearchBox"
+                             DockPanel.Dock="Top"
+                             Watermark="{TemplateBinding SearchWatermark}"
+                             Margin="4,4,4,6"
+                             IsVisible="False" />
+
+                    <!-- Select All row (visible in multi-select mode) -->
+                    <Border x:Name="PART_SelectAllRow"
+                            DockPanel.Dock="Top"
+                            IsVisible="False">
+                      <controls:StrataComboBoxItem x:Name="PART_SelectAllItem"
+                                                   Text="Select all"
+                                                   IsMultiSelect="True"
+                                                   Margin="0,0,0,2" />
+                    </Border>
+                    <Border x:Name="PART_SelectAllSeparator"
+                            DockPanel.Dock="Top"
+                            Height="1"
+                            Background="{DynamicResource Brush.BorderSubtle}"
+                            Margin="6,0,6,4"
+                            IsVisible="False" />
+
+                    <!-- Items -->
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                      <StackPanel x:Name="PART_ItemsHost" />
+                    </ScrollViewer>
+                  </DockPanel>
+                </Border>
+              </Popup>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Placeholder visible when no selection -->
+        <Style Selector="^:not(:has-selection) /template/ TextBlock#PART_DisplayText">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:has-selection) /template/ TextBlock#PART_Placeholder">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- Hover -->
+        <Style Selector="^:pointerover /template/ Border#PART_ToggleButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+        </Style>
+
+        <!-- Pressed -->
+        <Style Selector="^:pressed /template/ Border#PART_ToggleButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlPressed}" />
+        </Style>
+
+        <!-- Open -->
+        <Style Selector="^:open /template/ Border#PART_ToggleButton">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+        </Style>
+        <Style Selector="^:open /template/ Path#DropDownGlyph">
+          <Setter Property="Stroke" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+
+        <!-- Searchable: show search box -->
+        <Style Selector="^:searchable /template/ TextBox#PART_SearchBox">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- Focus visible -->
+        <Style Selector="^:focus-visible /template/ Border#PART_ToggleButton">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+          <Setter Property="BorderThickness" Value="1,1,1,2" />
+        </Style>
+
+        <!-- Disabled -->
+        <Style Selector="^:disabled">
+          <Setter Property="Opacity" Value="0.5" />
+        </Style>
+      </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>
