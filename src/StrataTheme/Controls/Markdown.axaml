@@ -1,6 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:avedit="https://github.com/avaloniaui/avaloniaedit"
         xmlns:controls="clr-namespace:StrataTheme.Controls">
 
   <!-- Default text color for all markdown content (inherited by children) -->
@@ -118,35 +117,25 @@
     <Setter Property="LineHeight" Value="19" />
   </Style>
 
-  <Style Selector="avedit|TextEditor.strata-md-code-editor">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
-    <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="Padding" Value="0" />
+  <!-- StrataCodeBlock: syntax-highlighted code display -->
+  <Style Selector="controls|StrataCodeBlock.strata-md-code-editor > SelectableTextBlock">
     <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
     <Setter Property="FontSize" Value="13" />
-    <Setter Property="Margin" Value="0" />
-    <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
-    <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
-  <Style Selector="avedit|TextEditor.strata-md-code-editor ScrollBar:horizontal">
+  <!-- Horizontal scrollbar within the code block ScrollViewer -->
+  <Style Selector="ScrollViewer.strata-md-code-scroll ScrollBar:horizontal">
     <Setter Property="Margin" Value="0,8,0,0" />
     <Setter Property="Height" Value="7" />
   </Style>
 
-  <Style Selector="avedit|TextEditor.strata-md-code-editor ScrollBar:horizontal /template/ Thumb">
+  <Style Selector="ScrollViewer.strata-md-code-scroll ScrollBar:horizontal /template/ Thumb">
     <Setter Property="Background" Value="{DynamicResource Brush.BorderStrong}" />
   </Style>
 
-  <Style Selector="avedit|TextEditor.strata-md-code-editor ScrollBar:horizontal:pointerover /template/ Thumb">
+  <Style Selector="ScrollViewer.strata-md-code-scroll ScrollBar:horizontal:pointerover /template/ Thumb">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentHover}" />
-  </Style>
-
-  <Style Selector="avedit|TextArea">
-    <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
-    <Setter Property="FontSize" Value="13" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
 </Styles>

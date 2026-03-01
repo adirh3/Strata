@@ -8,9 +8,6 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Input;
 using Avalonia.Threading;
-using AvaloniaEdit;
-using TextMateSharp.Grammars;
-using AvaloniaEdit.TextMate;
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -118,10 +115,6 @@ public class StrataMarkdown : ContentControl
     private bool _rebuildQueued;
     private System.Threading.CancellationTokenSource? _rebuildDelayCts;
     private DateTime _lastRebuildAtUtc;
-
-    // ── Shared TextMate registries (expensive to create) ──
-    private static RegistryOptions? _darkRegistry;
-    private static RegistryOptions? _lightRegistry;
 
     // ── Reusable buffers to avoid per-rebuild allocations ──
     private readonly List<string> _evictBuffer = new();
@@ -825,8 +818,8 @@ public class StrataMarkdown : ContentControl
                 continue;
             }
 
-            // Fast path: code block with same language — update TextEditor.Text in-place
-            // instead of recreating TextEditor + TextMate installation (very expensive).
+            // Fast path: code block with same language — update StrataCodeBlock.Text
+            // in-place instead of recreating the control subtree.
             if (oldBlocks[i].Kind == MdBlockKind.CodeBlock &&
                 newBlocks[i].Kind == MdBlockKind.CodeBlock &&
                 string.Equals(oldBlocks[i].Language, newBlocks[i].Language, StringComparison.Ordinal) &&
@@ -1409,24 +1402,24 @@ public class StrataMarkdown : ContentControl
 
 
     /// <summary>
-    /// Updates a code block control in-place during streaming, avoiding full TextEditor
-    /// and TextMate re-creation. Returns false if the control structure doesn't match.
+    /// Updates a code block control in-place during streaming, avoiding full control
+    /// re-creation. Returns false if the control structure doesn't match.
     /// </summary>
     private static bool TryUpdateCodeBlockInPlace(Control existing, string newContent)
     {
-        // Navigate: Border (shell) -> StackPanel -> [1] TextEditor
+        // Navigate: Border (shell) -> StackPanel -> [1] ScrollViewer -> StrataCodeBlock
         if (existing is not Border { Child: StackPanel stack } || stack.Children.Count < 2)
             return false;
 
-        if (stack.Children[1] is not TextEditor editor)
+        if (stack.Children[1] is not ScrollViewer { Content: StrataCodeBlock codeBlock } scroller)
             return false;
 
         var normalizedCode = newContent.TrimEnd('\r', '\n');
         var displayCode = string.IsNullOrWhiteSpace(normalizedCode) ? " " : normalizedCode;
 
-        editor.Text = displayCode;
+        codeBlock.Text = displayCode;
         var lineCount = CountLines(displayCode);
-        editor.MinHeight = Math.Min(lineCount * 18 + 12, 400);
+        codeBlock.MinHeight = lineCount * StrataCodeBlock.CodeLineHeight;
         return true;
     }
 
@@ -1580,29 +1573,43 @@ public class StrataMarkdown : ContentControl
         DockPanel.SetDock(copyBtn, Dock.Right);
         headerRow.Children.Insert(0, copyBtn);
 
-        // Syntax-highlighted editor
-        var editor = new TextEditor
+        // Syntax-highlighted code block.
+        // MinHeight on the code block ensures the text keeps its natural height
+        // even when the horizontal scrollbar appears and the ScrollViewer's
+        // internal Grid must allocate an extra row for it.
+        // Horizontal padding is applied as Margin on the code block (not Padding
+        // on the ScrollViewer) so it is included in the scroll extent — otherwise
+        // the last ~20 px of long lines would be unreachable.
+        var codeBlock = new StrataCodeBlock
         {
             Text = displayCode,
-            IsReadOnly = true,
-            ShowLineNumbers = false,
-            FontSize = 12,
-            FontFamily = ResolveMonoFont(),
+            Language = langText,
+            MinHeight = lineCount * StrataCodeBlock.CodeLineHeight,
+            Margin = new Thickness(10, 0, 10, 0),
+        };
+        codeBlock.Classes.Add("strata-md-code-editor");
+
+        var scroller = new ScrollViewer
+        {
+            Content = codeBlock,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Padding = new Thickness(10, 4, 10, 8),
-            MinHeight = Math.Min(lineCount * 18 + 12, 400),
-            MaxHeight = 400
+            MaxHeight = 400,
+            Padding = new Thickness(0, 4, 0, 8),
         };
-        editor.Classes.Add("strata-md-code-editor");
+        scroller.Classes.Add("strata-md-code-scroll");
 
-        // Read text from the editor directly (not a closure capture) so in-place
-        // streaming updates to editor.Text are reflected in the copy action.
+        // Read text from the code block directly (not a closure capture) so in-place
+        // streaming updates to codeBlock.Text are reflected in the copy action.
         copyBtn.Click += async (_, _) =>
         {
             var topLevel = TopLevel.GetTopLevel(copyBtn);
             if (topLevel?.Clipboard is not null)
-                await topLevel.Clipboard.SetTextAsync(editor.Text ?? "");
+            {
+                var data = new DataTransfer();
+                data.Add(DataTransferItem.CreateText(codeBlock.Text ?? ""));
+                await topLevel.Clipboard.SetDataAsync(data);
+            }
 
             if (copyBtn.Content is TextBlock tb)
             {
@@ -1612,11 +1619,9 @@ public class StrataMarkdown : ContentControl
             }
         };
 
-        ApplyTextMateHighlighting(editor, langText);
-
         var stack = new StackPanel { Spacing = 0 };
         stack.Children.Add(headerRow);
-        stack.Children.Add(editor);
+        stack.Children.Add(scroller);
 
         shell.Child = stack;
         return shell;
@@ -2365,56 +2370,6 @@ public class StrataMarkdown : ContentControl
         {
             return GetBlockPlaceholder("\U0001F4CE");
         }
-    }
-
-    private static void ApplyTextMateHighlighting(TextEditor editor, string language)
-    {
-        try
-        {
-            var isDark = Application.Current?.ActualThemeVariant == ThemeVariant.Dark;
-
-            // Reuse cached RegistryOptions — creating one is expensive (~50ms)
-            RegistryOptions registryOptions;
-            if (isDark)
-            {
-                _darkRegistry ??= new RegistryOptions(ThemeName.DarkPlus);
-                registryOptions = _darkRegistry;
-            }
-            else
-            {
-                _lightRegistry ??= new RegistryOptions(ThemeName.LightPlus);
-                registryOptions = _lightRegistry;
-            }
-
-            var installation = editor.InstallTextMate(registryOptions);
-
-            if (!string.IsNullOrWhiteSpace(language))
-            {
-                var lang = registryOptions.GetLanguageByExtension("." + language)
-                        ?? registryOptions.GetLanguageByExtension(language == "csharp" ? ".cs" : "." + language);
-
-                if (lang is not null)
-                {
-                    installation.SetGrammar(registryOptions.GetScopeByLanguageId(lang.Id));
-                }
-            }
-        }
-        catch
-        {
-            // Graceful fallback: no highlighting
-        }
-    }
-
-    private FontFamily ResolveMonoFont()
-    {
-        if (Application.Current is not null &&
-            Application.Current.TryGetResource("Font.FamilyMono", Application.Current.ActualThemeVariant, out var font) &&
-            font is FontFamily mono)
-        {
-            return mono;
-        }
-
-        return FontFamily.Default;
     }
 
     private string? GetLinkAtCharIndex(SelectableTextBlock tb, int charIndex)

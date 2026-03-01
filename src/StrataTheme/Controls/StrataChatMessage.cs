@@ -363,7 +363,9 @@ public class StrataChatMessage : TemplatedControl
         if (topLevel?.Clipboard is null)
             return;
 
-        await topLevel.Clipboard.SetTextAsync(text);
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.CreateText(text));
+        await topLevel.Clipboard.SetDataAsync(data);
     }
 
     private string ExtractCopyText()

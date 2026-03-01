@@ -55,7 +55,6 @@
   <StyleInclude Source="avares://StrataTheme/Controls/Window.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/TextBlock.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/ScrollBar.axaml" />
-  <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/DataGrid.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/Separator.axaml" />
   <StyleInclude Source="avares://StrataTheme/Controls/Markdown.axaml" />
