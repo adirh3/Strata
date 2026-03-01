@@ -65,6 +65,38 @@
                       </Button>
                     </StackPanel>
                   </Border>
+                  <!-- Project chip (hidden via :has-project pseudo-class) -->
+                  <Border Name="PART_ProjectChip"
+                          CornerRadius="12"
+                          Padding="8,3,4,3"
+                          Margin="0,0,6,4"
+                          Background="{DynamicResource Brush.Surface2}"
+                          BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                          BorderThickness="1">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <TextBlock Text="📁"
+                                 FontSize="11"
+                                 Foreground="{DynamicResource Brush.TextTertiary}"
+                                 VerticalAlignment="Center" />
+                      <TextBlock Text="{TemplateBinding ProjectName}"
+                                 FontSize="11"
+                                 FontWeight="Medium"
+                                 Foreground="{DynamicResource Brush.TextPrimary}"
+                                 VerticalAlignment="Center" />
+                      <Button Name="PART_ProjectRemoveButton"
+                              Classes="subtle"
+                              Width="16" Height="16"
+                              Padding="0" MinHeight="0" MinWidth="0"
+                              CornerRadius="8"
+                              VerticalAlignment="Center"
+                              Cursor="Hand">
+                        <TextBlock Text="×" FontSize="11"
+                                   Foreground="{DynamicResource Brush.TextTertiary}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                      </Button>
+                    </StackPanel>
+                  </Border>
                   <!-- Skill chips are appended here programmatically -->
                 </WrapPanel>
 
@@ -447,6 +479,11 @@
 
         <!-- Hide agent chip when no agent is set -->
         <Style Selector="^:not(:has-agent) /template/ Border#PART_AgentChip">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- Hide project chip when no project is set -->
+        <Style Selector="^:not(:has-project) /template/ Border#PART_ProjectChip">
           <Setter Property="IsVisible" Value="False" />
         </Style>
 

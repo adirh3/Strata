@@ -25,7 +25,7 @@ namespace StrataTheme.Controls;
 public record StrataComposerChip(string Name, string Glyph = "✦");
 
 /// <summary>The kind of autocomplete entry or chip.</summary>
-public enum ChipKind { Agent, Skill, Mcp }
+public enum ChipKind { Agent, Skill, Mcp, Project }
 
 /// <summary>Event arguments carrying a removed skill chip item.</summary>
 public class ComposerChipRemovedEventArgs : RoutedEventArgs
@@ -58,11 +58,12 @@ public class ComposerChipRemovedEventArgs : RoutedEventArgs
 /// PART_ModelCombo (ComboBox), PART_QualityCombo (ComboBox),
 /// PART_ActionA (Button), PART_ActionB (Button), PART_ActionC (Button),
 /// PART_ChipsRow (WrapPanel), PART_AgentChip (Border),
-/// PART_AgentRemoveButton (Button), PART_AutoCompletePopup (Popup),
+/// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
+/// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :can-attach,
 /// :a-empty, :b-empty, :c-empty, :has-models, :has-quality,
-/// :has-agent, :has-skills, :has-chips, :suggestions-generating.</para>
+/// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
 /// </remarks>
 public class StrataChatComposer : TemplatedControl
 {
@@ -167,6 +168,14 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<IEnumerable?> McpItemsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(McpItems));
 
+    /// <summary>Display name of the currently active project. Empty or null hides the chip.</summary>
+    public static readonly StyledProperty<string?> ProjectNameProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ProjectName));
+
+    /// <summary>Catalog of projects available for selection via $ autocomplete.</summary>
+    public static readonly StyledProperty<IEnumerable?> AvailableProjectsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableProjects));
+
     /// <summary>Catalog of MCP servers available for selection via the MCP button popup.</summary>
     public static readonly StyledProperty<IEnumerable?> AvailableMcpsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableMcps));
@@ -190,6 +199,10 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Raised when the user removes a skill chip. <see cref="ComposerChipRemovedEventArgs.Item"/> carries the removed item.</summary>
     public static readonly RoutedEvent<ComposerChipRemovedEventArgs> SkillRemovedEvent =
         RoutedEvent.Register<StrataChatComposer, ComposerChipRemovedEventArgs>(nameof(SkillRemoved), RoutingStrategies.Bubble);
+
+    /// <summary>Raised when the user removes the active project chip.</summary>
+    public static readonly RoutedEvent<RoutedEventArgs> ProjectRemovedEvent =
+        RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(ProjectRemoved), RoutingStrategies.Bubble);
 
     /// <summary>Raised when the user removes an MCP server chip.</summary>
     public static readonly RoutedEvent<ComposerChipRemovedEventArgs> McpRemovedEvent =
@@ -263,6 +276,7 @@ public class StrataChatComposer : TemplatedControl
         });
         AgentNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         AgentGlyphProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        ProjectNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
         McpItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnMcpItemsChanged());
         AvailableMcpsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
@@ -293,6 +307,8 @@ public class StrataChatComposer : TemplatedControl
     { add => AddHandler(SkillRemovedEvent, value); remove => RemoveHandler(SkillRemovedEvent, value); }
     public event EventHandler<ComposerChipRemovedEventArgs>? McpRemoved
     { add => AddHandler(McpRemovedEvent, value); remove => RemoveHandler(McpRemovedEvent, value); }
+    public event EventHandler<RoutedEventArgs>? ProjectRemoved
+    { add => AddHandler(ProjectRemovedEvent, value); remove => RemoveHandler(ProjectRemovedEvent, value); }
     public event EventHandler<RoutedEventArgs>? MentionRequested
     { add => AddHandler(MentionRequestedEvent, value); remove => RemoveHandler(MentionRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? VoiceRequested
@@ -319,6 +335,8 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? AvailableSkills { get => GetValue(AvailableSkillsProperty); set => SetValue(AvailableSkillsProperty, value); }
     public IEnumerable? McpItems { get => GetValue(McpItemsProperty); set => SetValue(McpItemsProperty, value); }
     public IEnumerable? AvailableMcps { get => GetValue(AvailableMcpsProperty); set => SetValue(AvailableMcpsProperty, value); }
+    public string? ProjectName { get => GetValue(ProjectNameProperty); set => SetValue(ProjectNameProperty, value); }
+    public IEnumerable? AvailableProjects { get => GetValue(AvailableProjectsProperty); set => SetValue(AvailableProjectsProperty, value); }
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
     public bool IsSuggestionsGenerating { get => GetValue(IsSuggestionsGeneratingProperty); set => SetValue(IsSuggestionsGeneratingProperty, value); }
 
@@ -337,6 +355,7 @@ public class StrataChatComposer : TemplatedControl
         Wire(e, "PART_MentionButton", () => ShowMentionPopup());
         Wire(e, "PART_VoiceButton", () => RaiseEvent(new RoutedEventArgs(VoiceRequestedEvent)));
         Wire(e, "PART_AgentRemoveButton", () => RaiseEvent(new RoutedEventArgs(AgentRemovedEvent)));
+        Wire(e, "PART_ProjectRemoveButton", () => RaiseEvent(new RoutedEventArgs(ProjectRemovedEvent)));
         _chipsRow = e.NameScope.Find<WrapPanel>("PART_ChipsRow");
         _mcpPopup = e.NameScope.Find<Popup>("PART_McpPopup");
         _mcpPopupPanel = e.NameScope.Find<StackPanel>("PART_McpPopupPanel");
@@ -628,7 +647,7 @@ public class StrataChatComposer : TemplatedControl
             if (ch is ' ' or '\n' or '\r')
                 break;
 
-            if (ch is '@' or '/')
+            if (ch is '@' or '/' or '$')
             {
                 if (i == 0 || text[i - 1] is ' ' or '\n' or '\r')
                 {
@@ -698,6 +717,29 @@ public class StrataChatComposer : TemplatedControl
                 var border = CreateAutoCompleteEntry(chip, ChipKind.Skill);
                 _autoCompletePanel.Children.Add(border);
                 _autoCompleteEntries.Add((border, chip, ChipKind.Skill));
+            }
+        }
+
+        if (_triggerChar == '$' && AvailableProjects is not null)
+        {
+            var hasProjectSection = false;
+            foreach (var item in AvailableProjects)
+            {
+                var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
+                if (!string.IsNullOrEmpty(query) &&
+                    !chip.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (chip.Name == ProjectName) continue;
+
+                if (!hasProjectSection)
+                {
+                    _autoCompletePanel.Children.Add(CreateSectionHeader("Projects"));
+                    hasProjectSection = true;
+                }
+
+                var border = CreateAutoCompleteEntry(chip, ChipKind.Project);
+                _autoCompletePanel.Children.Add(border);
+                _autoCompleteEntries.Add((border, chip, ChipKind.Project));
             }
         }
 
@@ -781,6 +823,9 @@ public class StrataChatComposer : TemplatedControl
                 if (SkillItems is System.Collections.IList skillList && !IsAlreadyActiveSkill(chip))
                     skillList.Add(chip);
                 break;
+            case ChipKind.Project:
+                ProjectName = chip.Name;
+                break;
         }
 
         CloseAutoComplete();
@@ -853,6 +898,7 @@ public class StrataChatComposer : TemplatedControl
             ChipKind.Agent => "Agent",
             ChipKind.Skill => "Skill",
             ChipKind.Mcp => "MCP",
+            ChipKind.Project => "Project",
             _ => ""
         };
         var kindText = new TextBlock { Text = kindLabel };
@@ -912,13 +958,15 @@ public class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":has-models", Models is not null);
         PseudoClasses.Set(":has-quality", QualityLevels is not null);
         var hasAgent = !string.IsNullOrWhiteSpace(AgentName);
+        var hasProject = !string.IsNullOrWhiteSpace(ProjectName);
         var hasSkills = HasAnySkills();
         var mcpCount = CountMcps();
         var totalMcpCount = CountAvailableMcps();
         PseudoClasses.Set(":has-agent", hasAgent);
+        PseudoClasses.Set(":has-project", hasProject);
         PseudoClasses.Set(":has-skills", hasSkills);
         PseudoClasses.Set(":has-mcps", mcpCount > 0);
-        PseudoClasses.Set(":has-chips", hasAgent || hasSkills);
+        PseudoClasses.Set(":has-chips", hasAgent || hasProject || hasSkills);
         PseudoClasses.Set(":mcp-partial", mcpCount > 0 && mcpCount < totalMcpCount);
         UpdateMcpCountText(mcpCount, totalMcpCount);
         PseudoClasses.Set(":recording", IsRecording);
@@ -1224,8 +1272,8 @@ public class StrataChatComposer : TemplatedControl
     {
         if (_chipsRow is null) return;
 
-        // Remove previous skill chips (PART_AgentChip stays at index 0)
-        while (_chipsRow.Children.Count > 1)
+        // Remove previous skill chips (PART_AgentChip at 0, PART_ProjectChip at 1 stay)
+        while (_chipsRow.Children.Count > 2)
             _chipsRow.Children.RemoveAt(_chipsRow.Children.Count - 1);
 
         if (SkillItems is not null)
