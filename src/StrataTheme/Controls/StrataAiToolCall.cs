@@ -151,6 +151,9 @@ public class StrataAiToolCall : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_header is not null)
+            _header.PointerPressed -= OnHeaderPointerPressed;
+
         base.OnApplyTemplate(e);
 
         _header = e.NameScope.Find<Border>("PART_Header");
@@ -160,16 +163,7 @@ public class StrataAiToolCall : TemplatedControl
         _infoMarkdown = e.NameScope.Find<StrataMarkdown>("PART_InfoMarkdown");
 
         if (_header is not null)
-        {
-            _header.PointerPressed += (_, pointerEvent) =>
-            {
-                if (pointerEvent.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-                {
-                    IsExpanded = !IsExpanded;
-                    pointerEvent.Handled = true;
-                }
-            };
-        }
+            _header.PointerPressed += OnHeaderPointerPressed;
 
         AttachContextMenu();
 
@@ -180,6 +174,15 @@ public class StrataAiToolCall : TemplatedControl
             if (Status == StrataAiToolCallStatus.InProgress)
                 StartRunningPulse();
         }, DispatcherPriority.Loaded);
+    }
+
+    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs pointerEvent)
+    {
+        if (pointerEvent.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            IsExpanded = !IsExpanded;
+            pointerEvent.Handled = true;
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -350,12 +353,7 @@ public class StrataAiToolCall : TemplatedControl
         if (visual is null)
             return;
 
-        var reset = visual.Compositor.CreateScalarKeyFrameAnimation();
-        reset.Target = "Opacity";
-        reset.InsertKeyFrame(0f, 1f);
-        reset.Duration = TimeSpan.FromMilliseconds(1);
-        reset.IterationBehavior = AnimationIterationBehavior.Count;
-        reset.IterationCount = 1;
-        visual.StartAnimation("Opacity", reset);
+        visual.StopAnimation("Opacity");
+        visual.Opacity = 1f;
     }
 }

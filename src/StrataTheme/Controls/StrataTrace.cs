@@ -20,6 +20,9 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataTrace : TemplatedControl
 {
+    private Border? _badge;
+    private string _indexText = "[1]";
+
     public static readonly StyledProperty<int> IndexProperty =
         AvaloniaProperty.Register<StrataTrace, int>(nameof(Index), 1);
 
@@ -44,11 +47,14 @@ public class StrataTrace : TemplatedControl
     static StrataTrace()
     {
         IndexProperty.Changed.AddClassHandler<StrataTrace>((t, _) =>
-            t.RaisePropertyChanged(IndexTextProperty, default!, t.IndexText));
+        {
+            t._indexText = $"[{t.Index}]";
+            t.RaisePropertyChanged(IndexTextProperty, default!, t._indexText);
+        });
     }
 
     public int Index { get => GetValue(IndexProperty); set => SetValue(IndexProperty, value); }
-    public string IndexText => $"[{Index}]";
+    public string IndexText => _indexText;
     public string Title { get => GetValue(TitleProperty); set => SetValue(TitleProperty, value); }
     public string? Snippet { get => GetValue(SnippetProperty); set => SetValue(SnippetProperty, value); }
     public string? Origin { get => GetValue(OriginProperty); set => SetValue(OriginProperty, value); }
@@ -57,16 +63,27 @@ public class StrataTrace : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_badge is not null)
+        {
+            _badge.PointerEntered -= OnBadgePointerEntered;
+            _badge.PointerExited -= OnBadgePointerExited;
+            _badge.PointerPressed -= OnBadgePointerPressed;
+        }
+
         base.OnApplyTemplate(e);
 
-        var badge = e.NameScope.Find<Border>("PART_Badge");
-        if (badge is not null)
+        _badge = e.NameScope.Find<Border>("PART_Badge");
+        if (_badge is not null)
         {
-            badge.PointerEntered += (_, _) => IsRevealed = true;
-            badge.PointerExited += (_, _) => IsRevealed = false;
-            badge.PointerPressed += (_, _) => IsRevealed = !IsRevealed;
+            _badge.PointerEntered += OnBadgePointerEntered;
+            _badge.PointerExited += OnBadgePointerExited;
+            _badge.PointerPressed += OnBadgePointerPressed;
         }
     }
+
+    private void OnBadgePointerEntered(object? sender, PointerEventArgs e) => IsRevealed = true;
+    private void OnBadgePointerExited(object? sender, PointerEventArgs e) => IsRevealed = false;
+    private void OnBadgePointerPressed(object? sender, PointerPressedEventArgs e) => IsRevealed = !IsRevealed;
 
     protected override void OnKeyDown(KeyEventArgs e)
     {

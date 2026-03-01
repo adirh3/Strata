@@ -78,6 +78,12 @@ public class StrataQuestionCard : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        // Unsubscribe from old template parts
+        if (_freeTextSubmit is not null)
+            _freeTextSubmit.Click -= OnFreeTextSubmitClick;
+        if (_freeTextBox is not null)
+            _freeTextBox.KeyDown -= OnFreeTextKeyDown;
+
         base.OnApplyTemplate(e);
 
         _optionsPanel = e.NameScope.Find<WrapPanel>("PART_OptionsPanel");

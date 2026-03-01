@@ -30,6 +30,8 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataTurnSummary : TemplatedControl
 {
+    private Border? _header;
+
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<StrataTurnSummary, string>(nameof(Label), "Finished");
 
@@ -55,22 +57,25 @@ public class StrataTurnSummary : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_header is not null)
+            _header.PointerPressed -= OnHeaderPointerPressed;
+
         base.OnApplyTemplate(e);
 
-        var header = e.NameScope.Find<Border>("PART_Header");
-        if (header is not null)
-        {
-            header.PointerPressed += (_, pe) =>
-            {
-                if (pe.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-                {
-                    IsExpanded = !IsExpanded;
-                    pe.Handled = true;
-                }
-            };
-        }
+        _header = e.NameScope.Find<Border>("PART_Header");
+        if (_header is not null)
+            _header.PointerPressed += OnHeaderPointerPressed;
 
         UpdatePseudoClasses();
+    }
+
+    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs pe)
+    {
+        if (pe.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            IsExpanded = !IsExpanded;
+            pe.Handled = true;
+        }
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

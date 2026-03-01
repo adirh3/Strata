@@ -54,7 +54,6 @@ public class StrataTypingIndicator : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        Dispatcher.UIThread.Post(Refresh, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -109,12 +108,7 @@ public class StrataTypingIndicator : TemplatedControl
         var visual = ElementComposition.GetElementVisual(dot);
         if (visual is null) return;
 
-        var reset = visual.Compositor.CreateScalarKeyFrameAnimation();
-        reset.Target = "Opacity";
-        reset.InsertKeyFrame(0f, 0.45f);
-        reset.Duration = TimeSpan.FromMilliseconds(1);
-        reset.IterationBehavior = AnimationIterationBehavior.Count;
-        reset.IterationCount = 1;
-        visual.StartAnimation("Opacity", reset);
+        visual.StopAnimation("Opacity");
+        visual.Opacity = 0.45f;
     }
 }

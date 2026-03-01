@@ -107,6 +107,9 @@ public class StrataTerminalPreview : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_header is not null)
+            _header.PointerPressed -= OnHeaderPointerPressed;
+
         base.OnApplyTemplate(e);
 
         _header = e.NameScope.Find<Border>("PART_Header");
@@ -116,16 +119,7 @@ public class StrataTerminalPreview : TemplatedControl
         _outputScroll = e.NameScope.Find<ScrollViewer>("PART_OutputScroll");
 
         if (_header is not null)
-        {
-            _header.PointerPressed += (_, pe) =>
-            {
-                if (pe.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-                {
-                    IsExpanded = !IsExpanded;
-                    pe.Handled = true;
-                }
-            };
-        }
+            _header.PointerPressed += OnHeaderPointerPressed;
 
         UpdateState();
 
@@ -134,6 +128,15 @@ public class StrataTerminalPreview : TemplatedControl
             if (Status == StrataAiToolCallStatus.InProgress)
                 StartRunningPulse();
         }, DispatcherPriority.Loaded);
+    }
+
+    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs pe)
+    {
+        if (pe.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            IsExpanded = !IsExpanded;
+            pe.Handled = true;
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -199,12 +202,7 @@ public class StrataTerminalPreview : TemplatedControl
         var visual = ElementComposition.GetElementVisual(_stateDot);
         if (visual is null) return;
 
-        var reset = visual.Compositor.CreateScalarKeyFrameAnimation();
-        reset.Target = "Opacity";
-        reset.InsertKeyFrame(0f, 1f);
-        reset.Duration = TimeSpan.FromMilliseconds(1);
-        reset.IterationBehavior = AnimationIterationBehavior.Count;
-        reset.IterationCount = 1;
-        visual.StartAnimation("Opacity", reset);
+        visual.StopAnimation("Opacity");
+        visual.Opacity = 1f;
     }
 }

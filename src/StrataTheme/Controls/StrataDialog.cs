@@ -76,6 +76,11 @@ public class StrataDialog : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_closeButton is not null)
+            _closeButton.Click -= OnCloseButtonClick;
+        if (_scrim is not null)
+            _scrim.PointerPressed -= OnScrimPointerPressed;
+
         base.OnApplyTemplate(e);
 
         _scrim = e.NameScope.Find<Border>("PART_Scrim");
@@ -83,13 +88,17 @@ public class StrataDialog : TemplatedControl
         _closeButton = e.NameScope.Find<Button>("PART_CloseButton");
 
         if (_closeButton is not null)
-            _closeButton.Click += (_, _) => IsDialogOpen = false;
+            _closeButton.Click += OnCloseButtonClick;
 
         if (_scrim is not null)
-            _scrim.PointerPressed += (_, _) => IsDialogOpen = false;
+            _scrim.PointerPressed += OnScrimPointerPressed;
 
         OnOpenChanged();
     }
+
+    private void OnCloseButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => IsDialogOpen = false;
+
+    private void OnScrimPointerPressed(object? sender, PointerPressedEventArgs e) => IsDialogOpen = false;
 
     private void OnOpenChanged()
     {

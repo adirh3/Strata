@@ -43,6 +43,8 @@ public enum StrataAttachmentStatus
 public class StrataFileAttachment : TemplatedControl
 {
     private Border? _statusDot;
+    private Border? _root;
+    private Button? _removeBtn;
 
     public static readonly StyledProperty<string> FileNameProperty =
         AvaloniaProperty.Register<StrataFileAttachment, string>(nameof(FileName), "file.txt");
@@ -137,26 +139,22 @@ public class StrataFileAttachment : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_root is not null)
+            _root.PointerPressed -= OnRootPointerPressed;
+        if (_removeBtn is not null)
+            _removeBtn.Click -= OnRemoveButtonClick;
+
         base.OnApplyTemplate(e);
 
         _statusDot = e.NameScope.Find<Border>("PART_StatusDot");
 
-        var root = e.NameScope.Find<Border>("PART_Root");
-        if (root is not null)
-        {
-            root.PointerPressed += (_, pe) =>
-            {
-                if (pe.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-                {
-                    RaiseEvent(new RoutedEventArgs(OpenRequestedEvent));
-                    pe.Handled = true;
-                }
-            };
-        }
+        _root = e.NameScope.Find<Border>("PART_Root");
+        if (_root is not null)
+            _root.PointerPressed += OnRootPointerPressed;
 
-        var removeBtn = e.NameScope.Find<Button>("PART_RemoveButton");
-        if (removeBtn is not null)
-            removeBtn.Click += (_, _) => RaiseEvent(new RoutedEventArgs(RemoveRequestedEvent));
+        _removeBtn = e.NameScope.Find<Button>("PART_RemoveButton");
+        if (_removeBtn is not null)
+            _removeBtn.Click += OnRemoveButtonClick;
 
         UpdateState();
         UpdateIconForExtension();
@@ -166,6 +164,20 @@ public class StrataFileAttachment : TemplatedControl
             if (Status == StrataAttachmentStatus.Uploading)
                 StartUploadPulse();
         }, DispatcherPriority.Loaded);
+    }
+
+    private void OnRootPointerPressed(object? sender, PointerPressedEventArgs pe)
+    {
+        if (pe.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            RaiseEvent(new RoutedEventArgs(OpenRequestedEvent));
+            pe.Handled = true;
+        }
+    }
+
+    private void OnRemoveButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        RaiseEvent(new RoutedEventArgs(RemoveRequestedEvent));
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -253,12 +265,7 @@ public class StrataFileAttachment : TemplatedControl
         var visual = ElementComposition.GetElementVisual(_statusDot);
         if (visual is null) return;
 
-        var reset = visual.Compositor.CreateScalarKeyFrameAnimation();
-        reset.Target = "Opacity";
-        reset.InsertKeyFrame(0f, 1f);
-        reset.Duration = TimeSpan.FromMilliseconds(1);
-        reset.IterationBehavior = AnimationIterationBehavior.Count;
-        reset.IterationCount = 1;
-        visual.StartAnimation("Opacity", reset);
+        visual.StopAnimation("Opacity");
+        visual.Opacity = 1f;
     }
 }

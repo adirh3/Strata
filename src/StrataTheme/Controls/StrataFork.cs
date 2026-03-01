@@ -92,6 +92,14 @@ public class StrataFork : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        // Unsubscribe from old handlers before reapplying template
+        if (_optionAButton is not null)
+            _optionAButton.Click -= OnOptionAClicked;
+        if (_optionBButton is not null)
+            _optionBButton.Click -= OnOptionBClicked;
+        if (_tabHost is not null)
+            _tabHost.SizeChanged -= OnTabHostSizeChanged;
+
         base.OnApplyTemplate(e);
 
         _tabHost = e.NameScope.Find<Border>("PART_TabHost");
@@ -102,13 +110,13 @@ public class StrataFork : TemplatedControl
         _optionBPresenter = e.NameScope.Find<ContentPresenter>("PART_OptionBContent");
 
         if (_optionAButton is not null)
-            _optionAButton.Click += (_, _) => SelectedIndex = 0;
+            _optionAButton.Click += OnOptionAClicked;
 
         if (_optionBButton is not null)
-            _optionBButton.Click += (_, _) => SelectedIndex = 1;
+            _optionBButton.Click += OnOptionBClicked;
 
         if (_tabHost is not null)
-            _tabHost.SizeChanged += (_, _) => UpdateIndicatorGeometry(animated: false);
+            _tabHost.SizeChanged += OnTabHostSizeChanged;
 
         Dispatcher.UIThread.Post(() =>
         {
@@ -120,11 +128,24 @@ public class StrataFork : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (_optionAButton is not null)
+            _optionAButton.Click -= OnOptionAClicked;
+        if (_optionBButton is not null)
+            _optionBButton.Click -= OnOptionBClicked;
+        if (_tabHost is not null)
+            _tabHost.SizeChanged -= OnTabHostSizeChanged;
+
         _fadeCts?.Cancel();
         _fadeCts?.Dispose();
         _fadeCts = null;
         base.OnDetachedFromVisualTree(e);
     }
+
+    private void OnOptionAClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SelectedIndex = 0;
+
+    private void OnOptionBClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SelectedIndex = 1;
+
+    private void OnTabHostSizeChanged(object? sender, SizeChangedEventArgs e) => UpdateIndicatorGeometry(animated: false);
 
     protected override void OnKeyDown(KeyEventArgs e)
     {

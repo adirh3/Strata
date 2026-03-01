@@ -22,6 +22,8 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataLens : TemplatedControl
 {
+    private Button? _toggleButton;
+
     public static readonly StyledProperty<object?> HeaderProperty =
         AvaloniaProperty.Register<StrataLens, object?>(nameof(Header));
 
@@ -62,11 +64,19 @@ public class StrataLens : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_toggleButton is not null)
+            _toggleButton.Click -= OnToggleButtonClick;
+
         base.OnApplyTemplate(e);
 
-        var toggle = e.NameScope.Find<Button>("PART_ToggleButton");
-        if (toggle is not null)
-            toggle.Click += (_, _) => IsExpanded = !IsExpanded;
+        _toggleButton = e.NameScope.Find<Button>("PART_ToggleButton");
+        if (_toggleButton is not null)
+            _toggleButton.Click += OnToggleButtonClick;
+    }
+
+    private void OnToggleButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        IsExpanded = !IsExpanded;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

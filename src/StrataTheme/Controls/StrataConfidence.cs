@@ -71,6 +71,12 @@ public class StrataConfidence : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_track is not null)
+        {
+            _track.SizeChanged -= OnTrackSizeChanged;
+            _track.PointerPressed -= OnTrackPressed;
+        }
+
         base.OnApplyTemplate(e);
 
         _track = e.NameScope.Find<Border>("PART_Track");
@@ -80,12 +86,14 @@ public class StrataConfidence : TemplatedControl
 
         if (_track is not null)
         {
-            _track.SizeChanged += (_, _) => UpdateGauge();
+            _track.SizeChanged += OnTrackSizeChanged;
             _track.PointerPressed += OnTrackPressed;
         }
 
         Dispatcher.UIThread.Post(UpdateGauge, DispatcherPriority.Loaded);
     }
+
+    private void OnTrackSizeChanged(object? sender, SizeChangedEventArgs e) => UpdateGauge();
 
     protected override void OnKeyDown(KeyEventArgs e)
     {

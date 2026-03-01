@@ -92,6 +92,11 @@ public class StrataStream : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_streamTrack is not null)
+            _streamTrack.SizeChanged -= OnStreamTrackSizeChanged;
+        if (_statusArea is not null)
+            _statusArea.PointerPressed -= OnStatusAreaPointerPressed;
+
         base.OnApplyTemplate(e);
 
         _streamTrack = e.NameScope.Find<Border>("PART_StreamTrack");
@@ -99,30 +104,31 @@ public class StrataStream : TemplatedControl
         _statusArea = e.NameScope.Find<Border>("PART_StatusArea");
 
         if (_streamTrack is not null)
-            _streamTrack.SizeChanged += (_, _) =>
-            {
-                if (IsStreaming)
-                    StartStreamAnimation();
-            };
+            _streamTrack.SizeChanged += OnStreamTrackSizeChanged;
 
         if (_statusArea is not null)
-            _statusArea.PointerPressed += (_, pointerEvent) =>
-            {
-                if (!IsStatusToggleEnabled || !pointerEvent.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-                    return;
+            _statusArea.PointerPressed += OnStatusAreaPointerPressed;
 
-                pointerEvent.Handled = true;
-                IsStreaming = !IsStreaming;
-            };
+        ApplyPseudoClasses();
+        if (IsStreaming)
+            StartStreamAnimation();
+        else
+            HideStreamBar();
+    }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            ApplyPseudoClasses();
-            if (IsStreaming)
-                StartStreamAnimation();
-            else
-                HideStreamBar();
-        }, DispatcherPriority.Loaded);
+    private void OnStreamTrackSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (IsStreaming)
+            StartStreamAnimation();
+    }
+
+    private void OnStatusAreaPointerPressed(object? sender, PointerPressedEventArgs pointerEvent)
+    {
+        if (!IsStatusToggleEnabled || !pointerEvent.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+
+        pointerEvent.Handled = true;
+        IsStreaming = !IsStreaming;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

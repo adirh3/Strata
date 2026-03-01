@@ -34,6 +34,7 @@ public class StrataPeek : TemplatedControl
     private Border? _fadeOverlay;
     private Border? _contentHost;
     private ContentPresenter? _contentPresenter;
+    private Button? _toggleButton;
     private bool _isAnimating;
     private CancellationTokenSource? _transitionCts;
 
@@ -89,22 +90,27 @@ public class StrataPeek : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_toggleButton is not null)
+            _toggleButton.Click -= OnToggleButtonClick;
+
         base.OnApplyTemplate(e);
         _fadeOverlay = e.NameScope.Find<Border>("PART_FadeOverlay");
         _contentHost = e.NameScope.Find<Border>("PART_ContentHost");
         _contentPresenter = e.NameScope.Find<ContentPresenter>("PART_ContentPresenter");
 
-        var toggleButton = e.NameScope.Find<Button>("PART_ToggleButton");
-        if (toggleButton is not null)
-            toggleButton.Click += (_, _) =>
-            {
-                if (_isAnimating)
-                    return;
-
-                IsRevealed = !IsRevealed;
-            };
+        _toggleButton = e.NameScope.Find<Button>("PART_ToggleButton");
+        if (_toggleButton is not null)
+            _toggleButton.Click += OnToggleButtonClick;
 
         ApplyStateInstant();
+    }
+
+    private void OnToggleButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_isAnimating)
+            return;
+
+        IsRevealed = !IsRevealed;
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

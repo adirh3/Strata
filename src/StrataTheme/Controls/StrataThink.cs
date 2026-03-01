@@ -35,6 +35,7 @@ public class StrataThink : TemplatedControl
     private Control? _headerRow;
     private Transitions? _savedPillTransitions;
     private bool _initialWidthTransitionSuppressed;
+    private bool _pulseRunning;
 
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<StrataThink, string>(nameof(Label), "Thinking\u2026");
@@ -86,9 +87,11 @@ public class StrataThink : TemplatedControl
         _pill = e.NameScope.Find<Border>("PART_Pill");
         _headerRow = e.NameScope.Find<Control>("PART_HeaderRow");
 
-        var pill = e.NameScope.Find<Border>("PART_Pill");
-        if (pill is not null)
-            pill.PointerPressed += (_, _) => IsExpanded = !IsExpanded;
+        if (_pill is not null)
+        {
+            _pill.PointerPressed -= OnPillPointerPressed;
+            _pill.PointerPressed += OnPillPointerPressed;
+        }
 
         if (_pill is not null && !IsExpanded)
         {
@@ -139,6 +142,8 @@ public class StrataThink : TemplatedControl
         }
     }
 
+    private void OnPillPointerPressed(object? sender, PointerPressedEventArgs e) => IsExpanded = !IsExpanded;
+
     private void UpdatePseudoClasses()
     {
         PseudoClasses.Set(":active", IsActive);
@@ -146,10 +151,16 @@ public class StrataThink : TemplatedControl
         PseudoClasses.Set(":has-progress", ProgressValue >= 0);
         PseudoClasses.Set(":complete", ProgressValue >= 99.999);
 
-        if (IsActive)
+        if (IsActive && !_pulseRunning)
+        {
+            _pulseRunning = true;
             StartPulse();
-        else
+        }
+        else if (!IsActive && _pulseRunning)
+        {
+            _pulseRunning = false;
             StopPulse();
+        }
     }
 
     private void OnParentSizeChanged(object? sender, SizeChangedEventArgs e)

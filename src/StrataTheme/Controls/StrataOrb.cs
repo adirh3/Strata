@@ -150,14 +150,8 @@ public class StrataOrb : TemplatedControl
         else
         {
             // Static — reset opacity to full
-            var reset = comp.CreateScalarKeyFrameAnimation();
-            reset.Target = "Opacity";
-            reset.InsertKeyFrame(0f, 1f);
-            reset.InsertKeyFrame(1f, 1f);
-            reset.Duration = TimeSpan.FromMilliseconds(1);
-            reset.IterationBehavior = AnimationIterationBehavior.Count;
-            reset.IterationCount = 1;
-            _orbVisual.StartAnimation("Opacity", reset);
+            _orbVisual.StopAnimation("Opacity");
+            _orbVisual.Opacity = 1f;
         }
     }
 }

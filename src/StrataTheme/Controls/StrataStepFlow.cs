@@ -34,6 +34,10 @@ public class StrataStepFlow : TemplatedControl
     private Border? _track;
     private Border? _fill;
     private Border? _head;
+    private Button? _stepBtn0;
+    private Button? _stepBtn1;
+    private Button? _stepBtn2;
+    private Button? _stepBtn3;
     private ContentPresenter? _content0;
     private ContentPresenter? _content1;
     private ContentPresenter? _content2;
@@ -128,6 +132,13 @@ public class StrataStepFlow : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        // Unsubscribe old handlers
+        if (_stepBtn0 is not null) _stepBtn0.Click -= OnStep0Click;
+        if (_stepBtn1 is not null) _stepBtn1.Click -= OnStep1Click;
+        if (_stepBtn2 is not null) _stepBtn2.Click -= OnStep2Click;
+        if (_stepBtn3 is not null) _stepBtn3.Click -= OnStep3Click;
+        if (_track is not null) _track.SizeChanged -= OnTrackSizeChanged;
+
         base.OnApplyTemplate(e);
 
         _track = e.NameScope.Find<Border>("PART_Track");
@@ -139,18 +150,18 @@ public class StrataStepFlow : TemplatedControl
         _content2 = e.NameScope.Find<ContentPresenter>("PART_Content2");
         _content3 = e.NameScope.Find<ContentPresenter>("PART_Content3");
 
-        var b0 = e.NameScope.Find<Button>("PART_Step0");
-        var b1 = e.NameScope.Find<Button>("PART_Step1");
-        var b2 = e.NameScope.Find<Button>("PART_Step2");
-        var b3 = e.NameScope.Find<Button>("PART_Step3");
+        _stepBtn0 = e.NameScope.Find<Button>("PART_Step0");
+        _stepBtn1 = e.NameScope.Find<Button>("PART_Step1");
+        _stepBtn2 = e.NameScope.Find<Button>("PART_Step2");
+        _stepBtn3 = e.NameScope.Find<Button>("PART_Step3");
 
-        if (b0 is not null) b0.Click += (_, _) => CurrentStep = 0;
-        if (b1 is not null) b1.Click += (_, _) => CurrentStep = 1;
-        if (b2 is not null) b2.Click += (_, _) => CurrentStep = 2;
-        if (b3 is not null) b3.Click += (_, _) => CurrentStep = 3;
+        if (_stepBtn0 is not null) _stepBtn0.Click += OnStep0Click;
+        if (_stepBtn1 is not null) _stepBtn1.Click += OnStep1Click;
+        if (_stepBtn2 is not null) _stepBtn2.Click += OnStep2Click;
+        if (_stepBtn3 is not null) _stepBtn3.Click += OnStep3Click;
 
         if (_track is not null)
-            _track.SizeChanged += (_, _) => UpdateFlowProgress(animateHead: false);
+            _track.SizeChanged += OnTrackSizeChanged;
 
         Dispatcher.UIThread.Post(() =>
         {
@@ -160,11 +171,21 @@ public class StrataStepFlow : TemplatedControl
         }, DispatcherPriority.Loaded);
     }
 
+    private void OnStep0Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => CurrentStep = 0;
+    private void OnStep1Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => CurrentStep = 1;
+    private void OnStep2Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => CurrentStep = 2;
+    private void OnStep3Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => CurrentStep = 3;
+    private void OnTrackSizeChanged(object? sender, SizeChangedEventArgs e) => UpdateFlowProgress(animateHead: false);
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _transitionCts?.Cancel();
         _transitionCts?.Dispose();
         _transitionCts = null;
+
+        if (_track is not null)
+            _track.SizeChanged -= OnTrackSizeChanged;
+
         base.OnDetachedFromVisualTree(e);
     }
 
