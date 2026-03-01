@@ -80,7 +80,6 @@ public class StrataMarkdown : ContentControl
     private readonly TextBlock _title;
     private readonly StackPanel _contentHost;
     private IBrush? _inlineCodeBrush;
-    private IBrush? _inlineCodeBorderBrush;
     private IBrush? _linkBrush;
     private readonly Dictionary<Run, string> _linkRuns = new();
     private string _lastThemeVariant = string.Empty;
@@ -317,7 +316,6 @@ public class StrataMarkdown : ContentControl
 
         _lastThemeVariant = currentVariant;
         _inlineCodeBrush = null;
-        _inlineCodeBorderBrush = null;
         _linkBrush = null;
         // Force full rebuild (not incremental) since brushes changed
         _previousBlocks.Clear();
@@ -2469,42 +2467,18 @@ public class StrataMarkdown : ContentControl
     private Inline CreateInlineCode(string codeText, double fontSize,
         FontWeight weight = default, FontStyle style = default)
     {
-        var textBlock = new TextBlock
+        // Use a Run so that the inline code text participates directly in the
+        // text layout's baseline calculation, guaranteeing alignment with
+        // surrounding text.  InlineUIContainer+Border cannot achieve this
+        // because the layout engine treats the Border as an opaque box and
+        // has no access to the inner TextBlock's baseline.
+        return new Run($"\u2005{codeText}\u2005")
         {
-            Text = codeText,
-            FontSize = fontSize * 0.9,
+            FontSize = fontSize,
             FontWeight = weight == default ? FontWeight.Normal : weight,
             FontStyle = style,
-        };
-
-        var border = new Border
-        {
-            Child = textBlock,
             Background = _inlineCodeBrush ??= ResolveInlineCodeBrush(),
-            BorderBrush = _inlineCodeBorderBrush ??= ResolveInlineCodeBorderBrush(),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(4, 0, 4, 0),
-            VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(1, 0, 1, -6),
         };
-
-        return new InlineUIContainer(border)
-        {
-            BaselineAlignment = BaselineAlignment.Baseline,
-        };
-    }
-
-    private static IBrush ResolveInlineCodeBorderBrush()
-    {
-        if (Application.Current is not null &&
-            Application.Current.TryGetResource("Brush.BorderSubtle", Application.Current.ActualThemeVariant, out var res) &&
-            res is IBrush brush)
-        {
-            return brush;
-        }
-
-        return new SolidColorBrush(Color.FromArgb(40, 128, 128, 128));
     }
 
     private static IBrush ResolveInlineCodeBrush()
