@@ -1,0 +1,207 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+
+      <!-- ── Individual emoji cell button ── -->
+      <ControlTheme x:Key="StrataIconPickerCell" TargetType="Button">
+        <Setter Property="Width" Value="38" />
+        <Setter Property="Height" Value="38" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Name="PART_Surface"
+                    Background="Transparent"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    RenderTransformOrigin="0.5,0.5"
+                    RenderTransform="scale(1)">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="Background" Duration="0:0:0.12" />
+                  <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                </Transitions>
+              </Border.Transitions>
+              <TextBlock Text="{TemplateBinding Tag}"
+                         FontSize="22"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         IsHitTestVisible="False" />
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Surface">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlDefault}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#PART_Surface">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="RenderTransform" Value="scale(0.9)" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_Surface">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Focus}" />
+        </Style>
+      </ControlTheme>
+
+      <!-- ── Category pill button ── -->
+      <ControlTheme x:Key="StrataIconPickerCategory" TargetType="Button">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Radius.Full}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Background="{TemplateBinding Background}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    Padding="{TemplateBinding Padding}">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="Background" Duration="0:0:0.12" />
+                </Transitions>
+              </Border.Transitions>
+              <ContentPresenter Content="{TemplateBinding Content}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlDefault}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+        </Style>
+      </ControlTheme>
+
+      <!-- ── Main control theme ── -->
+      <ControlTheme x:Key="{x:Type controls:StrataIconPicker}" TargetType="controls:StrataIconPicker">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Width" Value="340" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Background="{DynamicResource Brush.Surface1}"
+                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                    BorderThickness="{DynamicResource Stroke.Thin}"
+                    CornerRadius="{DynamicResource Radius.Overlay}"
+                    Padding="12"
+                    ClipToBounds="True">
+              <Border.Transitions>
+                <Transitions>
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                </Transitions>
+              </Border.Transitions>
+
+              <StackPanel Spacing="10">
+
+                <!-- Selected preview -->
+                <Border IsVisible="{TemplateBinding SelectedIcon, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Background="{DynamicResource Brush.Surface0}"
+                        CornerRadius="{DynamicResource Radius.Base}"
+                        Padding="12,8"
+                        HorizontalAlignment="Left">
+                  <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Name="PART_Preview"
+                               Text="{TemplateBinding SelectedIcon}"
+                               FontSize="28"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="Selected"
+                               FontSize="{DynamicResource Font.SizeCaption}"
+                               Foreground="{DynamicResource Brush.TextTertiary}"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                </Border>
+
+                <!-- Search box -->
+                <TextBox Name="PART_SearchBox"
+                         Watermark="Search emoji…"
+                         FontSize="{DynamicResource Font.SizeBody}"
+                         Height="{DynamicResource Size.ControlHeightS}" />
+
+                <!-- Category pills -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                  <ItemsControl Name="PART_CategoryList"
+                                ItemsSource="{TemplateBinding Categories}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="x:String">
+                        <Button Theme="{StaticResource StrataIconPickerCategory}"
+                                Content="{Binding}"
+                                Tag="{Binding}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Separator -->
+                <Border Height="1"
+                        Background="{DynamicResource Brush.BorderSubtle}"
+                        Margin="0,2" />
+
+                <!-- Icon grid -->
+                <ScrollViewer MaxHeight="230"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                  <ItemsControl Name="PART_IconGrid"
+                                ItemsSource="{TemplateBinding VisibleIcons}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="controls:EmojiItem">
+                        <Button Theme="{StaticResource StrataIconPickerCell}"
+                                Tag="{Binding Emoji}"
+                                ToolTip.Tip="{Binding Keyword}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Empty state -->
+                <TextBlock Text="No emoji found"
+                           FontSize="{DynamicResource Font.SizeCaption}"
+                           Foreground="{DynamicResource Brush.TextTertiary}"
+                           HorizontalAlignment="Center"
+                           Margin="0,8"
+                           IsVisible="False"
+                           Name="PART_EmptyLabel" />
+
+              </StackPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Active category highlight -->
+        <Style Selector="^ /template/ ItemsControl#PART_CategoryList Button">
+          <Setter Property="Opacity" Value="0.7" />
+        </Style>
+      </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

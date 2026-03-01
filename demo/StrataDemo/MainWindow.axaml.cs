@@ -120,6 +120,19 @@ public partial class MainWindow : Window
 
         // Chat performance page wiring
         _perfTranscript = this.FindControl<StrataChatTranscript>("PerfTranscript");
+
+        // Wire flyout icon picker to update button preview and close flyout
+        var flyoutPicker = this.FindControl<StrataIconPicker>("FlyoutIconPicker");
+        var flyoutBtn = this.FindControl<Button>("IconPickerFlyoutBtn");
+        var flyoutPreview = this.FindControl<TextBlock>("FlyoutIconPreview");
+        if (flyoutPicker is not null && flyoutBtn is not null && flyoutPreview is not null)
+        {
+            flyoutPicker.IconSelected += (_, _) =>
+            {
+                flyoutPreview.Text = flyoutPicker.SelectedIcon ?? "🎯";
+                flyoutBtn.Flyout?.Hide();
+            };
+        }
         _perfChatShell = this.FindControl<StrataChatShell>("PerfChatShell");
         _perfStatusText = this.FindControl<TextBlock>("PerfStatusText");
         _perfBaselineText = this.FindControl<TextBlock>("PerfBaselineText");
