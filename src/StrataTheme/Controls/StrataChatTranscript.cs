@@ -12,9 +12,6 @@ public class StrataChatTranscript : ItemsControl
 {
     public StrataChatTranscript()
     {
-        ItemsPanel = new FuncTemplate<Panel?>(() => new StrataChatVirtualizingPanel
-        {
-            CacheLength = 2.0,
-        });
+        ItemsPanel = new FuncTemplate<Panel?>(() => new StrataChatVirtualizingPanel());
     }
 }

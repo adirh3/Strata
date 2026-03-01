@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
@@ -39,12 +40,15 @@ namespace StrataTheme.Controls;
 /// Call <see cref="ResetAutoScroll"/> when the user sends a new message.</para>
 /// <para><b>Template parts:</b> PART_Root (Border), PART_TranscriptScroll (ScrollViewer),
 /// PART_HeaderPresenter (ContentPresenter), PART_PresenceDot (Border), PART_PresencePill (Border).</para>
-/// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence.</para>
+/// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence, :scrolling.</para>
 /// </remarks>
 public class StrataChatShell : TemplatedControl
 {
     private const int AutoScrollInteractionCooldownMs = 220;
+    private const int ScrollingVisualCooldownMs = 140;
     private static readonly TimeSpan ProgrammaticScrollMinInterval = TimeSpan.FromMilliseconds(90);
+    private const double UserScrollDeltaThreshold = 0.05;
+    private const double LayoutShiftDeltaTolerance = 0.2;
 
     private Border? _presenceDot;
     private ScrollViewer? _scrollViewer;
@@ -58,9 +62,11 @@ public class StrataChatShell : TemplatedControl
     private DateTime _suspendAutoScrollUntilUtc;
     private DateTime _lastProgrammaticScrollUtc;
     private bool _forceFullAlignment = true;
-    private int _lastObservedTranscriptCount;
     private int _lastAlignedMessageCount;
     private bool _isPulseRunning;
+    private readonly DispatcherTimer _scrollingStateTimer;
+    private DateTime _lastScrollActivityUtc;
+    private bool _isTranscriptScrolling;
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
@@ -93,11 +99,19 @@ public class StrataChatShell : TemplatedControl
         PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnPresenceTextChanged());
         TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
         {
-            c._lastObservedTranscriptCount = 0;
             c._lastAlignedMessageCount = 0;
             c.ConfigureAlignmentSubscription();
             c.ScheduleApplyTranscriptAlignment(forceFull: true);
         });
+    }
+
+    public StrataChatShell()
+    {
+        _scrollingStateTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(80),
+        };
+        _scrollingStateTimer.Tick += OnScrollingStateTimerTick;
     }
 
     public object? Header { get => GetValue(HeaderProperty); set => SetValue(HeaderProperty, value); }
@@ -124,6 +138,9 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.ScrollChanged += OnScrollChanged;
             _scrollViewer.PointerWheelChanged += OnUserWheelScroll;
         }
+
+        _scrollingStateTimer.Stop();
+        SetTranscriptScrollingState(false);
 
         ConfigureAlignmentSubscription();
 
@@ -159,6 +176,8 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.PointerWheelChanged -= OnUserWheelScroll;
         }
 
+        _scrollingStateTimer.Stop();
+        SetTranscriptScrollingState(false);
         UnsubscribeTranscriptPanel();
         _isPulseRunning = false;
         base.OnDetachedFromVisualTree(e);
@@ -203,7 +222,6 @@ public class StrataChatShell : TemplatedControl
         {
             _transcriptCollection = panelChildren;
             _transcriptCollection.CollectionChanged += OnTranscriptChildrenChanged;
-            _lastObservedTranscriptCount = _transcriptPanel.Children.Count;
             return;
         }
 
@@ -212,7 +230,6 @@ public class StrataChatShell : TemplatedControl
         {
             _transcriptCollection = itemCollection;
             _transcriptCollection.CollectionChanged += OnTranscriptChildrenChanged;
-            _lastObservedTranscriptCount = _transcriptItemsControl.Items.Count;
         }
     }
 
@@ -232,8 +249,6 @@ public class StrataChatShell : TemplatedControl
             ?? _transcriptItemsControl?.Items.Count
             ?? 0;
 
-        _lastObservedTranscriptCount = currentCount;
-
         // Only incremental alignment when items are appended at the end.
         var forceFull = e.Action != NotifyCollectionChangedAction.Add
             || e.NewStartingIndex < 0
@@ -241,6 +256,14 @@ public class StrataChatShell : TemplatedControl
             || currentCount < _lastAlignedMessageCount;
 
         ScheduleApplyTranscriptAlignment(forceFull);
+
+        if (_isTranscriptScrolling)
+        {
+            if (e.Action == NotifyCollectionChangedAction.Add && AreAllControls(e.NewItems))
+                ApplyScrollingStateToItems(e.NewItems, isScrolling: true);
+            else
+                ApplyTranscriptScrollingState(true);
+        }
     }
 
     private void ScheduleApplyTranscriptAlignment(bool forceFull = false)
@@ -497,10 +520,17 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is null || _isProgrammaticScroll)
             return;
 
-        // Ignore extent-only changes from streaming/layout updates.
-        // We only treat explicit viewport movement as user scroll intent.
-        if (Math.Abs(e.OffsetDelta.Y) <= 0.5)
+        var offsetDeltaY = Math.Abs(e.OffsetDelta.Y);
+        if (offsetDeltaY < UserScrollDeltaThreshold)
             return;
+
+        // Ignore extent-driven anchor shifts caused by streaming/layout growth.
+        // Touchpad smooth scrolling often emits tiny deltas, so we use a small
+        // threshold and compare against extent delta rather than a coarse cutoff.
+        if (IsLikelyLayoutDrivenOffsetChange(e, offsetDeltaY))
+            return;
+
+        MarkTranscriptScrollingActive();
 
         SuspendAutoScrollBriefly();
 
@@ -512,9 +542,148 @@ public class StrataChatShell : TemplatedControl
     {
         // Don't intercept — let ScrollViewer handle natively (especially for touchpad).
         // Just detect scroll-away intent so auto-scroll pauses during streaming.
+        MarkTranscriptScrollingActive();
         SuspendAutoScrollBriefly();
         if (e.Delta.Y > 0)
             _userScrolledAway = true;
+        else if (_scrollViewer is not null && e.Delta.Y < 0 && DistanceFromBottom(_scrollViewer) <= 8)
+            _userScrolledAway = false;
+    }
+
+    private void MarkTranscriptScrollingActive()
+    {
+        _lastScrollActivityUtc = DateTime.UtcNow;
+
+        if (!_isTranscriptScrolling)
+            SetTranscriptScrollingState(true);
+
+        if (!_scrollingStateTimer.IsEnabled)
+            _scrollingStateTimer.Start();
+    }
+
+    private void OnScrollingStateTimerTick(object? sender, EventArgs e)
+    {
+        if (!_isTranscriptScrolling)
+        {
+            _scrollingStateTimer.Stop();
+            return;
+        }
+
+        if ((DateTime.UtcNow - _lastScrollActivityUtc).TotalMilliseconds < ScrollingVisualCooldownMs)
+            return;
+
+        _scrollingStateTimer.Stop();
+        SetTranscriptScrollingState(false);
+    }
+
+    private void SetTranscriptScrollingState(bool isScrolling)
+    {
+        if (_isTranscriptScrolling == isScrolling)
+            return;
+
+        _isTranscriptScrolling = isScrolling;
+        PseudoClasses.Set(":scrolling", isScrolling);
+        ApplyTranscriptScrollingState(isScrolling);
+    }
+
+    private void ApplyTranscriptScrollingState(bool isScrolling)
+    {
+        var panel = Transcript as Panel;
+        if (panel is not null)
+        {
+            foreach (var child in panel.Children)
+                ApplyScrollingStateRecursive(child, isScrolling);
+            return;
+        }
+
+        var itemsControl = Transcript as ItemsControl;
+        if (itemsControl is not null)
+        {
+            if (itemsControl.ItemsPanelRoot is Panel itemsHostPanel)
+            {
+                foreach (var child in itemsHostPanel.Children)
+                    ApplyScrollingStateRecursive(child, isScrolling);
+                return;
+            }
+
+            // Fallback: walk realized visuals only. Avoid iterating all data items
+            // because virtualized transcripts can contain tens of thousands.
+            foreach (var visual in itemsControl.GetVisualDescendants())
+            {
+                if (visual is StrataChatMessage message && message.IsHostScrolling != isScrolling)
+                    message.IsHostScrolling = isScrolling;
+            }
+            return;
+        }
+
+        ApplyScrollingStateRecursive(Transcript, isScrolling);
+    }
+
+    private static void ApplyScrollingStateToItems(IList? items, bool isScrolling)
+    {
+        if (items is null || items.Count == 0)
+            return;
+
+        for (var i = 0; i < items.Count; i++)
+            ApplyScrollingStateRecursive(items[i], isScrolling);
+    }
+
+    private static bool AreAllControls(IList? items)
+    {
+        if (items is null || items.Count == 0)
+            return false;
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (items[i] is not Control)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static void ApplyScrollingStateRecursive(object? node, bool isScrolling)
+    {
+        if (node is null)
+            return;
+
+        if (node is StrataChatMessage message)
+        {
+            if (message.IsHostScrolling != isScrolling)
+                message.IsHostScrolling = isScrolling;
+            return;
+        }
+
+        if (node is ContentControl contentControl)
+        {
+            ApplyScrollingStateRecursive(contentControl.Content, isScrolling);
+            return;
+        }
+
+        if (node is Decorator decorator)
+        {
+            ApplyScrollingStateRecursive(decorator.Child, isScrolling);
+            return;
+        }
+
+        if (node is Panel panel)
+        {
+            foreach (var child in panel.Children)
+                ApplyScrollingStateRecursive(child, isScrolling);
+        }
+    }
+
+    private static bool IsLikelyLayoutDrivenOffsetChange(ScrollChangedEventArgs e, double absoluteOffsetDeltaY)
+    {
+        var extentDeltaY = Math.Abs(e.ExtentDelta.Y);
+        if (extentDeltaY < UserScrollDeltaThreshold)
+            return false;
+
+        var viewportDeltaY = Math.Abs(e.ViewportDelta.Y);
+        if (viewportDeltaY > UserScrollDeltaThreshold)
+            return false;
+
+        return Math.Abs(absoluteOffsetDeltaY - extentDeltaY) <= LayoutShiftDeltaTolerance;
     }
 
     private bool IsAutoScrollSuspended()

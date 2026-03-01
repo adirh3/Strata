@@ -46,7 +46,7 @@ public enum StrataChatRole
 /// <para><b>Template parts:</b> PART_Bubble (Border), PART_EditArea (Border), PART_EditBox (TextBox),
 /// PART_StreamBar (Border), PART_ActionBar (StackPanel), PART_CopyButton (Button),
 /// PART_EditButton (Button), PART_RegenerateButton (Button), PART_SaveButton (Button), PART_CancelButton (Button).</para>
-/// <para><b>Pseudo-classes:</b> :assistant, :user, :system, :tool, :streaming, :editing, :editable, :has-meta, :has-status.</para>
+/// <para><b>Pseudo-classes:</b> :assistant, :user, :system, :tool, :streaming, :editing, :editable, :host-scrolling, :has-meta, :has-status.</para>
 /// </remarks>
 public class StrataChatMessage : TemplatedControl
 {
@@ -121,6 +121,13 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<bool> ApplyEditToContentProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(ApplyEditToContent), true);
 
+    /// <summary>
+    /// Indicates that the containing chat shell is actively scrolling.
+    /// When true, the message can simplify hover visuals to reduce scroll jank.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsHostScrollingProperty =
+        AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsHostScrolling));
+
     public static readonly RoutedEvent<RoutedEventArgs> CopyRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(CopyRequested), RoutingStrategies.Bubble);
 
@@ -140,6 +147,7 @@ public class StrataChatMessage : TemplatedControl
         IsStreamingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStreamingChanged());
         IsEditingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditingChanged());
         IsEditableProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditableChanged());
+        IsHostScrollingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnHostScrollingChanged());
         AuthorProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnMetaChanged());
         TimestampProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnMetaChanged());
         StatusTextProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStatusChanged());
@@ -164,6 +172,11 @@ public class StrataChatMessage : TemplatedControl
     public bool IsEditing { get => GetValue(IsEditingProperty); set => SetValue(IsEditingProperty, value); }
     public string? EditText { get => GetValue(EditTextProperty); set => SetValue(EditTextProperty, value); }
     public bool ApplyEditToContent { get => GetValue(ApplyEditToContentProperty); set => SetValue(ApplyEditToContentProperty, value); }
+
+    /// <summary>
+    /// Gets or sets whether the containing chat shell is currently scrolling.
+    /// </summary>
+    public bool IsHostScrolling { get => GetValue(IsHostScrollingProperty); set => SetValue(IsHostScrollingProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -508,6 +521,13 @@ public class StrataChatMessage : TemplatedControl
         InvalidateContextMenu();
     }
 
+    private void OnHostScrollingChanged()
+    {
+        PseudoClasses.Set(":host-scrolling", IsHostScrolling);
+        UpdateActionBarLayout();
+        InvalidateContextMenu();
+    }
+
     private void OnMetaChanged()
     {
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Timestamp));
@@ -776,13 +796,14 @@ public class StrataChatMessage : TemplatedControl
         PseudoClasses.Set(":streaming", IsStreaming);
         PseudoClasses.Set(":editing", IsEditing);
         PseudoClasses.Set(":editable", IsEditable);
+        PseudoClasses.Set(":host-scrolling", IsHostScrolling);
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Timestamp));
         PseudoClasses.Set(":has-status", !string.IsNullOrWhiteSpace(StatusText));
     }
 
     private void UpdateActionBarLayout(bool force = false)
     {
-        var canShowActions = !IsEditing && Role != StrataChatRole.System;
+        var canShowActions = !IsEditing && !IsHostScrolling && Role != StrataChatRole.System;
         var showEdit = canShowActions && IsEditable;
         var showRetry = canShowActions && !IsStreaming && Role is StrataChatRole.Assistant or StrataChatRole.Tool;
 

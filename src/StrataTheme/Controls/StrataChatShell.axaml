@@ -89,7 +89,10 @@
                 <Border Name="PART_TranscriptHost">
                   <ScrollViewer Name="PART_TranscriptScroll"
                                 VerticalScrollBarVisibility="Auto"
-                                HorizontalScrollBarVisibility="Disabled">
+                                HorizontalScrollBarVisibility="Disabled"
+                                IsScrollInertiaEnabled="True"
+                                IsScrollChainingEnabled="True"
+                                IsDeferredScrollingEnabled="False">
                     <Border Name="PART_ScrollContent" Padding="16,12,16,12">
                       <ContentPresenter Content="{TemplateBinding Transcript}" />
                     </Border>

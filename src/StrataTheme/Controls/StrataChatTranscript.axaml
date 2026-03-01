@@ -5,11 +5,6 @@
   <Styles.Resources>
     <ResourceDictionary>
       <ControlTheme x:Key="{x:Type controls:StrataChatTranscript}" TargetType="controls:StrataChatTranscript">
-        <Setter Property="ItemsPanel">
-          <ItemsPanelTemplate>
-            <controls:StrataChatVirtualizingPanel CacheLength="2.0" />
-          </ItemsPanelTemplate>
-        </Setter>
         <Setter Property="Template">
           <ControlTemplate>
             <ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" />

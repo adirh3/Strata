@@ -197,6 +197,14 @@
           <Setter Property="IsVisible" Value="True" />
         </Style>
 
+        <!-- During active shell scrolling, suppress hover chrome to keep scroll smooth. -->
+        <Style Selector="^:host-scrolling /template/ Border#PART_ActionLayer">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:host-scrolling /template/ Border#PART_Bubble:pointerover">
+          <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+        </Style>
+
         <!-- Meta + status visibility -->
         <Style Selector="^:has-meta /template/ StackPanel#PART_MetaRow">
           <Setter Property="IsVisible" Value="True" />
