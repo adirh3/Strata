@@ -121,6 +121,17 @@ public class StrataChatShell : TemplatedControl
     public bool IsOnline { get => GetValue(IsOnlineProperty); set => SetValue(IsOnlineProperty, value); }
     public string PresenceText { get => GetValue(PresenceTextProperty); set => SetValue(PresenceTextProperty, value); }
 
+    /// <summary>
+    /// Instantly positions the viewport so that item at <paramref name="index"/>
+    /// is visible according to <paramref name="alignment"/>.
+    /// Delegates to the underlying <see cref="StrataChatTranscript"/> panel.
+    /// </summary>
+    public void ScrollToIndex(int index, ScrollToAlignment alignment = ScrollToAlignment.Start)
+    {
+        if (Transcript is StrataChatTranscript transcript)
+            transcript.ScrollToIndex(index, alignment);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
@@ -474,6 +485,10 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is null || _userScrolledAway || IsAutoScrollSuspended())
             return;
 
+        // Enable bottom-pin on the virtualizing panel so it pins viewport
+        // to the extent bottom and skips anchor correction during streaming.
+        SetPanelBottomPinned(true);
+
         var now = DateTime.UtcNow;
         if (_lastProgrammaticScrollUtc != default && (now - _lastProgrammaticScrollUtc) < ProgrammaticScrollMinInterval)
             return;
@@ -512,6 +527,7 @@ public class StrataChatShell : TemplatedControl
     {
         _userScrolledAway = false;
         _suspendAutoScrollUntilUtc = default;
+        SetPanelBottomPinned(true);
     }
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
@@ -523,9 +539,8 @@ public class StrataChatShell : TemplatedControl
         if (offsetDeltaY < UserScrollDeltaThreshold)
             return;
 
-        // Ignore extent-driven anchor shifts caused by streaming/layout growth.
-        // Touchpad smooth scrolling often emits tiny deltas, so we use a small
-        // threshold and compare against extent delta rather than a coarse cutoff.
+        // Ignore extent-driven anchor shifts caused by streaming/layout growth
+        // AND anchor corrections from the virtualizing panel.
         if (IsLikelyLayoutDrivenOffsetChange(e, offsetDeltaY))
             return;
 
@@ -534,7 +549,16 @@ public class StrataChatShell : TemplatedControl
         SuspendAutoScrollBriefly();
 
         var distanceFromBottom = DistanceFromBottom(_scrollViewer);
-        _userScrolledAway = distanceFromBottom > 40;
+        if (distanceFromBottom > 40)
+        {
+            _userScrolledAway = true;
+            SetPanelBottomPinned(false);
+        }
+        else if (distanceFromBottom <= 8)
+        {
+            _userScrolledAway = false;
+            SetPanelBottomPinned(true);
+        }
     }
 
     private void OnUserWheelScroll(object? sender, PointerWheelEventArgs e)
@@ -544,9 +568,28 @@ public class StrataChatShell : TemplatedControl
         MarkTranscriptScrollingActive();
         SuspendAutoScrollBriefly();
         if (e.Delta.Y > 0)
+        {
             _userScrolledAway = true;
+            SetPanelBottomPinned(false);
+        }
         else if (_scrollViewer is not null && e.Delta.Y < 0 && DistanceFromBottom(_scrollViewer) <= 8)
+        {
             _userScrolledAway = false;
+            SetPanelBottomPinned(true);
+        }
+    }
+
+    /// <summary>
+    /// Propagates the bottom-pinned state to the virtualizing panel so it
+    /// pins to extent bottom instead of applying scroll-anchor correction.
+    /// </summary>
+    private void SetPanelBottomPinned(bool pinned)
+    {
+        if (Transcript is StrataChatTranscript transcript)
+        {
+            if (transcript.Panel is { } panel)
+                panel.IsBottomPinned = pinned;
+        }
     }
 
     private void MarkTranscriptScrollingActive()

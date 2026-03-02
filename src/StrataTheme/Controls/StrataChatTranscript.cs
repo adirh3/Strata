@@ -14,4 +14,18 @@ public class StrataChatTranscript : ItemsControl
     {
         ItemsPanel = new FuncTemplate<Panel?>(() => new StrataChatPanel { Spacing = 8 });
     }
+
+    /// <summary>
+    /// Instantly positions the viewport so that item at <paramref name="index"/>
+    /// is visible according to <paramref name="alignment"/>.
+    /// Delegates to the underlying <see cref="StrataChatPanel"/>.
+    /// </summary>
+    public void ScrollToIndex(int index, ScrollToAlignment alignment = ScrollToAlignment.Start)
+    {
+        if (ItemsPanelRoot is StrataChatPanel panel)
+            panel.ScrollToIndex(index, alignment);
+    }
+
+    /// <summary>Gets the underlying panel, if realized.</summary>
+    internal StrataChatPanel? Panel => ItemsPanelRoot as StrataChatPanel;
 }
