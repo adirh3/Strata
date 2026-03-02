@@ -25,7 +25,7 @@ namespace StrataTheme.Controls;
 public record StrataComposerChip(string Name, string Glyph = "✦");
 
 /// <summary>The kind of autocomplete entry or chip.</summary>
-public enum ChipKind { Agent, Skill, Mcp, Project }
+public enum ChipKind { Agent, Skill, Mcp, Project, File }
 
 /// <summary>Event arguments carrying a removed skill chip item.</summary>
 public class ComposerChipRemovedEventArgs : RoutedEventArgs
@@ -37,6 +37,24 @@ public class ComposerChipRemovedEventArgs : RoutedEventArgs
     {
         Item = item;
     }
+}
+
+/// <summary>Event arguments for the file autocomplete query change.</summary>
+public class FileQueryChangedEventArgs : EventArgs
+{
+    /// <summary>The current search query text after the # trigger.</summary>
+    public string Query { get; }
+
+    public FileQueryChangedEventArgs(string query) => Query = query;
+}
+
+/// <summary>Event arguments for when a file is selected from the autocomplete.</summary>
+public class FileSelectedEventArgs : EventArgs
+{
+    /// <summary>The full file path that was selected.</summary>
+    public string FilePath { get; }
+
+    public FileSelectedEventArgs(string filePath) => FilePath = filePath;
 }
 
 /// <summary>
@@ -180,6 +198,14 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<IEnumerable?> AvailableMcpsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableMcps));
 
+    /// <summary>
+    /// Items shown in the # file autocomplete popup.
+    /// Each item should be a <see cref="StrataComposerChip"/> where Name is the display path
+    /// and Glyph is the file icon (e.g. "📄"). Set this in response to <see cref="FileQueryChanged"/>.
+    /// </summary>
+    public static readonly StyledProperty<IEnumerable?> AvailableFilesProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableFiles));
+
     /// <summary>Raised when the user sends a prompt (Enter key or send button click).</summary>
     public static readonly RoutedEvent<RoutedEventArgs> SendRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(SendRequested), RoutingStrategies.Bubble);
@@ -280,6 +306,21 @@ public class StrataChatComposer : TemplatedControl
         SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
         McpItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnMcpItemsChanged());
         AvailableMcpsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        AvailableFilesProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
+        {
+            // When file items are updated (consumer responded to FileQueryChanged),
+            // refresh the popup if # trigger is active
+            if (c._triggerChar == '#' && c._triggerIndex >= 0)
+            {
+                var text = c.PromptText ?? "";
+                var caret = c._input?.CaretIndex ?? 0;
+                if (c._triggerIndex < text.Length && caret <= text.Length && caret > c._triggerIndex)
+                {
+                    var query = text.Substring(c._triggerIndex + 1, caret - c._triggerIndex - 1);
+                    c.ShowAutoCompleteItems(query);
+                }
+            }
+        });
         ModelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
         QualityLevelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
     }
@@ -337,7 +378,20 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? AvailableMcps { get => GetValue(AvailableMcpsProperty); set => SetValue(AvailableMcpsProperty, value); }
     public string? ProjectName { get => GetValue(ProjectNameProperty); set => SetValue(ProjectNameProperty, value); }
     public IEnumerable? AvailableProjects { get => GetValue(AvailableProjectsProperty); set => SetValue(AvailableProjectsProperty, value); }
+    public IEnumerable? AvailableFiles { get => GetValue(AvailableFilesProperty); set => SetValue(AvailableFilesProperty, value); }
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
+
+    /// <summary>
+    /// Raised when the # file autocomplete query changes. The consumer should
+    /// search for files matching the query and set <see cref="AvailableFiles"/>.
+    /// </summary>
+    public event EventHandler<FileQueryChangedEventArgs>? FileQueryChanged;
+
+    /// <summary>
+    /// Raised when a file is confirmed from the # autocomplete popup.
+    /// The consumer should add the file path as a pending attachment.
+    /// </summary>
+    public event EventHandler<FileSelectedEventArgs>? FileSelected;
     public bool IsSuggestionsGenerating { get => GetValue(IsSuggestionsGeneratingProperty); set => SetValue(IsSuggestionsGeneratingProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -647,14 +701,23 @@ public class StrataChatComposer : TemplatedControl
             if (ch is ' ' or '\n' or '\r')
                 break;
 
-            if (ch is '@' or '/' or '$')
+            if (ch is '@' or '/' or '$' or '#')
             {
                 if (i == 0 || text[i - 1] is ' ' or '\n' or '\r')
                 {
                     _triggerIndex = i;
                     _triggerChar = ch;
                     var query = text.Substring(i + 1, caret - i - 1);
-                    ShowAutoCompleteItems(query);
+                    if (ch == '#')
+                    {
+                        // Fire event so the consumer can populate AvailableFiles.
+                        // ShowAutoCompleteItems will be called when AvailableFiles is set.
+                        FileQueryChanged?.Invoke(this, new FileQueryChangedEventArgs(query));
+                    }
+                    else
+                    {
+                        ShowAutoCompleteItems(query);
+                    }
                     return;
                 }
                 break;
@@ -743,6 +806,25 @@ public class StrataChatComposer : TemplatedControl
             }
         }
 
+        if (_triggerChar == '#' && AvailableFiles is not null)
+        {
+            var hasFileSection = false;
+            foreach (var item in AvailableFiles)
+            {
+                var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "", "📄");
+
+                if (!hasFileSection)
+                {
+                    _autoCompletePanel.Children.Add(CreateSectionHeader("Files"));
+                    hasFileSection = true;
+                }
+
+                var border = CreateAutoCompleteEntry(chip, ChipKind.File);
+                _autoCompletePanel.Children.Add(border);
+                _autoCompleteEntries.Add((border, chip, ChipKind.File));
+            }
+        }
+
         if (_autoCompleteEntries.Count == 0)
         {
             CloseAutoComplete();
@@ -826,6 +908,10 @@ public class StrataChatComposer : TemplatedControl
             case ChipKind.Project:
                 ProjectName = chip.Name;
                 break;
+            case ChipKind.File:
+                // Glyph stores the full file path for File chips
+                FileSelected?.Invoke(this, new FileSelectedEventArgs(chip.Glyph));
+                break;
         }
 
         CloseAutoComplete();
@@ -887,7 +973,8 @@ public class StrataChatComposer : TemplatedControl
 
     private Border CreateAutoCompleteEntry(StrataComposerChip chip, ChipKind kind)
     {
-        var glyph = new TextBlock { Text = chip.Glyph };
+        var glyphDisplay = kind == ChipKind.File ? "📄" : chip.Glyph;
+        var glyph = new TextBlock { Text = glyphDisplay };
         glyph.Classes.Add("autocomplete-glyph");
 
         var name = new TextBlock { Text = chip.Name };
@@ -899,6 +986,7 @@ public class StrataChatComposer : TemplatedControl
             ChipKind.Skill => "Skill",
             ChipKind.Mcp => "MCP",
             ChipKind.Project => "Project",
+            ChipKind.File => "File",
             _ => ""
         };
         var kindText = new TextBlock { Text = kindLabel };
