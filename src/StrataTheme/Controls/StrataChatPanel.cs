@@ -124,6 +124,7 @@ public class StrataChatPanel : VirtualizingPanel
     private double _scrollOffset;
     private double _viewportHeight;
     private double _prevScrollOffset;
+    private double _scrollExtentPadding; // extra extent from parent padding/margin
 
     // -- Scroll anchor correction --
     private int _anchorIndex = -1;
@@ -281,7 +282,7 @@ public class StrataChatPanel : VirtualizingPanel
         var itemHeight = _slots[index].CachedHeight;
         var vpH = _viewportHeight > 0 ? _viewportHeight : _scrollViewer.Viewport.Height;
         if (vpH <= 0) vpH = 800;
-        var maxOffset = Math.Max(0, _cachedTotalHeight - vpH);
+        var maxOffset = Math.Max(0, _cachedTotalHeight + _scrollExtentPadding - vpH);
 
         double targetOffset = alignment switch
         {
@@ -463,12 +464,15 @@ public class StrataChatPanel : VirtualizingPanel
             {
                 _scrollOffset = _scrollViewer.Offset.Y;
                 _viewportHeight = _scrollViewer.Viewport.Height;
+                _scrollExtentPadding = Math.Max(0, _scrollViewer.Extent.Height - _cachedTotalHeight);
             }
 
             // Detect if user is at/near the bottom BEFORE measurements change heights.
             // Used by ApplyAnchorOrBottomPin to implement bottom-stickiness.
-            if (_scrollViewer is not null && _cachedTotalHeight > _viewportHeight)
-                _wasNearBottom = _scrollOffset >= _cachedTotalHeight - _viewportHeight - 2;
+            // Uses full scroll extent (panel height + parent padding) so the threshold
+            // matches the actual scrollable range, not just the panel's own height.
+            if (_scrollViewer is not null && _cachedTotalHeight + _scrollExtentPadding > _viewportHeight)
+                _wasNearBottom = _scrollOffset >= _cachedTotalHeight + _scrollExtentPadding - _viewportHeight - 2;
             else
                 _wasNearBottom = false;
 
@@ -620,7 +624,7 @@ public class StrataChatPanel : VirtualizingPanel
         // Pin viewport to extent bottom so content stays anchored at the end.
         if (IsBottomPinned || _wasNearBottom)
         {
-            var maxOff = Math.Max(0, _cachedTotalHeight - _viewportHeight);
+            var maxOff = Math.Max(0, _cachedTotalHeight + _scrollExtentPadding - _viewportHeight);
             if (Math.Abs(_scrollViewer.Offset.Y - maxOff) > 0.5)
             {
                 _suppressAnchorCorrection = true;
@@ -652,7 +656,7 @@ public class StrataChatPanel : VirtualizingPanel
             var newOffset = Math.Clamp(
                 _scrollOffset + delta,
                 0,
-                Math.Max(0, _cachedTotalHeight - _viewportHeight));
+                Math.Max(0, _cachedTotalHeight + _scrollExtentPadding - _viewportHeight));
 
             _suppressAnchorCorrection = true;
             _scrollOffset = newOffset;

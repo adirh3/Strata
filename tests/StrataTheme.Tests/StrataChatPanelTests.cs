@@ -548,4 +548,113 @@ public class StrataChatPanelTests
         Assert.Equal(0, first);
         Assert.True(last > 5, $"last should include items past viewport, got {last}");
     }
+
+    // =======================================================================
+    //  Scroll extent padding: max offset must account for parent padding
+    // =======================================================================
+
+    [Fact]
+    public void MaxOffset_WithParentPadding_AllowsScrollingPastPanelHeight()
+    {
+        // Simulates the StrataChatShell Border(Padding=16,12,16,12):
+        // scroll extent = panelHeight + 24, so max offset = panelHeight + 24 - viewport.
+        var alg = new StrataChatPanelAlgorithms { Spacing = 0 };
+        for (int i = 0; i < 50; i++)
+            alg.AddSlot(100); // total 5000
+
+        alg.EnsurePrefixHeights();
+
+        const double viewportHeight = 800;
+        const double parentPadding = 24; // top 12 + bottom 12
+
+        double maxWithoutPadding = alg.CachedTotalHeight - viewportHeight;             // 4200
+        double maxWithPadding = alg.CachedTotalHeight + parentPadding - viewportHeight; // 4224
+
+        Assert.Equal(4200, maxWithoutPadding);
+        Assert.Equal(4224, maxWithPadding);
+
+        // At the padded max offset, the last item must still be in the visible range
+        var (_, last) = alg.ComputeRange(maxWithPadding, viewportHeight, viewportHeight, bufferItems: 5);
+        Assert.Equal(49, last);
+    }
+
+    [Fact]
+    public void MaxOffset_WithParentPadding_NearBottomDetectionUsesFullExtent()
+    {
+        // Validates that "near bottom" detection should use the full scroll extent
+        // (panel height + parent padding), not just the panel's own height.
+        var alg = new StrataChatPanelAlgorithms { Spacing = 8 };
+        for (int i = 0; i < 20; i++)
+            alg.AddSlot(150);
+
+        alg.EnsurePrefixHeights();
+
+        const double viewportHeight = 600;
+        const double parentPadding = 24;
+        const double threshold = 2;
+
+        double fullExtent = alg.CachedTotalHeight + parentPadding;
+        double maxOffset = fullExtent - viewportHeight;
+
+        // User at the actual scroll max should be "near bottom"
+        double scrollOffset = maxOffset;
+        bool nearBottom = scrollOffset >= fullExtent - viewportHeight - threshold;
+        Assert.True(nearBottom, "User at actual max offset should be detected as near-bottom");
+
+        // User slightly above the padded max should still be "near bottom" (within threshold)
+        scrollOffset = maxOffset - 1;
+        nearBottom = scrollOffset >= fullExtent - viewportHeight - threshold;
+        Assert.True(nearBottom, "User 1px above max should still be near-bottom");
+
+        // Without padding correction, a user at the actual max would compute
+        // incorrectly: scrollOffset(maxOffset) >= panelHeight - vpH - 2
+        // which is maxOffset >= maxOffset - 24 - 2 = always true even far from bottom.
+        // This caused the panel to snap users back from the real bottom to
+        // panelHeight - vpH, which is 24px short.
+        double incorrectMax = alg.CachedTotalHeight - viewportHeight;
+        Assert.True(maxOffset > incorrectMax,
+            "Padded max must be greater than panel-only max");
+        Assert.Equal(parentPadding, maxOffset - incorrectMax);
+    }
+
+    [Fact]
+    public void MaxOffset_ZeroPadding_MatchesPanelHeight()
+    {
+        // When there's no parent padding, max offset should equal panelHeight - viewport
+        // (the pre-fix behavior was correct for this case).
+        var alg = new StrataChatPanelAlgorithms { Spacing = 0 };
+        for (int i = 0; i < 30; i++)
+            alg.AddSlot(100); // total 3000
+
+        alg.EnsurePrefixHeights();
+
+        const double viewportHeight = 800;
+        const double parentPadding = 0;
+
+        double maxOffset = alg.CachedTotalHeight + parentPadding - viewportHeight;
+        Assert.Equal(2200, maxOffset);
+
+        // At max offset, last item should be visible
+        var (_, last) = alg.ComputeRange(maxOffset, viewportHeight, viewportHeight, bufferItems: 5);
+        Assert.Equal(29, last);
+    }
+
+    [Fact]
+    public void MaxOffset_LargePadding_StillReachesLastItem()
+    {
+        // Edge case: very large parent padding (e.g., nested borders)
+        var alg = new StrataChatPanelAlgorithms { Spacing = 4 };
+        for (int i = 0; i < 10; i++)
+            alg.AddSlot(200); // 10*200 + 9*4 = 2036
+
+        alg.EnsurePrefixHeights();
+
+        const double viewportHeight = 500;
+        const double parentPadding = 100; // exaggerated padding
+
+        double maxOffset = alg.CachedTotalHeight + parentPadding - viewportHeight;
+
+        var (_, last) = alg.ComputeRange(maxOffset, viewportHeight, viewportHeight, bufferItems: 0);
+        Assert.Equal(9, last);
+    }
 }
