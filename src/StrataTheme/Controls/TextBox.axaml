@@ -13,8 +13,8 @@
         <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
         <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
         <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
-        <Setter Property="SelectionBrush" Value="{DynamicResource Brush.AccentSubtle}" />
-        <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource Brush.SelectionBackground}" />
+        <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Brush.SelectionText}" />
         <Setter Property="CaretBrush" Value="{DynamicResource Brush.TextPrimary}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">

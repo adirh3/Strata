@@ -60,6 +60,11 @@
     <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
   </Style>
 
+  <Style Selector="SelectableTextBlock">
+    <Setter Property="SelectionBrush" Value="{DynamicResource Brush.SelectionBackground}" />
+    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Brush.SelectionText}" />
+  </Style>
+
   <Style Selector="Label">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
     <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />

@@ -84,7 +84,7 @@
   <Color x:Key="Color.SubtleHover">#14FFFFFF</Color>
   <Color x:Key="Color.SubtlePressed">#24FFFFFF</Color>
 
-  <Color x:Key="Color.SelectionBackground">#1E1B4B</Color>
+  <Color x:Key="Color.SelectionBackground">#3730A3</Color>
   <Color x:Key="Color.SelectionText">#E4E4E4</Color>
 
   <Color x:Key="Color.OverlayScrim">#80000000</Color>
@@ -93,6 +93,7 @@
   <Color x:Key="Color.ChatUserBubble">#312E81</Color>
   <Color x:Key="Color.ChatUserBubbleText">#F0EEFF</Color>
   <Color x:Key="Color.ChatUserBubbleTextSecondary">#CBC5F0</Color>
+  <Color x:Key="Color.ChatUserBubbleSelection">#4F46E5</Color>
 
   <!-- ── Brushes ── -->
   <SolidColorBrush x:Key="Brush.Background" Color="{DynamicResource Color.Background}" />
@@ -155,6 +156,7 @@
   <SolidColorBrush x:Key="Brush.ChatUserBubble" Color="{DynamicResource Color.ChatUserBubble}" />
   <SolidColorBrush x:Key="Brush.ChatUserBubbleText" Color="{DynamicResource Color.ChatUserBubbleText}" />
   <SolidColorBrush x:Key="Brush.ChatUserBubbleTextSecondary" Color="{DynamicResource Color.ChatUserBubbleTextSecondary}" />
+  <SolidColorBrush x:Key="Brush.ChatUserBubbleSelection" Color="{DynamicResource Color.ChatUserBubbleSelection}" />
 
   <SolidColorBrush x:Key="Brush.SuccessDefault" Color="{DynamicResource Palette.Success500}" />
   <SolidColorBrush x:Key="Brush.SuccessSubtle" Color="{DynamicResource Palette.Success100}" />

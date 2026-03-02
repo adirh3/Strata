@@ -324,6 +324,11 @@
   <Style Selector="controls|StrataChatMessage:user Border.strata-md-bullet-dot">
     <Setter Property="Background" Value="{DynamicResource Brush.ChatUserBubbleText}" />
   </Style>
+  <!-- User bubble: override text selection color for contrast on indigo background -->
+  <Style Selector="controls|StrataChatMessage:user SelectableTextBlock">
+    <Setter Property="SelectionBrush" Value="{DynamicResource Brush.ChatUserBubbleSelection}" />
+    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+  </Style>
 
   <Style Selector="TextBox.message-edit-embed /template/ Border#PART_Border">
     <Setter Property="Background" Value="Transparent" />
