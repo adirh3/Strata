@@ -1498,12 +1498,12 @@ public class StrataChatComposer : TemplatedControl
             _subscribedMcpCollection = ncc;
         }
 
-        RebuildSkillChips();
+        Sync();
     }
 
     private void OnMcpCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        RebuildSkillChips();
+        Sync();
     }
 
     private void RebuildSkillChips()
