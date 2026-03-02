@@ -1,5 +1,4 @@
 using StrataTheme.Controls;
-using static StrataTheme.Controls.StrataMarkdown;
 
 namespace StrataTheme.Tests;
 
@@ -41,7 +40,7 @@ public class MarkdownEdgeCaseTests
             if (i % batchSize == batchSize - 1 || i == words.Length - 1)
             {
                 var snapshot = accumulated.ToString();
-                var blocks = StrataMarkdown.ParseBlocks(snapshot);
+                var blocks = MarkdownParser.Parse(snapshot);
 
                 // No two blocks should have the same kind+content (except HRs which have empty content)
                 var seen = new HashSet<string>();
@@ -65,7 +64,7 @@ public class MarkdownEdgeCaseTests
         // Lines that START with ``` close the code block. This tests that
         // the parser handles the opening/closing correctly.
         var md = "```\nline1\n```";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.CodeBlock, blocks[0].Kind);
     }
@@ -74,7 +73,7 @@ public class MarkdownEdgeCaseTests
     public void CodeFence_LanguageWithWhitespace_Trimmed()
     {
         var md = "```  python  \ncode\n```";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         Assert.Single(blocks);
         Assert.Equal("python", blocks[0].Language);
     }
@@ -84,7 +83,7 @@ public class MarkdownEdgeCaseTests
     {
         // Opening a code block, then having content with ```, then closing
         var md = "```\n```inner\n```";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         // The first ``` opens, ````inner` closes it (it starts with ```),
         // then the last ``` opens another unclosed block
         Assert.True(blocks.Count >= 1);
@@ -94,7 +93,7 @@ public class MarkdownEdgeCaseTests
     public void CodeFence_MultipleConsecutiveCodeBlocks()
     {
         var md = "```a\nfirst\n```\n```b\nsecond\n```\n```c\nthird\n```";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         Assert.Equal(3, blocks.Count);
         Assert.All(blocks, b => Assert.Equal(MdBlockKind.CodeBlock, b.Kind));
         Assert.Equal("a", blocks[0].Language);
@@ -107,21 +106,21 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void Paragraph_SingleBlankLineSeparates()
     {
-        var blocks = StrataMarkdown.ParseBlocks("A\n\nB");
+        var blocks = MarkdownParser.Parse("A\n\nB");
         Assert.Equal(2, blocks.Count);
     }
 
     [Fact]
     public void Paragraph_MultipleBlankLinesSeparate()
     {
-        var blocks = StrataMarkdown.ParseBlocks("A\n\n\n\nB");
+        var blocks = MarkdownParser.Parse("A\n\n\n\nB");
         Assert.Equal(2, blocks.Count);
     }
 
     [Fact]
     public void Paragraph_ContinuousLinesAreMerged()
     {
-        var blocks = StrataMarkdown.ParseBlocks("Line 1\nLine 2\nLine 3");
+        var blocks = MarkdownParser.Parse("Line 1\nLine 2\nLine 3");
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
     }
@@ -131,7 +130,7 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void Heading_FollowedByParagraphWithoutBlankLine()
     {
-        var blocks = StrataMarkdown.ParseBlocks("## Title\nParagraph text");
+        var blocks = MarkdownParser.Parse("## Title\nParagraph text");
         Assert.Equal(2, blocks.Count);
         Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
         Assert.Equal(MdBlockKind.Paragraph, blocks[1].Kind);
@@ -140,7 +139,7 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void Heading_PrecededByParagraphWithoutBlankLine()
     {
-        var blocks = StrataMarkdown.ParseBlocks("Paragraph text\n## Title");
+        var blocks = MarkdownParser.Parse("Paragraph text\n## Title");
         Assert.Equal(2, blocks.Count);
         Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
         Assert.Equal(MdBlockKind.Heading, blocks[1].Kind);
@@ -151,7 +150,7 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void Bullet_ImmediatelyAfterHeading()
     {
-        var blocks = StrataMarkdown.ParseBlocks("## List\n- A\n- B");
+        var blocks = MarkdownParser.Parse("## List\n- A\n- B");
         Assert.Equal(3, blocks.Count);
         Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
         Assert.Equal(MdBlockKind.Bullet, blocks[1].Kind);
@@ -164,7 +163,7 @@ public class MarkdownEdgeCaseTests
     public void HorizontalRule_VsBullet_DashBulletHasContent()
     {
         // "- Item" is a bullet; "---" is HR
-        var blocks = StrataMarkdown.ParseBlocks("- Item\n\n---");
+        var blocks = MarkdownParser.Parse("- Item\n\n---");
         Assert.Equal(2, blocks.Count);
         Assert.Equal(MdBlockKind.Bullet, blocks[0].Kind);
         Assert.Equal(MdBlockKind.HorizontalRule, blocks[1].Kind);
@@ -174,7 +173,7 @@ public class MarkdownEdgeCaseTests
     public void HorizontalRule_MixedChars_NotMatched()
     {
         // "-*-" should NOT be an HR (mixed chars)
-        var blocks = StrataMarkdown.ParseBlocks("-*-");
+        var blocks = MarkdownParser.Parse("-*-");
         Assert.Single(blocks);
         Assert.NotEqual(MdBlockKind.HorizontalRule, blocks[0].Kind);
     }
@@ -184,7 +183,7 @@ public class MarkdownEdgeCaseTests
     {
         // Regression: "- - -" was incorrectly parsed as a bullet
         // because TryParseBullet was checked before IsHorizontalRule.
-        var blocks = StrataMarkdown.ParseBlocks("- - -");
+        var blocks = MarkdownParser.Parse("- - -");
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.HorizontalRule, blocks[0].Kind);
     }
@@ -192,7 +191,7 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void HorizontalRule_SpacedStars_NotBullet()
     {
-        var blocks = StrataMarkdown.ParseBlocks("* * *");
+        var blocks = MarkdownParser.Parse("* * *");
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.HorizontalRule, blocks[0].Kind);
     }
@@ -202,7 +201,7 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void NumberedItem_LargeNumber()
     {
-        var blocks = StrataMarkdown.ParseBlocks("100. Item");
+        var blocks = MarkdownParser.Parse("100. Item");
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.NumberedItem, blocks[0].Kind);
         Assert.Equal(100, blocks[0].Level);
@@ -212,7 +211,7 @@ public class MarkdownEdgeCaseTests
     public void NumberedItem_FourDigitNumber_NotParsed()
     {
         // Pattern only supports 1-3 digit numbers
-        var blocks = StrataMarkdown.ParseBlocks("1234. Item");
+        var blocks = MarkdownParser.Parse("1234. Item");
         Assert.Single(blocks);
         Assert.NotEqual(MdBlockKind.NumberedItem, blocks[0].Kind);
     }
@@ -220,7 +219,7 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void NumberedItem_Zero()
     {
-        var blocks = StrataMarkdown.ParseBlocks("0. Zero item");
+        var blocks = MarkdownParser.Parse("0. Zero item");
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.NumberedItem, blocks[0].Kind);
         Assert.Equal(0, blocks[0].Level);
@@ -233,7 +232,7 @@ public class MarkdownEdgeCaseTests
     public void Table_SingleColumn()
     {
         var md = "| Single |\n| --- |\n| Value |";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
     }
@@ -242,7 +241,7 @@ public class MarkdownEdgeCaseTests
     public void Table_PipesInContentNotConfusedWithTable()
     {
         // A line like "x | y" without leading pipe should be a paragraph
-        var blocks = StrataMarkdown.ParseBlocks("This is not | a table");
+        var blocks = MarkdownParser.Parse("This is not | a table");
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
     }
@@ -252,7 +251,7 @@ public class MarkdownEdgeCaseTests
     {
         // During streaming the last row may only have an opening pipe
         var md = "| Name | Value |\n| --- | --- |\n| A | 1 |\n|";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         // The partial "| " line should be absorbed into the table, not split out
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
@@ -263,7 +262,7 @@ public class MarkdownEdgeCaseTests
     {
         // Mid-stream: separator row has only received its opening pipe
         var md = "| Name | Value |\n| ---";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
     }
@@ -273,7 +272,7 @@ public class MarkdownEdgeCaseTests
     {
         // Just the header row — should still parse as Table, not Paragraph
         var md = "| Name | Value |";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
     }
@@ -292,7 +291,7 @@ public class MarkdownEdgeCaseTests
 
         foreach (var step in steps)
         {
-            var blocks = StrataMarkdown.ParseBlocks(step);
+            var blocks = MarkdownParser.Parse(step);
             Assert.Single(blocks);
             Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
         }
@@ -303,7 +302,7 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void SingleChar_Paragraph()
     {
-        var blocks = StrataMarkdown.ParseBlocks("X");
+        var blocks = MarkdownParser.Parse("X");
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
     }
@@ -313,7 +312,7 @@ public class MarkdownEdgeCaseTests
     {
         // "# " with nothing after should not be a heading;
         // the trimmed leftover "#" becomes a paragraph.
-        var blocks = StrataMarkdown.ParseBlocks("# ");
+        var blocks = MarkdownParser.Parse("# ");
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
         Assert.Equal("#", blocks[0].Content);
@@ -322,7 +321,7 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void SingleDash_NoBullet()
     {
-        var blocks = StrataMarkdown.ParseBlocks("-");
+        var blocks = MarkdownParser.Parse("-");
         Assert.Single(blocks);
         Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
     }
@@ -345,7 +344,7 @@ public class MarkdownEdgeCaseTests
                            "```csharp\npublic void Fix() { }\n```\n\n" +
                            "---\n\nDeploy the hotfix.";
 
-        var finalBlocks = StrataMarkdown.ParseBlocks(fullResponse);
+        var finalBlocks = MarkdownParser.Parse(fullResponse);
 
         // Build streaming steps: append by character groups
         var steps = new List<string>();
@@ -355,7 +354,7 @@ public class MarkdownEdgeCaseTests
 
         foreach (var step in steps)
         {
-            var blocks = StrataMarkdown.ParseBlocks(step);
+            var blocks = MarkdownParser.Parse(step);
 
             // Block count should monotonically increase or stay the same during streaming
             // (we're only appending text, so we should never lose previously completed blocks)
@@ -390,7 +389,7 @@ public class MarkdownEdgeCaseTests
     public void InterleavedBulletsAndParagraphs()
     {
         var md = "- Bullet\n\nParagraph\n\n- Another bullet\n\nAnother paragraph";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
 
         Assert.Equal(4, blocks.Count);
         Assert.Equal(MdBlockKind.Bullet, blocks[0].Kind);
@@ -404,7 +403,7 @@ public class MarkdownEdgeCaseTests
     {
         // Table lines followed by code fence
         var md = "| A | B |\n| - | - |\n| 1 | 2 |\n\n```\ncode\n```";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         Assert.Equal(2, blocks.Count);
         Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
         Assert.Equal(MdBlockKind.CodeBlock, blocks[1].Kind);
@@ -416,7 +415,7 @@ public class MarkdownEdgeCaseTests
     public void Unicode_HeadingsAndBullets()
     {
         var md = "## שלום עולם\n\n- פריט ראשון\n- פריט שני";
-        var blocks = StrataMarkdown.ParseBlocks(md);
+        var blocks = MarkdownParser.Parse(md);
         Assert.Equal(3, blocks.Count);
         Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
         Assert.Equal("שלום עולם", blocks[0].Content);
@@ -425,7 +424,7 @@ public class MarkdownEdgeCaseTests
     [Fact]
     public void Emoji_InContent()
     {
-        var blocks = StrataMarkdown.ParseBlocks("## 🚀 Launch\n\n- ✅ Ready\n- ❌ Not ready");
+        var blocks = MarkdownParser.Parse("## 🚀 Launch\n\n- ✅ Ready\n- ❌ Not ready");
         Assert.Equal(3, blocks.Count);
         Assert.Contains("🚀", blocks[0].Content);
     }
@@ -447,7 +446,7 @@ public class MarkdownEdgeCaseTests
             sb.AppendLine();
         }
 
-        var blocks = StrataMarkdown.ParseBlocks(sb.ToString());
+        var blocks = MarkdownParser.Parse(sb.ToString());
         // 100 sections × 4 blocks each = 400
         Assert.Equal(400, blocks.Count);
     }
@@ -526,7 +525,7 @@ public class MarkdownEdgeCaseTests
         // Every snapshot must parse without exception and produce at least 1 block
         foreach (var snapshot in snapshots)
         {
-            var blocks = StrataMarkdown.ParseBlocks(snapshot);
+            var blocks = MarkdownParser.Parse(snapshot);
             Assert.True(blocks.Count >= 1,
                 $"Expected at least 1 block at snapshot length {snapshot.Length}");
         }
@@ -534,8 +533,8 @@ public class MarkdownEdgeCaseTests
         // Final snapshot must parse identically to the original markdown
         // (exact string may differ in whitespace within code blocks since the
         // tokenizer normalises indentation, but the parse tree must match)
-        var originalBlocks = StrataMarkdown.ParseBlocks(fullMarkdown);
-        var final = StrataMarkdown.ParseBlocks(snapshots[^1]);
+        var originalBlocks = MarkdownParser.Parse(fullMarkdown);
+        var final = MarkdownParser.Parse(snapshots[^1]);
         Assert.Equal(originalBlocks.Count, final.Count);
         for (var b = 0; b < originalBlocks.Count; b++)
             Assert.Equal(originalBlocks[b].Kind, final[b].Kind);

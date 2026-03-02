@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -45,6 +46,14 @@ public class StrataDialog : TemplatedControl
     public static readonly StyledProperty<double> MaxDialogWidthProperty =
         AvaloniaProperty.Register<StrataDialog, double>(nameof(MaxDialogWidth), 480);
 
+    /// <summary>Command executed when the dialog is closed (close button, scrim click, or Escape).</summary>
+    public static readonly StyledProperty<ICommand?> CloseCommandProperty =
+        AvaloniaProperty.Register<StrataDialog, ICommand?>(nameof(CloseCommand));
+
+    /// <summary>Optional parameter for <see cref="CloseCommand"/>.</summary>
+    public static readonly StyledProperty<object?> CloseCommandParameterProperty =
+        AvaloniaProperty.Register<StrataDialog, object?>(nameof(CloseCommandParameter));
+
     static StrataDialog()
     {
         IsDialogOpenProperty.Changed.AddClassHandler<StrataDialog>((d, _) => d.OnOpenChanged());
@@ -74,6 +83,20 @@ public class StrataDialog : TemplatedControl
         set => SetValue(MaxDialogWidthProperty, value);
     }
 
+    /// <summary>Gets or sets the command executed when the dialog is closed.</summary>
+    public ICommand? CloseCommand
+    {
+        get => GetValue(CloseCommandProperty);
+        set => SetValue(CloseCommandProperty, value);
+    }
+
+    /// <summary>Gets or sets the optional parameter for <see cref="CloseCommand"/>.</summary>
+    public object? CloseCommandParameter
+    {
+        get => GetValue(CloseCommandParameterProperty);
+        set => SetValue(CloseCommandParameterProperty, value);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         if (_closeButton is not null)
@@ -96,9 +119,17 @@ public class StrataDialog : TemplatedControl
         OnOpenChanged();
     }
 
-    private void OnCloseButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => IsDialogOpen = false;
+    private void OnCloseButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        IsDialogOpen = false;
+        CommandHelper.Execute(CloseCommand, CloseCommandParameter);
+    }
 
-    private void OnScrimPointerPressed(object? sender, PointerPressedEventArgs e) => IsDialogOpen = false;
+    private void OnScrimPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        IsDialogOpen = false;
+        CommandHelper.Execute(CloseCommand, CloseCommandParameter);
+    }
 
     private void OnOpenChanged()
     {
@@ -116,6 +147,7 @@ public class StrataDialog : TemplatedControl
         if (e.Key == Key.Escape && IsDialogOpen)
         {
             IsDialogOpen = false;
+            CommandHelper.Execute(CloseCommand, CloseCommandParameter);
             e.Handled = true;
         }
         base.OnKeyDown(e);

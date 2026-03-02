@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -59,6 +60,14 @@ public class StrataIconPicker : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> IconSelectedEvent =
         RoutedEvent.Register<StrataIconPicker, RoutedEventArgs>(nameof(IconSelected), RoutingStrategies.Bubble);
 
+    /// <summary>Command executed when a new icon is selected. Parameter is the emoji string.</summary>
+    public static readonly StyledProperty<ICommand?> IconSelectedCommandProperty =
+        AvaloniaProperty.Register<StrataIconPicker, ICommand?>(nameof(IconSelectedCommand));
+
+    /// <summary>Optional parameter for <see cref="IconSelectedCommand"/>. When null, the selected emoji string is passed.</summary>
+    public static readonly StyledProperty<object?> IconSelectedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataIconPicker, object?>(nameof(IconSelectedCommandParameter));
+
     public string? SelectedIcon
     {
         get => GetValue(SelectedIconProperty);
@@ -101,6 +110,20 @@ public class StrataIconPicker : TemplatedControl
     {
         add => AddHandler(IconSelectedEvent, value);
         remove => RemoveHandler(IconSelectedEvent, value);
+    }
+
+    /// <summary>Gets or sets the command executed when an icon is selected.</summary>
+    public ICommand? IconSelectedCommand
+    {
+        get => GetValue(IconSelectedCommandProperty);
+        set => SetValue(IconSelectedCommandProperty, value);
+    }
+
+    /// <summary>Gets or sets the optional parameter for <see cref="IconSelectedCommand"/>.</summary>
+    public object? IconSelectedCommandParameter
+    {
+        get => GetValue(IconSelectedCommandParameterProperty);
+        set => SetValue(IconSelectedCommandParameterProperty, value);
     }
 
     static StrataIconPicker()
@@ -171,6 +194,7 @@ public class StrataIconPicker : TemplatedControl
     {
         SelectedIcon = emoji;
         RaiseEvent(new RoutedEventArgs(IconSelectedEvent, this));
+        CommandHelper.Execute(IconSelectedCommand, IconSelectedCommandParameter ?? emoji);
     }
 
     internal void SetCategory(string category)

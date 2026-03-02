@@ -36,42 +36,6 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataMarkdown : ContentControl
 {
-    // ── Block model for incremental diffing ──
-    internal enum MdBlockKind
-    {
-        Paragraph,
-        Heading,
-        Bullet,
-        NumberedItem,
-        CodeBlock,
-        HorizontalRule,
-        Table,
-        Chart,
-        Mermaid,
-        Confidence,
-        Comparison,
-        Card,
-        Sources,
-    }
-
-    internal readonly struct MdBlock : IEquatable<MdBlock>
-    {
-        public MdBlockKind Kind { get; init; }
-        public string Content { get; init; }
-        public int Level { get; init; }       // heading level, indent, item number
-        public string Language { get; init; }  // code block language
-        public int SourceStart { get; init; }
-
-        public bool Equals(MdBlock other) =>
-            Kind == other.Kind && Level == other.Level &&
-            string.Equals(Content, other.Content, StringComparison.Ordinal) &&
-            string.Equals(Language, other.Language, StringComparison.Ordinal);
-
-        public override bool Equals(object? obj) => obj is MdBlock b && Equals(b);
-        public override int GetHashCode() => HashCode.Combine(Kind, Content, Level, Language);
-    }
-
-
     // ── Cached static layout values to avoid repeated heap allocations ──
     private static readonly Thickness BulletDotMargin = new(0, 7, 0, 0);
     private static readonly CornerRadius BulletDotCornerRadius = new(2.5);
@@ -127,9 +91,7 @@ public class StrataMarkdown : ContentControl
 
     // ── Reusable buffers to avoid per-rebuild allocations ──
     private readonly List<string> _evictBuffer = new();
-    private readonly StringBuilder _reusableParagraphBuffer = new();
-    private readonly StringBuilder _reusableCodeBuffer = new();
-    private readonly List<string> _reusableTableBuffer = new();
+    private readonly MarkdownParser _parser = new();
 
     /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
     public static readonly StyledProperty<string?> MarkdownProperty =
@@ -433,58 +395,19 @@ public class StrataMarkdown : ContentControl
 
     /// <summary>
     /// Parses markdown text into a flat list of lightweight block descriptors.
-    /// Pure function — no UI side-effects.
+    /// Delegates to <see cref="MarkdownParser.Parse"/>.
     /// </summary>
-    internal static List<MdBlock> ParseBlocks(string normalized)
-    {
-        var blocks = new List<MdBlock>();
-        ParseBlocksCore(normalized.AsSpan(), blocks, new StringBuilder(), new StringBuilder(), new List<string>(), 0);
-        return blocks;
-    }
+    internal static List<MdBlock> ParseBlocks(string normalized) => MarkdownParser.Parse(normalized);
 
     /// <summary>
     /// Instance-level parse that reuses cached StringBuilders and a pooled target list.
     /// </summary>
-    private void ParseBlocksPooled(string normalized, List<MdBlock> target)
-    {
-        target.Clear();
-        _reusableParagraphBuffer.Clear();
-        _reusableCodeBuffer.Clear();
-        _reusableTableBuffer.Clear();
-        ParseBlocksCore(normalized.AsSpan(), target, _reusableParagraphBuffer, _reusableCodeBuffer, _reusableTableBuffer, 0);
-    }
+    private void ParseBlocksPooled(string normalized, List<MdBlock> target) => _parser.ParsePooled(normalized, target);
 
     internal static List<MdBlock> ParseBlocksIncrementalAppend(
         string previousNormalized,
         IReadOnlyList<MdBlock> previousBlocks,
-        string nextNormalized)
-    {
-        if (previousBlocks.Count == 0 ||
-            string.IsNullOrEmpty(previousNormalized) ||
-            nextNormalized.Length <= previousNormalized.Length ||
-            !nextNormalized.AsSpan().StartsWith(previousNormalized.AsSpan()))
-        {
-            return ParseBlocks(nextNormalized);
-        }
-
-        var lastBlockStart = previousBlocks[^1].SourceStart;
-        if (lastBlockStart < 0 || lastBlockStart > nextNormalized.Length)
-            return ParseBlocks(nextNormalized);
-
-        var merged = new List<MdBlock>(Math.Max(previousBlocks.Count + 8, 16));
-        for (var i = 0; i < previousBlocks.Count - 1; i++)
-            merged.Add(previousBlocks[i]);
-
-        ParseBlocksCore(
-            nextNormalized.AsSpan(lastBlockStart),
-            merged,
-            new StringBuilder(),
-            new StringBuilder(),
-            new List<string>(),
-            lastBlockStart);
-
-        return merged;
-    }
+        string nextNormalized) => MarkdownParser.ParseIncrementalAppend(previousNormalized, previousBlocks, nextNormalized);
 
     /// <summary>
     /// Instance-level incremental append that reuses cached StringBuilders and a pooled target list.
@@ -493,311 +416,9 @@ public class StrataMarkdown : ContentControl
         string previousNormalized,
         IReadOnlyList<MdBlock> previousBlocks,
         string nextNormalized,
-        List<MdBlock> target)
-    {
-        if (previousBlocks.Count == 0 ||
-            string.IsNullOrEmpty(previousNormalized) ||
-            nextNormalized.Length <= previousNormalized.Length ||
-            !nextNormalized.AsSpan().StartsWith(previousNormalized.AsSpan()))
-        {
-            ParseBlocksPooled(nextNormalized, target);
-            return;
-        }
+        List<MdBlock> target) => _parser.ParseIncrementalAppendPooled(previousNormalized, previousBlocks, nextNormalized, target);
 
-        var lastBlockStart = previousBlocks[^1].SourceStart;
-        if (lastBlockStart < 0 || lastBlockStart > nextNormalized.Length)
-        {
-            ParseBlocksPooled(nextNormalized, target);
-            return;
-        }
-
-        target.Clear();
-        var neededCapacity = Math.Max(previousBlocks.Count + 8, 16);
-        if (target.Capacity < neededCapacity)
-            target.Capacity = neededCapacity;
-        for (var i = 0; i < previousBlocks.Count - 1; i++)
-            target.Add(previousBlocks[i]);
-
-        _reusableParagraphBuffer.Clear();
-        _reusableCodeBuffer.Clear();
-        _reusableTableBuffer.Clear();
-        ParseBlocksCore(
-            nextNormalized.AsSpan(lastBlockStart),
-            target,
-            _reusableParagraphBuffer,
-            _reusableCodeBuffer,
-            _reusableTableBuffer,
-            lastBlockStart);
-    }
-
-    /// <summary>
-    /// Core line-by-line parser. Enumerates lines from <paramref name="source"/> via span
-    /// slicing and appends parsed block descriptors to <paramref name="blocks"/>.
-    /// </summary>
-    private static void ParseBlocksCore(
-        ReadOnlySpan<char> source, List<MdBlock> blocks,
-        StringBuilder paragraphBuffer, StringBuilder codeBuffer, List<string> tableBuffer,
-        int baseOffset)
-    {
-        paragraphBuffer.Clear();
-        codeBuffer.Clear();
-        tableBuffer.Clear();
-        var inCodeBlock = false;
-        var codeLanguage = string.Empty;
-
-        var paragraphStart = -1;
-        var codeStart = -1;
-        var tableStart = -1;
-
-        // Enumerate lines using span slicing — no Split allocation
-        var remaining = source;
-        var localOffset = 0;
-        while (remaining.Length > 0)
-        {
-            int nlPos = remaining.IndexOf('\n');
-            ReadOnlySpan<char> lineSpan;
-            int consumedLength;
-            if (nlPos >= 0)
-            {
-                lineSpan = remaining[..nlPos];
-                consumedLength = nlPos + 1;
-                remaining = remaining[consumedLength..];
-            }
-            else
-            {
-                lineSpan = remaining;
-                consumedLength = remaining.Length;
-                remaining = ReadOnlySpan<char>.Empty;
-            }
-
-            var absoluteLineStart = baseOffset + localOffset;
-            localOffset += consumedLength;
-
-            // Trim trailing \r if present
-            if (lineSpan.Length > 0 && lineSpan[^1] == '\r')
-                lineSpan = lineSpan[..^1];
-
-            // Check for fenced code blocks — trim leading whitespace so indented fences
-            // (e.g. inside list items) are recognized
-            var trimmedSpan = lineSpan.TrimStart();
-            if (trimmedSpan.Length >= 3 && trimmedSpan[0] == '`' && trimmedSpan[1] == '`' && trimmedSpan[2] == '`')
-            {
-                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
-                paragraphStart = -1;
-                FlushTableBlock(tableBuffer, blocks, tableStart);
-                tableStart = -1;
-
-                if (!inCodeBlock)
-                {
-                    inCodeBlock = true;
-                    codeLanguage = trimmedSpan.Length > 3 ? trimmedSpan[3..].Trim().ToString() : string.Empty;
-                    codeBuffer.Clear();
-                    codeStart = absoluteLineStart;
-                }
-                else
-                {
-                    var code = codeBuffer.ToString();
-                    var kind = MapCodeLanguageToBlockKind(codeLanguage);
-                    blocks.Add(new MdBlock
-                    {
-                        Kind = kind,
-                        Content = code,
-                        Language = codeLanguage,
-                        SourceStart = codeStart >= 0 ? codeStart : absoluteLineStart,
-                    });
-                    inCodeBlock = false;
-                    codeLanguage = string.Empty;
-                    codeBuffer.Clear();
-                    codeStart = -1;
-                }
-                continue;
-            }
-
-            if (inCodeBlock)
-            {
-                if (codeBuffer.Length > 0)
-                    codeBuffer.Append('\n');
-                codeBuffer.Append(lineSpan);
-                continue;
-            }
-
-            if (IsTableLine(lineSpan))
-            {
-                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
-                paragraphStart = -1;
-                if (tableBuffer.Count == 0)
-                    tableStart = absoluteLineStart;
-                tableBuffer.Add(lineSpan.ToString());
-                continue;
-            }
-
-            // During streaming, a partial table line (starts with | but missing
-            // closing pipe) should continue the table rather than flush it.
-            if (tableBuffer.Count > 0 && StartsWithPipe(lineSpan))
-            {
-                tableBuffer.Add(lineSpan.ToString());
-                continue;
-            }
-
-            if (tableBuffer.Count > 0)
-            {
-                FlushTableBlock(tableBuffer, blocks, tableStart);
-                tableStart = -1;
-            }
-
-            if (TryParseHeading(lineSpan, out var level, out var headingText))
-            {
-                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
-                paragraphStart = -1;
-                blocks.Add(new MdBlock
-                {
-                    Kind = MdBlockKind.Heading,
-                    Content = headingText,
-                    Level = level,
-                    SourceStart = absoluteLineStart,
-                });
-                continue;
-            }
-
-            // HR must be checked before bullet: "- - -" is a valid HR that also matches
-            // the bullet prefix ("- "). IsHorizontalRule rejects lines with mixed chars
-            // or non-rule content, so genuine bullets like "- Item" fall through safely.
-            if (IsHorizontalRule(lineSpan))
-            {
-                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
-                paragraphStart = -1;
-                blocks.Add(new MdBlock
-                {
-                    Kind = MdBlockKind.HorizontalRule,
-                    Content = string.Empty,
-                    SourceStart = absoluteLineStart,
-                });
-                continue;
-            }
-
-            if (TryParseBullet(lineSpan, out var bulletText))
-            {
-                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
-                paragraphStart = -1;
-                var indentLevel = GetIndentLevel(lineSpan);
-                blocks.Add(new MdBlock
-                {
-                    Kind = MdBlockKind.Bullet,
-                    Content = bulletText,
-                    Level = indentLevel,
-                    SourceStart = absoluteLineStart,
-                });
-                continue;
-            }
-
-            if (TryParseNumberedItem(lineSpan, out var number, out var numText))
-            {
-                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
-                paragraphStart = -1;
-                blocks.Add(new MdBlock
-                {
-                    Kind = MdBlockKind.NumberedItem,
-                    Content = numText,
-                    Level = number,
-                    SourceStart = absoluteLineStart,
-                });
-                continue;
-            }
-
-            if (lineSpan.IsWhiteSpace())
-            {
-                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
-                paragraphStart = -1;
-                continue;
-            }
-
-            if (paragraphStart < 0)
-                paragraphStart = absoluteLineStart;
-            if (paragraphBuffer.Length > 0)
-                paragraphBuffer.Append('\n');
-            paragraphBuffer.Append(lineSpan);
-        }
-
-        var endOffset = baseOffset + source.Length;
-
-        // Handle unclosed code block
-        if (inCodeBlock)
-        {
-            var code = codeBuffer.ToString();
-            var kind = MapCodeLanguageToBlockKind(codeLanguage);
-            blocks.Add(new MdBlock
-            {
-                Kind = kind,
-                Content = code,
-                Language = codeLanguage,
-                SourceStart = codeStart >= 0 ? codeStart : endOffset,
-            });
-        }
-
-        FlushTableBlock(tableBuffer, blocks, tableStart);
-        FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, endOffset);
-    }
-
-    private static MdBlockKind MapCodeLanguageToBlockKind(string language)
-    {
-        if (language.Equals("chart", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Chart;
-        if (language.Equals("mermaid", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Mermaid;
-        if (language.Equals("confidence", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Confidence;
-        if (language.Equals("comparison", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Comparison;
-        if (language.Equals("card", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Card;
-        if (language.Equals("sources", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Sources;
-        return MdBlockKind.CodeBlock;
-    }
-
-    private static void FlushParagraphBlock(StringBuilder buffer, List<MdBlock> blocks, int paragraphStart, int fallbackStart)
-    {
-        if (buffer.Length == 0)
-            return;
-
-        // Compute trim bounds on the StringBuilder directly to produce a single
-        // string allocation instead of the two from buffer.ToString() + .Trim().
-        int start = 0;
-        while (start < buffer.Length && char.IsWhiteSpace(buffer[start])) start++;
-        if (start >= buffer.Length)
-        {
-            buffer.Clear();
-            return;
-        }
-        int end = buffer.Length;
-        while (end > start && char.IsWhiteSpace(buffer[end - 1])) end--;
-
-        var text = (start == 0 && end == buffer.Length)
-            ? buffer.ToString()
-            : buffer.ToString(start, end - start);
-        buffer.Clear();
-
-        blocks.Add(new MdBlock
-        {
-            Kind = MdBlockKind.Paragraph,
-            Content = text,
-            SourceStart = paragraphStart >= 0 ? paragraphStart : fallbackStart,
-        });
-    }
-
-    private static void FlushTableBlock(List<string> tableLines, List<MdBlock> blocks, int tableStart)
-    {
-        if (tableLines.Count == 0) return;
-        // Store the full table as joined lines
-        blocks.Add(new MdBlock
-        {
-            Kind = MdBlockKind.Table,
-            Content = string.Join("\n", tableLines),
-            SourceStart = tableStart,
-        });
-        tableLines.Clear();
-    }
-
-    private static string NormalizeLineEndings(string source)
-    {
-        return source.IndexOf('\r') >= 0
-            ? source.Replace("\r\n", "\n")
-            : source;
-    }
+    private static string NormalizeLineEndings(string source) => MarkdownParser.NormalizeLineEndings(source);
 
     /// <summary>
     /// Applies block diff: reuses unchanged controls, updates changed ones, adds/removes as needed.
@@ -975,7 +596,7 @@ public class StrataMarkdown : ContentControl
                 _sourcesKeysUsed.Add(block.Content.Trim());
                 break;
             case MdBlockKind.Table:
-                _tableKeysUsed.Add(GetTableCacheKey(block.Content));
+                _tableKeysUsed.Add(MarkdownParser.GetTableCacheKey(block.Content));
                 break;
         }
     }
@@ -2464,98 +2085,6 @@ public class StrataMarkdown : ContentControl
         return new SolidColorBrush(Color.FromArgb(25, 128, 128, 128));
     }
 
-    private static bool TryParseHeading(ReadOnlySpan<char> line, out int level, out string text)
-    {
-        level = 0;
-        text = string.Empty;
-
-        var trimmed = line.TrimStart();
-        if (trimmed.Length == 0 || trimmed[0] != '#')
-            return false;
-
-        var i = 0;
-        while (i < trimmed.Length && trimmed[i] == '#')
-            i++;
-
-        if (i is < 1 or > 6)
-            return false;
-
-        if (i >= trimmed.Length || trimmed[i] != ' ')
-            return false;
-
-        level = Math.Min(i, 3);
-        text = trimmed[(i + 1)..].Trim().ToString();
-        return text.Length > 0;
-    }
-
-    private static bool TryParseBullet(ReadOnlySpan<char> line, out string text)
-    {
-        text = string.Empty;
-        var trimmed = line.TrimStart();
-
-        if (trimmed.Length >= 2 && (trimmed[0] == '-' || trimmed[0] == '*') && trimmed[1] == ' ')
-        {
-            text = trimmed[2..].Trim().ToString();
-            return text.Length > 0;
-        }
-
-        return false;
-    }
-
-    private static bool TryParseNumberedItem(ReadOnlySpan<char> line, out int number, out string text)
-    {
-        number = 0;
-        text = string.Empty;
-        var trimmed = line.TrimStart();
-
-        // Look for "N. " pattern (1-3 digit number followed by ". ")
-        var dotIndex = trimmed.IndexOf(stackalloc char[] { '.', ' ' });
-        if (dotIndex is < 1 or > 3) return false;
-
-        // Verify digits before the dot
-        var numSpan = trimmed[..dotIndex];
-        number = 0;
-        foreach (var c in numSpan)
-        {
-            if (c < '0' || c > '9') return false;
-            number = number * 10 + (c - '0');
-        }
-
-        if (dotIndex + 2 > trimmed.Length) return false;
-        text = trimmed[(dotIndex + 2)..].Trim().ToString();
-        return text.Length > 0;
-    }
-
-    private static bool IsHorizontalRule(ReadOnlySpan<char> line)
-    {
-        var trimmed = line.Trim();
-        if (trimmed.Length < 3) return false;
-
-        var first = trimmed[0];
-        if (first is not ('-' or '*' or '_')) return false;
-
-        // Count rule chars, skipping spaces
-        var ruleChars = 0;
-        foreach (var c in trimmed)
-        {
-            if (c == first) ruleChars++;
-            else if (c != ' ') return false;
-        }
-        return ruleChars >= 3;
-    }
-
-    private static int GetIndentLevel(ReadOnlySpan<char> line)
-    {
-        var spaces = 0;
-        foreach (var c in line)
-        {
-            if (c == ' ') spaces++;
-            else if (c == '\t') spaces += 4;
-            else break;
-        }
-        return Math.Min(spaces / 2, 3);
-    }
-
     private Control CreateNumberedItemControl(string text, int number)
     {
         var row = new Grid
@@ -2595,107 +2124,6 @@ public class StrataMarkdown : ContentControl
         return rule;
     }
 
-    private static bool IsTableLine(ReadOnlySpan<char> line)
-    {
-        var trimmed = line.Trim();
-        return trimmed.Length > 1 && trimmed[0] == '|' && trimmed[1..].IndexOf('|') >= 0;
-    }
-
-    /// <summary>
-    /// Returns true when a line starts with a pipe character.
-    /// Used to keep partial table rows (missing the closing pipe during streaming)
-    /// inside the table buffer instead of flushing the table prematurely.
-    /// </summary>
-    private static bool StartsWithPipe(ReadOnlySpan<char> line)
-    {
-        var trimmed = line.TrimStart();
-        return trimmed.Length > 0 && trimmed[0] == '|';
-    }
-
-    /// <summary>Cache key for a table block: the trimmed header row.</summary>
-    private static string GetTableCacheKey(string tableContent)
-    {
-        var nl = tableContent.IndexOf('\n');
-        return (nl >= 0 ? tableContent[..nl] : tableContent).Trim();
-    }
-
-    private static bool IsTableSeparator(string line)
-    {
-        var span = line.AsSpan().Trim();
-        if (span.Length == 0) return false;
-
-        // Strip leading/trailing pipes
-        if (span[0] == '|') span = span[1..];
-        if (span.Length > 0 && span[^1] == '|') span = span[..^1];
-        if (span.Length == 0) return false;
-
-        // Check each cell separated by | matches :?-+:? pattern
-        int cellCount = 0;
-        while (span.Length > 0)
-        {
-            int pipeIdx = span.IndexOf('|');
-            var cell = pipeIdx >= 0 ? span[..pipeIdx] : span;
-            cell = cell.Trim();
-
-            if (!IsTableSeparatorCell(cell))
-                return false;
-
-            cellCount++;
-            span = pipeIdx >= 0 ? span[(pipeIdx + 1)..] : ReadOnlySpan<char>.Empty;
-        }
-
-        return cellCount > 0;
-    }
-
-    /// <summary>
-    /// Checks if a cell matches the table separator pattern :?-+:? without regex allocation.
-    /// </summary>
-    private static bool IsTableSeparatorCell(ReadOnlySpan<char> cell)
-    {
-        if (cell.Length == 0) return false;
-        int i = 0;
-        if (cell[i] == ':') i++;
-        int dashStart = i;
-        while (i < cell.Length && cell[i] == '-') i++;
-        if (i == dashStart) return false; // no dashes
-        if (i < cell.Length && cell[i] == ':') i++;
-        return i == cell.Length;
-    }
-
-    private static string[] SplitTableCells(string line)
-    {
-        var trimmed = line.Trim();
-        if (trimmed.StartsWith('|')) trimmed = trimmed[1..];
-        if (trimmed.EndsWith('|')) trimmed = trimmed[..^1];
-        return trimmed.Split('|');
-    }
-
-    /// <summary>Trims each cell string in-place, avoiding LINQ Select/ToArray allocation.</summary>
-    private static string[] TrimCells(string[] cells)
-    {
-        for (int i = 0; i < cells.Length; i++)
-            cells[i] = cells[i].Trim();
-        return cells;
-    }
-
-    /// <summary>Counts occurrences of a character in a span without LINQ allocation.</summary>
-    private static int CountChar(ReadOnlySpan<char> span, char c)
-    {
-        int count = 0;
-        for (int i = 0; i < span.Length; i++)
-            if (span[i] == c) count++;
-        return count;
-    }
-
-    /// <summary>Converts rows (string[][]) to List&lt;List&lt;string&gt;&gt; without LINQ closure allocations.</summary>
-    private static List<List<string>> RowsToListOfLists(List<string[]> rows)
-    {
-        var result = new List<List<string>>(rows.Count);
-        for (int i = 0; i < rows.Count; i++)
-            result.Add(new List<string>(rows[i]));
-        return result;
-    }
-
     private Control CreateTableControl(string tableContent)
     {
         var tableLines = tableContent.Split('\n');
@@ -2706,7 +2134,7 @@ public class StrataMarkdown : ContentControl
         while (lineCount > 1)
         {
             var last = tableLines[lineCount - 1].AsSpan().Trim();
-            if (last.Length > 0 && CountChar(last, '|') >= 2)
+            if (last.Length > 0 && MarkdownParser.CountChar(last, '|') >= 2)
                 break;
             lineCount--;
         }
@@ -2715,8 +2143,8 @@ public class StrataMarkdown : ContentControl
             return new Border();
 
         var headerLine = tableLines[0];
-        var headerCells = SplitTableCells(headerLine);
-        var headers = TrimCells(headerCells);
+        var headerCells = MarkdownParser.SplitTableCells(headerLine);
+        var headers = MarkdownParser.TrimCells(headerCells);
         if (headers.Length == 0)
             return new Border();
 
@@ -2724,15 +2152,15 @@ public class StrataMarkdown : ContentControl
         // With a valid separator on line 2 this is the normal path;
         // without one (still streaming) we treat remaining lines as data.
         var dataStartIndex = 1;
-        if (lineCount >= 2 && IsTableSeparator(tableLines[1]))
+        if (lineCount >= 2 && MarkdownParser.IsTableSeparator(tableLines[1]))
             dataStartIndex = 2;
 
         var rows = new List<string[]>();
         for (var i = dataStartIndex; i < lineCount; i++)
         {
-            if (IsTableSeparator(tableLines[i]))
+            if (MarkdownParser.IsTableSeparator(tableLines[i]))
                 continue; // skip separators that appear mid-stream
-            var cells = TrimCells(SplitTableCells(tableLines[i]));
+            var cells = MarkdownParser.TrimCells(MarkdownParser.SplitTableCells(tableLines[i]));
             var padded = new string[headers.Length];
             for (var j = 0; j < headers.Length; j++)
                 padded[j] = j < cells.Length ? cells[j] : string.Empty;
@@ -2746,7 +2174,7 @@ public class StrataMarkdown : ContentControl
         if (_tableCache.TryGetValue(cacheKey, out var cached))
         {
             DetachFromForeignParent(cached);
-            var items = RowsToListOfLists(rows);
+            var items = MarkdownParser.RowsToListOfLists(rows);
             cached.ItemsSource = items;
             var h = 40 + (rows.Count * 36) + 4;
             cached.Height = Math.Min(Math.Max(h, 40), 400);
@@ -2786,7 +2214,7 @@ public class StrataMarkdown : ContentControl
             });
         }
 
-        var items = RowsToListOfLists(rows);
+        var items = MarkdownParser.RowsToListOfLists(rows);
         dataGrid.ItemsSource = items;
 
         var estimatedHeight = 40 + (rows.Count * 36) + 4;

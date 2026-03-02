@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -257,6 +258,46 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<bool> IsSuggestionsGeneratingProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsSuggestionsGenerating));
 
+    /// <summary>Command executed when the user sends a prompt.</summary>
+    public static readonly StyledProperty<ICommand?> SendCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(SendCommand));
+
+    /// <summary>Optional parameter for <see cref="SendCommand"/>.</summary>
+    public static readonly StyledProperty<object?> SendCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SendCommandParameter));
+
+    /// <summary>Command executed when the user clicks the stop button.</summary>
+    public static readonly StyledProperty<ICommand?> StopCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(StopCommand));
+
+    /// <summary>Optional parameter for <see cref="StopCommand"/>.</summary>
+    public static readonly StyledProperty<object?> StopCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(StopCommandParameter));
+
+    /// <summary>Command executed when the user clicks the attach button.</summary>
+    public static readonly StyledProperty<ICommand?> AttachCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(AttachCommand));
+
+    /// <summary>Optional parameter for <see cref="AttachCommand"/>.</summary>
+    public static readonly StyledProperty<object?> AttachCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(AttachCommandParameter));
+
+    /// <summary>Command executed when the user clicks the voice button.</summary>
+    public static readonly StyledProperty<ICommand?> VoiceCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(VoiceCommand));
+
+    /// <summary>Optional parameter for <see cref="VoiceCommand"/>.</summary>
+    public static readonly StyledProperty<object?> VoiceCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(VoiceCommandParameter));
+
+    /// <summary>Command executed when the user clicks the mention button.</summary>
+    public static readonly StyledProperty<ICommand?> MentionCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(MentionCommand));
+
+    /// <summary>Optional parameter for <see cref="MentionCommand"/>.</summary>
+    public static readonly StyledProperty<object?> MentionCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(MentionCommandParameter));
+
     static StrataChatComposer()
     {
         PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, e) =>
@@ -393,6 +434,16 @@ public class StrataChatComposer : TemplatedControl
     /// </summary>
     public event EventHandler<FileSelectedEventArgs>? FileSelected;
     public bool IsSuggestionsGenerating { get => GetValue(IsSuggestionsGeneratingProperty); set => SetValue(IsSuggestionsGeneratingProperty, value); }
+    public ICommand? SendCommand { get => GetValue(SendCommandProperty); set => SetValue(SendCommandProperty, value); }
+    public object? SendCommandParameter { get => GetValue(SendCommandParameterProperty); set => SetValue(SendCommandParameterProperty, value); }
+    public ICommand? StopCommand { get => GetValue(StopCommandProperty); set => SetValue(StopCommandProperty, value); }
+    public object? StopCommandParameter { get => GetValue(StopCommandParameterProperty); set => SetValue(StopCommandParameterProperty, value); }
+    public ICommand? AttachCommand { get => GetValue(AttachCommandProperty); set => SetValue(AttachCommandProperty, value); }
+    public object? AttachCommandParameter { get => GetValue(AttachCommandParameterProperty); set => SetValue(AttachCommandParameterProperty, value); }
+    public ICommand? VoiceCommand { get => GetValue(VoiceCommandProperty); set => SetValue(VoiceCommandProperty, value); }
+    public object? VoiceCommandParameter { get => GetValue(VoiceCommandParameterProperty); set => SetValue(VoiceCommandParameterProperty, value); }
+    public ICommand? MentionCommand { get => GetValue(MentionCommandProperty); set => SetValue(MentionCommandProperty, value); }
+    public object? MentionCommandParameter { get => GetValue(MentionCommandParameterProperty); set => SetValue(MentionCommandParameterProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -405,9 +456,21 @@ public class StrataChatComposer : TemplatedControl
         }
 
         Wire(e, "PART_SendButton", () => HandleSendAction());
-        Wire(e, "PART_AttachButton", () => RaiseEvent(new RoutedEventArgs(AttachRequestedEvent)));
-        Wire(e, "PART_MentionButton", () => ShowMentionPopup());
-        Wire(e, "PART_VoiceButton", () => RaiseEvent(new RoutedEventArgs(VoiceRequestedEvent)));
+        Wire(e, "PART_AttachButton", () =>
+        {
+            RaiseEvent(new RoutedEventArgs(AttachRequestedEvent));
+            CommandHelper.Execute(AttachCommand, AttachCommandParameter);
+        });
+        Wire(e, "PART_MentionButton", () =>
+        {
+            ShowMentionPopup();
+            CommandHelper.Execute(MentionCommand, MentionCommandParameter);
+        });
+        Wire(e, "PART_VoiceButton", () =>
+        {
+            RaiseEvent(new RoutedEventArgs(VoiceRequestedEvent));
+            CommandHelper.Execute(VoiceCommand, VoiceCommandParameter);
+        });
         Wire(e, "PART_AgentRemoveButton", () => RaiseEvent(new RoutedEventArgs(AgentRemovedEvent)));
         Wire(e, "PART_ProjectRemoveButton", () => RaiseEvent(new RoutedEventArgs(ProjectRemovedEvent)));
         _chipsRow = e.NameScope.Find<WrapPanel>("PART_ChipsRow");
@@ -450,13 +513,13 @@ public class StrataChatComposer : TemplatedControl
     private void UpdateInputDirection(string? text)
     {
         if (_input is null) return;
-        var direction = StrataChatMessage.DetectLeadingDirection(text);
-        var targetFlow = direction == StrataChatMessage.TextDirection.RightToLeft
+        var direction = StrataTextDirectionDetector.Detect(text);
+        var targetFlow = direction == FlowDirection.RightToLeft
             ? FlowDirection.RightToLeft
             : FlowDirection.LeftToRight;
         if (_input.FlowDirection != targetFlow)
             _input.FlowDirection = targetFlow;
-        var targetAlignment = direction == StrataChatMessage.TextDirection.RightToLeft
+        var targetAlignment = direction == FlowDirection.RightToLeft
             ? TextAlignment.Right
             : TextAlignment.Left;
         if (_input.TextAlignment != targetAlignment)
@@ -648,9 +711,15 @@ public class StrataChatComposer : TemplatedControl
 
     private void HandleSendAction()
     {
-        if (IsBusy) { RaiseEvent(new RoutedEventArgs(StopRequestedEvent)); return; }
+        if (IsBusy)
+        {
+            RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
+            CommandHelper.Execute(StopCommand, StopCommandParameter);
+            return;
+        }
         if (string.IsNullOrWhiteSpace(PromptText)) return;
         RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
+        CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
     }
 
     // ── Inline autocomplete ────────────────────────────────────────

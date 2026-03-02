@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -54,6 +55,14 @@ public class StrataPromptBar : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> SendRequestedEvent =
         RoutedEvent.Register<StrataPromptBar, RoutedEventArgs>(nameof(SendRequested), RoutingStrategies.Bubble);
 
+    /// <summary>Command executed when the user sends a prompt.</summary>
+    public static readonly StyledProperty<ICommand?> SendCommandProperty =
+        AvaloniaProperty.Register<StrataPromptBar, ICommand?>(nameof(SendCommand));
+
+    /// <summary>Optional parameter for <see cref="SendCommand"/>.</summary>
+    public static readonly StyledProperty<object?> SendCommandParameterProperty =
+        AvaloniaProperty.Register<StrataPromptBar, object?>(nameof(SendCommandParameter));
+
     static StrataPromptBar()
     {
         IntentProperty.Changed.AddClassHandler<StrataPromptBar>((bar, _) => bar.UpdatePseudoClasses());
@@ -103,6 +112,20 @@ public class StrataPromptBar : TemplatedControl
         set => SetValue(StopTextProperty, value);
     }
 
+    /// <summary>Gets or sets the command executed when the user sends a prompt.</summary>
+    public ICommand? SendCommand
+    {
+        get => GetValue(SendCommandProperty);
+        set => SetValue(SendCommandProperty, value);
+    }
+
+    /// <summary>Gets or sets the optional parameter for <see cref="SendCommand"/>.</summary>
+    public object? SendCommandParameter
+    {
+        get => GetValue(SendCommandParameterProperty);
+        set => SetValue(SendCommandParameterProperty, value);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
@@ -133,6 +156,7 @@ public class StrataPromptBar : TemplatedControl
                     return;
 
                 RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
+                CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
             };
 
         UpdatePseudoClasses();
@@ -170,6 +194,7 @@ public class StrataPromptBar : TemplatedControl
             {
                 e.Handled = true;
                 RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
+                CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
             }
         }
     }

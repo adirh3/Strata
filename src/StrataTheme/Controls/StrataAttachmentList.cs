@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -31,6 +32,14 @@ public class StrataAttachmentList : ItemsControl
     public static readonly RoutedEvent<RoutedEventArgs> AddRequestedEvent =
         RoutedEvent.Register<StrataAttachmentList, RoutedEventArgs>(nameof(AddRequested), RoutingStrategies.Bubble);
 
+    /// <summary>Command executed when the add button is clicked.</summary>
+    public static readonly StyledProperty<ICommand?> AddCommandProperty =
+        AvaloniaProperty.Register<StrataAttachmentList, ICommand?>(nameof(AddCommand));
+
+    /// <summary>Optional parameter for <see cref="AddCommand"/>.</summary>
+    public static readonly StyledProperty<object?> AddCommandParameterProperty =
+        AvaloniaProperty.Register<StrataAttachmentList, object?>(nameof(AddCommandParameter));
+
     public bool ShowAddButton
     {
         get => GetValue(ShowAddButtonProperty);
@@ -49,12 +58,30 @@ public class StrataAttachmentList : ItemsControl
         remove => RemoveHandler(AddRequestedEvent, value);
     }
 
+    /// <summary>Gets or sets the command executed when the add button is clicked.</summary>
+    public ICommand? AddCommand
+    {
+        get => GetValue(AddCommandProperty);
+        set => SetValue(AddCommandProperty, value);
+    }
+
+    /// <summary>Gets or sets the optional parameter for <see cref="AddCommand"/>.</summary>
+    public object? AddCommandParameter
+    {
+        get => GetValue(AddCommandParameterProperty);
+        set => SetValue(AddCommandParameterProperty, value);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
 
         var addBtn = e.NameScope.Find<Button>("PART_AddButton");
         if (addBtn is not null)
-            addBtn.Click += (_, _) => RaiseEvent(new RoutedEventArgs(AddRequestedEvent));
+            addBtn.Click += (_, _) =>
+            {
+                RaiseEvent(new RoutedEventArgs(AddRequestedEvent));
+                CommandHelper.Execute(AddCommand, AddCommandParameter);
+            };
     }
 }

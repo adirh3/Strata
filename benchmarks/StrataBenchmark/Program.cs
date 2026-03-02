@@ -243,13 +243,13 @@ public class IncrementalDiffBenchmarks
     public int StreamingAppendTailParseOnly()
     {
         var totalBlocks = 0;
-        List<StrataMarkdown.MdBlock>? previousBlocks = null;
+        List<MdBlock>? previousBlocks = null;
         string? previousNormalized = null;
 
         foreach (var step in _streamingSteps)
         {
             var normalized = NormalizeLineEndings(step);
-            List<StrataMarkdown.MdBlock> blocks;
+            List<MdBlock> blocks;
 
             if (previousBlocks is null || previousNormalized is null)
             {
@@ -273,13 +273,13 @@ public class IncrementalDiffBenchmarks
     {
         // Simulate what the new code does: parse + diff, count skipped blocks
         var totalSkipped = 0;
-        List<StrataMarkdown.MdBlock>? previousBlocks = null;
+        List<MdBlock>? previousBlocks = null;
         string? previousNormalized = null;
 
         foreach (var step in _streamingSteps)
         {
             var normalized = NormalizeLineEndings(step);
-            List<StrataMarkdown.MdBlock> newBlocks;
+            List<MdBlock> newBlocks;
 
             if (previousBlocks is null || previousNormalized is null)
             {
@@ -320,13 +320,13 @@ public class IncrementalDiffBenchmarks
     {
         var totalUpdates = 0;
         var skippedUpdates = 0;
-        List<StrataMarkdown.MdBlock>? previousBlocks = null;
+        List<MdBlock>? previousBlocks = null;
         string? previousNormalized = null;
 
         foreach (var step in _streamingSteps)
         {
             var normalized = NormalizeLineEndings(step);
-            List<StrataMarkdown.MdBlock> newBlocks;
+            List<MdBlock> newBlocks;
 
             if (previousBlocks is null || previousNormalized is null)
             {
@@ -477,13 +477,13 @@ public class Program
         var totalBlocksSkipped = 0;
         for (int round = 0; round < 10; round++)
         {
-            List<StrataMarkdown.MdBlock>? previous = null;
+            List<MdBlock>? previous = null;
             string? previousNorm = null;
 
             foreach (var step in steps)
             {
                 var norm = NormalizeLineEndings(step);
-                List<StrataMarkdown.MdBlock> blocks;
+                List<MdBlock> blocks;
 
                 if (previous is null || previousNorm is null)
                 {

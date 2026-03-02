@@ -1,5 +1,4 @@
 using StrataTheme.Controls;
-using static StrataTheme.Controls.StrataMarkdown;
 
 namespace StrataTheme.Tests;
 
@@ -87,8 +86,8 @@ public class BlockDiffTests
         var step1 = "## Title\n\nFirst paragraph.";
         var step2 = step1 + " More words appended.";
 
-        var blocks1 = StrataMarkdown.ParseBlocks(step1);
-        var blocks2 = StrataMarkdown.ParseBlocks(step2);
+        var blocks1 = MarkdownParser.Parse(step1);
+        var blocks2 = MarkdownParser.Parse(step2);
 
         // The heading block should be identical
         Assert.True(blocks1[0].Equals(blocks2[0]));
@@ -102,8 +101,8 @@ public class BlockDiffTests
         var step1 = "## Title\n\nParagraph.";
         var step2 = step1 + "\n\n- New bullet";
 
-        var blocks1 = StrataMarkdown.ParseBlocks(step1);
-        var blocks2 = StrataMarkdown.ParseBlocks(step2);
+        var blocks1 = MarkdownParser.Parse(step1);
+        var blocks2 = MarkdownParser.Parse(step2);
 
         Assert.Equal(2, blocks1.Count);
         Assert.Equal(3, blocks2.Count);
@@ -138,7 +137,7 @@ public class BlockDiffTests
         foreach (var step in steps)
         {
             var normalized = step.Replace("\r\n", "\n");
-            var newBlocks = StrataMarkdown.ParseBlocks(normalized);
+            var newBlocks = MarkdownParser.Parse(normalized);
 
             // Verify no duplicate block content in a single parse result
             for (int i = 0; i < newBlocks.Count; i++)
@@ -199,7 +198,7 @@ public class BlockDiffTests
 
         foreach (var step in steps)
         {
-            var blocks = StrataMarkdown.ParseBlocks(step);
+            var blocks = MarkdownParser.Parse(step);
 
             // Count headings — should always be exactly 1
             var headingCount = blocks.Count(b => b.Kind == MdBlockKind.Heading);
@@ -226,7 +225,7 @@ public class BlockDiffTests
 
         foreach (var step in steps)
         {
-            var blocks = StrataMarkdown.ParseBlocks(step);
+            var blocks = MarkdownParser.Parse(step);
             var headingCount = blocks.Count(b => b.Kind == MdBlockKind.Heading);
             Assert.Equal(1, headingCount);
         }
@@ -237,8 +236,8 @@ public class BlockDiffTests
     [Fact]
     public void FullReplace_DifferentContent_AllBlocksChange()
     {
-        var old = StrataMarkdown.ParseBlocks("## Old\n\nOld paragraph.");
-        var newer = StrataMarkdown.ParseBlocks("## New\n\nNew paragraph.");
+        var old = MarkdownParser.Parse("## Old\n\nOld paragraph.");
+        var newer = MarkdownParser.Parse("## New\n\nNew paragraph.");
 
         Assert.Equal(old.Count, newer.Count);
         Assert.False(old[0].Equals(newer[0]));
@@ -249,8 +248,8 @@ public class BlockDiffTests
     public void IdenticalContent_AllBlocksMatch()
     {
         var md = "## Title\n\n- Item 1\n- Item 2\n\n```py\nx=1\n```";
-        var blocks1 = StrataMarkdown.ParseBlocks(md);
-        var blocks2 = StrataMarkdown.ParseBlocks(md);
+        var blocks1 = MarkdownParser.Parse(md);
+        var blocks2 = MarkdownParser.Parse(md);
 
         Assert.Equal(blocks1.Count, blocks2.Count);
         for (int i = 0; i < blocks1.Count; i++)
@@ -267,9 +266,9 @@ public class BlockDiffTests
     {
         var md = "## H\n\nPara **bold** and `code`.\n\n- A\n- B\n\n1. X\n2. Y\n\n---\n\n```rust\nlet x = 1;\n```";
 
-        var run1 = StrataMarkdown.ParseBlocks(md);
-        var run2 = StrataMarkdown.ParseBlocks(md);
-        var run3 = StrataMarkdown.ParseBlocks(md);
+        var run1 = MarkdownParser.Parse(md);
+        var run2 = MarkdownParser.Parse(md);
+        var run3 = MarkdownParser.Parse(md);
 
         Assert.Equal(run1.Count, run2.Count);
         Assert.Equal(run2.Count, run3.Count);

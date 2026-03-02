@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -28,6 +29,18 @@ public enum StrataChatRole
     Tool
 }
 
+/// <summary>Event arguments for <see cref="StrataChatMessage.EditConfirmed"/> carrying the edited text.</summary>
+public class StrataEditConfirmedEventArgs : RoutedEventArgs
+{
+    /// <summary>The edited text that the user confirmed.</summary>
+    public string NewText { get; }
+
+    public StrataEditConfirmedEventArgs(RoutedEvent routedEvent, string newText) : base(routedEvent)
+    {
+        NewText = newText;
+    }
+}
+
 /// <summary>
 /// A chat message bubble with role-dependent styling, hover toolbar (Copy / Edit / Retry),
 /// inline edit mode, and streaming indicator. Supports any content (text, markdown, controls).
@@ -50,15 +63,6 @@ public enum StrataChatRole
 /// </remarks>
 public class StrataChatMessage : TemplatedControl
 {
-    internal const int DirectionScanLimitChars = 384;
-
-    internal enum TextDirection
-    {
-        Neutral,
-        LeftToRight,
-        RightToLeft
-    }
-
     private Border? _streamBar;
     private Border? _bubble;
     private Border? _editSeparator;
@@ -137,8 +141,40 @@ public class StrataChatMessage : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> EditRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(EditRequested), RoutingStrategies.Bubble);
 
-    public static readonly RoutedEvent<RoutedEventArgs> EditConfirmedEvent =
-        RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(EditConfirmed), RoutingStrategies.Bubble);
+    public static readonly RoutedEvent<StrataEditConfirmedEventArgs> EditConfirmedEvent =
+        RoutedEvent.Register<StrataChatMessage, StrataEditConfirmedEventArgs>(nameof(EditConfirmed), RoutingStrategies.Bubble);
+
+    /// <summary>Command executed when the user copies message text. Parameter is the extracted text string.</summary>
+    public static readonly StyledProperty<ICommand?> CopyCommandProperty =
+        AvaloniaProperty.Register<StrataChatMessage, ICommand?>(nameof(CopyCommand));
+
+    /// <summary>Optional parameter for <see cref="CopyCommand"/>.</summary>
+    public static readonly StyledProperty<object?> CopyCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatMessage, object?>(nameof(CopyCommandParameter));
+
+    /// <summary>Command executed when the user requests regeneration.</summary>
+    public static readonly StyledProperty<ICommand?> RegenerateCommandProperty =
+        AvaloniaProperty.Register<StrataChatMessage, ICommand?>(nameof(RegenerateCommand));
+
+    /// <summary>Optional parameter for <see cref="RegenerateCommand"/>.</summary>
+    public static readonly StyledProperty<object?> RegenerateCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatMessage, object?>(nameof(RegenerateCommandParameter));
+
+    /// <summary>Command executed when the user begins editing.</summary>
+    public static readonly StyledProperty<ICommand?> EditCommandProperty =
+        AvaloniaProperty.Register<StrataChatMessage, ICommand?>(nameof(EditCommand));
+
+    /// <summary>Optional parameter for <see cref="EditCommand"/>.</summary>
+    public static readonly StyledProperty<object?> EditCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatMessage, object?>(nameof(EditCommandParameter));
+
+    /// <summary>Command executed when the user confirms an edit. Parameter is the new text string.</summary>
+    public static readonly StyledProperty<ICommand?> EditConfirmedCommandProperty =
+        AvaloniaProperty.Register<StrataChatMessage, ICommand?>(nameof(EditConfirmedCommand));
+
+    /// <summary>Optional parameter for <see cref="EditConfirmedCommand"/>. When null, the edited text is passed.</summary>
+    public static readonly StyledProperty<object?> EditConfirmedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatMessage, object?>(nameof(EditConfirmedCommandParameter));
 
     static StrataChatMessage()
     {
@@ -159,8 +195,17 @@ public class StrataChatMessage : TemplatedControl
     { add => AddHandler(RegenerateRequestedEvent, value); remove => RemoveHandler(RegenerateRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? EditRequested
     { add => AddHandler(EditRequestedEvent, value); remove => RemoveHandler(EditRequestedEvent, value); }
-    public event EventHandler<RoutedEventArgs>? EditConfirmed
+    public event EventHandler<StrataEditConfirmedEventArgs>? EditConfirmed
     { add => AddHandler(EditConfirmedEvent, value); remove => RemoveHandler(EditConfirmedEvent, value); }
+
+    public ICommand? CopyCommand { get => GetValue(CopyCommandProperty); set => SetValue(CopyCommandProperty, value); }
+    public object? CopyCommandParameter { get => GetValue(CopyCommandParameterProperty); set => SetValue(CopyCommandParameterProperty, value); }
+    public ICommand? RegenerateCommand { get => GetValue(RegenerateCommandProperty); set => SetValue(RegenerateCommandProperty, value); }
+    public object? RegenerateCommandParameter { get => GetValue(RegenerateCommandParameterProperty); set => SetValue(RegenerateCommandParameterProperty, value); }
+    public ICommand? EditCommand { get => GetValue(EditCommandProperty); set => SetValue(EditCommandProperty, value); }
+    public object? EditCommandParameter { get => GetValue(EditCommandParameterProperty); set => SetValue(EditCommandParameterProperty, value); }
+    public ICommand? EditConfirmedCommand { get => GetValue(EditConfirmedCommandProperty); set => SetValue(EditConfirmedCommandProperty, value); }
+    public object? EditConfirmedCommandParameter { get => GetValue(EditConfirmedCommandParameterProperty); set => SetValue(EditConfirmedCommandParameterProperty, value); }
 
     public StrataChatRole Role { get => GetValue(RoleProperty); set => SetValue(RoleProperty, value); }
     public string Author { get => GetValue(AuthorProperty); set => SetValue(AuthorProperty, value); }
@@ -200,11 +245,17 @@ public class StrataChatMessage : TemplatedControl
             copyBtn.Click += async (_, ev) =>
             {
                 ev.Handled = true;
-                await CopyMessageTextAsync();
+                var text = await CopyMessageTextAsync();
                 RaiseEvent(new RoutedEventArgs(CopyRequestedEvent));
+                CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? text);
             };
         if (regenBtn is not null)
-            regenBtn.Click += (_, ev) => { ev.Handled = true; RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent)); };
+            regenBtn.Click += (_, ev) =>
+            {
+                ev.Handled = true;
+                RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent));
+                CommandHelper.Execute(RegenerateCommand, RegenerateCommandParameter);
+            };
         if (editBtn is not null)
             editBtn.Click += (_, ev) => { ev.Handled = true; BeginEdit(); };
         if (saveBtn is not null)
@@ -242,8 +293,9 @@ public class StrataChatMessage : TemplatedControl
         if (e.Key == Key.C && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             e.Handled = true;
-            await CopyMessageTextAsync();
+            var text = await CopyMessageTextAsync();
             RaiseEvent(new RoutedEventArgs(CopyRequestedEvent));
+            CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? text);
         }
     }
 
@@ -289,8 +341,9 @@ public class StrataChatMessage : TemplatedControl
         var copyItem = new MenuItem { Header = "Copy", Icon = CreateMenuIcon("\uE8C8") };
         copyItem.Click += async (_, _) =>
         {
-            await CopyMessageTextAsync();
+            var text = await CopyMessageTextAsync();
             RaiseEvent(new RoutedEventArgs(CopyRequestedEvent));
+            CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? text);
         };
         items.Add(copyItem);
 
@@ -328,7 +381,11 @@ public class StrataChatMessage : TemplatedControl
                 items.Add(new Separator());
 
             var retryItem = new MenuItem { Header = "Retry", Icon = CreateMenuIcon("\uE72C") };
-            retryItem.Click += (_, _) => RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent));
+            retryItem.Click += (_, _) =>
+            {
+                RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent));
+                CommandHelper.Execute(RegenerateCommand, RegenerateCommandParameter);
+            };
             items.Add(retryItem);
         }
 
@@ -353,19 +410,21 @@ public class StrataChatMessage : TemplatedControl
         };
     }
 
-    private async Task CopyMessageTextAsync()
+    private async Task<string> CopyMessageTextAsync()
     {
         var text = ExtractCopyText();
         if (string.IsNullOrWhiteSpace(text))
-            return;
+            return text;
 
         var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel?.Clipboard is null)
-            return;
+        if (topLevel?.Clipboard is not null)
+        {
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.CreateText(text));
+            await topLevel.Clipboard.SetDataAsync(data);
+        }
 
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.CreateText(text));
-        await topLevel.Clipboard.SetDataAsync(data);
+        return text;
     }
 
     private string ExtractCopyText()
@@ -373,58 +432,7 @@ public class StrataChatMessage : TemplatedControl
         if (IsEditing && !string.IsNullOrWhiteSpace(EditText))
             return EditText!;
 
-        return ExtractObjectText(Content).Trim();
-    }
-
-    private static string ExtractObjectText(object? value)
-    {
-        if (value is null)
-            return string.Empty;
-
-        if (value is string text)
-            return text;
-
-        if (value is TextBlock textBlock)
-            return textBlock.Text ?? string.Empty;
-
-        if (value is StrataMarkdown markdown)
-            return markdown.Markdown ?? string.Empty;
-
-        if (value is StrataAiToolCall toolCall)
-            return $"{toolCall.ToolName} | {toolCall.StatusText} | {toolCall.MoreInfo}";
-
-        if (value is StrataAiSkill skill)
-            return $"{skill.SkillName}\n{skill.Description}\n{skill.DetailMarkdown}";
-
-        if (value is StrataAiAgent agent)
-            return $"{agent.AgentName}\n{agent.Description}\n{agent.DetailMarkdown}";
-
-        if (value is ContentControl contentControl)
-            return ExtractObjectText(contentControl.Content);
-
-        if (value is Decorator decorator)
-            return ExtractObjectText(decorator.Child);
-
-        if (value is Panel panel)
-        {
-            var children = panel.Children;
-            if (children.Count == 0)
-                return string.Empty;
-
-            var sb = new StringBuilder();
-            for (var i = 0; i < children.Count; i++)
-            {
-                var line = ExtractObjectText(children[i]);
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
-                if (sb.Length > 0)
-                    sb.Append(Environment.NewLine);
-                sb.Append(line);
-            }
-            return sb.ToString();
-        }
-
-        return value.ToString() ?? string.Empty;
+        return ChatContentExtractor.ExtractText(Content).Trim();
     }
 
     private void BeginEdit()
@@ -442,12 +450,13 @@ public class StrataChatMessage : TemplatedControl
         }
         else
         {
-            EditText = ExtractObjectText(Content).Trim();
+            EditText = ChatContentExtractor.ExtractText(Content).Trim();
             _originalContentWasMarkdown = false;
         }
 
         IsEditing = true;
         RaiseEvent(new RoutedEventArgs(EditRequestedEvent));
+        CommandHelper.Execute(EditCommand, EditCommandParameter);
 
         // Focus the edit box and place cursor at end
         Dispatcher.UIThread.Post(() =>
@@ -460,21 +469,23 @@ public class StrataChatMessage : TemplatedControl
 
     private void ConfirmEdit()
     {
-        if (ApplyEditToContent && EditText is not null)
+        var newText = EditText ?? string.Empty;
+
+        if (ApplyEditToContent)
         {
             if (Content is StrataMarkdown existingMarkdown)
             {
-                existingMarkdown.Markdown = EditText;
+                existingMarkdown.Markdown = newText;
             }
             else if (Content is TextBlock existingTextBlock)
             {
-                existingTextBlock.Text = EditText;
+                existingTextBlock.Text = newText;
             }
             else if (_originalContentWasMarkdown)
             {
                 Content = new StrataMarkdown
                 {
-                    Markdown = EditText,
+                    Markdown = newText,
                     IsInline = true
                 };
             }
@@ -482,14 +493,15 @@ public class StrataChatMessage : TemplatedControl
             {
                 Content = new TextBlock
                 {
-                    Text = EditText,
+                    Text = newText,
                     TextWrapping = TextWrapping.Wrap
                 };
             }
         }
 
         IsEditing = false;
-        RaiseEvent(new RoutedEventArgs(EditConfirmedEvent));
+        RaiseEvent(new StrataEditConfirmedEventArgs(EditConfirmedEvent, newText));
+        CommandHelper.Execute(EditConfirmedCommand, EditConfirmedCommandParameter ?? newText);
     }
 
     private void CancelEdit()
@@ -571,7 +583,7 @@ public class StrataChatMessage : TemplatedControl
         }
         else if (Content is not null)
         {
-            EditText = ExtractObjectText(Content).Trim();
+            EditText = ChatContentExtractor.ExtractText(Content).Trim();
             _originalContentWasMarkdown = false;
         }
     }
@@ -652,17 +664,14 @@ public class StrataChatMessage : TemplatedControl
 
     private static void ApplyDirectionalTextAlignment(TextBlock textBlock)
     {
-        var direction = DetectLeadingDirection(textBlock.Text);
-        if (direction == TextDirection.Neutral)
+        var direction = StrataTextDirectionDetector.Detect(textBlock.Text);
+        if (direction is null)
             return;
 
-        var targetFlowDirection = direction == TextDirection.RightToLeft
-            ? FlowDirection.RightToLeft
-            : FlowDirection.LeftToRight;
-        if (textBlock.FlowDirection != targetFlowDirection)
-            textBlock.FlowDirection = targetFlowDirection;
+        if (textBlock.FlowDirection != direction.Value)
+            textBlock.FlowDirection = direction.Value;
 
-        var targetTextAlignment = direction == TextDirection.RightToLeft
+        var targetTextAlignment = direction.Value == FlowDirection.RightToLeft
             ? TextAlignment.Right
             : TextAlignment.Left;
         if (textBlock.TextAlignment != targetTextAlignment)
@@ -671,115 +680,12 @@ public class StrataChatMessage : TemplatedControl
 
     private static void ApplyDirectionalMarkdownAlignment(StrataMarkdown markdown)
     {
-        var direction = DetectLeadingDirection(markdown.Markdown);
-        if (direction == TextDirection.Neutral)
+        var direction = StrataTextDirectionDetector.Detect(markdown.Markdown);
+        if (direction is null)
             return;
 
-        var targetFlowDirection = direction == TextDirection.RightToLeft
-            ? FlowDirection.RightToLeft
-            : FlowDirection.LeftToRight;
-        if (markdown.FlowDirection != targetFlowDirection)
-            markdown.FlowDirection = targetFlowDirection;
-    }
-
-    internal static TextDirection DetectLeadingDirection(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return TextDirection.Neutral;
-
-        var firstStrongDirection = TextDirection.Neutral;
-        var rtlStrongCount = 0;
-        var ltrStrongCount = 0;
-        var scannedChars = 0;
-        foreach (var rune in text.EnumerateRunes())
-        {
-            scannedChars += rune.Utf16SequenceLength;
-            if (scannedChars > DirectionScanLimitChars)
-                break;
-
-            if (rune.Value <= 0x7F)
-            {
-                var ascii = (char)rune.Value;
-                if (char.IsWhiteSpace(ascii) || char.IsDigit(ascii) || char.IsPunctuation(ascii) || char.IsSymbol(ascii))
-                    continue;
-
-                if ((ascii >= 'A' && ascii <= 'Z') || (ascii >= 'a' && ascii <= 'z'))
-                {
-                    if (firstStrongDirection == TextDirection.Neutral)
-                        firstStrongDirection = TextDirection.LeftToRight;
-                    ltrStrongCount++;
-                    continue;
-                }
-            }
-
-            var category = Rune.GetUnicodeCategory(rune);
-
-            if (category is UnicodeCategory.SpaceSeparator
-                or UnicodeCategory.LineSeparator
-                or UnicodeCategory.ParagraphSeparator
-                or UnicodeCategory.Control
-                or UnicodeCategory.Format
-                or UnicodeCategory.NonSpacingMark
-                or UnicodeCategory.SpacingCombiningMark
-                or UnicodeCategory.EnclosingMark
-                or UnicodeCategory.ConnectorPunctuation
-                or UnicodeCategory.DashPunctuation
-                or UnicodeCategory.OpenPunctuation
-                or UnicodeCategory.ClosePunctuation
-                or UnicodeCategory.InitialQuotePunctuation
-                or UnicodeCategory.FinalQuotePunctuation
-                or UnicodeCategory.OtherPunctuation
-                or UnicodeCategory.MathSymbol
-                or UnicodeCategory.CurrencySymbol
-                or UnicodeCategory.ModifierSymbol
-                or UnicodeCategory.OtherSymbol
-                or UnicodeCategory.DecimalDigitNumber)
-            {
-                continue;
-            }
-
-            if (IsStrongRtlRune(rune.Value))
-            {
-                if (firstStrongDirection == TextDirection.Neutral)
-                    firstStrongDirection = TextDirection.RightToLeft;
-                rtlStrongCount++;
-                continue;
-            }
-
-            if (category is UnicodeCategory.UppercaseLetter
-                or UnicodeCategory.LowercaseLetter
-                or UnicodeCategory.TitlecaseLetter
-                or UnicodeCategory.ModifierLetter
-                or UnicodeCategory.OtherLetter)
-            {
-                if (firstStrongDirection == TextDirection.Neutral)
-                    firstStrongDirection = TextDirection.LeftToRight;
-                ltrStrongCount++;
-                continue;
-            }
-        }
-
-        if (rtlStrongCount == 0 && ltrStrongCount == 0)
-            return TextDirection.Neutral;
-
-        if (rtlStrongCount == ltrStrongCount)
-            return firstStrongDirection == TextDirection.Neutral
-                ? TextDirection.LeftToRight
-                : firstStrongDirection;
-
-        return rtlStrongCount > ltrStrongCount
-            ? TextDirection.RightToLeft
-            : TextDirection.LeftToRight;
-    }
-
-    internal static bool IsStrongRtlRune(int codePoint)
-    {
-        return (codePoint >= 0x0590 && codePoint <= 0x05FF) // Hebrew
-               || (codePoint >= 0x0600 && codePoint <= 0x06FF) // Arabic
-               || (codePoint >= 0x0700 && codePoint <= 0x08FF) // Syriac/Arabic supplements
-               || (codePoint >= 0xFB1D && codePoint <= 0xFDFF) // Hebrew/Arabic presentation forms A
-               || (codePoint >= 0xFE70 && codePoint <= 0xFEFF) // Arabic presentation forms B
-               || (codePoint >= 0x1EE00 && codePoint <= 0x1EEFF); // Arabic Mathematical Alphabetic Symbols
+        if (markdown.FlowDirection != direction.Value)
+            markdown.FlowDirection = direction.Value;
     }
 
     private void OnStreamingChanged()
