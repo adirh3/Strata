@@ -19,7 +19,7 @@ public class MainViewModel : INotifyPropertyChanged
         private set { _strings = value; OnPropertyChanged(); }
     }
 
-    private bool _isDarkTheme;
+    private bool _isDarkTheme = true;
     public bool IsDarkTheme
     {
         get => _isDarkTheme;
