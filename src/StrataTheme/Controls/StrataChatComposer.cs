@@ -298,6 +298,62 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<object?> MentionCommandParameterProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(MentionCommandParameter));
 
+    /// <summary>Command executed when the user removes the active agent chip.</summary>
+    public static readonly StyledProperty<ICommand?> AgentRemovedCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(AgentRemovedCommand));
+
+    /// <summary>Optional parameter for <see cref="AgentRemovedCommand"/>.</summary>
+    public static readonly StyledProperty<object?> AgentRemovedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(AgentRemovedCommandParameter));
+
+    /// <summary>Command executed when the user removes the active project chip.</summary>
+    public static readonly StyledProperty<ICommand?> ProjectRemovedCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(ProjectRemovedCommand));
+
+    /// <summary>Optional parameter for <see cref="ProjectRemovedCommand"/>.</summary>
+    public static readonly StyledProperty<object?> ProjectRemovedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(ProjectRemovedCommandParameter));
+
+    /// <summary>Command executed when the user removes a skill chip. Default parameter is the chip name.</summary>
+    public static readonly StyledProperty<ICommand?> SkillRemovedCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(SkillRemovedCommand));
+
+    /// <summary>Optional parameter for <see cref="SkillRemovedCommand"/>. When null, the chip name is passed.</summary>
+    public static readonly StyledProperty<object?> SkillRemovedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SkillRemovedCommandParameter));
+
+    /// <summary>Command executed when the user removes an MCP chip. Default parameter is the chip name.</summary>
+    public static readonly StyledProperty<ICommand?> McpRemovedCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(McpRemovedCommand));
+
+    /// <summary>Optional parameter for <see cref="McpRemovedCommand"/>. When null, the chip name is passed.</summary>
+    public static readonly StyledProperty<object?> McpRemovedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(McpRemovedCommandParameter));
+
+    /// <summary>Command executed when the file autocomplete query changes. Default parameter is the query string.</summary>
+    public static readonly StyledProperty<ICommand?> FileQueryChangedCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(FileQueryChangedCommand));
+
+    /// <summary>Optional parameter for <see cref="FileQueryChangedCommand"/>. When null, the query string is passed.</summary>
+    public static readonly StyledProperty<object?> FileQueryChangedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(FileQueryChangedCommandParameter));
+
+    /// <summary>Command executed when a file is selected from the autocomplete popup. Default parameter is the file path.</summary>
+    public static readonly StyledProperty<ICommand?> FileSelectedCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(FileSelectedCommand));
+
+    /// <summary>Optional parameter for <see cref="FileSelectedCommand"/>. When null, the file path is passed.</summary>
+    public static readonly StyledProperty<object?> FileSelectedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(FileSelectedCommandParameter));
+
+    /// <summary>Command executed when the user pastes a clipboard image.</summary>
+    public static readonly StyledProperty<ICommand?> ClipboardPasteCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(ClipboardPasteCommand));
+
+    /// <summary>Optional parameter for <see cref="ClipboardPasteCommand"/>.</summary>
+    public static readonly StyledProperty<object?> ClipboardPasteCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(ClipboardPasteCommandParameter));
+
     static StrataChatComposer()
     {
         PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, e) =>
@@ -444,6 +500,20 @@ public class StrataChatComposer : TemplatedControl
     public object? VoiceCommandParameter { get => GetValue(VoiceCommandParameterProperty); set => SetValue(VoiceCommandParameterProperty, value); }
     public ICommand? MentionCommand { get => GetValue(MentionCommandProperty); set => SetValue(MentionCommandProperty, value); }
     public object? MentionCommandParameter { get => GetValue(MentionCommandParameterProperty); set => SetValue(MentionCommandParameterProperty, value); }
+    public ICommand? AgentRemovedCommand { get => GetValue(AgentRemovedCommandProperty); set => SetValue(AgentRemovedCommandProperty, value); }
+    public object? AgentRemovedCommandParameter { get => GetValue(AgentRemovedCommandParameterProperty); set => SetValue(AgentRemovedCommandParameterProperty, value); }
+    public ICommand? ProjectRemovedCommand { get => GetValue(ProjectRemovedCommandProperty); set => SetValue(ProjectRemovedCommandProperty, value); }
+    public object? ProjectRemovedCommandParameter { get => GetValue(ProjectRemovedCommandParameterProperty); set => SetValue(ProjectRemovedCommandParameterProperty, value); }
+    public ICommand? SkillRemovedCommand { get => GetValue(SkillRemovedCommandProperty); set => SetValue(SkillRemovedCommandProperty, value); }
+    public object? SkillRemovedCommandParameter { get => GetValue(SkillRemovedCommandParameterProperty); set => SetValue(SkillRemovedCommandParameterProperty, value); }
+    public ICommand? McpRemovedCommand { get => GetValue(McpRemovedCommandProperty); set => SetValue(McpRemovedCommandProperty, value); }
+    public object? McpRemovedCommandParameter { get => GetValue(McpRemovedCommandParameterProperty); set => SetValue(McpRemovedCommandParameterProperty, value); }
+    public ICommand? FileQueryChangedCommand { get => GetValue(FileQueryChangedCommandProperty); set => SetValue(FileQueryChangedCommandProperty, value); }
+    public object? FileQueryChangedCommandParameter { get => GetValue(FileQueryChangedCommandParameterProperty); set => SetValue(FileQueryChangedCommandParameterProperty, value); }
+    public ICommand? FileSelectedCommand { get => GetValue(FileSelectedCommandProperty); set => SetValue(FileSelectedCommandProperty, value); }
+    public object? FileSelectedCommandParameter { get => GetValue(FileSelectedCommandParameterProperty); set => SetValue(FileSelectedCommandParameterProperty, value); }
+    public ICommand? ClipboardPasteCommand { get => GetValue(ClipboardPasteCommandProperty); set => SetValue(ClipboardPasteCommandProperty, value); }
+    public object? ClipboardPasteCommandParameter { get => GetValue(ClipboardPasteCommandParameterProperty); set => SetValue(ClipboardPasteCommandParameterProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -471,8 +541,16 @@ public class StrataChatComposer : TemplatedControl
             RaiseEvent(new RoutedEventArgs(VoiceRequestedEvent));
             CommandHelper.Execute(VoiceCommand, VoiceCommandParameter);
         });
-        Wire(e, "PART_AgentRemoveButton", () => RaiseEvent(new RoutedEventArgs(AgentRemovedEvent)));
-        Wire(e, "PART_ProjectRemoveButton", () => RaiseEvent(new RoutedEventArgs(ProjectRemovedEvent)));
+        Wire(e, "PART_AgentRemoveButton", () =>
+        {
+            RaiseEvent(new RoutedEventArgs(AgentRemovedEvent));
+            CommandHelper.Execute(AgentRemovedCommand, AgentRemovedCommandParameter);
+        });
+        Wire(e, "PART_ProjectRemoveButton", () =>
+        {
+            RaiseEvent(new RoutedEventArgs(ProjectRemovedEvent));
+            CommandHelper.Execute(ProjectRemovedCommand, ProjectRemovedCommandParameter);
+        });
         _chipsRow = e.NameScope.Find<WrapPanel>("PART_ChipsRow");
         _mcpPopup = e.NameScope.Find<Popup>("PART_McpPopup");
         _mcpPopupPanel = e.NameScope.Find<StackPanel>("PART_McpPopupPanel");
@@ -695,6 +773,7 @@ public class StrataChatComposer : TemplatedControl
 
         bitmap.Dispose();
         RaiseEvent(new RoutedEventArgs(ClipboardImagePasteRequestedEvent));
+        CommandHelper.Execute(ClipboardPasteCommand, ClipboardPasteCommandParameter);
         return true;
     }
 
@@ -782,6 +861,7 @@ public class StrataChatComposer : TemplatedControl
                         // Fire event so the consumer can populate AvailableFiles.
                         // ShowAutoCompleteItems will be called when AvailableFiles is set.
                         FileQueryChanged?.Invoke(this, new FileQueryChangedEventArgs(query));
+                        CommandHelper.Execute(FileQueryChangedCommand, FileQueryChangedCommandParameter ?? query);
                     }
                     else
                     {
@@ -980,6 +1060,7 @@ public class StrataChatComposer : TemplatedControl
             case ChipKind.File:
                 // Glyph stores the full file path for File chips
                 FileSelected?.Invoke(this, new FileSelectedEventArgs(chip.Glyph));
+                CommandHelper.Execute(FileSelectedCommand, FileSelectedCommandParameter ?? chip.Glyph);
                 break;
         }
 
@@ -1471,7 +1552,15 @@ public class StrataChatComposer : TemplatedControl
 
         var capturedItem = item;
         removeBtn.Click += (_, _) =>
+        {
             RaiseEvent(new ComposerChipRemovedEventArgs(removedEvent, capturedItem));
+            // Fire the matching command with the chip name as default parameter
+            var chipName = capturedItem is StrataComposerChip cc ? cc.Name : capturedItem?.ToString() ?? "";
+            if (removedEvent == SkillRemovedEvent)
+                CommandHelper.Execute(SkillRemovedCommand, SkillRemovedCommandParameter ?? chipName);
+            else if (removedEvent == McpRemovedEvent)
+                CommandHelper.Execute(McpRemovedCommand, McpRemovedCommandParameter ?? chipName);
+        };
 
         var panel = new StackPanel
         {
