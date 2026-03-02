@@ -630,7 +630,7 @@
 
   <!-- MCP popup item styles -->
   <Style Selector="Border.mcp-popup-item">
-    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Background" Value="#00000000" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Transitions">
       <Transitions>
@@ -639,7 +639,7 @@
     </Setter>
   </Style>
   <Style Selector="Border.mcp-popup-item:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
   </Style>
 
   <!-- MCP popup separator -->
@@ -649,7 +649,7 @@
 
   <!-- Autocomplete popup item styles -->
   <Style Selector="Border.autocomplete-item">
-    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Background" Value="#00000000" />
     <Setter Property="CornerRadius" Value="4" />
     <Setter Property="Padding" Value="8,5" />
     <Setter Property="Cursor" Value="Hand" />
@@ -660,7 +660,7 @@
     </Setter>
   </Style>
   <Style Selector="Border.autocomplete-item:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
   </Style>
   <Style Selector="Border.autocomplete-item.selected">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
