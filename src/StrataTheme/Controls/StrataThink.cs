@@ -121,7 +121,7 @@ public class StrataThink : TemplatedControl
             parent.SizeChanged += OnParentSizeChanged;
 
         if (IsActive)
-            Dispatcher.UIThread.Post(StartPulse, DispatcherPriority.Loaded);
+            Dispatcher.UIThread.Post(() => { if (IsActive) StartPulse(); }, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -129,6 +129,8 @@ public class StrataThink : TemplatedControl
         if (Parent is Control parent)
             parent.SizeChanged -= OnParentSizeChanged;
 
+        StopPulse();
+        _pulseRunning = false;
         base.OnDetachedFromVisualTree(e);
     }
 
