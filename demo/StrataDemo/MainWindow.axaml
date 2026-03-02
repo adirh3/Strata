@@ -2099,18 +2099,23 @@ async def analyze_incident(report):
                                VerticalAlignment="Stretch">
 
               <sc:StrataChatShell.Header>
-                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                  <Border Width="24" Height="24" CornerRadius="7"
-                          Background="{DynamicResource Brush.AccentGradient}">
-                    <TextBlock Text="S" FontSize="12" FontWeight="Bold"
-                               Foreground="{DynamicResource Brush.TextOnAccent}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                  </Border>
-                  <StackPanel Spacing="0">
-                    <TextBlock Classes="body-strong" Text="Strata Assistant" />
-                    <TextBlock Classes="caption tertiary" Text="incident-room / prod / IR-4471" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Border Width="24" Height="24" CornerRadius="7"
+                            Background="{DynamicResource Brush.AccentGradient}">
+                      <TextBlock Text="S" FontSize="12" FontWeight="Bold"
+                                 Foreground="{DynamicResource Brush.TextOnAccent}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Spacing="0">
+                      <TextBlock Classes="body-strong" Text="Strata Assistant" />
+                      <TextBlock Classes="caption tertiary" Text="incident-room / prod / IR-4471" />
+                    </StackPanel>
                   </StackPanel>
-                </StackPanel>
+                  <Button x:Name="PopulateChatButton" Grid.Column="1"
+                          Content="Populate Chat" Classes="accent"
+                          VerticalAlignment="Center" />
+                </Grid>
               </sc:StrataChatShell.Header>
 
               <sc:StrataChatShell.Transcript>
