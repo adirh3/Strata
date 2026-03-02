@@ -8,6 +8,7 @@ using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
 using System;
 using System.IO;
+using System.Windows.Input;
 
 namespace StrataTheme.Controls;
 
@@ -67,6 +68,9 @@ public class StrataFileAttachment : TemplatedControl
     public static readonly DirectProperty<StrataFileAttachment, string> StatusTextProperty =
         AvaloniaProperty.RegisterDirect<StrataFileAttachment, string>(nameof(StatusText), o => o.StatusText);
 
+    public static readonly StyledProperty<ICommand?> RemoveCommandProperty =
+        AvaloniaProperty.Register<StrataFileAttachment, ICommand?>(nameof(RemoveCommand));
+
     public static readonly RoutedEvent<RoutedEventArgs> RemoveRequestedEvent =
         RoutedEvent.Register<StrataFileAttachment, RoutedEventArgs>(nameof(RemoveRequested), RoutingStrategies.Bubble);
 
@@ -125,6 +129,12 @@ public class StrataFileAttachment : TemplatedControl
         _ => ""
     };
 
+    public ICommand? RemoveCommand
+    {
+        get => GetValue(RemoveCommandProperty);
+        set => SetValue(RemoveCommandProperty, value);
+    }
+
     public event EventHandler<RoutedEventArgs>? RemoveRequested
     {
         add => AddHandler(RemoveRequestedEvent, value);
@@ -178,6 +188,8 @@ public class StrataFileAttachment : TemplatedControl
     private void OnRemoveButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         RaiseEvent(new RoutedEventArgs(RemoveRequestedEvent));
+        if (RemoveCommand is { } cmd && cmd.CanExecute(null))
+            cmd.Execute(null);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
