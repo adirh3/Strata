@@ -421,6 +421,7 @@ public class StrataChatPanel : VirtualizingPanel
             // Sync slots with Items count (items may have been added before
             // the panel was attached to the visual tree).
             var itemCount = Items.Count;
+            bool itemsAdded = itemCount > _slots.Count;
             if (_slots.Count != itemCount)
             {
                 for (int i = 0; i < _slots.Count; i++)
@@ -469,9 +470,10 @@ public class StrataChatPanel : VirtualizingPanel
 
             // Detect if user is at/near the bottom BEFORE measurements change heights.
             // Used by ApplyAnchorOrBottomPin to implement bottom-stickiness.
-            // Uses full scroll extent (panel height + parent padding) so the threshold
-            // matches the actual scrollable range, not just the panel's own height.
-            if (_scrollViewer is not null && _cachedTotalHeight + _scrollExtentPadding > _viewportHeight)
+            // Only apply when new items were added — NOT when existing items grew
+            // (e.g., expanding a tool group), to avoid the viewport shifting and
+            // collapsing the visual gap above the expanding item.
+            if (itemsAdded && _scrollViewer is not null && _cachedTotalHeight + _scrollExtentPadding > _viewportHeight)
                 _wasNearBottom = _scrollOffset >= _cachedTotalHeight + _scrollExtentPadding - _viewportHeight - 2;
             else
                 _wasNearBottom = false;
