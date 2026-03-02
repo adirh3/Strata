@@ -174,7 +174,7 @@
 
   <!-- Row inner border (Simple theme template part) -->
   <Style Selector="DataGridRow /template/ Border#RowBorder">
-    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Background" Value="#00000000" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="Transitions">
