@@ -10,10 +10,6 @@
             <ItemsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" />
           </ControlTemplate>
         </Setter>
-
-        <Style Selector="^ /template/ controls|StrataChatVirtualizingPanel > :is(Control)">
-          <Setter Property="Margin" Value="0,0,0,8" />
-        </Style>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>

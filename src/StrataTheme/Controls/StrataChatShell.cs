@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -261,8 +262,6 @@ public class StrataChatShell : TemplatedControl
         {
             if (e.Action == NotifyCollectionChangedAction.Add && AreAllControls(e.NewItems))
                 ApplyScrollingStateToItems(e.NewItems, isScrolling: true);
-            else
-                ApplyTranscriptScrollingState(true);
         }
     }
 
@@ -588,35 +587,58 @@ public class StrataChatShell : TemplatedControl
 
     private void ApplyTranscriptScrollingState(bool isScrolling)
     {
-        var panel = Transcript as Panel;
-        if (panel is not null)
-        {
-            foreach (var child in panel.Children)
-                ApplyScrollingStateRecursive(child, isScrolling);
-            return;
-        }
-
+        // Walk children and set IsHostScrolling on each StrataChatMessage.
+        // The handler avoids pseudo-class changes (which trigger InvalidateMeasure)
+        // and only toggles IsHitTestVisible on the message bubble.
         var itemsControl = Transcript as ItemsControl;
         if (itemsControl is not null)
         {
             if (itemsControl.ItemsPanelRoot is Panel itemsHostPanel)
             {
                 foreach (var child in itemsHostPanel.Children)
-                    ApplyScrollingStateRecursive(child, isScrolling);
+                    ApplyScrollingStateFlatScan(child, isScrolling);
                 return;
-            }
-
-            // Fallback: walk realized visuals only. Avoid iterating all data items
-            // because virtualized transcripts can contain tens of thousands.
-            foreach (var visual in itemsControl.GetVisualDescendants())
-            {
-                if (visual is StrataChatMessage message && message.IsHostScrolling != isScrolling)
-                    message.IsHostScrolling = isScrolling;
             }
             return;
         }
 
+        if (Transcript is Panel panel)
+        {
+            foreach (var child in panel.Children)
+                ApplyScrollingStateRecursive(child, isScrolling);
+            return;
+        }
+
         ApplyScrollingStateRecursive(Transcript, isScrolling);
+    }
+
+    /// <summary>
+    /// Fast non-recursive scan for StrataChatMessage inside a single container.
+    /// Handles the common case of ContentPresenter wrapping a message control
+    /// without the overhead of a full recursive tree walk.
+    /// </summary>
+    private static void ApplyScrollingStateFlatScan(Control container, bool isScrolling)
+    {
+        // Direct message
+        if (container is StrataChatMessage message)
+        {
+            if (message.IsHostScrolling != isScrolling)
+                message.IsHostScrolling = isScrolling;
+            return;
+        }
+
+        // ContentPresenter wrapping a message (ItemsControl container)
+        if (container is ContentPresenter cp)
+        {
+            if (cp.Content is StrataChatMessage cpMsg)
+            {
+                if (cpMsg.IsHostScrolling != isScrolling)
+                    cpMsg.IsHostScrolling = isScrolling;
+                return;
+            }
+            // Content might be a non-message control (StrataThink, etc.) — skip
+            return;
+        }
     }
 
     private static void ApplyScrollingStateToItems(IList? items, bool isScrolling)

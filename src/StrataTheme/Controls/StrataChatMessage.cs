@@ -526,8 +526,11 @@ public class StrataChatMessage : TemplatedControl
     private void OnHostScrollingChanged()
     {
         PseudoClasses.Set(":host-scrolling", IsHostScrolling);
-        UpdateActionBarLayout();
-        InvalidateContextMenu();
+        if (!IsHostScrolling)
+        {
+            UpdateActionBarLayout();
+            InvalidateContextMenu();
+        }
     }
 
     private void OnMetaChanged()

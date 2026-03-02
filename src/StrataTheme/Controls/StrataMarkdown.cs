@@ -72,6 +72,12 @@ public class StrataMarkdown : ContentControl
     }
 
 
+    // ── Cached static layout values to avoid repeated heap allocations ──
+    private static readonly Thickness BulletDotMargin = new(0, 7, 0, 0);
+    private static readonly CornerRadius BulletDotCornerRadius = new(2.5);
+    private static readonly Thickness ZeroThickness = new(0);
+    private static readonly Thickness HrMargin = new(0, 4, 0, 4);
+
     private readonly StackPanel _root;
     private readonly Border _surface;
     private readonly TextBlock _title;
@@ -103,6 +109,9 @@ public class StrataMarkdown : ContentControl
     private readonly HashSet<string> _tableKeysUsed = new();
 
     private Border? _blockPlaceholder;
+
+    // ── Cached shared objects ──
+    private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
 
     // ── Incremental state ──
     private readonly List<MdBlock> _blockListA = new();
@@ -282,7 +291,9 @@ public class StrataMarkdown : ContentControl
         Content = _root;
         _previousBlocks = _blockListA;
         _lastThemeVariant = (Application.Current?.ActualThemeVariant ?? ThemeVariant.Light).ToString();
-        Rebuild();
+        // Skip Rebuild() — Markdown is null at construction time, so Rebuild()
+        // just hits the IsNullOrWhiteSpace fast path.  The property-changed handler
+        // will trigger a rebuild when Markdown is actually set.
         UpdateTitle();
         UpdateSurfaceMode();
     }
@@ -337,15 +348,22 @@ public class StrataMarkdown : ContentControl
         }
     }
 
+    private double _cachedBodyFontSize;
+
     /// <summary>Returns the effective body font size, using the inherited FontSize if &gt; 12, otherwise resolving Font.SizeBody.</summary>
     private double GetBodyFontSize()
     {
         var fs = FontSize;
         if (fs > 12) return fs;
 
+        if (_cachedBodyFontSize > 0) return _cachedBodyFontSize;
+
         // Try resolving from theme resources
         if (this.TryFindResource("Font.SizeBody", ActualThemeVariant, out var res) && res is double d)
+        {
+            _cachedBodyFontSize = d;
             return d;
+        }
 
         return 14; // Strata default
     }
@@ -1034,7 +1052,7 @@ public class StrataMarkdown : ContentControl
         var row = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,8,*"),
-            Margin = new Thickness(indentLevel * 16, 0, 0, 0)
+            Margin = indentLevel == 0 ? ZeroThickness : new Thickness(indentLevel * 16, 0, 0, 0)
         };
 
         var dot = new Border
@@ -1042,9 +1060,9 @@ public class StrataMarkdown : ContentControl
             Width = 5,
             Height = 5,
             Background = Brushes.Transparent,
-            CornerRadius = new CornerRadius(2.5),
+            CornerRadius = BulletDotCornerRadius,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 7, 0, 0)
+            Margin = BulletDotMargin
         };
         dot.Classes.Add("strata-md-bullet-dot");
 
@@ -1059,6 +1077,8 @@ public class StrataMarkdown : ContentControl
         return row;
     }
 
+    private static readonly Thickness RtlTextPadding = new(0, 0, 4, 0);
+
     private SelectableTextBlock CreateRichText(string text, double fontSize, double lineHeight, TextWrapping wrapping)
     {
         var isRtl = FlowDirection == FlowDirection.RightToLeft;
@@ -1071,25 +1091,16 @@ public class StrataMarkdown : ContentControl
                 ? TextAlignment.Right
                 : TextAlignment.Left,
             ClipToBounds = false,
-            Padding = isRtl
-                ? new Thickness(0, 0, 4, 0)
-                : new Thickness(0),
-            Margin = new Thickness(0)
+            Padding = isRtl ? RtlTextPadding : ZeroThickness,
+            Margin = ZeroThickness
         };
 
-        AppendFormattedInlines(textBlock, text);
+        var hadLinks = AppendFormattedInlines(textBlock, text);
 
-        if (textBlock.Inlines != null)
+        if (hadLinks)
         {
-            foreach (var inline in textBlock.Inlines)
-            {
-                if (inline is Run run && _linkRuns.ContainsKey(run))
-                {
-                    textBlock.Tapped += OnLinkTapped;
-                    textBlock.PointerMoved += OnTextBlockPointerMoved;
-                    break;
-                }
-            }
+            textBlock.Tapped += OnLinkTapped;
+            textBlock.PointerMoved += OnTextBlockPointerMoved;
         }
 
         return textBlock;
@@ -1099,11 +1110,12 @@ public class StrataMarkdown : ContentControl
     /// Span-based inline parser. Scans text character-by-character to find inline
     /// code, bold, italic, bold-italic, and links without allocating regex Match objects.
     /// Inspired by FastAvaloniaMarkdown's zero-allocation inline parser.
+    /// Returns true if any link inlines were added.
     /// </summary>
-    private void AppendFormattedInlines(SelectableTextBlock target, string text)
+    private bool AppendFormattedInlines(SelectableTextBlock target, string text)
     {
         if (string.IsNullOrEmpty(text))
-            return;
+            return false;
 
         var span = text.AsSpan();
 
@@ -1111,11 +1123,12 @@ public class StrataMarkdown : ContentControl
         if (span.IndexOfAny('`', '*', '[') < 0)
         {
             target.Text = text;
-            return;
+            return false;
         }
 
         int pos = 0;
         int textStart = 0;
+        bool hasLinks = false;
 
         while (pos < span.Length)
         {
@@ -1221,6 +1234,7 @@ public class StrataMarkdown : ContentControl
                             TextDecorations = TextDecorations.Underline,
                         };
                         _linkRuns[linkRun] = linkTarget;
+                        hasLinks = true;
                         target.Inlines?.Add(linkRun);
                         pos = parenClose + 1;
                         textStart = pos;
@@ -1245,6 +1259,8 @@ public class StrataMarkdown : ContentControl
         {
             target.Inlines?.Add(new Run(text[textStart..]));
         }
+
+        return hasLinks;
     }
 
     /// <summary>
@@ -1567,7 +1583,7 @@ public class StrataMarkdown : ContentControl
             MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
-            Cursor = new Cursor(StandardCursorType.Hand)
+            Cursor = HandCursor
         };
         copyBtn.Classes.Add("subtle");
         DockPanel.SetDock(copyBtn, Dock.Right);
@@ -2404,7 +2420,7 @@ public class StrataMarkdown : ContentControl
         var point = e.GetPosition(tb);
         var hit = tb.TextLayout.HitTestPoint(point);
         var isLink = hit.IsInside && GetLinkAtCharIndex(tb, hit.CharacterHit.FirstCharacterIndex) != null;
-        tb.Cursor = isLink ? new Cursor(StandardCursorType.Hand) : Cursor.Default;
+        tb.Cursor = isLink ? HandCursor : Cursor.Default;
     }
 
     private static IBrush ResolveLinkBrush()
@@ -2547,7 +2563,7 @@ public class StrataMarkdown : ContentControl
             ColumnDefinitions = new ColumnDefinitions("Auto,6,*"),
         };
 
-        var numBlock = new SelectableTextBlock
+        var numBlock = new TextBlock
         {
             Text = $"{number}.",
             FontSize = _bodyFontSize,
@@ -2572,7 +2588,7 @@ public class StrataMarkdown : ContentControl
         var rule = new Border
         {
             Height = 1,
-            Margin = new Thickness(0, 4, 0, 4),
+            Margin = HrMargin,
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
         rule.Classes.Add("strata-md-hr");
