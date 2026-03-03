@@ -105,6 +105,7 @@ public class StrataChatComposer : TemplatedControl
     private bool _suppressAutoComplete;
     private INotifyCollectionChanged? _subscribedSkillCollection;
     private INotifyCollectionChanged? _subscribedMcpCollection;
+    private INotifyCollectionChanged? _subscribedAvailableMcpCollection;
     private static readonly string[] DefaultModels = ["GPT-5.3-Codex", "GPT-4o", "o3"];
     private static readonly string[] DefaultQualityLevels = ["Medium", "High", "Extra High"];
 
@@ -402,7 +403,7 @@ public class StrataChatComposer : TemplatedControl
         ProjectNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
         McpItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnMcpItemsChanged());
-        AvailableMcpsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        AvailableMcpsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnAvailableMcpsChanged());
         AvailableFilesProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
         {
             // When file items are updated (consumer responded to FileQueryChanged),
@@ -1502,6 +1503,28 @@ public class StrataChatComposer : TemplatedControl
     }
 
     private void OnMcpCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        Sync();
+    }
+
+    private void OnAvailableMcpsChanged()
+    {
+        if (_subscribedAvailableMcpCollection is not null)
+        {
+            _subscribedAvailableMcpCollection.CollectionChanged -= OnAvailableMcpCollectionChanged;
+            _subscribedAvailableMcpCollection = null;
+        }
+
+        if (AvailableMcps is INotifyCollectionChanged ncc)
+        {
+            ncc.CollectionChanged += OnAvailableMcpCollectionChanged;
+            _subscribedAvailableMcpCollection = ncc;
+        }
+
+        Sync();
+    }
+
+    private void OnAvailableMcpCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         Sync();
     }
