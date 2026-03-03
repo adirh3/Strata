@@ -264,7 +264,7 @@ public class StrataChatMessage : TemplatedControl
             cancelBtn.Click += (_, ev) => { ev.Handled = true; CancelEdit(); };
 
         if (_editBox is not null)
-            _editBox.KeyDown += OnEditBoxKeyDown;
+            _editBox.AddHandler(KeyDownEvent, OnEditBoxKeyDown, RoutingStrategies.Tunnel);
 
         AttachContextMenu();
 
@@ -437,21 +437,25 @@ public class StrataChatMessage : TemplatedControl
 
     private void BeginEdit()
     {
-        // Extract text from content, handling StrataMarkdown properly
-        if (Content is StrataMarkdown markdown)
+        // If EditText is already populated (e.g. via MVVM binding), use it as-is.
+        // Only fall back to extracting from visual content when no binding provides the text.
+        if (string.IsNullOrEmpty(EditText))
         {
-            EditText = markdown.Markdown ?? string.Empty;
-            _originalContentWasMarkdown = true;
-        }
-        else if (Content is TextBlock tb)
-        {
-            EditText = tb.Text ?? string.Empty;
-            _originalContentWasMarkdown = false;
-        }
-        else
-        {
-            EditText = ChatContentExtractor.ExtractText(Content).Trim();
-            _originalContentWasMarkdown = false;
+            if (Content is StrataMarkdown markdown)
+            {
+                EditText = markdown.Markdown ?? string.Empty;
+                _originalContentWasMarkdown = true;
+            }
+            else if (Content is TextBlock tb)
+            {
+                EditText = tb.Text ?? string.Empty;
+                _originalContentWasMarkdown = false;
+            }
+            else
+            {
+                EditText = ChatContentExtractor.ExtractText(Content).Trim();
+                _originalContentWasMarkdown = false;
+            }
         }
 
         IsEditing = true;
