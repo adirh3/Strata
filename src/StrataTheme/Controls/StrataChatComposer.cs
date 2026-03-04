@@ -133,6 +133,14 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<object?> SelectedQualityProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SelectedQuality));
 
+    /// <summary>Items source for the session mode selector ComboBox (e.g. Ask, Plan, Agent).</summary>
+    public static readonly StyledProperty<IEnumerable?> ModesProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(Modes));
+
+    /// <summary>Currently selected session mode from <see cref="Modes"/>.</summary>
+    public static readonly StyledProperty<object?> SelectedModeProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SelectedMode));
+
     /// <summary>When true, the send button becomes a stop button.</summary>
     public static readonly StyledProperty<bool> IsBusyProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsBusy));
@@ -421,6 +429,7 @@ public class StrataChatComposer : TemplatedControl
         });
         ModelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
         QualityLevelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
+        ModesProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
     }
 
     public StrataChatComposer()
@@ -461,6 +470,8 @@ public class StrataChatComposer : TemplatedControl
     public object? SelectedModel { get => GetValue(SelectedModelProperty); set => SetValue(SelectedModelProperty, value); }
     public IEnumerable? QualityLevels { get => GetValue(QualityLevelsProperty); set => SetValue(QualityLevelsProperty, value); }
     public object? SelectedQuality { get => GetValue(SelectedQualityProperty); set => SetValue(SelectedQualityProperty, value); }
+    public IEnumerable? Modes { get => GetValue(ModesProperty); set => SetValue(ModesProperty, value); }
+    public object? SelectedMode { get => GetValue(SelectedModeProperty); set => SetValue(SelectedModeProperty, value); }
     public bool IsBusy { get => GetValue(IsBusyProperty); set => SetValue(IsBusyProperty, value); }
     public bool SendWithEnter { get => GetValue(SendWithEnterProperty); set => SetValue(SendWithEnterProperty, value); }
     public bool CanAttach { get => GetValue(CanAttachProperty); set => SetValue(CanAttachProperty, value); }
@@ -1196,6 +1207,7 @@ public class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":c-empty", string.IsNullOrWhiteSpace(SuggestionC));
         PseudoClasses.Set(":has-models", Models is not null);
         PseudoClasses.Set(":has-quality", QualityLevels is not null);
+        PseudoClasses.Set(":has-modes", Modes is not null);
         var hasAgent = !string.IsNullOrWhiteSpace(AgentName);
         var hasProject = !string.IsNullOrWhiteSpace(ProjectName);
         var hasSkills = HasAnySkills();
@@ -1615,6 +1627,15 @@ public class StrataChatComposer : TemplatedControl
             foreach (var item in QualityLevels)
             {
                 SelectedQuality = item;
+                break;
+            }
+        }
+
+        if (Modes is not null && SelectedMode is null)
+        {
+            foreach (var item in Modes)
+            {
+                SelectedMode = item;
                 break;
             }
         }

@@ -21,3 +21,8 @@ nupkg/
 ## Benchmark / perf generated artifacts
 BenchmarkDotNet.Artifacts/
 artifacts/chat-perf-report*.json
+
+session-state/
+session-store.db
+session-store.db-shm
+session-store.db-wal

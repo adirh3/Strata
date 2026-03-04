@@ -214,6 +214,20 @@
                               VerticalAlignment="Center"
                               Margin="0,0,6,6" />
 
+                    <!-- Modes ComboBox (Ask / Plan / Agent) -->
+                    <ComboBox Name="PART_ModesCombo"
+                              Classes="composer-select"
+                              ItemsSource="{TemplateBinding Modes}"
+                              SelectedItem="{Binding SelectedMode, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                              MinWidth="82"
+                              Height="28" MinHeight="0" Padding="8,4,6,4"
+                              FontSize="12"
+                              CornerRadius="6"
+                              Background="{DynamicResource Brush.Surface2}"
+                              BorderThickness="0"
+                              VerticalAlignment="Center"
+                              Margin="0,0,6,6" />
+
                     <!-- MCP server selector button -->
                     <Panel Name="PART_McpPanel" Margin="0,0,6,6">
                       <Button Name="PART_McpButton"
@@ -451,6 +465,9 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:not(:has-quality) /template/ ComboBox#PART_QualityCombo">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:has-modes) /template/ ComboBox#PART_ModesCombo">
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
