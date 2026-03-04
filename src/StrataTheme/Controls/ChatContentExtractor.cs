@@ -67,6 +67,10 @@ public static class ChatContentExtractor
             return sb.ToString();
         }
 
+        // Unrecognized controls — skip silently (avoid "Avalonia.Controls.X" in clipboard).
+        if (content is Control)
+            return string.Empty;
+
         return content.ToString() ?? string.Empty;
     }
 }
