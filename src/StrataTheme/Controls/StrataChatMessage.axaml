@@ -31,22 +31,80 @@
                            Foreground="{DynamicResource Brush.TextTertiary}" />
               </StackPanel>
 
-              <!-- Read mode: content display -->
-              <Border Name="PART_Bubble"
-                      Background="Transparent"
-                      Padding="0,6,0,4"
-                      RenderTransformOrigin="0.5,0.5"
-                      RenderTransform="scale(1)">
-                <Border.Transitions>
-                  <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.14" />
-                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="CubicEaseOut" />
-                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
-                  </Transitions>
-                </Border.Transitions>
-                <ContentPresenter Content="{TemplateBinding Content}" />
-              </Border>
+              <!-- Read mode: content + side action bar (Grid prevents layout jump) -->
+              <Grid Name="PART_BubbleRow" ColumnDefinitions="Auto,*,Auto">
+                <Border Name="PART_Bubble"
+                        Grid.Column="1"
+                        Background="Transparent"
+                        Padding="0,6,0,4"
+                        RenderTransformOrigin="0.5,0.5"
+                        RenderTransform="scale(1)">
+                  <Border.Transitions>
+                    <Transitions>
+                      <BrushTransition Property="Background" Duration="0:0:0.14" />
+                      <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="CubicEaseOut" />
+                      <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <ContentPresenter Content="{TemplateBinding Content}" />
+                </Border>
+
+                <!-- Action toolbar: sits beside the bubble (col 2 = right for assistant, col 0 = left for user) -->
+                <Border Name="PART_ActionLayer"
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Opacity="0"
+                        IsHitTestVisible="False"
+                        RenderTransform="translateX(8px)"
+                        Margin="6,0,0,0">
+                  <Border.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.15" Easing="CubicEaseOut" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <StackPanel Name="PART_ActionBar"
+                              Orientation="Horizontal"
+                              Spacing="0">
+                    <Border Background="{DynamicResource Brush.Surface1}"
+                            BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="2,1">
+                      <StackPanel Orientation="Horizontal" Spacing="0">
+                        <Button Name="PART_CopyButton" Classes="subtle"
+                                Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
+                          <TextBlock Text="Copy" FontSize="11"
+                                     Foreground="{DynamicResource Brush.TextTertiary}" />
+                        </Button>
+                        <Border Name="PART_EditSep" Width="1" Margin="2,3"
+                                Background="{DynamicResource Brush.BorderSubtle}" />
+                        <Button Name="PART_EditButton" Classes="subtle"
+                                Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
+                          <TextBlock Text="Edit" FontSize="11"
+                                     Foreground="{DynamicResource Brush.TextTertiary}" />
+                        </Button>
+                        <Border Name="PART_RegenerateSep" Width="1" Margin="2,3"
+                                Background="{DynamicResource Brush.BorderSubtle}" />
+                        <Button Name="PART_RegenerateButton" Classes="subtle"
+                                Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
+                          <TextBlock Text="Retry" FontSize="11"
+                                     Foreground="{DynamicResource Brush.TextTertiary}" />
+                        </Button>
+                      </StackPanel>
+                    </Border>
+
+                    <TextBlock Name="PART_StatusText"
+                               IsVisible="False"
+                               Text="{TemplateBinding StatusText}"
+                               FontSize="11"
+                               Foreground="{DynamicResource Brush.TextTertiary}"
+                               VerticalAlignment="Center"
+                               Margin="8,0,0,0" />
+                  </StackPanel>
+                </Border>
+              </Grid>
 
               <!-- Edit mode: TextBox with save/cancel -->
               <Border Name="PART_EditArea"
@@ -134,51 +192,6 @@
                 </Border.Transitions>
               </Border>
 
-              <!-- Hover action toolbar -->
-              <Border Name="PART_ActionLayer"
-                      Margin="0,2,0,0"
-                      IsVisible="False">
-                <StackPanel Name="PART_ActionBar"
-                            Orientation="Horizontal"
-                            Spacing="0">
-                  <Border Background="{DynamicResource Brush.Surface1}"
-                          BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                          BorderThickness="1"
-                          CornerRadius="6"
-                          Padding="2,1">
-                    <StackPanel Orientation="Horizontal" Spacing="0">
-                      <Button Name="PART_CopyButton" Classes="subtle"
-                              Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                        <TextBlock Text="Copy" FontSize="11"
-                                   Foreground="{DynamicResource Brush.TextTertiary}" />
-                      </Button>
-                      <Border Name="PART_EditSep" Width="1" Margin="2,3"
-                              Background="{DynamicResource Brush.BorderSubtle}" />
-                      <Button Name="PART_EditButton" Classes="subtle"
-                              Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                        <TextBlock Text="Edit" FontSize="11"
-                                   Foreground="{DynamicResource Brush.TextTertiary}" />
-                      </Button>
-                            <Border Name="PART_RegenerateSep" Width="1" Margin="2,3"
-                              Background="{DynamicResource Brush.BorderSubtle}" />
-                      <Button Name="PART_RegenerateButton" Classes="subtle"
-                              Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                        <TextBlock Text="Retry" FontSize="11"
-                                   Foreground="{DynamicResource Brush.TextTertiary}" />
-                      </Button>
-                    </StackPanel>
-                  </Border>
-
-                  <TextBlock Name="PART_StatusText"
-                             IsVisible="False"
-                             Text="{TemplateBinding StatusText}"
-                             FontSize="11"
-                             Foreground="{DynamicResource Brush.TextTertiary}"
-                             VerticalAlignment="Center"
-                             Margin="8,0,0,0" />
-                </StackPanel>
-              </Border>
-
             </StackPanel>
           </ControlTemplate>
         </Setter>
@@ -190,17 +203,7 @@
           <Setter Property="RenderTransform" Value="scale(0.995)" />
         </Style>
 
-        <Style Selector="^:pointerover /template/ Border#PART_ActionLayer">
-          <Setter Property="IsVisible" Value="True" />
-        </Style>
-        <Style Selector="^:focus-within /template/ Border#PART_ActionLayer">
-          <Setter Property="IsVisible" Value="True" />
-        </Style>
-
         <!-- During active shell scrolling, suppress hover chrome to keep scroll smooth. -->
-        <Style Selector="^:host-scrolling /template/ Border#PART_ActionLayer">
-          <Setter Property="IsVisible" Value="False" />
-        </Style>
         <Style Selector="^:host-scrolling /template/ Border#PART_Bubble:pointerover">
           <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
         </Style>
@@ -228,9 +231,6 @@
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0)" />
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
-        </Style>
-        <Style Selector="^:editing /template/ Border#PART_ActionLayer">
-          <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:editing /template/ Border#PART_StreamBar">
           <Setter Property="IsVisible" Value="False" />
@@ -275,7 +275,9 @@
           <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
         </Style>
         <Style Selector="^:user /template/ Border#PART_ActionLayer">
-          <Setter Property="HorizontalAlignment" Value="Right" />
+          <Setter Property="Grid.Column" Value="0" />
+          <Setter Property="Margin" Value="0,0,6,0" />
+          <Setter Property="RenderTransform" Value="translateX(-8px)" />
         </Style>
         <Style Selector="^:user /template/ Button#PART_RegenerateButton">
           <Setter Property="IsVisible" Value="False" />
@@ -304,6 +306,26 @@
         </Style>
         <Style Selector="^:streaming /template/ Button#PART_RegenerateButton">
           <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- ══ Action bar slide-in (after role styles for correct precedence) ══ -->
+        <Style Selector="^:pointerover /template/ Border#PART_ActionLayer">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+          <Setter Property="RenderTransform" Value="translateX(0)" />
+        </Style>
+        <Style Selector="^:focus-within /template/ Border#PART_ActionLayer">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+          <Setter Property="RenderTransform" Value="translateX(0)" />
+        </Style>
+        <Style Selector="^:host-scrolling /template/ Border#PART_ActionLayer">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="^:editing /template/ Border#PART_ActionLayer">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="IsHitTestVisible" Value="False" />
         </Style>
 
         <!-- ══ Focus ══ -->
