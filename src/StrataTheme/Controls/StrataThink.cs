@@ -47,6 +47,12 @@ public class StrataThink : TemplatedControl
         AvaloniaProperty.Register<StrataThink, object?>(nameof(Content));
 
     /// <summary>
+    /// Optional extra content rendered in the header row after the label/meta. Use for colored inline elements.
+    /// </summary>
+    public static readonly StyledProperty<object?> HeaderExtraProperty =
+        AvaloniaProperty.Register<StrataThink, object?>(nameof(HeaderExtra));
+
+    /// <summary>
     /// Optional progress percentage (0-100) shown as a compact progress line under the header.
     /// Set to a negative value to hide.
     /// </summary>
@@ -75,6 +81,7 @@ public class StrataThink : TemplatedControl
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public string? Meta { get => GetValue(MetaProperty); set => SetValue(MetaProperty, value); }
     public object? Content { get => GetValue(ContentProperty); set => SetValue(ContentProperty, value); }
+    public object? HeaderExtra { get => GetValue(HeaderExtraProperty); set => SetValue(HeaderExtraProperty, value); }
     public double ProgressValue { get => GetValue(ProgressValueProperty); set => SetValue(ProgressValueProperty, value); }
     public bool IsExpanded { get => GetValue(IsExpandedProperty); set => SetValue(IsExpandedProperty, value); }
     public bool IsActive { get => GetValue(IsActiveProperty); set => SetValue(IsActiveProperty, value); }

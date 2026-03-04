@@ -59,7 +59,7 @@ public class StrataCodeBlock : Control
     /// Line height used for the code presenter.
     /// Must match the value used in <see cref="StrataMarkdown"/> MinHeight calculations.
     /// </summary>
-    internal const double CodeLineHeight = 18;
+    public const double CodeLineHeight = 18;
 
     public StrataCodeBlock()
     {
@@ -313,7 +313,7 @@ public class StrataCodeBlock : Control
         }
     }
 
-    internal static IGrammar? ResolveGrammar(RegistryOptions options, Registry registry, string language)
+    public static IGrammar? ResolveGrammar(RegistryOptions options, Registry registry, string language)
     {
         // Check cache first — avoids repeated extension/scope lookups.
         if (s_grammarCache.TryGetValue(language, out var cached))
@@ -341,7 +341,7 @@ public class StrataCodeBlock : Control
         return grammar;
     }
 
-    internal static string? MapLanguageAlias(string language) =>
+    public static string? MapLanguageAlias(string language) =>
         language.ToLowerInvariant() switch
         {
             "csharp" or "c#" => ".cs",

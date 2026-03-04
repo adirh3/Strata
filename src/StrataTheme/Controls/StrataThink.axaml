@@ -31,7 +31,7 @@
 
               <StackPanel Spacing="0">
                 <!-- Compact header row -->
-                <Grid Name="PART_HeaderRow" ColumnDefinitions="Auto,6,Auto,8,Auto" VerticalAlignment="Center">
+                <Grid Name="PART_HeaderRow" ColumnDefinitions="Auto,6,Auto,8,Auto,4,Auto" VerticalAlignment="Center">
                   <Border Name="PART_Dot"
                           Width="6" Height="6"
                           CornerRadius="3"
@@ -61,6 +61,9 @@
                          TextTrimming="CharacterEllipsis"
                          MaxLines="1"
                          IsVisible="False" />
+                    <ContentPresenter Grid.Column="6"
+                         Content="{TemplateBinding HeaderExtra}"
+                         VerticalAlignment="Center" />
                   </Grid>
 
                   <Border Name="PART_ProgressHost"
