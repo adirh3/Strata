@@ -380,6 +380,19 @@
                                 VerticalAlignment="Center"
                                 Fill="{TemplateBinding Foreground}"
                                 Data="M4.5,4.5 H11.5 V11.5 H4.5 Z" />
+                          <Canvas Name="PART_StopSendIcon"
+                                  IsVisible="False"
+                                  Width="16" Height="16">
+                            <!-- Send arrow (compact, upper portion) -->
+                            <Path Stretch="Uniform"
+                                  Canvas.Left="2.5" Canvas.Top="0"
+                                  Width="11" Height="10"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="M5.5,0 L11,5 H8.2 V10 H2.8 V5 H0 Z" />
+                            <!-- Stop bar (lower portion) -->
+                            <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="M3.5,12 H12.5 V14.5 H3.5 Z" />
+                          </Canvas>
                         </Grid>
                       </Viewbox>
                     </Button>
@@ -422,6 +435,21 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:busy /template/ Path#PART_StopIcon">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- Busy + has text: stop-and-send mode (overrides stop-only styles) -->
+        <Style Selector="^:stop-send /template/ Button#PART_SendButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+          <Setter Property="ToolTip.Tip" Value="Stop &amp; send (Enter)" />
+        </Style>
+        <Style Selector="^:stop-send /template/ Button#PART_SendButton:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+        </Style>
+        <Style Selector="^:stop-send /template/ Path#PART_StopIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:stop-send /template/ Canvas#PART_StopSendIcon">
           <Setter Property="IsVisible" Value="True" />
         </Style>
 

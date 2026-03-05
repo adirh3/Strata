@@ -80,7 +80,7 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
-/// <para><b>Pseudo-classes:</b> :busy, :empty, :can-attach,
+/// <para><b>Pseudo-classes:</b> :busy, :empty, :stop-send, :can-attach,
 /// :a-empty, :b-empty, :c-empty, :has-models, :has-quality,
 /// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
 /// </remarks>
@@ -804,8 +804,19 @@ public class StrataChatComposer : TemplatedControl
     {
         if (IsBusy)
         {
-            RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
-            CommandHelper.Execute(StopCommand, StopCommandParameter);
+            if (!string.IsNullOrWhiteSpace(PromptText))
+            {
+                // Stop current generation and send the new message
+                RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
+                CommandHelper.Execute(StopCommand, StopCommandParameter);
+                RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
+                CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
+            }
+            else
+            {
+                RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
+                CommandHelper.Execute(StopCommand, StopCommandParameter);
+            }
             return;
         }
         if (string.IsNullOrWhiteSpace(PromptText)) return;
@@ -1201,6 +1212,7 @@ public class StrataChatComposer : TemplatedControl
     {
         PseudoClasses.Set(":busy", IsBusy);
         PseudoClasses.Set(":empty", string.IsNullOrWhiteSpace(PromptText));
+        PseudoClasses.Set(":stop-send", IsBusy && !string.IsNullOrWhiteSpace(PromptText));
         PseudoClasses.Set(":can-attach", CanAttach);
         PseudoClasses.Set(":a-empty", string.IsNullOrWhiteSpace(SuggestionA));
         PseudoClasses.Set(":b-empty", string.IsNullOrWhiteSpace(SuggestionB));
