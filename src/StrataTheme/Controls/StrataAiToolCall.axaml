@@ -40,9 +40,9 @@
 
                   <Border Name="PART_Header"
                           Cursor="Hand"
-                          Padding="10,6"
+                          Padding="10,5"
                           Background="Transparent">
-                    <Grid ColumnDefinitions="Auto,8,*,Auto,8,Auto">
+                    <Grid ColumnDefinitions="Auto,6,*,Auto,6,Auto">
                       <Border Name="PART_StateDot"
                               Width="6" Height="6"
                               CornerRadius="3"
