@@ -57,13 +57,10 @@
                            Opacity="0.85" />
               </StackPanel>
 
-              <!-- Question text -->
-              <TextBlock Name="PART_QuestionText"
-                         Text="{TemplateBinding Question}"
-                         FontSize="13.5"
-                         FontWeight="SemiBold"
-                         Foreground="{DynamicResource Brush.TextPrimary}"
-                         TextWrapping="Wrap"
+              <!-- Question text (markdown-enabled) -->
+              <controls:StrataMarkdown Name="PART_QuestionText"
+                         Markdown="{TemplateBinding Question}"
+                         IsInline="True"
                          Margin="0,4,0,0" />
             </StackPanel>
 
