@@ -48,6 +48,7 @@
               <!-- Expandable content area with left accent bar -->
               <Border Name="PART_ContentHost"
                       ClipToBounds="True"
+                      IsVisible="False"
                       MaxHeight="0"
                       Opacity="0"
                       RenderTransformOrigin="0.5,0"
@@ -79,6 +80,7 @@
 
         <!-- Expanded state -->
         <Style Selector="^:expanded /template/ Border#PART_ContentHost">
+          <Setter Property="IsVisible" Value="True" />
           <Setter Property="MaxHeight" Value="4000" />
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />

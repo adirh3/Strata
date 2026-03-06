@@ -6,7 +6,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
@@ -66,8 +68,11 @@ public class StrataChatShell : TemplatedControl
     private int _lastAlignedMessageCount;
     private bool _isPulseRunning;
     private readonly DispatcherTimer _scrollingStateTimer;
+    private readonly DispatcherTimer _automationScrollSweepTimer;
     private DateTime _lastScrollActivityUtc;
     private bool _isTranscriptScrolling;
+    private int _automationScrollSweepStep;
+    private int _automationScrollSweepTotalSteps;
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
@@ -92,12 +97,41 @@ public class StrataChatShell : TemplatedControl
     public static readonly StyledProperty<string> PresenceTextProperty =
         AvaloniaProperty.Register<StrataChatShell, string>(nameof(PresenceText), string.Empty);
 
+    /// <summary>
+    /// Diagnostic/test-only scroll target expressed as a fraction of the transcript extent.
+    /// Setting 0 scrolls to top, 1 scrolls to bottom.
+    /// </summary>
+    public static readonly StyledProperty<double> AutomationScrollFractionProperty =
+        AvaloniaProperty.Register<StrataChatShell, double>(nameof(AutomationScrollFraction), 1d);
+
+    /// <summary>
+    /// Increment this value to start an automated transcript scroll sweep for diagnostics.
+    /// </summary>
+    public static readonly StyledProperty<int> AutomationScrollSweepRequestProperty =
+        AvaloniaProperty.Register<StrataChatShell, int>(nameof(AutomationScrollSweepRequest));
+
+    /// <summary>
+    /// Number of steps used by the automated transcript scroll sweep.
+    /// </summary>
+    public static readonly StyledProperty<int> AutomationScrollSweepStepsProperty =
+        AvaloniaProperty.Register<StrataChatShell, int>(nameof(AutomationScrollSweepSteps), 18);
+
+    /// <summary>
+    /// Diagnostic state for the automated transcript scroll sweep.
+    /// </summary>
+    public static readonly StyledProperty<string> AutomationScrollSweepStateProperty =
+        AvaloniaProperty.Register<StrataChatShell, string>(nameof(AutomationScrollSweepState), "Idle");
+
     static StrataChatShell()
     {
         IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnIsOnlineChanged());
         HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
             c.PseudoClasses.Set(":has-header", c.Header is not null));
         PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnPresenceTextChanged());
+        AutomationScrollFractionProperty.Changed.AddClassHandler<StrataChatShell>((c, args) =>
+            c.ApplyAutomationScrollFraction(args.GetNewValue<double>()));
+        AutomationScrollSweepRequestProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
+            c.StartAutomationScrollSweep());
         TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
         {
             c._lastAlignedMessageCount = 0;
@@ -113,6 +147,12 @@ public class StrataChatShell : TemplatedControl
             Interval = TimeSpan.FromMilliseconds(80),
         };
         _scrollingStateTimer.Tick += OnScrollingStateTimerTick;
+
+        _automationScrollSweepTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(24),
+        };
+        _automationScrollSweepTimer.Tick += OnAutomationScrollSweepTick;
     }
 
     public object? Header { get => GetValue(HeaderProperty); set => SetValue(HeaderProperty, value); }
@@ -120,6 +160,10 @@ public class StrataChatShell : TemplatedControl
     public object? Composer { get => GetValue(ComposerProperty); set => SetValue(ComposerProperty, value); }
     public bool IsOnline { get => GetValue(IsOnlineProperty); set => SetValue(IsOnlineProperty, value); }
     public string PresenceText { get => GetValue(PresenceTextProperty); set => SetValue(PresenceTextProperty, value); }
+    public double AutomationScrollFraction { get => GetValue(AutomationScrollFractionProperty); set => SetValue(AutomationScrollFractionProperty, value); }
+    public int AutomationScrollSweepRequest { get => GetValue(AutomationScrollSweepRequestProperty); set => SetValue(AutomationScrollSweepRequestProperty, value); }
+    public int AutomationScrollSweepSteps { get => GetValue(AutomationScrollSweepStepsProperty); set => SetValue(AutomationScrollSweepStepsProperty, value); }
+    public string AutomationScrollSweepState { get => GetValue(AutomationScrollSweepStateProperty); set => SetValue(AutomationScrollSweepStateProperty, value); }
 
     /// <summary>
     /// Instantly positions the viewport so that item at <paramref name="index"/>
@@ -140,6 +184,7 @@ public class StrataChatShell : TemplatedControl
         {
             _scrollViewer.ScrollChanged -= OnScrollChanged;
             _scrollViewer.PointerWheelChanged -= OnUserWheelScroll;
+            _scrollViewer.RemoveHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed);
         }
 
         _presenceDot = e.NameScope.Find<Border>("PART_PresenceDot");
@@ -149,6 +194,7 @@ public class StrataChatShell : TemplatedControl
         {
             _scrollViewer.ScrollChanged += OnScrollChanged;
             _scrollViewer.PointerWheelChanged += OnUserWheelScroll;
+            _scrollViewer.AddHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         }
 
         _scrollingStateTimer.Stop();
@@ -186,9 +232,11 @@ public class StrataChatShell : TemplatedControl
         {
             _scrollViewer.ScrollChanged -= OnScrollChanged;
             _scrollViewer.PointerWheelChanged -= OnUserWheelScroll;
+            _scrollViewer.RemoveHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed);
         }
 
         _scrollingStateTimer.Stop();
+    _automationScrollSweepTimer.Stop();
         SetTranscriptScrollingState(false);
         UnsubscribeTranscriptPanel();
         _isPulseRunning = false;
@@ -579,6 +627,17 @@ public class StrataChatShell : TemplatedControl
         }
     }
 
+    private void OnTranscriptPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!IsScrollbarInteraction(e.Source))
+            return;
+
+        MarkTranscriptScrollingActive();
+        SuspendAutoScrollBriefly();
+        _userScrolledAway = true;
+        SetPanelBottomPinned(false);
+    }
+
     /// <summary>
     /// Propagates the bottom-pinned state to the virtualizing panel so it
     /// pins to extent bottom instead of applying scroll-anchor correction.
@@ -639,7 +698,10 @@ public class StrataChatShell : TemplatedControl
             if (itemsControl.ItemsPanelRoot is Panel itemsHostPanel)
             {
                 foreach (var child in itemsHostPanel.Children)
+                {
+                    ApplyScrollingRenderHint(child, isScrolling);
                     ApplyScrollingStateFlatScan(child, isScrolling);
+                }
                 return;
             }
             return;
@@ -653,6 +715,40 @@ public class StrataChatShell : TemplatedControl
         }
 
         ApplyScrollingStateRecursive(Transcript, isScrolling);
+    }
+
+    private static void ApplyScrollingRenderHint(Control container, bool isScrolling)
+    {
+        if (!container.IsVisible)
+        {
+            if (!isScrolling)
+            {
+                if (container.CacheMode is not null)
+                    container.CacheMode = null;
+                if (!container.IsHitTestVisible)
+                    container.IsHitTestVisible = true;
+            }
+            return;
+        }
+
+        if (isScrolling)
+        {
+            if (container.IsHitTestVisible)
+                container.IsHitTestVisible = false;
+
+            container.CacheMode ??= new BitmapCache
+            {
+                RenderAtScale = 1d,
+                SnapsToDevicePixels = true,
+                EnableClearType = true
+            };
+            return;
+        }
+
+        if (container.CacheMode is not null)
+            container.CacheMode = null;
+        if (!container.IsHitTestVisible)
+            container.IsHitTestVisible = true;
     }
 
     /// <summary>
@@ -764,5 +860,93 @@ public class StrataChatShell : TemplatedControl
     private static double DistanceFromBottom(ScrollViewer scrollViewer)
     {
         return scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y;
+    }
+
+    private void ApplyAutomationScrollFraction(double fraction)
+    {
+        if (_scrollViewer is null)
+            return;
+
+        var clamped = Math.Clamp(fraction, 0d, 1d);
+        var maxOffset = Math.Max(0d, _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height);
+        var targetOffset = maxOffset * clamped;
+
+        _isProgrammaticScroll = true;
+        try
+        {
+            _scrollViewer.Offset = new Vector(_scrollViewer.Offset.X, targetOffset);
+        }
+        finally
+        {
+            _isProgrammaticScroll = false;
+        }
+
+        var atBottom = clamped >= 0.999d || maxOffset <= 0d;
+        _userScrolledAway = !atBottom;
+        if (_userScrolledAway)
+            SuspendAutoScrollBriefly();
+        else
+            _suspendAutoScrollUntilUtc = default;
+
+        SetPanelBottomPinned(atBottom);
+    }
+
+    private void StartAutomationScrollSweep()
+    {
+        if (_scrollViewer is null)
+        {
+            AutomationScrollSweepState = "Unavailable";
+            return;
+        }
+
+        _automationScrollSweepTimer.Stop();
+        _automationScrollSweepStep = 0;
+        _automationScrollSweepTotalSteps = Math.Max(4, AutomationScrollSweepSteps);
+        AutomationScrollSweepState = $"Running 0/{_automationScrollSweepTotalSteps}";
+        _automationScrollSweepTimer.Start();
+    }
+
+    private void OnAutomationScrollSweepTick(object? sender, EventArgs e)
+    {
+        if (_scrollViewer is null)
+        {
+            _automationScrollSweepTimer.Stop();
+            AutomationScrollSweepState = "Unavailable";
+            return;
+        }
+
+        var half = _automationScrollSweepTotalSteps / 2;
+        double fraction;
+        if (_automationScrollSweepStep <= half)
+        {
+            var denominator = Math.Max(1, half);
+            fraction = 1d - (_automationScrollSweepStep / (double)denominator);
+        }
+        else
+        {
+            var denominator = Math.Max(1, _automationScrollSweepTotalSteps - half);
+            fraction = (_automationScrollSweepStep - half) / (double)denominator;
+        }
+
+        ApplyAutomationScrollFraction(fraction);
+        AutomationScrollSweepState = $"Running {_automationScrollSweepStep + 1}/{_automationScrollSweepTotalSteps}";
+        _automationScrollSweepStep++;
+
+        if (_automationScrollSweepStep > _automationScrollSweepTotalSteps)
+        {
+            _automationScrollSweepTimer.Stop();
+            AutomationScrollSweepState = "Completed";
+        }
+    }
+
+    private static bool IsScrollbarInteraction(object? source)
+    {
+        if (source is not Control control)
+            return false;
+
+        return control is ScrollBar or Thumb or Track or RepeatButton
+            || control.FindAncestorOfType<ScrollBar>() is not null
+            || control.FindAncestorOfType<Thumb>() is not null
+            || control.FindAncestorOfType<Track>() is not null;
     }
 }

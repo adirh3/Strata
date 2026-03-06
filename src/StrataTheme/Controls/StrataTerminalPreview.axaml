@@ -90,6 +90,7 @@
                 <!-- Terminal body -->
                 <Border Name="PART_TerminalBody"
                         ClipToBounds="True"
+                  IsVisible="False"
                         MaxHeight="0"
                         Opacity="0"
                         Padding="0"
@@ -146,6 +147,7 @@
 
         <!-- Expanded state: show terminal body -->
         <Style Selector="^:expanded /template/ Border#PART_TerminalBody">
+          <Setter Property="IsVisible" Value="True" />
           <Setter Property="MaxHeight" Value="680" />
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />

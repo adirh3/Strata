@@ -79,6 +79,7 @@
                 <!-- Content area — animated MaxHeight reveal -->
                 <Border Name="PART_ContentHost"
                         ClipToBounds="True"
+                  IsVisible="False"
                         MaxHeight="0"
                         Opacity="0"
                         RenderTransformOrigin="0.5,0"
@@ -114,6 +115,7 @@
           <Setter Property="BoxShadow" Value="0 4 16 0 #14000000" />
         </Style>
         <Style Selector="^[IsExpanded=True] /template/ Border#PART_ContentHost">
+          <Setter Property="IsVisible" Value="True" />
           <Setter Property="MaxHeight" Value="520" />
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />

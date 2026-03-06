@@ -670,37 +670,15 @@ public class StrataMarkdown : ContentControl
 
     private Control CreateBulletControl(string text, int indentLevel = 0)
     {
-        var row = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("Auto,8,*"),
-            Margin = indentLevel == 0 ? ZeroThickness : new Thickness(indentLevel * 16, 0, 0, 0)
-        };
-
-        var dot = new Border
-        {
-            Width = 5,
-            Height = 5,
-            Background = Brushes.Transparent,
-            CornerRadius = BulletDotCornerRadius,
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = BulletDotMargin
-        };
-        dot.Classes.Add("strata-md-bullet-dot");
-
-        var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
+        var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap, "• ");
         textBlock.Classes.Add("strata-md-bullet-text");
-
-        Grid.SetColumn(dot, 0);
-        Grid.SetColumn(textBlock, 2);
-        row.Children.Add(dot);
-        row.Children.Add(textBlock);
-
-        return row;
+        textBlock.Margin = indentLevel == 0 ? ZeroThickness : new Thickness(indentLevel * 16, 0, 0, 0);
+        return textBlock;
     }
 
     private static readonly Thickness RtlTextPadding = new(0, 0, 4, 0);
 
-    private SelectableTextBlock CreateRichText(string text, double fontSize, double lineHeight, TextWrapping wrapping)
+    private SelectableTextBlock CreateRichText(string text, double fontSize, double lineHeight, TextWrapping wrapping, string? prefix = null)
     {
         var isRtl = FlowDirection == FlowDirection.RightToLeft;
         var textBlock = new SelectableTextBlock
@@ -716,7 +694,7 @@ public class StrataMarkdown : ContentControl
             Margin = ZeroThickness
         };
 
-        var hadLinks = AppendFormattedInlines(textBlock, text);
+        var hadLinks = AppendFormattedInlines(textBlock, text, prefix);
 
         if (hadLinks)
         {
@@ -733,8 +711,14 @@ public class StrataMarkdown : ContentControl
     /// Inspired by FastAvaloniaMarkdown's zero-allocation inline parser.
     /// Returns true if any link inlines were added.
     /// </summary>
-    private bool AppendFormattedInlines(SelectableTextBlock target, string text)
+    private bool AppendFormattedInlines(SelectableTextBlock target, string text, string? prefix = null)
     {
+        if (!string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(text))
+        {
+            target.Text = prefix;
+            return false;
+        }
+
         if (string.IsNullOrEmpty(text))
             return false;
 
@@ -743,9 +727,12 @@ public class StrataMarkdown : ContentControl
         // Fast path: no special characters — set Text directly (no Inlines list)
         if (span.IndexOfAny('`', '*', '[') < 0)
         {
-            target.Text = text;
+            target.Text = string.IsNullOrEmpty(prefix) ? text : prefix + text;
             return false;
         }
+
+        if (!string.IsNullOrEmpty(prefix))
+            target.Inlines?.Add(new Run(prefix));
 
         int pos = 0;
         int textStart = 0;
@@ -2087,29 +2074,9 @@ public class StrataMarkdown : ContentControl
 
     private Control CreateNumberedItemControl(string text, int number)
     {
-        var row = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("Auto,6,*"),
-        };
-
-        var numBlock = new TextBlock
-        {
-            Text = $"{number}.",
-            FontSize = _bodyFontSize,
-            LineHeight = _bodyFontSize * 1.52,
-            VerticalAlignment = VerticalAlignment.Top
-        };
-        numBlock.Classes.Add("strata-md-number");
-
-        var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
+        var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap, $"{number}. ");
         textBlock.Classes.Add("strata-md-bullet-text");
-
-        Grid.SetColumn(numBlock, 0);
-        Grid.SetColumn(textBlock, 2);
-        row.Children.Add(numBlock);
-        row.Children.Add(textBlock);
-
-        return row;
+        return textBlock;
     }
 
     private static Control CreateHorizontalRuleControl()

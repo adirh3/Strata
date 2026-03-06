@@ -78,6 +78,7 @@
 
                   <Border Name="PART_Detail"
                           ClipToBounds="True"
+                      IsVisible="False"
                           MaxHeight="0"
                           Opacity="0"
                           Padding="10,0,10,8"
@@ -134,6 +135,7 @@
         </Setter>
 
         <Style Selector="^:expanded /template/ Border#PART_Detail">
+          <Setter Property="IsVisible" Value="True" />
           <Setter Property="MaxHeight" Value="600" />
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
