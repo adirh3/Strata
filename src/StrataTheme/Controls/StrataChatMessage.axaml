@@ -31,7 +31,7 @@
                            Foreground="{DynamicResource Brush.TextTertiary}" />
               </StackPanel>
 
-              <!-- Read mode: content + side action bar (Grid prevents layout jump) -->
+              <!-- Read mode: content + side action bar -->
               <Grid Name="PART_BubbleRow" ColumnDefinitions="Auto,*,Auto">
                 <Border Name="PART_Bubble"
                         Grid.Column="1"

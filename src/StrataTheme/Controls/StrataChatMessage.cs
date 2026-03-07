@@ -769,20 +769,11 @@ public class StrataChatMessage : TemplatedControl
         if (_actionLayer is null)
             return;
 
-        var shouldMount = !IsEditing
-            && !IsHostScrolling
-            && Role != StrataChatRole.System
-            && (IsPointerOver || IsFocused);
-
-        if (shouldMount)
-        {
-            if (_actionLayer.Child is null && _actionLayerChild is not null)
-                _actionLayer.Child = _actionLayerChild;
-            return;
-        }
-
-        if (_actionLayer.Child is not null)
-            _actionLayer.Child = null;
+        // Always keep the action bar child mounted so its Auto column width
+        // stays constant. Visibility is controlled purely by Opacity and
+        // IsHitTestVisible via XAML styles (:pointerover, :host-scrolling, etc.).
+        if (_actionLayer.Child is null && _actionLayerChild is not null)
+            _actionLayer.Child = _actionLayerChild;
     }
 
     private void UpdateEditAreaMount()
