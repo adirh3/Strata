@@ -216,6 +216,10 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<IEnumerable?> AvailableFilesProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableFiles));
 
+    /// <summary>Optional content displayed between the text input and the toolbar (e.g. coding project toolbar, status bar).</summary>
+    public static readonly StyledProperty<object?> StatusContentProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(StatusContent));
+
     /// <summary>Raised when the user sends a prompt (Enter key or send button click).</summary>
     public static readonly RoutedEvent<RoutedEventArgs> SendRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(SendRequested), RoutingStrategies.Bubble);
@@ -489,6 +493,7 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? AvailableProjects { get => GetValue(AvailableProjectsProperty); set => SetValue(AvailableProjectsProperty, value); }
     public IEnumerable? AvailableFiles { get => GetValue(AvailableFilesProperty); set => SetValue(AvailableFilesProperty, value); }
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
+    public object? StatusContent { get => GetValue(StatusContentProperty); set => SetValue(StatusContentProperty, value); }
 
     /// <summary>
     /// Raised when the # file autocomplete query changes. The consumer should

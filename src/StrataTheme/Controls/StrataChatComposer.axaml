@@ -142,6 +142,11 @@
                   </Popup>
                 </Panel>
 
+                <!-- Optional status content (e.g. coding toolbar) -->
+                <ContentPresenter Name="PART_StatusContent"
+                                  Content="{TemplateBinding StatusContent}"
+                                  Margin="10,2,10,0" />
+
                 <!-- Toolbar row -->
                 <Grid Margin="8,4,8,8" ColumnDefinitions="*,Auto">
 
