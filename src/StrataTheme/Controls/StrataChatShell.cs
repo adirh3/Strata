@@ -427,10 +427,10 @@ public class StrataChatShell : TemplatedControl
 
         var maxWidth = message.Role switch
         {
-            StrataChatRole.User => 600d,
-            StrataChatRole.Assistant => 600d,
-            StrataChatRole.System => 700d,
-            StrataChatRole.Tool => 700d,
+            StrataChatRole.User => 560d,
+            StrataChatRole.Assistant => 760d,
+            StrataChatRole.System => 760d,
+            StrataChatRole.Tool => 760d,
             _ => double.PositiveInfinity
         };
 
@@ -859,7 +859,7 @@ public class StrataChatShell : TemplatedControl
 
     private static double DistanceFromBottom(ScrollViewer scrollViewer)
     {
-        return scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y;
+        return Math.Max(0d, scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y);
     }
 
     private void ApplyAutomationScrollFraction(double fraction)

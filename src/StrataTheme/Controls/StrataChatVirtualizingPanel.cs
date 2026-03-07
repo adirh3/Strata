@@ -13,6 +13,31 @@ namespace StrataTheme.Controls;
 
 public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
 {
+    public readonly record struct StrataChatVirtualizingPanelDiagnosticsSnapshot(
+        long MeasureCount,
+        long CreateContainerCount,
+        long RecycledContainerHitCount,
+        long PrepareContainerCount,
+        long ClearContainerCount,
+        long PooledRecycleCount,
+        long OwnContainerAttachCount,
+        long OwnContainerDetachCount,
+        long InvalidateMeasureQueuedCount)
+    {
+        public static StrataChatVirtualizingPanelDiagnosticsSnapshot operator -(
+            StrataChatVirtualizingPanelDiagnosticsSnapshot after,
+            StrataChatVirtualizingPanelDiagnosticsSnapshot before) => new(
+                after.MeasureCount - before.MeasureCount,
+                after.CreateContainerCount - before.CreateContainerCount,
+                after.RecycledContainerHitCount - before.RecycledContainerHitCount,
+                after.PrepareContainerCount - before.PrepareContainerCount,
+                after.ClearContainerCount - before.ClearContainerCount,
+                after.PooledRecycleCount - before.PooledRecycleCount,
+                after.OwnContainerAttachCount - before.OwnContainerAttachCount,
+                after.OwnContainerDetachCount - before.OwnContainerDetachCount,
+                after.InvalidateMeasureQueuedCount - before.InvalidateMeasureQueuedCount);
+    }
+
     public static readonly StyledProperty<double> SpacingProperty =
         AvaloniaProperty.Register<StrataChatVirtualizingPanel, double>(nameof(Spacing), 0d);
 
@@ -34,6 +59,16 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
     private const int MaxRecyclePoolPerKey = 32;
     private const int MaxSizeCacheEntries = 20000;
     private const double OwnContainerWarmBufferFactor = 3d;
+
+    private static long _diagnosticMeasureCount;
+    private static long _diagnosticCreateContainerCount;
+    private static long _diagnosticRecycledContainerHitCount;
+    private static long _diagnosticPrepareContainerCount;
+    private static long _diagnosticClearContainerCount;
+    private static long _diagnosticPooledRecycleCount;
+    private static long _diagnosticOwnContainerAttachCount;
+    private static long _diagnosticOwnContainerDetachCount;
+    private static long _diagnosticInvalidateMeasureQueuedCount;
 
     private readonly Dictionary<object, Stack<Control>> _recyclePool = new();
     private readonly Dictionary<object, SizeCacheEntry> _sizeCache = new();
@@ -99,6 +134,17 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
     public int LastRealizedIndex => _realizedElements?.LastIndex ?? -1;
     public int RealizedElementCount => _realizedElements?.Count ?? 0;
     public int AttachedElementCount => Children.Count;
+
+    public static StrataChatVirtualizingPanelDiagnosticsSnapshot CaptureDiagnostics() => new(
+        System.Threading.Interlocked.Read(ref _diagnosticMeasureCount),
+        System.Threading.Interlocked.Read(ref _diagnosticCreateContainerCount),
+        System.Threading.Interlocked.Read(ref _diagnosticRecycledContainerHitCount),
+        System.Threading.Interlocked.Read(ref _diagnosticPrepareContainerCount),
+        System.Threading.Interlocked.Read(ref _diagnosticClearContainerCount),
+        System.Threading.Interlocked.Read(ref _diagnosticPooledRecycleCount),
+        System.Threading.Interlocked.Read(ref _diagnosticOwnContainerAttachCount),
+        System.Threading.Interlocked.Read(ref _diagnosticOwnContainerDetachCount),
+        System.Threading.Interlocked.Read(ref _diagnosticInvalidateMeasureQueuedCount));
 
     public void ScrollToIndex(int index, ScrollToAlignment alignment = ScrollToAlignment.Start)
     {
@@ -312,6 +358,8 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
 
     protected override Size MeasureOverride(Size availableSize)
     {
+        System.Threading.Interlocked.Increment(ref _diagnosticMeasureCount);
+
         var items = Items;
         if (items.Count == 0)
             return default;
@@ -418,6 +466,7 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
             return;
 
         _viewportMeasureQueued = true;
+        System.Threading.Interlocked.Increment(ref _diagnosticInvalidateMeasureQueuedCount);
         Dispatcher.UIThread.Post(() =>
         {
             _viewportMeasureQueued = false;
@@ -687,7 +736,7 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
         if (!_bottomPinDirty)
             return;
 
-        var maxOffset = Math.Max(0, GetEstimatedTotalHeight(Items.Count) - viewportHeight);
+        var maxOffset = GetMaxScrollOffset(viewportHeight);
         if (Math.Abs(_scrollViewer.Offset.Y - maxOffset) > ScrollTolerance)
         {
             _scrollViewer.Offset = new Vector(_scrollViewer.Offset.X, maxOffset);
@@ -695,6 +744,14 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
         }
 
         _bottomPinDirty = false;
+    }
+
+    private double GetMaxScrollOffset(double viewportHeight)
+    {
+        if (_scrollViewer is { Extent.Height: > 0, Viewport.Height: > 0 })
+            return Math.Max(0d, _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height);
+
+        return Math.Max(0d, GetEstimatedTotalHeight(Items.Count) - viewportHeight);
     }
 
     private Control GetOrCreateElement(IReadOnlyList<object?> items, int index)
@@ -720,6 +777,8 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
 
         if (!controlItem.IsSet(RecycleKeyProperty))
         {
+            System.Threading.Interlocked.Increment(ref _diagnosticPrepareContainerCount);
+            System.Threading.Interlocked.Increment(ref _diagnosticOwnContainerAttachCount);
             generator.PrepareItemContainer(controlItem, controlItem, index);
             AddInternalChild(controlItem);
             controlItem.SetValue(RecycleKeyProperty, ItemIsOwnContainer);
@@ -727,6 +786,7 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
         }
         else if (!ReferenceEquals(controlItem.GetVisualParent(), this))
         {
+            System.Threading.Interlocked.Increment(ref _diagnosticOwnContainerAttachCount);
             AddInternalChild(controlItem);
         }
 
@@ -742,6 +802,8 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
         if (_recyclePool.TryGetValue(recycleKey, out var pool) && pool.Count > 0)
         {
             var recycled = pool.Pop();
+            System.Threading.Interlocked.Increment(ref _diagnosticRecycledContainerHitCount);
+            System.Threading.Interlocked.Increment(ref _diagnosticPrepareContainerCount);
             recycled.SetCurrentValue(Visual.IsVisibleProperty, true);
             ItemContainerGenerator!.PrepareItemContainer(recycled, item, index);
             AddInternalChild(recycled);
@@ -754,6 +816,8 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
 
     private Control CreateElement(object? item, int index, object? recycleKey)
     {
+        System.Threading.Interlocked.Increment(ref _diagnosticCreateContainerCount);
+        System.Threading.Interlocked.Increment(ref _diagnosticPrepareContainerCount);
         var container = ItemContainerGenerator!.CreateContainer(item, index, recycleKey);
         container.SetValue(RecycleKeyProperty, recycleKey);
         ItemContainerGenerator.PrepareItemContainer(container, item, index);
@@ -769,6 +833,7 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
         var recycleKey = element.GetValue(RecycleKeyProperty);
         if (recycleKey is null)
         {
+            System.Threading.Interlocked.Increment(ref _diagnosticClearContainerCount);
             ItemContainerGenerator?.ClearItemContainer(element);
             RemoveInternalChild(element);
             return;
@@ -778,10 +843,15 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
         {
             element.SetCurrentValue(Visual.IsVisibleProperty, false);
             if (!ShouldKeepOwnContainerAttached(index))
+            {
+                System.Threading.Interlocked.Increment(ref _diagnosticOwnContainerDetachCount);
                 RemoveInternalChild(element);
+            }
             return;
         }
 
+        System.Threading.Interlocked.Increment(ref _diagnosticClearContainerCount);
+        System.Threading.Interlocked.Increment(ref _diagnosticPooledRecycleCount);
         ItemContainerGenerator?.ClearItemContainer(element);
         PushToRecyclePool(recycleKey, element);
         element.SetCurrentValue(Visual.IsVisibleProperty, false);
@@ -795,6 +865,7 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
         var recycleKey = element.GetValue(RecycleKeyProperty);
         if (recycleKey is null)
         {
+            System.Threading.Interlocked.Increment(ref _diagnosticClearContainerCount);
             ItemContainerGenerator?.ClearItemContainer(element);
             RemoveInternalChild(element);
             return;
@@ -802,10 +873,13 @@ public sealed class StrataChatVirtualizingPanel : VirtualizingPanel
 
         if (Equals(recycleKey, ItemIsOwnContainer))
         {
+            System.Threading.Interlocked.Increment(ref _diagnosticOwnContainerDetachCount);
             RemoveInternalChild(element);
             return;
         }
 
+        System.Threading.Interlocked.Increment(ref _diagnosticClearContainerCount);
+        System.Threading.Interlocked.Increment(ref _diagnosticPooledRecycleCount);
         ItemContainerGenerator?.ClearItemContainer(element);
         PushToRecyclePool(recycleKey, element);
         element.SetCurrentValue(Visual.IsVisibleProperty, false);

@@ -70,7 +70,7 @@
                       <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
                     </Transitions>
                   </Border.Transitions>
-                  <ContentPresenter Content="{TemplateBinding Content}" />
+                  <ContentPresenter Content="{TemplateBinding DisplayedContent}" />
                 </Border>
               </Border>
 

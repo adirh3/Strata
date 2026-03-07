@@ -97,7 +97,7 @@
                                   VerticalScrollBarVisibility="Auto"
                                   MaxHeight="480">
                       <Border Padding="0,0,2,0">
-                        <ContentPresenter Content="{TemplateBinding Content}"
+                        <ContentPresenter Content="{TemplateBinding DisplayedContent}"
                                           HorizontalAlignment="Left" />
                       </Border>
                     </ScrollViewer>

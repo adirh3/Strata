@@ -31,12 +31,16 @@ namespace StrataTheme.Controls;
 public class StrataTurnSummary : TemplatedControl
 {
     private Border? _header;
+    private object? _displayedContent;
 
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<StrataTurnSummary, string>(nameof(Label), "Finished");
 
     public static readonly StyledProperty<object?> ContentProperty =
         AvaloniaProperty.Register<StrataTurnSummary, object?>(nameof(Content));
+
+    public static readonly DirectProperty<StrataTurnSummary, object?> DisplayedContentProperty =
+        AvaloniaProperty.RegisterDirect<StrataTurnSummary, object?>(nameof(DisplayedContent), control => control.DisplayedContent);
 
     public static readonly StyledProperty<bool> IsExpandedProperty =
         AvaloniaProperty.Register<StrataTurnSummary, bool>(nameof(IsExpanded));
@@ -46,12 +50,22 @@ public class StrataTurnSummary : TemplatedControl
 
     static StrataTurnSummary()
     {
-        IsExpandedProperty.Changed.AddClassHandler<StrataTurnSummary>((c, _) => c.UpdatePseudoClasses());
+        IsExpandedProperty.Changed.AddClassHandler<StrataTurnSummary>((c, _) =>
+        {
+            c.UpdateDisplayedContent();
+            c.UpdatePseudoClasses();
+        });
         HasFailuresProperty.Changed.AddClassHandler<StrataTurnSummary>((c, _) => c.UpdatePseudoClasses());
+        ContentProperty.Changed.AddClassHandler<StrataTurnSummary>((c, _) => c.UpdateDisplayedContent());
     }
 
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public object? Content { get => GetValue(ContentProperty); set => SetValue(ContentProperty, value); }
+    public object? DisplayedContent
+    {
+        get => _displayedContent;
+        private set => SetAndRaise(DisplayedContentProperty, ref _displayedContent, value);
+    }
     public bool IsExpanded { get => GetValue(IsExpandedProperty); set => SetValue(IsExpandedProperty, value); }
     public bool HasFailures { get => GetValue(HasFailuresProperty); set => SetValue(HasFailuresProperty, value); }
 
@@ -66,6 +80,7 @@ public class StrataTurnSummary : TemplatedControl
         if (_header is not null)
             _header.PointerPressed += OnHeaderPointerPressed;
 
+        UpdateDisplayedContent();
         UpdatePseudoClasses();
     }
 
@@ -92,5 +107,10 @@ public class StrataTurnSummary : TemplatedControl
     {
         PseudoClasses.Set(":expanded", IsExpanded);
         PseudoClasses.Set(":has-failures", HasFailures);
+    }
+
+    private void UpdateDisplayedContent()
+    {
+        DisplayedContent = IsExpanded ? Content : null;
     }
 }

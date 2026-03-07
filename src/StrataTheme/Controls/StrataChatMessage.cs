@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -65,6 +64,8 @@ public class StrataChatMessage : TemplatedControl
 {
     private Border? _streamBar;
     private Border? _bubble;
+    private Border? _actionLayer;
+    private Border? _editArea;
     private Border? _editSeparator;
     private Border? _retrySeparator;
     private TextBox? _editBox;
@@ -72,6 +73,8 @@ public class StrataChatMessage : TemplatedControl
     private Button? _editButton;
     private Button? _retryButton;
     private ContextMenu? _contextMenu;
+    private Control? _actionLayerChild;
+    private Control? _editAreaChild;
     private readonly HashSet<TextBlock> _observedTextBlocks = new();
     private readonly HashSet<StrataMarkdown> _observedMarkdownControls = new();
     private bool _originalContentWasMarkdown;
@@ -228,8 +231,12 @@ public class StrataChatMessage : TemplatedControl
         base.OnApplyTemplate(e);
         _streamBar = e.NameScope.Find<Border>("PART_StreamBar");
         _bubble = e.NameScope.Find<Border>("PART_Bubble");
+        _actionLayer = e.NameScope.Find<Border>("PART_ActionLayer");
+        _editArea = e.NameScope.Find<Border>("PART_EditArea");
         _editBox = e.NameScope.Find<TextBox>("PART_EditBox");
         _editHint = e.NameScope.Find<TextBlock>("PART_EditHint");
+        _actionLayerChild = _actionLayer?.Child;
+        _editAreaChild = _editArea?.Child;
 
         var copyBtn = e.NameScope.Find<Button>("PART_CopyButton");
         var regenBtn = e.NameScope.Find<Button>("PART_RegenerateButton");
@@ -271,6 +278,8 @@ public class StrataChatMessage : TemplatedControl
         UpdateAllPseudoClasses();
         OnContentChanged();
         UpdateActionBarLayout(force: true);
+        UpdateActionChromeMount();
+        UpdateEditAreaMount();
         if (IsStreaming)
             Dispatcher.UIThread.Post(StartStreamPulse, DispatcherPriority.Loaded);
 
@@ -278,6 +287,14 @@ public class StrataChatMessage : TemplatedControl
         // yet when IsEditing fires during initialization).
         if (IsEditing)
             Dispatcher.UIThread.Post(SeedEditTextFromContent, DispatcherPriority.Loaded);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == IsPointerOverProperty || change.Property == IsFocusedProperty)
+            UpdateActionChromeMount();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -529,6 +546,7 @@ public class StrataChatMessage : TemplatedControl
         PseudoClasses.Set(":system", role == StrataChatRole.System);
         PseudoClasses.Set(":tool", role == StrataChatRole.Tool);
         UpdateActionBarLayout();
+        UpdateActionChromeMount();
         InvalidateContextMenu();
     }
 
@@ -536,12 +554,14 @@ public class StrataChatMessage : TemplatedControl
     {
         PseudoClasses.Set(":editable", IsEditable);
         UpdateActionBarLayout();
+        UpdateActionChromeMount();
         InvalidateContextMenu();
     }
 
     private void OnHostScrollingChanged()
     {
         PseudoClasses.Set(":host-scrolling", IsHostScrolling);
+        UpdateActionChromeMount();
         if (!IsHostScrolling)
         {
             UpdateActionBarLayout();
@@ -561,8 +581,10 @@ public class StrataChatMessage : TemplatedControl
 
     private void OnEditingChanged()
     {
+        UpdateEditAreaMount();
         PseudoClasses.Set(":editing", IsEditing);
         UpdateActionBarLayout();
+        UpdateActionChromeMount();
         InvalidateContextMenu();
 
         // Auto-seed EditText from Content when entering edit mode via property
@@ -740,6 +762,43 @@ public class StrataChatMessage : TemplatedControl
 
         if (_retrySeparator is not null)
             _retrySeparator.IsVisible = showRetry;
+    }
+
+    private void UpdateActionChromeMount()
+    {
+        if (_actionLayer is null)
+            return;
+
+        var shouldMount = !IsEditing
+            && !IsHostScrolling
+            && Role != StrataChatRole.System
+            && (IsPointerOver || IsFocused);
+
+        if (shouldMount)
+        {
+            if (_actionLayer.Child is null && _actionLayerChild is not null)
+                _actionLayer.Child = _actionLayerChild;
+            return;
+        }
+
+        if (_actionLayer.Child is not null)
+            _actionLayer.Child = null;
+    }
+
+    private void UpdateEditAreaMount()
+    {
+        if (_editArea is null)
+            return;
+
+        if (IsEditing)
+        {
+            if (_editArea.Child is null && _editAreaChild is not null)
+                _editArea.Child = _editAreaChild;
+            return;
+        }
+
+        if (_editArea.Child is not null)
+            _editArea.Child = null;
     }
 
     private void StartStreamPulse()

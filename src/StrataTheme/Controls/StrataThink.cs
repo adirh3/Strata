@@ -36,6 +36,7 @@ public class StrataThink : TemplatedControl
     private Transitions? _savedPillTransitions;
     private bool _initialWidthTransitionSuppressed;
     private bool _pulseRunning;
+    private object? _displayedContent;
 
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<StrataThink, string>(nameof(Label), "Thinking\u2026");
@@ -45,6 +46,9 @@ public class StrataThink : TemplatedControl
 
     public static readonly StyledProperty<object?> ContentProperty =
         AvaloniaProperty.Register<StrataThink, object?>(nameof(Content));
+
+    public static readonly DirectProperty<StrataThink, object?> DisplayedContentProperty =
+        AvaloniaProperty.RegisterDirect<StrataThink, object?>(nameof(DisplayedContent), control => control.DisplayedContent);
 
     /// <summary>
     /// Optional extra content rendered in the header row after the label/meta. Use for colored inline elements.
@@ -68,7 +72,12 @@ public class StrataThink : TemplatedControl
     static StrataThink()
     {
         IsActiveProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdatePseudoClasses());
-        IsExpandedProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.ApplyWidthForState());
+        IsExpandedProperty.Changed.AddClassHandler<StrataThink>((t, _) =>
+        {
+            t.UpdateDisplayedContent();
+            t.ApplyWidthForState();
+        });
+        ContentProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdateDisplayedContent());
         LabelProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.ApplyCollapsedWidth());
         MetaProperty.Changed.AddClassHandler<StrataThink>((t, _) =>
         {
@@ -81,6 +90,11 @@ public class StrataThink : TemplatedControl
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public string? Meta { get => GetValue(MetaProperty); set => SetValue(MetaProperty, value); }
     public object? Content { get => GetValue(ContentProperty); set => SetValue(ContentProperty, value); }
+    public object? DisplayedContent
+    {
+        get => _displayedContent;
+        private set => SetAndRaise(DisplayedContentProperty, ref _displayedContent, value);
+    }
     public object? HeaderExtra { get => GetValue(HeaderExtraProperty); set => SetValue(HeaderExtraProperty, value); }
     public double ProgressValue { get => GetValue(ProgressValueProperty); set => SetValue(ProgressValueProperty, value); }
     public bool IsExpanded { get => GetValue(IsExpandedProperty); set => SetValue(IsExpandedProperty, value); }
@@ -117,6 +131,7 @@ public class StrataThink : TemplatedControl
             ApplyWidthForState();
         }, DispatcherPriority.Loaded);
 
+        UpdateDisplayedContent();
         UpdatePseudoClasses();
     }
 
@@ -170,6 +185,11 @@ public class StrataThink : TemplatedControl
             _pulseRunning = false;
             StopPulse();
         }
+    }
+
+    private void UpdateDisplayedContent()
+    {
+        DisplayedContent = IsExpanded ? Content : null;
     }
 
     private void OnParentSizeChanged(object? sender, SizeChangedEventArgs e)

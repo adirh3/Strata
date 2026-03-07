@@ -19,6 +19,43 @@ using System.Threading.Tasks;
 
 namespace StrataTheme.Controls;
 
+public readonly record struct StrataMarkdownDiagnosticsSnapshot(
+    long InstanceCount,
+    long RebuildCount,
+    long FullParseCount,
+    long IncrementalParseCount,
+    long PlainTextFastPathCount,
+    long ParsedBlockCount,
+    long ControlCreateCount,
+    long TableRenderCount,
+    long TableReuseCount,
+    long TableRowCount,
+    long TableCellCount,
+    long TotalRebuildTicks)
+{
+    public double TotalRebuildMilliseconds => TotalRebuildTicks * 1000d / Stopwatch.Frequency;
+
+    public double AverageRebuildMilliseconds => RebuildCount == 0
+        ? 0
+        : TotalRebuildMilliseconds / RebuildCount;
+
+    public static StrataMarkdownDiagnosticsSnapshot operator -(
+        StrataMarkdownDiagnosticsSnapshot after,
+        StrataMarkdownDiagnosticsSnapshot before) => new(
+            after.InstanceCount - before.InstanceCount,
+            after.RebuildCount - before.RebuildCount,
+            after.FullParseCount - before.FullParseCount,
+            after.IncrementalParseCount - before.IncrementalParseCount,
+            after.PlainTextFastPathCount - before.PlainTextFastPathCount,
+            after.ParsedBlockCount - before.ParsedBlockCount,
+            after.ControlCreateCount - before.ControlCreateCount,
+            after.TableRenderCount - before.TableRenderCount,
+            after.TableReuseCount - before.TableReuseCount,
+            after.TableRowCount - before.TableRowCount,
+            after.TableCellCount - before.TableCellCount,
+            after.TotalRebuildTicks - before.TotalRebuildTicks);
+}
+
 /// <summary>
 /// Lightweight markdown renderer. Supports headings, bullet lists, paragraphs,
 /// inline links, and fenced code blocks with syntax highlighting (via TextMate).
@@ -69,8 +106,21 @@ public class StrataMarkdown : ContentControl
     private readonly Dictionary<string, Control> _sourcesCache = new();
     private readonly HashSet<string> _sourcesKeysUsed = new();
 
-    private readonly Dictionary<string, DataGrid> _tableCache = new();
+    private readonly Dictionary<string, MarkdownTableView> _tableCache = new();
     private readonly HashSet<string> _tableKeysUsed = new();
+
+    private static long _diagnosticInstanceCount;
+    private static long _diagnosticRebuildCount;
+    private static long _diagnosticFullParseCount;
+    private static long _diagnosticIncrementalParseCount;
+    private static long _diagnosticPlainTextFastPathCount;
+    private static long _diagnosticParsedBlockCount;
+    private static long _diagnosticControlCreateCount;
+    private static long _diagnosticTableRenderCount;
+    private static long _diagnosticTableReuseCount;
+    private static long _diagnosticTableRowCount;
+    private static long _diagnosticTableCellCount;
+    private static long _diagnosticTotalRebuildTicks;
 
     private Border? _blockPlaceholder;
 
@@ -92,6 +142,18 @@ public class StrataMarkdown : ContentControl
     // ── Reusable buffers to avoid per-rebuild allocations ──
     private readonly List<string> _evictBuffer = new();
     private readonly MarkdownParser _parser = new();
+    private static readonly Regex PlainTextMarkdownBlockPattern = new(
+        @"(^|\n)\s{0,3}(#{1,6}\s+|[-*+]\s+|\d+\.\s+|>\s+|```|~~~)",
+        RegexOptions.Compiled | RegexOptions.Multiline);
+    private static readonly Regex PlainTextMarkdownInlinePattern = new(
+        @"(\[[^\]\r\n]+\]\([^)\r\n]+\)|`[^`\r\n]+`|\*\*[^*\r\n]+\*\*|__[^_\r\n]+__)",
+        RegexOptions.Compiled);
+    private static readonly Regex PlainTextMarkdownTablePattern = new(
+        @"^\s*\|?.+\|.+\n\s*\|?\s*:?-{3,}",
+        RegexOptions.Compiled | RegexOptions.Multiline);
+    private static readonly Regex PlainTextMarkdownRulePattern = new(
+        @"(^|\n)\s{0,3}([-*_])(?:\s*\2){2,}\s*(\n|$)",
+        RegexOptions.Compiled | RegexOptions.Multiline);
 
     /// <summary>Markdown source text. The control re-renders whenever this changes.</summary>
     public static readonly StyledProperty<string?> MarkdownProperty =
@@ -132,6 +194,36 @@ public class StrataMarkdown : ContentControl
         FlowDirectionProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         EnableAppendTailParsingProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         StreamingRebuildThrottleMsProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
+    }
+
+    public static StrataMarkdownDiagnosticsSnapshot CaptureDiagnostics() => new(
+        System.Threading.Interlocked.Read(ref _diagnosticInstanceCount),
+        System.Threading.Interlocked.Read(ref _diagnosticRebuildCount),
+        System.Threading.Interlocked.Read(ref _diagnosticFullParseCount),
+        System.Threading.Interlocked.Read(ref _diagnosticIncrementalParseCount),
+        System.Threading.Interlocked.Read(ref _diagnosticPlainTextFastPathCount),
+        System.Threading.Interlocked.Read(ref _diagnosticParsedBlockCount),
+        System.Threading.Interlocked.Read(ref _diagnosticControlCreateCount),
+        System.Threading.Interlocked.Read(ref _diagnosticTableRenderCount),
+        System.Threading.Interlocked.Read(ref _diagnosticTableReuseCount),
+        System.Threading.Interlocked.Read(ref _diagnosticTableRowCount),
+        System.Threading.Interlocked.Read(ref _diagnosticTableCellCount),
+        System.Threading.Interlocked.Read(ref _diagnosticTotalRebuildTicks));
+
+    public static void ResetDiagnostics()
+    {
+        System.Threading.Interlocked.Exchange(ref _diagnosticInstanceCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticRebuildCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticFullParseCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticIncrementalParseCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticPlainTextFastPathCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticParsedBlockCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticControlCreateCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticTableRenderCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticTableReuseCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticTableRowCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticTableCellCount, 0);
+        System.Threading.Interlocked.Exchange(ref _diagnosticTotalRebuildTicks, 0);
     }
 
     /// <summary>
@@ -234,6 +326,8 @@ public class StrataMarkdown : ContentControl
 
     public StrataMarkdown()
     {
+        System.Threading.Interlocked.Increment(ref _diagnosticInstanceCount);
+
         _title = new TextBlock();
         _title.Classes.Add("strata-md-title");
 
@@ -332,65 +426,115 @@ public class StrataMarkdown : ContentControl
 
     private void Rebuild()
     {
-        _bodyFontSize = GetBodyFontSize();
-        _chartKeysUsed.Clear();
-        _diagramKeysUsed.Clear();
-        _confidenceKeysUsed.Clear();
-        _comparisonKeysUsed.Clear();
-        _cardKeysUsed.Clear();
-        _sourcesKeysUsed.Clear();
-        _tableKeysUsed.Clear();
+        var rebuildStart = Stopwatch.GetTimestamp();
 
-        var source = Markdown;
-        if (string.IsNullOrWhiteSpace(source))
+        try
         {
-            _contentHost.Children.Clear();
-            _linkRuns.Clear();
-            _previousBlocks.Clear();
-            _previousMarkdownNormalized = null;
-            _previousMarkdownLength = 0;
+            _bodyFontSize = GetBodyFontSize();
+            _chartKeysUsed.Clear();
+            _diagramKeysUsed.Clear();
+            _confidenceKeysUsed.Clear();
+            _comparisonKeysUsed.Clear();
+            _cardKeysUsed.Clear();
+            _sourcesKeysUsed.Clear();
+            _tableKeysUsed.Clear();
+
+            var source = Markdown;
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                _contentHost.Children.Clear();
+                _linkRuns.Clear();
+                _previousBlocks.Clear();
+                _previousMarkdownNormalized = null;
+                _previousMarkdownLength = 0;
+                EvictStaleCaches();
+                return;
+            }
+
+            var normalized = NormalizeLineEndings(source);
+
+            // Fast path: identical content — skip everything
+            if (normalized.Length == _previousMarkdownLength &&
+                string.Equals(normalized, _previousMarkdownNormalized, StringComparison.Ordinal))
+            {
+                // Re-mark all cache keys as used so eviction doesn't clear them
+                foreach (var block in _previousBlocks)
+                    TrackCacheKeysForBlock(block);
+                EvictStaleCaches();
+                return;
+            }
+
+            if (!RequiresMarkdownRendering(normalized))
+            {
+                System.Threading.Interlocked.Increment(ref _diagnosticPlainTextFastPathCount);
+                RebuildPlainText(normalized);
+                return;
+            }
+
+            // Streaming fast path: new text appends to old text.
+            var isStreamingAppend = _previousMarkdownNormalized is not null &&
+                                    normalized.Length > _previousMarkdownLength &&
+                                    normalized.AsSpan().StartsWith(_previousMarkdownNormalized.AsSpan());
+
+            // Use the list NOT currently holding previous blocks to avoid allocation
+            var newBlocks = ReferenceEquals(_previousBlocks, _blockListA) ? _blockListB : _blockListA;
+            if (isStreamingAppend && EnableAppendTailParsing &&
+                _previousMarkdownNormalized is not null && _previousBlocks.Count > 0)
+            {
+                ParseBlocksIncrementalAppendPooled(_previousMarkdownNormalized, _previousBlocks, normalized, newBlocks);
+                System.Threading.Interlocked.Increment(ref _diagnosticIncrementalParseCount);
+            }
+            else
+            {
+                ParseBlocksPooled(normalized, newBlocks);
+                System.Threading.Interlocked.Increment(ref _diagnosticFullParseCount);
+            }
+
+            System.Threading.Interlocked.Add(ref _diagnosticParsedBlockCount, newBlocks.Count);
+
+            // ── Incremental diff: only touch changed blocks ──
+            ApplyBlocksDiff(newBlocks, isStreamingAppend);
+
+            _previousBlocks = newBlocks;
+            _previousMarkdownNormalized = normalized;
+            _previousMarkdownLength = normalized.Length;
+
             EvictStaleCaches();
-            return;
         }
-
-        var normalized = NormalizeLineEndings(source);
-
-        // Fast path: identical content — skip everything
-        if (normalized.Length == _previousMarkdownLength &&
-            string.Equals(normalized, _previousMarkdownNormalized, StringComparison.Ordinal))
+        finally
         {
-            // Re-mark all cache keys as used so eviction doesn't clear them
-            foreach (var block in _previousBlocks)
-                TrackCacheKeysForBlock(block);
-            EvictStaleCaches();
-            return;
+            System.Threading.Interlocked.Increment(ref _diagnosticRebuildCount);
+            System.Threading.Interlocked.Add(ref _diagnosticTotalRebuildTicks, Stopwatch.GetTimestamp() - rebuildStart);
         }
+    }
 
-        // Streaming fast path: new text appends to old text.
-        var isStreamingAppend = _previousMarkdownNormalized is not null &&
-                                normalized.Length > _previousMarkdownLength &&
-                                normalized.AsSpan().StartsWith(_previousMarkdownNormalized.AsSpan());
+    private void RebuildPlainText(string normalized)
+    {
+        _contentHost.Children.Clear();
+        _linkRuns.Clear();
 
-        // Use the list NOT currently holding previous blocks to avoid allocation
-        var newBlocks = ReferenceEquals(_previousBlocks, _blockListA) ? _blockListB : _blockListA;
-        if (isStreamingAppend && EnableAppendTailParsing &&
-            _previousMarkdownNormalized is not null && _previousBlocks.Count > 0)
-        {
-            ParseBlocksIncrementalAppendPooled(_previousMarkdownNormalized, _previousBlocks, normalized, newBlocks);
-        }
-        else
-        {
-            ParseBlocksPooled(normalized, newBlocks);
-        }
+        var textBlock = CreateRichText(normalized, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
+        textBlock.Classes.Add("strata-md-paragraph");
+        _contentHost.Children.Add(textBlock);
 
-        // ── Incremental diff: only touch changed blocks ──
-        ApplyBlocksDiff(newBlocks, isStreamingAppend);
-
-        _previousBlocks = newBlocks;
+        _previousBlocks.Clear();
         _previousMarkdownNormalized = normalized;
         _previousMarkdownLength = normalized.Length;
-
         EvictStaleCaches();
+    }
+
+    private static bool RequiresMarkdownRendering(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        if (text.IndexOfAny(['`', '#', '*', '_', '[', '|', '>', '~']) < 0)
+            return false;
+
+        return PlainTextMarkdownBlockPattern.IsMatch(text)
+            || PlainTextMarkdownInlinePattern.IsMatch(text)
+            || PlainTextMarkdownTablePattern.IsMatch(text)
+            || PlainTextMarkdownRulePattern.IsMatch(text);
     }
 
     /// <summary>
@@ -602,23 +746,28 @@ public class StrataMarkdown : ContentControl
     }
 
     /// <summary>Creates a UI control for a parsed block descriptor.</summary>
-    private Control CreateControlForBlock(MdBlock block) => block.Kind switch
+    private Control CreateControlForBlock(MdBlock block)
     {
-        MdBlockKind.Paragraph => CreateParagraphControl(block.Content),
-        MdBlockKind.Heading => CreateHeadingControl(block.Content, block.Level),
-        MdBlockKind.Bullet => CreateBulletControl(block.Content, block.Level),
-        MdBlockKind.NumberedItem => CreateNumberedItemControl(block.Content, block.Level),
-        MdBlockKind.CodeBlock => CreateCodeBlockControl(block.Content, block.Language),
-        MdBlockKind.HorizontalRule => CreateHorizontalRuleControl(),
-        MdBlockKind.Table => CreateTableControl(block.Content),
-        MdBlockKind.Chart => CreateChartControl(block.Content),
-        MdBlockKind.Mermaid => CreateMermaidControl(block.Content),
-        MdBlockKind.Confidence => CreateConfidenceControl(block.Content),
-        MdBlockKind.Comparison => CreateComparisonControl(block.Content),
-        MdBlockKind.Card => CreateCardControl(block.Content),
-        MdBlockKind.Sources => CreateSourcesControl(block.Content),
-        _ => new Border(),
-    };
+        System.Threading.Interlocked.Increment(ref _diagnosticControlCreateCount);
+
+        return block.Kind switch
+        {
+            MdBlockKind.Paragraph => CreateParagraphControl(block.Content),
+            MdBlockKind.Heading => CreateHeadingControl(block.Content, block.Level),
+            MdBlockKind.Bullet => CreateBulletControl(block.Content, block.Level),
+            MdBlockKind.NumberedItem => CreateNumberedItemControl(block.Content, block.Level),
+            MdBlockKind.CodeBlock => CreateCodeBlockControl(block.Content, block.Language),
+            MdBlockKind.HorizontalRule => CreateHorizontalRuleControl(),
+            MdBlockKind.Table => CreateTableControl(block.Content),
+            MdBlockKind.Chart => CreateChartControl(block.Content),
+            MdBlockKind.Mermaid => CreateMermaidControl(block.Content),
+            MdBlockKind.Confidence => CreateConfidenceControl(block.Content),
+            MdBlockKind.Comparison => CreateComparisonControl(block.Content),
+            MdBlockKind.Card => CreateCardControl(block.Content),
+            MdBlockKind.Sources => CreateSourcesControl(block.Content),
+            _ => new Border(),
+        };
+    }
 
     private void EvictStaleCaches()
     {
@@ -2141,53 +2290,156 @@ public class StrataMarkdown : ContentControl
         if (_tableCache.TryGetValue(cacheKey, out var cached))
         {
             DetachFromForeignParent(cached);
-            var items = MarkdownParser.RowsToListOfLists(rows);
-            cached.ItemsSource = items;
-            var h = 40 + (rows.Count * 36) + 4;
-            cached.Height = Math.Min(Math.Max(h, 40), 400);
+            cached.Update(this, headers, rows);
+            TrackTableDiagnostics(headers.Length, rows.Count, reused: true);
             return cached;
         }
 
-        return CreateDataGridForTable(headers, rows, cacheKey);
+        return CreateTableView(headers, rows, cacheKey);
     }
 
-    private Control CreateDataGridForTable(string[] headers, List<string[]> rows, string cacheKey)
+    private Control CreateTableView(string[] headers, List<string[]> rows, string cacheKey)
     {
-        var dataGrid = new DataGrid
-        {
-            AutoGenerateColumns = false,
-            IsReadOnly = true,
-            CanUserReorderColumns = false,
-            CanUserResizeColumns = true,
-            CanUserSortColumns = true,
-            HeadersVisibility = DataGridHeadersVisibility.Column,
-            SelectionMode = DataGridSelectionMode.Single,
-            MaxHeight = 400,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-        };
+        var tableView = new MarkdownTableView();
+        tableView.Update(this, headers, rows);
+        _tableCache[cacheKey] = tableView;
+        TrackTableDiagnostics(headers.Length, rows.Count, reused: false);
+        return tableView;
+    }
 
-        for (var i = 0; i < headers.Length; i++)
+    private static void TrackTableDiagnostics(int columnCount, int rowCount, bool reused)
+    {
+        System.Threading.Interlocked.Increment(ref _diagnosticTableRenderCount);
+        if (reused)
+            System.Threading.Interlocked.Increment(ref _diagnosticTableReuseCount);
+
+        System.Threading.Interlocked.Add(ref _diagnosticTableRowCount, rowCount);
+        System.Threading.Interlocked.Add(ref _diagnosticTableCellCount, Math.Max(0, (rowCount + 1) * columnCount));
+    }
+
+    private sealed class MarkdownTableView : Border
+    {
+        private readonly Grid _grid;
+        private readonly ScrollViewer _scrollViewer;
+
+        public MarkdownTableView()
         {
-            var colIndex = i;
-            dataGrid.Columns.Add(new DataGridTemplateColumn
+            _grid = new Grid
             {
-                Header = CreateRichText(headers[i], _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.NoWrap),
-                Width = new DataGridLength(1, DataGridLengthUnitType.Star),
-                CellTemplate = new FuncDataTemplate<List<string>>((row, _) =>
-                {
-                    var cellText = row is not null && colIndex < row.Count ? row[colIndex] : string.Empty;
-                    return CreateRichText(cellText, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
-                })
-            });
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+
+            _scrollViewer = new ScrollViewer
+            {
+                Content = _grid,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                MaxHeight = 400,
+            };
+            _scrollViewer.Classes.Add("strata-md-table-scroll");
+
+            Child = _scrollViewer;
+            HorizontalAlignment = HorizontalAlignment.Stretch;
+            MaxHeight = 400;
+            Margin = new Thickness(0, 4, 0, 4);
+            Classes.Add("strata-md-table");
         }
 
-        var items = MarkdownParser.RowsToListOfLists(rows);
-        dataGrid.ItemsSource = items;
+        public void Update(StrataMarkdown owner, string[] headers, List<string[]> rows)
+        {
+            _grid.Children.Clear();
+            _grid.RowDefinitions.Clear();
+            _grid.ColumnDefinitions.Clear();
 
-        var estimatedHeight = 40 + (rows.Count * 36) + 4;
-        dataGrid.Height = Math.Min(Math.Max(estimatedHeight, 40), 400);
+            if (headers.Length == 0)
+                return;
 
-        _tableCache[cacheKey] = dataGrid;
-        return dataGrid;
+            for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
+                _grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
+
+            _grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            for (var headerIndex = 0; headerIndex < headers.Length; headerIndex++)
+            {
+                var headerCell = CreateCell(
+                    owner,
+                    headers[headerIndex],
+                    isHeader: true,
+                    TextWrapping.NoWrap,
+                    borderThickness: GetCellBorderThickness(headers.Length, rows.Count, headerIndex, rowIndex: -1),
+                    cornerRadius: GetCellCornerRadius(headers.Length, rows.Count, headerIndex, rowIndex: -1));
+                Grid.SetRow(headerCell, 0);
+                Grid.SetColumn(headerCell, headerIndex);
+                _grid.Children.Add(headerCell);
+            }
+
+            for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+            {
+                _grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+                var row = rows[rowIndex];
+
+                for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
+                {
+                    var cellText = columnIndex < row.Length ? row[columnIndex] : string.Empty;
+                    var cell = CreateCell(
+                        owner,
+                        cellText,
+                        isHeader: false,
+                        TextWrapping.Wrap,
+                        borderThickness: GetCellBorderThickness(headers.Length, rows.Count, columnIndex, rowIndex),
+                        cornerRadius: GetCellCornerRadius(headers.Length, rows.Count, columnIndex, rowIndex));
+                    Grid.SetRow(cell, rowIndex + 1);
+                    Grid.SetColumn(cell, columnIndex);
+                    _grid.Children.Add(cell);
+                }
+            }
+        }
+
+        private static Border CreateCell(
+            StrataMarkdown owner,
+            string text,
+            bool isHeader,
+            TextWrapping wrapping,
+            Thickness borderThickness,
+            CornerRadius cornerRadius)
+        {
+            var content = owner.CreateRichText(text, owner._bodyFontSize, owner._bodyFontSize * 1.52, wrapping);
+            if (isHeader)
+                content.FontWeight = FontWeight.SemiBold;
+
+            var border = new Border
+            {
+                Child = content,
+                BorderThickness = borderThickness,
+                CornerRadius = cornerRadius,
+                ClipToBounds = cornerRadius != default,
+            };
+            border.Classes.Add(isHeader ? "strata-md-table-header-cell" : "strata-md-table-cell");
+            return border;
+        }
+
+        private static Thickness GetCellBorderThickness(int columnCount, int rowCount, int columnIndex, int rowIndex)
+        {
+            var isLastColumn = columnIndex >= columnCount - 1;
+            var isHeader = rowIndex < 0;
+            var isLastRow = !isHeader && rowIndex >= rowCount - 1;
+
+            return new Thickness(0, 0, isLastColumn ? 0 : 1, isLastRow ? 0 : 1);
+        }
+
+        private static CornerRadius GetCellCornerRadius(int columnCount, int rowCount, int columnIndex, int rowIndex)
+        {
+            var isFirstColumn = columnIndex == 0;
+            var isLastColumn = columnIndex == columnCount - 1;
+            var isHeader = rowIndex < 0;
+            var isLastDataRow = rowIndex == rowCount - 1;
+            var noDataRows = rowCount == 0;
+
+            var topLeft = isHeader && isFirstColumn ? 7d : 0d;
+            var topRight = isHeader && isLastColumn ? 7d : 0d;
+            var bottomLeft = (noDataRows && isHeader && isFirstColumn) || (!isHeader && isLastDataRow && isFirstColumn) ? 7d : 0d;
+            var bottomRight = (noDataRows && isHeader && isLastColumn) || (!isHeader && isLastDataRow && isLastColumn) ? 7d : 0d;
+            return new CornerRadius(topLeft, topRight, bottomRight, bottomLeft);
+        }
     }
 }
