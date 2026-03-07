@@ -151,6 +151,20 @@
               </Button>
             </Grid>
 
+            <!-- Multi-select confirm button -->
+            <Button Name="PART_MultiSubmit"
+                    Margin="16,4,16,14"
+                    Padding="12,7"
+                    FontSize="12.5"
+                    FontWeight="SemiBold"
+                    CornerRadius="8"
+                    Background="{DynamicResource Brush.AccentGradient}"
+                    Foreground="{DynamicResource Brush.TextOnAccent}"
+                    HorizontalAlignment="Left"
+                    Cursor="Hand"
+                    IsVisible="False"
+                    Content="Confirm selection" />
+
             <!-- Answered state: show selected answer -->
             <Border Name="PART_AnswerBadge"
                     Margin="16,10,16,14"
@@ -170,7 +184,9 @@
                            FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource Brush.AccentDefault}"
-                           VerticalAlignment="Center" />
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           MaxWidth="400" />
               </StackPanel>
             </Border>
           </StackPanel>
@@ -189,6 +205,11 @@
       <Setter Property="IsVisible" Value="True" />
     </Style>
 
+    <!-- ─── Multi-select: hide the per-field send button (confirm button handles it) ─── -->
+    <Style Selector="^:multi-select:has-free-text /template/ Button#PART_FreeTextSubmit">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
     <!-- ─── Answered ─── -->
     <Style Selector="^:answered /template/ Border#PART_Stratum">
       <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
@@ -198,6 +219,9 @@
       <Setter Property="IsVisible" Value="False" />
     </Style>
     <Style Selector="^:answered /template/ WrapPanel#PART_OptionsPanel">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:answered /template/ Button#PART_MultiSubmit">
       <Setter Property="IsVisible" Value="False" />
     </Style>
     <Style Selector="^:answered /template/ Border#PART_AnswerBadge">

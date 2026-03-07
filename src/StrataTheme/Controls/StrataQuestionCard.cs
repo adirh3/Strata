@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -21,14 +22,16 @@ namespace StrataTheme.Controls;
 /// </code>
 /// <para><b>Template parts:</b> PART_Root (Border), PART_Stratum (Border),
 /// PART_OptionsPanel (WrapPanel), PART_FreeTextBox (TextBox),
-/// PART_FreeTextSubmit (Button).</para>
-/// <para><b>Pseudo-classes:</b> :answered, :has-free-text.</para>
+/// PART_FreeTextSubmit (Button), PART_MultiSubmit (Button).</para>
+/// <para><b>Pseudo-classes:</b> :answered, :has-free-text, :multi-select.</para>
 /// </remarks>
 public class StrataQuestionCard : TemplatedControl
 {
     private WrapPanel? _optionsPanel;
     private TextBox? _freeTextBox;
     private Button? _freeTextSubmit;
+    private Button? _multiSubmit;
+    private readonly HashSet<string> _selectedOptions = new();
 
     public static readonly StyledProperty<string?> QuestionProperty =
         AvaloniaProperty.Register<StrataQuestionCard, string?>(nameof(Question));
@@ -38,6 +41,9 @@ public class StrataQuestionCard : TemplatedControl
 
     public static readonly StyledProperty<bool> AllowFreeTextProperty =
         AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(AllowFreeText), true);
+
+    public static readonly StyledProperty<bool> AllowMultiSelectProperty =
+        AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(AllowMultiSelect));
 
     public static readonly StyledProperty<string?> FreeTextPlaceholderProperty =
         AvaloniaProperty.Register<StrataQuestionCard, string?>(nameof(FreeTextPlaceholder), "Type your answer...");
@@ -53,6 +59,7 @@ public class StrataQuestionCard : TemplatedControl
         OptionsProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.RebuildOptions());
         IsAnsweredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         AllowFreeTextProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
+        AllowMultiSelectProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
     }
 
     /// <summary>The question text displayed as the card header.</summary>
@@ -63,6 +70,9 @@ public class StrataQuestionCard : TemplatedControl
 
     /// <summary>Whether to show a free-text input below the options.</summary>
     public bool AllowFreeText { get => GetValue(AllowFreeTextProperty); set => SetValue(AllowFreeTextProperty, value); }
+
+    /// <summary>Whether the user can select multiple options before confirming.</summary>
+    public bool AllowMultiSelect { get => GetValue(AllowMultiSelectProperty); set => SetValue(AllowMultiSelectProperty, value); }
 
     /// <summary>Placeholder text for the free-text input.</summary>
     public string? FreeTextPlaceholder { get => GetValue(FreeTextPlaceholderProperty); set => SetValue(FreeTextPlaceholderProperty, value); }
@@ -82,13 +92,19 @@ public class StrataQuestionCard : TemplatedControl
         if (_freeTextSubmit is not null)
             _freeTextSubmit.Click -= OnFreeTextSubmitClick;
         if (_freeTextBox is not null)
+        {
             _freeTextBox.KeyDown -= OnFreeTextKeyDown;
+            _freeTextBox.PropertyChanged -= OnFreeTextBoxPropertyChanged;
+        }
+        if (_multiSubmit is not null)
+            _multiSubmit.Click -= OnMultiSubmitClick;
 
         base.OnApplyTemplate(e);
 
         _optionsPanel = e.NameScope.Find<WrapPanel>("PART_OptionsPanel");
         _freeTextBox = e.NameScope.Find<TextBox>("PART_FreeTextBox");
         _freeTextSubmit = e.NameScope.Find<Button>("PART_FreeTextSubmit");
+        _multiSubmit = e.NameScope.Find<Button>("PART_MultiSubmit");
 
         if (_freeTextSubmit is not null)
             _freeTextSubmit.Click += OnFreeTextSubmitClick;
@@ -96,8 +112,24 @@ public class StrataQuestionCard : TemplatedControl
         if (_freeTextBox is not null)
             _freeTextBox.KeyDown += OnFreeTextKeyDown;
 
+        if (_multiSubmit is not null)
+            _multiSubmit.Click += OnMultiSubmitClick;
+
         RebuildOptions();
         UpdatePseudoClasses();
+        SyncFreeTextListener();
+    }
+
+    private void SyncFreeTextListener()
+    {
+        if (_freeTextBox is not null && AllowMultiSelect)
+            _freeTextBox.PropertyChanged += OnFreeTextBoxPropertyChanged;
+    }
+
+    private void OnFreeTextBoxPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == TextBox.TextProperty)
+            UpdateMultiSubmitVisibility();
     }
 
     private void RebuildOptions()
@@ -128,8 +160,47 @@ public class StrataQuestionCard : TemplatedControl
     private void OnOptionClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (IsAnswered) return;
-        if (sender is Button btn && btn.Tag is string answer)
-            SubmitAnswer(answer);
+        if (sender is not Button btn || btn.Tag is not string opt) return;
+
+        if (AllowMultiSelect)
+        {
+            if (_selectedOptions.Contains(opt))
+            {
+                _selectedOptions.Remove(opt);
+                btn.Classes.Remove("selected");
+            }
+            else
+            {
+                _selectedOptions.Add(opt);
+                btn.Classes.Add("selected");
+            }
+            UpdateMultiSubmitVisibility();
+        }
+        else
+        {
+            SubmitAnswer(opt);
+        }
+    }
+
+    private void OnMultiSubmitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (IsAnswered) return;
+
+        // Include any pending free text that wasn't explicitly added yet
+        var pendingText = _freeTextBox?.Text?.Trim();
+        if (!string.IsNullOrEmpty(pendingText))
+            _selectedOptions.Add(pendingText);
+
+        if (_selectedOptions.Count == 0) return;
+        SubmitAnswer(string.Join(", ", _selectedOptions));
+    }
+
+    private bool HasPendingFreeText => !string.IsNullOrWhiteSpace(_freeTextBox?.Text);
+
+    private void UpdateMultiSubmitVisibility()
+    {
+        if (_multiSubmit is not null)
+            _multiSubmit.IsVisible = AllowMultiSelect && (_selectedOptions.Count > 0 || HasPendingFreeText) && !IsAnswered;
     }
 
     private void OnFreeTextSubmitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -150,8 +221,19 @@ public class StrataQuestionCard : TemplatedControl
     {
         if (IsAnswered) return;
         var text = _freeTextBox?.Text?.Trim();
-        if (!string.IsNullOrEmpty(text))
+        if (string.IsNullOrEmpty(text)) return;
+
+        if (AllowMultiSelect)
+        {
+            // In multi-select mode, free text is combined with selected options via confirm button
+            _selectedOptions.Add(text);
+            _freeTextBox!.Text = "";
+            UpdateMultiSubmitVisibility();
+        }
+        else
+        {
             SubmitAnswer(text);
+        }
     }
 
     private void SubmitAnswer(string answer)
@@ -159,7 +241,7 @@ public class StrataQuestionCard : TemplatedControl
         SelectedAnswer = answer;
         IsAnswered = true;
 
-        // Disable all option buttons
+        // Disable all option buttons and highlight selected ones
         if (_optionsPanel is not null)
         {
             foreach (var child in _optionsPanel.Children)
@@ -167,8 +249,11 @@ public class StrataQuestionCard : TemplatedControl
                 if (child is Button btn)
                 {
                     btn.IsEnabled = false;
-                    if (btn.Tag is string tag && tag == answer)
-                        btn.Classes.Add("selected");
+                    if (btn.Tag is string tag)
+                    {
+                        if (AllowMultiSelect ? _selectedOptions.Contains(tag) : tag == answer)
+                            btn.Classes.Add("selected");
+                    }
                 }
             }
         }
@@ -186,5 +271,6 @@ public class StrataQuestionCard : TemplatedControl
     {
         PseudoClasses.Set(":answered", IsAnswered);
         PseudoClasses.Set(":has-free-text", AllowFreeText);
+        PseudoClasses.Set(":multi-select", AllowMultiSelect);
     }
 }
