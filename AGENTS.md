@@ -36,9 +36,12 @@ When starting from zero context, do this in order:
 
 - Do not use WPF-only attributes such as `TemplatePartAttribute` or `PseudoClassesAttribute`.
 - Document template parts and pseudo-classes in XML docs (`<remarks>`), not via unsupported attributes.
+- Use concise, readable C# with clear names. Avoid one-letter variable names.
 - Avoid hard-coded colors/metrics when token exists (`Brush.*`, `Radius.*`, `Stroke.*`, `Font.*`, `Size.*`, `Space.*`).
 - Keep controls keyboard-accessible (`Enter`, `Space`, `Escape` as relevant).
 - Keep public APIs stable unless user explicitly requests breaking changes.
+- Preserve existing style language and component architecture.
+- Prefer fixing root cause over patching symptoms.
 - Avoid unrelated refactors.
 
 ## 5) Control Authoring Playbook
@@ -71,8 +74,76 @@ Expected behavior standards:
 - Prefer `TransformOperationsTransition` for transform animation.
 - Do not rely on unsupported keyframe animation targets (e.g., some `RenderTransform` keyframe scenarios can fail at runtime).
 - If build fails with locked `StrataDemo.exe`, stop running demo process and rebuild.
+- Forgetting to register new control AXAML in `StrataTheme.axaml`.
+- Adding user-facing demo text without localization keys.
 
-## 8) Validation Checklist
+## 8) Strata Design Principles
+
+Strata is not just a set of styles. It is a system with visual and behavioral rules that should remain coherent across all controls and pages.
+
+### A) Token-first, never value-first
+
+- Every visual choice should come from semantic tokens first.
+- Use direct literals only when no token exists and the value is intentionally one-off.
+- If a value repeats, add/extend a token rather than duplicating literals.
+
+### B) Professional readability over decorative styling
+
+- Prioritize legibility for dense, enterprise-like UIs.
+- Maintain clear hierarchy: display/headline/title/subtitle/body/caption.
+- Avoid visual noise (extra shadows, unnecessary borders, flashy gradients).
+
+### C) Layered surfaces with restrained contrast
+
+- Differentiate surfaces primarily through tone and keylines, not heavy elevation.
+- Preserve the Surface0/1/2 and BorderSubtle/Default rhythm.
+- Keep cards/panels visually calm so data and actions remain primary.
+
+### D) Signature geometry and spacing consistency
+
+- Respect existing corner-radius language (base vs interactive vs overlay).
+- Keep spacing on the existing scale (`Space.*`, `Padding.*`, `Size.*`).
+- Do not invent ad-hoc spacing patterns in isolated controls.
+
+### E) Motion should communicate state, not decorate
+
+- Motion must explain interaction/state changes (expand, select, stream, progress).
+- Keep durations short and easing smooth; avoid theatrical movement.
+- Prefer transitions and composition-safe animations over complex keyframe choreography.
+
+### F) Accessibility is a baseline, not an enhancement
+
+- Ensure keyboard parity for pointer interactions.
+- Provide visible focus states for all interactive controls.
+- Preserve contrast quality across Light/Dark/HighContrast variants.
+- Do not hide critical status solely in color; include text/state affordances when needed.
+
+### G) Composable controls and stable APIs
+
+- New controls should be composable in host layouts and templates.
+- Expose state through dependency properties and routed events.
+- Avoid breaking public API shape unless explicitly requested.
+
+### H) Localization and RTL readiness by default
+
+- User-facing demo shell text should be localizable.
+- New layout patterns should tolerate both LTR and RTL flow direction.
+- Avoid hard assumptions about icon/text order where direction matters.
+
+### I) Demo quality should reflect package quality
+
+- Demo blocks are product examples, not throwaway snippets.
+- New controls should be demonstrated in realistic and edge-case states.
+- Keep demo content aligned with intended real-world usage.
+
+### J) What to avoid
+
+- Random visual experiments that deviate from Strata language.
+- Hard-coded colors when semantic brushes exist.
+- Control-specific hacks that bypass tokens/state model.
+- Over-animation that competes with content.
+
+## 9) Validation Checklist
 
 Run based on scope:
 
@@ -82,7 +153,7 @@ Run based on scope:
 
 Do not mark complete until required validation passes.
 
-## 9) UI Testing with Avalonia MCP
+## 10) UI Testing with Avalonia MCP
 
 Strata has an Avalonia MCP server configured in `.vscode/mcp.json`. This gives you live access to the running demo app — you can see the UI, click buttons, type text, inspect controls, check bindings, and take screenshots. **Use it.**
 
@@ -120,13 +191,13 @@ Many tools take a `controlId` parameter. Three formats work:
 - When debugging layout issues — inspect bounds, margins, and visibility
 - When a feature "should work" but you're not sure — take a screenshot and see
 
-## 10) Versioning + Packaging
+## 11) Versioning + Packaging
 
 - If change is externally visible (new control/behavior/style API), bump `Version` in `src/StrataTheme/StrataTheme.csproj`.
 - Keep `README.md` package example reasonably aligned with current package version.
 - Package output goes to `nupkg/` and should remain ignored by git.
 
-## 11) Performance Benchmarking (Demo-only)
+## 12) Performance Benchmarking (Demo-only)
 
 Use this when asked to validate chat render/scroll/stream performance.
 
@@ -150,7 +221,7 @@ Use this when asked to validate chat render/scroll/stream performance.
 - Do **not** add benchmark/debug-only public API to `src/StrataTheme` controls.
 - Do not commit generated benchmark JSON artifacts unless explicitly requested.
 
-## 12) Commit Hygiene
+## 13) Commit Hygiene
 
 - Use clear, scoped commit messages tied to the actual change set.
 - Group related control + theme + demo updates together.
