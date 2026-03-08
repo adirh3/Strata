@@ -73,4 +73,71 @@ public static class ChatContentExtractor
 
         return content.ToString() ?? string.Empty;
     }
+
+    /// <summary>
+    /// Walks the content tree looking for <see cref="SelectableTextBlock"/>s with active
+    /// text selections. Returns the concatenated selected text, or <c>null</c> if nothing
+    /// is selected anywhere in the tree.
+    /// </summary>
+    public static string? ExtractSelectedText(object? content)
+    {
+        if (content is null)
+            return null;
+
+        if (content is SelectableTextBlock stb)
+            return HasSelection(stb) ? stb.SelectedText : null;
+
+        if (content is StrataMarkdown markdown)
+            return CollectSelectedTextFromVisual(markdown);
+
+        if (content is ContentControl cc)
+            return ExtractSelectedText(cc.Content);
+
+        if (content is Decorator dec)
+            return ExtractSelectedText(dec.Child);
+
+        if (content is Panel panel)
+        {
+            StringBuilder? sb = null;
+            for (var i = 0; i < panel.Children.Count; i++)
+            {
+                var sel = ExtractSelectedText(panel.Children[i]);
+                if (string.IsNullOrEmpty(sel)) continue;
+                sb ??= new StringBuilder();
+                if (sb.Length > 0) sb.Append(Environment.NewLine);
+                sb.Append(sel);
+            }
+            return sb?.ToString();
+        }
+
+        return null;
+    }
+
+    private static string? CollectSelectedTextFromVisual(Control root)
+    {
+        StringBuilder? sb = null;
+        CollectSelected(root, ref sb);
+        return sb?.ToString();
+    }
+
+    private static void CollectSelected(Control control, ref StringBuilder? sb)
+    {
+        if (control is SelectableTextBlock stb && HasSelection(stb))
+        {
+            sb ??= new StringBuilder();
+            if (sb.Length > 0) sb.Append(Environment.NewLine);
+            sb.Append(stb.SelectedText);
+            return;
+        }
+
+        var count = Avalonia.VisualTree.VisualExtensions.GetVisualChildren(control);
+        foreach (var child in count)
+        {
+            if (child is Control c)
+                CollectSelected(c, ref sb);
+        }
+    }
+
+    private static bool HasSelection(SelectableTextBlock stb) =>
+        stb.SelectionStart != stb.SelectionEnd && !string.IsNullOrEmpty(stb.SelectedText);
 }

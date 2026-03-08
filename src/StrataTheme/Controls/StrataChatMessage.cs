@@ -138,6 +138,9 @@ public class StrataChatMessage : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> CopyRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(CopyRequested), RoutingStrategies.Bubble);
 
+    public static readonly RoutedEvent<RoutedEventArgs> CopyTurnRequestedEvent =
+        RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(CopyTurnRequested), RoutingStrategies.Bubble);
+
     public static readonly RoutedEvent<RoutedEventArgs> RegenerateRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(RegenerateRequested), RoutingStrategies.Bubble);
 
@@ -194,6 +197,8 @@ public class StrataChatMessage : TemplatedControl
 
     public event EventHandler<RoutedEventArgs>? CopyRequested
     { add => AddHandler(CopyRequestedEvent, value); remove => RemoveHandler(CopyRequestedEvent, value); }
+    public event EventHandler<RoutedEventArgs>? CopyTurnRequested
+    { add => AddHandler(CopyTurnRequestedEvent, value); remove => RemoveHandler(CopyTurnRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? RegenerateRequested
     { add => AddHandler(RegenerateRequestedEvent, value); remove => RemoveHandler(RegenerateRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? EditRequested
@@ -327,6 +332,21 @@ public class StrataChatMessage : TemplatedControl
 
         _bubble.ContextMenu = _contextMenu;
         ContextMenu = _contextMenu;
+
+        // Intercept right-clicks in tunnel phase so child controls (e.g. SelectableTextBlock
+        // inside StrataMarkdown) don't show their own default context menu.
+        _bubble.RemoveHandler(PointerReleasedEvent, InterceptRightClick);
+        _bubble.AddHandler(PointerReleasedEvent, InterceptRightClick, RoutingStrategies.Tunnel);
+    }
+
+    private void InterceptRightClick(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton == MouseButton.Right && _contextMenu is not null)
+        {
+            e.Handled = true;
+            RebuildContextMenuItems();
+            _contextMenu.Open(_bubble);
+        }
     }
 
     private void OnContextMenuOpening(object? sender, EventArgs e)
@@ -364,6 +384,16 @@ public class StrataChatMessage : TemplatedControl
         };
         items.Add(copyItem);
 
+        if (!IsEditing && Role is StrataChatRole.Assistant or StrataChatRole.Tool)
+        {
+            var copyTurnItem = new MenuItem { Header = "Copy turn", Icon = CreateMenuIcon("\uE8C8") };
+            copyTurnItem.Click += (_, _) =>
+            {
+                RaiseEvent(new RoutedEventArgs(CopyTurnRequestedEvent));
+            };
+            items.Add(copyTurnItem);
+        }
+
         if (IsEditing)
         {
             if (IsEditable)
@@ -378,32 +408,6 @@ public class StrataChatMessage : TemplatedControl
                 cancelItem.Click += (_, _) => CancelEdit();
                 items.Add(cancelItem);
             }
-
-            _contextMenu.ItemsSource = items;
-            return;
-        }
-
-        if (IsEditable && Role != StrataChatRole.System)
-        {
-            items.Add(new Separator());
-
-            var editItem = new MenuItem { Header = "Edit", Icon = CreateMenuIcon("\uE70F") };
-            editItem.Click += (_, _) => BeginEdit();
-            items.Add(editItem);
-        }
-
-        if (!IsStreaming && Role is StrataChatRole.Assistant or StrataChatRole.Tool)
-        {
-            if (items.Count > 0 && items[^1] is not Separator)
-                items.Add(new Separator());
-
-            var retryItem = new MenuItem { Header = "Retry", Icon = CreateMenuIcon("\uE72C") };
-            retryItem.Click += (_, _) =>
-            {
-                RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent));
-                CommandHelper.Execute(RegenerateCommand, RegenerateCommandParameter);
-            };
-            items.Add(retryItem);
         }
 
         _contextMenu.ItemsSource = items;
@@ -448,6 +452,10 @@ public class StrataChatMessage : TemplatedControl
     {
         if (IsEditing && !string.IsNullOrWhiteSpace(EditText))
             return EditText!;
+
+        var selected = ChatContentExtractor.ExtractSelectedText(Content);
+        if (!string.IsNullOrEmpty(selected))
+            return selected;
 
         return ChatContentExtractor.ExtractText(Content).Trim();
     }
