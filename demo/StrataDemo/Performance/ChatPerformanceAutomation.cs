@@ -38,25 +38,25 @@ internal static class ChatPerformanceAutomation
                     shellHeight = result.ShellHeight
                 },
                 idle = result.IdleMetrics,
-                baseline = result.Baseline,
-                optimized = result.Optimized,
-                deltas = BuildMetricDeltas(result.Baseline, result.Optimized),
-                result.BaselineText,
-                result.OptimizedText,
-                result.UpliftText
+                firstPass = result.FirstPass,
+                secondPass = result.SecondPass,
+                deltas = BuildMetricDeltas(result.FirstPass, result.SecondPass),
+                result.FirstPassText,
+                result.SecondPassText,
+                result.DeltaText
             };
 
             var json = JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(resolvedReportPath, json, timeoutCts.Token);
 
-            Console.WriteLine($"CHAT_PERF_BASELINE::{result.BaselineText}");
-            Console.WriteLine($"CHAT_PERF_OPTIMIZED::{result.OptimizedText}");
-            Console.WriteLine($"CHAT_PERF_UPLIFT::{result.UpliftText}");
+            Console.WriteLine($"CHAT_PERF_PASS_ONE::{result.FirstPassText}");
+            Console.WriteLine($"CHAT_PERF_PASS_TWO::{result.SecondPassText}");
+            Console.WriteLine($"CHAT_PERF_DELTA::{result.DeltaText}");
             Console.WriteLine($"CHAT_PERF_IDLE::FPS {result.IdleMetrics.AvgFps:F1} · p95 {result.IdleMetrics.P95FrameMs:F1} ms");
             Console.WriteLine($"CHAT_PERF_RENDER::PageVisible={result.PerfPageVisible};ShellVisible={result.ShellVisible};ShellBounds={result.ShellWidth:F1}x{result.ShellHeight:F1}");
             Console.WriteLine($"CHAT_PERF_REPORT::{resolvedReportPath}");
 
-            var pass = EvaluatePass(result.Baseline, result.Optimized);
+            var pass = EvaluatePass(result.FirstPass, result.SecondPass);
 
             Environment.ExitCode = pass ? 0 : 2;
         }
@@ -84,58 +84,33 @@ internal static class ChatPerformanceAutomation
         return Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, path));
     }
 
-    private static object BuildMetricDeltas(ChatPerfScenarioResult baseline, ChatPerfScenarioResult optimized)
+    private static object BuildMetricDeltas(ChatPerfScenarioResult firstPass, ChatPerfScenarioResult secondPass)
     {
-        var realizedReductionPct = baseline.RealizedMessages <= 0
-            ? 0
-            : ((baseline.RealizedMessages - optimized.RealizedMessages) / (double)baseline.RealizedMessages) * 100d;
-
-        var heapReductionPct = baseline.HeapBytes <= 0
-            ? 0
-            : ((baseline.HeapBytes - optimized.HeapBytes) / (double)baseline.HeapBytes) * 100d;
-
         return new
         {
-            fpsDelta = optimized.FrameMetrics.AvgFps - baseline.FrameMetrics.AvgFps,
-            avgFrameMsDelta = baseline.FrameMetrics.AvgFrameMs - optimized.FrameMetrics.AvgFrameMs,
-            p95FrameMsDelta = baseline.FrameMetrics.P95FrameMs - optimized.FrameMetrics.P95FrameMs,
-            worstFrameMsDelta = baseline.FrameMetrics.WorstFrameMs - optimized.FrameMetrics.WorstFrameMs,
-            slowFramePctDelta = baseline.FrameMetrics.SlowFramePercent - optimized.FrameMetrics.SlowFramePercent,
-            seedMsDelta = baseline.SeedDurationMs - optimized.SeedDurationMs,
-            realizedMessagesDelta = baseline.RealizedMessages - optimized.RealizedMessages,
-            realizedMessagesReductionPct = realizedReductionPct,
-            heapBytesDelta = baseline.HeapBytes - optimized.HeapBytes,
-            heapReductionPct
+            fpsDelta = secondPass.FrameMetrics.AvgFps - firstPass.FrameMetrics.AvgFps,
+            avgFrameMsDelta = secondPass.FrameMetrics.AvgFrameMs - firstPass.FrameMetrics.AvgFrameMs,
+            p95FrameMsDelta = secondPass.FrameMetrics.P95FrameMs - firstPass.FrameMetrics.P95FrameMs,
+            worstFrameMsDelta = secondPass.FrameMetrics.WorstFrameMs - firstPass.FrameMetrics.WorstFrameMs,
+            slowFramePctDelta = secondPass.FrameMetrics.SlowFramePercent - firstPass.FrameMetrics.SlowFramePercent,
+            seedMsDelta = secondPass.SeedDurationMs - firstPass.SeedDurationMs,
+            realizedMessagesDelta = secondPass.RealizedMessages - firstPass.RealizedMessages,
+            heapBytesDelta = secondPass.HeapBytes - firstPass.HeapBytes
         };
     }
 
-    private static bool EvaluatePass(ChatPerfScenarioResult baseline, ChatPerfScenarioResult optimized)
+    private static bool EvaluatePass(ChatPerfScenarioResult firstPass, ChatPerfScenarioResult secondPass)
     {
-        const double maxFpsRegression = 10.0;
-        const double maxP95RegressionMs = 10.0;
+        const double maxFpsRegression = 12.0;
+        const double maxP95RegressionMs = 12.0;
+        const double maxSlowFrameRegressionPct = 8.0;
 
-        var fpsDelta = optimized.FrameMetrics.AvgFps - baseline.FrameMetrics.AvgFps;
-        var p95Delta = baseline.FrameMetrics.P95FrameMs - optimized.FrameMetrics.P95FrameMs;
-        var worstDelta = baseline.FrameMetrics.WorstFrameMs - optimized.FrameMetrics.WorstFrameMs;
+        var fpsDelta = secondPass.FrameMetrics.AvgFps - firstPass.FrameMetrics.AvgFps;
+        var p95Delta = secondPass.FrameMetrics.P95FrameMs - firstPass.FrameMetrics.P95FrameMs;
+        var slowFrameDelta = secondPass.FrameMetrics.SlowFramePercent - firstPass.FrameMetrics.SlowFramePercent;
 
-        var fpsOk = fpsDelta >= -maxFpsRegression;
-        var p95Ok = p95Delta >= -maxP95RegressionMs;
-
-        var realizedReductionPct = baseline.RealizedMessages <= 0
-            ? 0
-            : ((baseline.RealizedMessages - optimized.RealizedMessages) / (double)baseline.RealizedMessages) * 100d;
-
-        var heapReductionPct = baseline.HeapBytes <= 0
-            ? 0
-            : ((baseline.HeapBytes - optimized.HeapBytes) / (double)baseline.HeapBytes) * 100d;
-
-        var seedImprovementMs = baseline.SeedDurationMs - optimized.SeedDurationMs;
-        var hasStrongVirtualizationGain =
-            realizedReductionPct >= 70 ||
-            heapReductionPct >= 35 ||
-            seedImprovementMs >= 120 ||
-            worstDelta >= 80;
-
-        return fpsOk && p95Ok && hasStrongVirtualizationGain;
+        return fpsDelta >= -maxFpsRegression
+            && p95Delta <= maxP95RegressionMs
+            && slowFrameDelta <= maxSlowFrameRegressionPct;
     }
 }

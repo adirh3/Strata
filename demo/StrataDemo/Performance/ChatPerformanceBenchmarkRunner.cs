@@ -16,35 +16,26 @@ internal sealed class ChatPerformanceBenchmarkRunner
 {
     private readonly TopLevel _renderRoot;
     private readonly StrataChatShell _chatShell;
-    private readonly StrataChatTranscript _optimizedTranscript;
-    private readonly StackPanel _baselineTranscript;
+    private readonly ItemsControl _transcript;
     private readonly ChatPerformanceRunOptions _options;
     private ScrollViewer? _transcriptScrollViewer;
     private string? _largeMarkdown;
-    private object? _activeTranscript;
 
     public ChatPerformanceBenchmarkRunner(
         TopLevel renderRoot,
         StrataChatShell chatShell,
-        StrataChatTranscript transcript,
+        ItemsControl transcript,
         ChatPerformanceRunOptions? options = null)
     {
         _renderRoot = renderRoot;
         _chatShell = chatShell;
-        _optimizedTranscript = transcript;
-        _baselineTranscript = new StackPanel { Spacing = 6 };
+        _transcript = transcript;
         _options = options ?? ChatPerformanceRunOptions.Default;
-
-        SetTranscriptMode(useVirtualizedTranscript: true);
     }
 
     public void SeedTranscript()
     {
-        if (_activeTranscript is null)
-            SetTranscriptMode(useVirtualizedTranscript: true);
-
-        ClearTranscript(_baselineTranscript);
-        ClearTranscript(_optimizedTranscript);
+        ClearTranscript(_transcript);
         _transcriptScrollViewer = null;
         var startTime = DateTime.Today.AddHours(9).AddMinutes(5);
 
@@ -95,7 +86,7 @@ internal sealed class ChatPerformanceBenchmarkRunner
         return probe.CaptureMetrics();
     }
 
-    public async Task<ChatPerfScenarioResult> RunScenarioSeriesAsync(ChatPerfScenarioProfile profile, CancellationToken token)
+    public async Task<ChatPerfScenarioResult> RunScenarioSeriesAsync(CancellationToken token)
     {
         var iterationCount = Math.Max(1, _options.Iterations);
         var samples = new List<ChatPerfScenarioResult>(iterationCount);
@@ -103,7 +94,7 @@ internal sealed class ChatPerformanceBenchmarkRunner
         for (var i = 0; i < iterationCount; i++)
         {
             token.ThrowIfCancellationRequested();
-            var sample = await RunScenarioAsync(profile, token);
+            var sample = await RunScenarioAsync(token);
             samples.Add(sample);
             await Task.Delay(180, token);
         }
@@ -111,9 +102,8 @@ internal sealed class ChatPerformanceBenchmarkRunner
         return AggregateScenarioResults(samples);
     }
 
-    public void ResetToOptimizedDefaults()
+    public void ResetToDefaults()
     {
-        SetTranscriptMode(useVirtualizedTranscript: true);
         _chatShell.ResetAutoScroll();
     }
 
@@ -126,36 +116,33 @@ internal sealed class ChatPerformanceBenchmarkRunner
         return $"FPS {result.FrameMetrics.AvgFps:F1} · avg {result.FrameMetrics.AvgFrameMs:F1} ms · p95 {result.FrameMetrics.P95FrameMs:F1} ms · worst {result.FrameMetrics.WorstFrameMs:F1} ms · slow>20ms {result.FrameMetrics.SlowFramePercent:F1}% · frames {result.FrameMetrics.Frames} · stream updates {result.StreamUpdates} · seed {result.SeedDurationMs:F0} ms · realized {result.RealizedMessages} · heap {heapMb:F1} MB";
     }
 
-    public static string FormatUplift(ChatPerfScenarioResult baseline, ChatPerfScenarioResult optimized)
+    public static string FormatComparison(ChatPerfScenarioResult firstPass, ChatPerfScenarioResult secondPass)
     {
-        if (baseline.FrameMetrics.Frames == 0 || optimized.FrameMetrics.Frames == 0)
-            return "Unable to calculate uplift.";
+        if (firstPass.FrameMetrics.Frames == 0 || secondPass.FrameMetrics.Frames == 0)
+            return "Unable to calculate pass-to-pass delta.";
 
-        var fpsGainPct = baseline.FrameMetrics.AvgFps <= 0
+        var fpsDeltaPct = firstPass.FrameMetrics.AvgFps <= 0
             ? 0
-            : ((optimized.FrameMetrics.AvgFps - baseline.FrameMetrics.AvgFps) / baseline.FrameMetrics.AvgFps) * 100d;
+            : ((secondPass.FrameMetrics.AvgFps - firstPass.FrameMetrics.AvgFps) / firstPass.FrameMetrics.AvgFps) * 100d;
 
-        var p95ImprovementMs = baseline.FrameMetrics.P95FrameMs - optimized.FrameMetrics.P95FrameMs;
-        var slowFrameImprovementPct = baseline.FrameMetrics.SlowFramePercent - optimized.FrameMetrics.SlowFramePercent;
-        var seedImprovementMs = baseline.SeedDurationMs - optimized.SeedDurationMs;
-        var realizedReductionPct = baseline.RealizedMessages <= 0
+        var p95DeltaMs = secondPass.FrameMetrics.P95FrameMs - firstPass.FrameMetrics.P95FrameMs;
+        var worstDeltaMs = secondPass.FrameMetrics.WorstFrameMs - firstPass.FrameMetrics.WorstFrameMs;
+        var slowFrameDeltaPct = secondPass.FrameMetrics.SlowFramePercent - firstPass.FrameMetrics.SlowFramePercent;
+        var seedDeltaMs = secondPass.SeedDurationMs - firstPass.SeedDurationMs;
+        var realizedDelta = secondPass.RealizedMessages - firstPass.RealizedMessages;
+        var heapDeltaPct = firstPass.HeapBytes <= 0
             ? 0
-            : ((baseline.RealizedMessages - optimized.RealizedMessages) / (double)baseline.RealizedMessages) * 100d;
-        var heapReductionPct = baseline.HeapBytes <= 0
-            ? 0
-            : ((baseline.HeapBytes - optimized.HeapBytes) / (double)baseline.HeapBytes) * 100d;
+            : ((secondPass.HeapBytes - firstPass.HeapBytes) / (double)firstPass.HeapBytes) * 100d;
 
-        return $"FPS uplift {fpsGainPct:+0.0;-0.0;0}% · p95 improvement {p95ImprovementMs:+0.0;-0.0;0} ms · slow-frame reduction {slowFrameImprovementPct:+0.0;-0.0;0}% · seed improvement {seedImprovementMs:+0;-0;0} ms · realized reduction {realizedReductionPct:+0.0;-0.0;0}% · heap reduction {heapReductionPct:+0.0;-0.0;0}%";
+        return $"Pass delta {fpsDeltaPct:+0.0;-0.0;0}% FPS · p95 {p95DeltaMs:+0.0;-0.0;0} ms · worst {worstDeltaMs:+0.0;-0.0;0} ms · slow frames {slowFrameDeltaPct:+0.0;-0.0;0}% · seed {seedDeltaMs:+0;-0;0} ms · realized {realizedDelta:+0;-0;0} · heap {heapDeltaPct:+0.0;-0.0;0}%";
     }
 
-    private async Task<ChatPerfScenarioResult> RunScenarioAsync(ChatPerfScenarioProfile profile, CancellationToken token)
+    private async Task<ChatPerfScenarioResult> RunScenarioAsync(CancellationToken token)
     {
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
-        var useVirtualizedTranscript = profile == ChatPerfScenarioProfile.Optimized;
-        SetTranscriptMode(useVirtualizedTranscript);
         await Task.Delay(80, token);
 
         var seedStopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -164,7 +151,7 @@ internal sealed class ChatPerformanceBenchmarkRunner
         seedStopwatch.Stop();
 
         var streamRenderIntervalMs = Math.Max(16, _options.StreamRenderIntervalMs);
-        var markdownThrottleMs = Math.Max(0, _options.OptimizedMarkdownThrottleMs);
+        var markdownThrottleMs = Math.Max(0, _options.MarkdownThrottleMs);
         var realizedMessages = CountRealizedMessages();
         var heapBytes = GC.GetTotalMemory(forceFullCollection: false);
 
@@ -251,66 +238,21 @@ internal sealed class ChatPerformanceBenchmarkRunner
             HeapBytes: heapBytes);
     }
 
-    private void SetTranscriptMode(bool useVirtualizedTranscript)
+    private static void ClearTranscript(ItemsControl transcript)
     {
-        var transcript = useVirtualizedTranscript
-            ? (object)_optimizedTranscript
-            : _baselineTranscript;
-
-        if (ReferenceEquals(_activeTranscript, transcript))
-            return;
-
-        _activeTranscript = transcript;
-        _chatShell.Transcript = transcript;
-        _transcriptScrollViewer = null;
-    }
-
-    private static void ClearTranscript(object transcript)
-    {
-        switch (transcript)
-        {
-            case StrataChatTranscript itemsControl:
-                itemsControl.Items.Clear();
-                break;
-            case StackPanel panel:
-                panel.Children.Clear();
-                break;
-        }
+        transcript.Items.Clear();
     }
 
     private void AddTranscriptItem(Control item)
     {
-        switch (_activeTranscript)
-        {
-            case StrataChatTranscript transcript:
-                transcript.Items.Add(item);
-                break;
-            case StackPanel panel:
-                panel.Children.Add(item);
-                break;
-            default:
-                throw new InvalidOperationException("Transcript mode is not initialized.");
-        }
+        _transcript.Items.Add(item);
     }
 
-    private int GetTranscriptItemCount()
-    {
-        return _activeTranscript switch
-        {
-            StrataChatTranscript transcript => transcript.Items.Count,
-            StackPanel panel => panel.Children.Count,
-            _ => 0
-        };
-    }
+    private int GetTranscriptItemCount() => _transcript.Items.Count;
 
     private int CountRealizedMessages()
     {
-        return _activeTranscript switch
-        {
-            StrataChatTranscript transcript when transcript.ItemsPanelRoot is Panel panel => panel.Children.Count,
-            StackPanel panel => panel.Children.Count,
-            _ => 0,
-        };
+        return _transcript.ItemsPanelRoot is Panel panel ? panel.Children.Count : 0;
     }
 
     private bool TryGetScrollMetrics(out double extentHeight, out double viewportHeight)

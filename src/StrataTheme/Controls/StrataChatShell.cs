@@ -68,20 +68,14 @@ public class StrataChatShell : TemplatedControl
     private int _lastAlignedMessageCount;
     private bool _isPulseRunning;
     private readonly DispatcherTimer _scrollingStateTimer;
-    private readonly DispatcherTimer _automationScrollSweepTimer;
     private DateTime _lastScrollActivityUtc;
     private bool _isTranscriptScrolling;
-    private int _automationScrollSweepStep;
-    private int _automationScrollSweepTotalSteps;
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
         AvaloniaProperty.Register<StrataChatShell, object?>(nameof(Header));
 
-    /// <summary>
-    /// Scrollable transcript content. Use <see cref="StrataChatTranscript"/> for
-    /// long conversations to enable dedicated chat virtualization.
-    /// </summary>
+    /// <summary>Scrollable transcript content hosted inside the shell's ScrollViewer.</summary>
     public static readonly StyledProperty<object?> TranscriptProperty =
         AvaloniaProperty.Register<StrataChatShell, object?>(nameof(Transcript));
 
@@ -97,41 +91,12 @@ public class StrataChatShell : TemplatedControl
     public static readonly StyledProperty<string> PresenceTextProperty =
         AvaloniaProperty.Register<StrataChatShell, string>(nameof(PresenceText), string.Empty);
 
-    /// <summary>
-    /// Diagnostic/test-only scroll target expressed as a fraction of the transcript extent.
-    /// Setting 0 scrolls to top, 1 scrolls to bottom.
-    /// </summary>
-    public static readonly StyledProperty<double> AutomationScrollFractionProperty =
-        AvaloniaProperty.Register<StrataChatShell, double>(nameof(AutomationScrollFraction), 1d);
-
-    /// <summary>
-    /// Increment this value to start an automated transcript scroll sweep for diagnostics.
-    /// </summary>
-    public static readonly StyledProperty<int> AutomationScrollSweepRequestProperty =
-        AvaloniaProperty.Register<StrataChatShell, int>(nameof(AutomationScrollSweepRequest));
-
-    /// <summary>
-    /// Number of steps used by the automated transcript scroll sweep.
-    /// </summary>
-    public static readonly StyledProperty<int> AutomationScrollSweepStepsProperty =
-        AvaloniaProperty.Register<StrataChatShell, int>(nameof(AutomationScrollSweepSteps), 18);
-
-    /// <summary>
-    /// Diagnostic state for the automated transcript scroll sweep.
-    /// </summary>
-    public static readonly StyledProperty<string> AutomationScrollSweepStateProperty =
-        AvaloniaProperty.Register<StrataChatShell, string>(nameof(AutomationScrollSweepState), "Idle");
-
     static StrataChatShell()
     {
         IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnIsOnlineChanged());
         HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
             c.PseudoClasses.Set(":has-header", c.Header is not null));
         PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnPresenceTextChanged());
-        AutomationScrollFractionProperty.Changed.AddClassHandler<StrataChatShell>((c, args) =>
-            c.ApplyAutomationScrollFraction(args.GetNewValue<double>()));
-        AutomationScrollSweepRequestProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
-            c.StartAutomationScrollSweep());
         TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
         {
             c._lastAlignedMessageCount = 0;
@@ -147,12 +112,6 @@ public class StrataChatShell : TemplatedControl
             Interval = TimeSpan.FromMilliseconds(80),
         };
         _scrollingStateTimer.Tick += OnScrollingStateTimerTick;
-
-        _automationScrollSweepTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(24),
-        };
-        _automationScrollSweepTimer.Tick += OnAutomationScrollSweepTick;
     }
 
     public object? Header { get => GetValue(HeaderProperty); set => SetValue(HeaderProperty, value); }
@@ -160,21 +119,6 @@ public class StrataChatShell : TemplatedControl
     public object? Composer { get => GetValue(ComposerProperty); set => SetValue(ComposerProperty, value); }
     public bool IsOnline { get => GetValue(IsOnlineProperty); set => SetValue(IsOnlineProperty, value); }
     public string PresenceText { get => GetValue(PresenceTextProperty); set => SetValue(PresenceTextProperty, value); }
-    public double AutomationScrollFraction { get => GetValue(AutomationScrollFractionProperty); set => SetValue(AutomationScrollFractionProperty, value); }
-    public int AutomationScrollSweepRequest { get => GetValue(AutomationScrollSweepRequestProperty); set => SetValue(AutomationScrollSweepRequestProperty, value); }
-    public int AutomationScrollSweepSteps { get => GetValue(AutomationScrollSweepStepsProperty); set => SetValue(AutomationScrollSweepStepsProperty, value); }
-    public string AutomationScrollSweepState { get => GetValue(AutomationScrollSweepStateProperty); set => SetValue(AutomationScrollSweepStateProperty, value); }
-
-    /// <summary>
-    /// Instantly positions the viewport so that item at <paramref name="index"/>
-    /// is visible according to <paramref name="alignment"/>.
-    /// Delegates to the underlying <see cref="StrataChatTranscript"/> panel.
-    /// </summary>
-    public void ScrollToIndex(int index, ScrollToAlignment alignment = ScrollToAlignment.Start)
-    {
-        if (Transcript is StrataChatTranscript transcript)
-            transcript.ScrollToIndex(index, alignment);
-    }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -236,7 +180,6 @@ public class StrataChatShell : TemplatedControl
         }
 
         _scrollingStateTimer.Stop();
-    _automationScrollSweepTimer.Stop();
         SetTranscriptScrollingState(false);
         UnsubscribeTranscriptPanel();
         _isPulseRunning = false;
@@ -533,10 +476,6 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is null || _userScrolledAway || IsAutoScrollSuspended())
             return;
 
-        // Enable bottom-pin on the virtualizing panel so it pins viewport
-        // to the extent bottom and skips anchor correction during streaming.
-        SetPanelBottomPinned(true);
-
         var now = DateTime.UtcNow;
         if (_lastProgrammaticScrollUtc != default && (now - _lastProgrammaticScrollUtc) < ProgrammaticScrollMinInterval)
             return;
@@ -575,7 +514,6 @@ public class StrataChatShell : TemplatedControl
     {
         _userScrolledAway = false;
         _suspendAutoScrollUntilUtc = default;
-        SetPanelBottomPinned(true);
     }
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
@@ -587,8 +525,7 @@ public class StrataChatShell : TemplatedControl
         if (offsetDeltaY < UserScrollDeltaThreshold)
             return;
 
-        // Ignore extent-driven anchor shifts caused by streaming/layout growth
-        // AND anchor corrections from the virtualizing panel.
+        // Ignore extent-driven anchor shifts caused by streaming/layout growth.
         if (IsLikelyLayoutDrivenOffsetChange(e, offsetDeltaY))
             return;
 
@@ -598,15 +535,9 @@ public class StrataChatShell : TemplatedControl
 
         var distanceFromBottom = DistanceFromBottom(_scrollViewer);
         if (distanceFromBottom > 40)
-        {
             _userScrolledAway = true;
-            SetPanelBottomPinned(false);
-        }
         else if (distanceFromBottom <= 8)
-        {
             _userScrolledAway = false;
-            SetPanelBottomPinned(true);
-        }
     }
 
     private void OnUserWheelScroll(object? sender, PointerWheelEventArgs e)
@@ -616,15 +547,9 @@ public class StrataChatShell : TemplatedControl
         MarkTranscriptScrollingActive();
         SuspendAutoScrollBriefly();
         if (e.Delta.Y > 0)
-        {
             _userScrolledAway = true;
-            SetPanelBottomPinned(false);
-        }
         else if (_scrollViewer is not null && e.Delta.Y < 0 && DistanceFromBottom(_scrollViewer) <= 8)
-        {
             _userScrolledAway = false;
-            SetPanelBottomPinned(true);
-        }
     }
 
     private void OnTranscriptPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -635,20 +560,6 @@ public class StrataChatShell : TemplatedControl
         MarkTranscriptScrollingActive();
         SuspendAutoScrollBriefly();
         _userScrolledAway = true;
-        SetPanelBottomPinned(false);
-    }
-
-    /// <summary>
-    /// Propagates the bottom-pinned state to the virtualizing panel so it
-    /// pins to extent bottom instead of applying scroll-anchor correction.
-    /// </summary>
-    private void SetPanelBottomPinned(bool pinned)
-    {
-        if (Transcript is StrataChatTranscript transcript)
-        {
-            if (transcript.Panel is { } panel)
-                panel.IsBottomPinned = pinned;
-        }
     }
 
     private void MarkTranscriptScrollingActive()
@@ -700,7 +611,7 @@ public class StrataChatShell : TemplatedControl
                 foreach (var child in itemsHostPanel.Children)
                 {
                     ApplyScrollingRenderHint(child, isScrolling);
-                    ApplyScrollingStateFlatScan(child, isScrolling);
+                    ApplyScrollingStateRecursive(child, isScrolling);
                 }
                 return;
             }
@@ -860,83 +771,6 @@ public class StrataChatShell : TemplatedControl
     private static double DistanceFromBottom(ScrollViewer scrollViewer)
     {
         return Math.Max(0d, scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y);
-    }
-
-    private void ApplyAutomationScrollFraction(double fraction)
-    {
-        if (_scrollViewer is null)
-            return;
-
-        var clamped = Math.Clamp(fraction, 0d, 1d);
-        var maxOffset = Math.Max(0d, _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height);
-        var targetOffset = maxOffset * clamped;
-
-        _isProgrammaticScroll = true;
-        try
-        {
-            _scrollViewer.Offset = new Vector(_scrollViewer.Offset.X, targetOffset);
-        }
-        finally
-        {
-            _isProgrammaticScroll = false;
-        }
-
-        var atBottom = clamped >= 0.999d || maxOffset <= 0d;
-        _userScrolledAway = !atBottom;
-        if (_userScrolledAway)
-            SuspendAutoScrollBriefly();
-        else
-            _suspendAutoScrollUntilUtc = default;
-
-        SetPanelBottomPinned(atBottom);
-    }
-
-    private void StartAutomationScrollSweep()
-    {
-        if (_scrollViewer is null)
-        {
-            AutomationScrollSweepState = "Unavailable";
-            return;
-        }
-
-        _automationScrollSweepTimer.Stop();
-        _automationScrollSweepStep = 0;
-        _automationScrollSweepTotalSteps = Math.Max(4, AutomationScrollSweepSteps);
-        AutomationScrollSweepState = $"Running 0/{_automationScrollSweepTotalSteps}";
-        _automationScrollSweepTimer.Start();
-    }
-
-    private void OnAutomationScrollSweepTick(object? sender, EventArgs e)
-    {
-        if (_scrollViewer is null)
-        {
-            _automationScrollSweepTimer.Stop();
-            AutomationScrollSweepState = "Unavailable";
-            return;
-        }
-
-        var half = _automationScrollSweepTotalSteps / 2;
-        double fraction;
-        if (_automationScrollSweepStep <= half)
-        {
-            var denominator = Math.Max(1, half);
-            fraction = 1d - (_automationScrollSweepStep / (double)denominator);
-        }
-        else
-        {
-            var denominator = Math.Max(1, _automationScrollSweepTotalSteps - half);
-            fraction = (_automationScrollSweepStep - half) / (double)denominator;
-        }
-
-        ApplyAutomationScrollFraction(fraction);
-        AutomationScrollSweepState = $"Running {_automationScrollSweepStep + 1}/{_automationScrollSweepTotalSteps}";
-        _automationScrollSweepStep++;
-
-        if (_automationScrollSweepStep > _automationScrollSweepTotalSteps)
-        {
-            _automationScrollSweepTimer.Stop();
-            AutomationScrollSweepState = "Completed";
-        }
     }
 
     private static bool IsScrollbarInteraction(object? source)

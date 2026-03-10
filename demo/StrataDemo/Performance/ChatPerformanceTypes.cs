@@ -1,11 +1,5 @@
 namespace StrataDemo;
 
-internal enum ChatPerfScenarioProfile
-{
-    Baseline,
-    Optimized,
-}
-
 internal readonly record struct ChatPerfScenarioResult(
     UiFrameMetrics FrameMetrics,
     int StreamUpdates,
@@ -17,11 +11,11 @@ internal readonly record struct ChatPerfScenarioResult(
 
 internal readonly record struct ChatPerfBenchmarkResult(
     UiFrameMetrics IdleMetrics,
-    ChatPerfScenarioResult Baseline,
-    ChatPerfScenarioResult Optimized,
-    string BaselineText,
-    string OptimizedText,
-    string UpliftText,
+    ChatPerfScenarioResult FirstPass,
+    ChatPerfScenarioResult SecondPass,
+    string FirstPassText,
+    string SecondPassText,
+    string DeltaText,
     bool PerfPageVisible,
     bool ShellVisible,
     double ShellWidth,
@@ -33,8 +27,7 @@ internal readonly record struct ChatPerformanceRunOptions(
     int StreamChunkSizeChars,
     int StreamRenderIntervalMs,
     int Iterations,
-    int LegacyMarkdownThrottleMs,
-    int OptimizedMarkdownThrottleMs)
+    int MarkdownThrottleMs)
 {
     public static ChatPerformanceRunOptions Default => new(
         MessageCount: 12000,
@@ -42,6 +35,5 @@ internal readonly record struct ChatPerformanceRunOptions(
         StreamChunkSizeChars: 220,
         StreamRenderIntervalMs: 12,
         Iterations: 1,
-        LegacyMarkdownThrottleMs: 0,
-        OptimizedMarkdownThrottleMs: 0);
+        MarkdownThrottleMs: 0);
 }
