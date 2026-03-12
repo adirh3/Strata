@@ -2119,7 +2119,13 @@ async def analyze_incident(report):
               </sc:StrataChatShell.Header>
 
               <sc:StrataChatShell.Transcript>
-                <sc:StrataChatTranscript x:Name="LiveTranscript" />
+                <ItemsControl x:Name="LiveTranscript">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Spacing="6" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
               </sc:StrataChatShell.Transcript>
 
               <sc:StrataChatShell.Composer>
@@ -2285,7 +2291,13 @@ async def analyze_incident(report):
               </sc:StrataChatShell.Header>
 
               <sc:StrataChatShell.Transcript>
-                <sc:StrataChatTranscript x:Name="PerfTranscript" />
+                <ItemsControl x:Name="PerfTranscript">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Spacing="6" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
               </sc:StrataChatShell.Transcript>
 
               <sc:StrataChatShell.Composer>
@@ -2322,18 +2334,18 @@ async def analyze_incident(report):
                              Text="{Binding Strings[ChatPerf.StatusIdle]}"
                              TextWrapping="Wrap" />
 
-                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.BaselineLabel]}" />
-                  <TextBlock x:Name="PerfBaselineText"
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.FirstPassLabel]}" />
+                  <TextBlock x:Name="PerfFirstPassText"
                              Text="{Binding Strings[ChatPerf.NoResults]}"
                              TextWrapping="Wrap" />
 
-                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.OptimizedLabel]}" />
-                  <TextBlock x:Name="PerfOptimizedText"
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.SecondPassLabel]}" />
+                  <TextBlock x:Name="PerfSecondPassText"
                              Text="{Binding Strings[ChatPerf.NoResults]}"
                              TextWrapping="Wrap" />
 
-                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.UpliftLabel]}" />
-                  <TextBlock x:Name="PerfUpliftText"
+                  <TextBlock Classes="caption tertiary" Text="{Binding Strings[ChatPerf.DeltaLabel]}" />
+                  <TextBlock x:Name="PerfDeltaText"
                              Text="{Binding Strings[ChatPerf.NoResults]}"
                              TextWrapping="Wrap"
                              FontWeight="SemiBold" />

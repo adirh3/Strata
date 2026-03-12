@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
@@ -30,10 +32,14 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataThink : TemplatedControl
 {
+    private static readonly TimeSpan ExpandedRevealDelay = TimeSpan.FromMilliseconds(340);
+
     private Border? _dot;
     private Border? _pill;
+    private Border? _contentHost;
     private Control? _headerRow;
     private Transitions? _savedPillTransitions;
+    private CancellationTokenSource? _expandedRevealCts;
     private bool _initialWidthTransitionSuppressed;
     private bool _pulseRunning;
     private object? _displayedContent;
@@ -76,6 +82,7 @@ public class StrataThink : TemplatedControl
         {
             t.UpdateDisplayedContent();
             t.ApplyWidthForState();
+            t.OnIsExpandedChanged();
         });
         ContentProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdateDisplayedContent());
         LabelProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.ApplyCollapsedWidth());
@@ -104,15 +111,16 @@ public class StrataThink : TemplatedControl
     {
         base.OnApplyTemplate(e);
 
+        if (_pill is not null)
+            _pill.PointerPressed -= OnPillPointerPressed;
+
         _dot = e.NameScope.Find<Border>("PART_Dot");
         _pill = e.NameScope.Find<Border>("PART_Pill");
+        _contentHost = e.NameScope.Find<Border>("PART_ContentHost");
         _headerRow = e.NameScope.Find<Control>("PART_HeaderRow");
 
         if (_pill is not null)
-        {
-            _pill.PointerPressed -= OnPillPointerPressed;
             _pill.PointerPressed += OnPillPointerPressed;
-        }
 
         if (_pill is not null && !IsExpanded)
         {
@@ -151,6 +159,7 @@ public class StrataThink : TemplatedControl
         if (Parent is Control parent)
             parent.SizeChanged -= OnParentSizeChanged;
 
+        CancelExpandedReveal();
         StopPulse();
         _pulseRunning = false;
         base.OnDetachedFromVisualTree(e);
@@ -190,6 +199,16 @@ public class StrataThink : TemplatedControl
     private void UpdateDisplayedContent()
     {
         DisplayedContent = IsExpanded ? Content : null;
+    }
+
+    private void OnIsExpandedChanged()
+    {
+        CancelExpandedReveal();
+
+        if (!IsExpanded)
+            return;
+
+        ScheduleExpandedReveal();
     }
 
     private void OnParentSizeChanged(object? sender, SizeChangedEventArgs e)
@@ -245,6 +264,64 @@ public class StrataThink : TemplatedControl
         width = Math.Min(width, 480);
 
         _pill.Width = width;
+    }
+
+    private void ScheduleExpandedReveal()
+    {
+        var cancellationTokenSource = new CancellationTokenSource();
+        _expandedRevealCts = cancellationTokenSource;
+        _ = RunExpandedRevealAsync(cancellationTokenSource);
+    }
+
+    private async Task RunExpandedRevealAsync(CancellationTokenSource cancellationTokenSource)
+    {
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+
+            if (cancellationTokenSource.IsCancellationRequested || !IsExpanded)
+                return;
+
+            RequestExpandedReveal();
+
+            await Task.Delay(ExpandedRevealDelay, cancellationTokenSource.Token);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render);
+
+            if (cancellationTokenSource.IsCancellationRequested || !IsExpanded)
+                return;
+
+            RequestExpandedReveal();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_expandedRevealCts, cancellationTokenSource))
+                _expandedRevealCts = null;
+
+            cancellationTokenSource.Dispose();
+        }
+    }
+
+    private void RequestExpandedReveal()
+    {
+        Control target = _pill is not null
+            ? _pill
+            : _contentHost is not null
+                ? _contentHost
+                : this;
+        target.BringIntoView();
+    }
+
+    private void CancelExpandedReveal()
+    {
+        var expandedRevealCts = _expandedRevealCts;
+        _expandedRevealCts = null;
+        if (expandedRevealCts is null)
+            return;
+
+        expandedRevealCts.Cancel();
     }
 
     private void StartPulse()

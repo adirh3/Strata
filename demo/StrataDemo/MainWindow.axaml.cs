@@ -18,7 +18,7 @@ namespace StrataDemo;
 public partial class MainWindow : Window
 {
     private readonly List<Control> _pages = new();
-    private StrataChatTranscript? _liveTranscript;
+    private ItemsControl? _liveTranscript;
     private StrataChatComposer? _liveComposer;
     private StrataChatShell? _mainChatShell;
     private StrataConfidence? _liveConfRootCause;
@@ -29,12 +29,12 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _generationCts;
     private StrataCanvas? _chatExperienceCanvas;
     private bool _isChatCanvasOpen;
-    private StrataChatTranscript? _perfTranscript;
+    private ItemsControl? _perfTranscript;
     private StrataChatShell? _perfChatShell;
     private TextBlock? _perfStatusText;
-    private TextBlock? _perfBaselineText;
-    private TextBlock? _perfOptimizedText;
-    private TextBlock? _perfUpliftText;
+    private TextBlock? _perfFirstPassText;
+    private TextBlock? _perfSecondPassText;
+    private TextBlock? _perfDeltaText;
     private Button? _perfSeedButton;
     private Button? _perfRunButton;
     private Button? _perfStopButton;
@@ -78,7 +78,7 @@ public partial class MainWindow : Window
         ShowPage(0);
 
         // Interactive chat page wiring
-        _liveTranscript = this.FindControl<StrataChatTranscript>("LiveTranscript");
+        _liveTranscript = this.FindControl<ItemsControl>("LiveTranscript");
         _liveComposer = this.FindControl<StrataChatComposer>("LiveComposer");
         _mainChatShell = this.FindControl<StrataChatShell>("MainChatShell");
         _liveConfRootCause = this.FindControl<StrataConfidence>("LiveConfRootCause");
@@ -124,7 +124,7 @@ public partial class MainWindow : Window
         }
 
         // Chat performance page wiring
-        _perfTranscript = this.FindControl<StrataChatTranscript>("PerfTranscript");
+        _perfTranscript = this.FindControl<ItemsControl>("PerfTranscript");
 
         // Wire flyout icon picker to update button preview and close flyout
         var flyoutPicker = this.FindControl<StrataIconPicker>("FlyoutIconPicker");
@@ -140,9 +140,9 @@ public partial class MainWindow : Window
         }
         _perfChatShell = this.FindControl<StrataChatShell>("PerfChatShell");
         _perfStatusText = this.FindControl<TextBlock>("PerfStatusText");
-        _perfBaselineText = this.FindControl<TextBlock>("PerfBaselineText");
-        _perfOptimizedText = this.FindControl<TextBlock>("PerfOptimizedText");
-        _perfUpliftText = this.FindControl<TextBlock>("PerfUpliftText");
+        _perfFirstPassText = this.FindControl<TextBlock>("PerfFirstPassText");
+        _perfSecondPassText = this.FindControl<TextBlock>("PerfSecondPassText");
+        _perfDeltaText = this.FindControl<TextBlock>("PerfDeltaText");
 
         _perfSeedButton = this.FindControl<Button>("PerfSeedButton");
         if (_perfSeedButton is not null)
@@ -3239,27 +3239,27 @@ public partial class MainWindow : Window
 
             EnsurePerformanceDemoSeeded(forceReset: true);
 
-            SetPerformanceStatus(L("ChatPerf.StatusRunningBaseline", "Running baseline scenario (non-virtualized transcript)…"));
-            var baseline = await _perfRunner.RunScenarioSeriesAsync(ChatPerfScenarioProfile.Baseline, token);
-            var baselineText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(baseline);
-            _perfBaselineText?.SetCurrentValue(TextBlock.TextProperty, baselineText);
+            SetPerformanceStatus(L("ChatPerf.StatusRunningFirstPass", "Running first stress pass…"));
+            var firstPass = await _perfRunner.RunScenarioSeriesAsync(token);
+            var firstPassText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(firstPass);
+            _perfFirstPassText?.SetCurrentValue(TextBlock.TextProperty, firstPassText);
 
-            SetPerformanceStatus(L("ChatPerf.StatusRunningOptimized", "Running optimized scenario (chat-virtualized transcript)…"));
-            var optimized = await _perfRunner.RunScenarioSeriesAsync(ChatPerfScenarioProfile.Optimized, token);
-            var optimizedText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(optimized);
-            _perfOptimizedText?.SetCurrentValue(TextBlock.TextProperty, optimizedText);
+            SetPerformanceStatus(L("ChatPerf.StatusRunningSecondPass", "Running second stress pass…"));
+            var secondPass = await _perfRunner.RunScenarioSeriesAsync(token);
+            var secondPassText = ChatPerformanceBenchmarkRunner.FormatPerformanceMetrics(secondPass);
+            _perfSecondPassText?.SetCurrentValue(TextBlock.TextProperty, secondPassText);
 
-            var upliftText = ChatPerformanceBenchmarkRunner.FormatUplift(baseline, optimized);
-            _perfUpliftText?.SetCurrentValue(TextBlock.TextProperty, upliftText);
-            SetPerformanceStatus(L("ChatPerf.StatusCompleted", "Benchmark complete. Optimized mode maintains higher FPS and lower frame times under streaming + scroll stress."));
+            var deltaText = ChatPerformanceBenchmarkRunner.FormatComparison(firstPass, secondPass);
+            _perfDeltaText?.SetCurrentValue(TextBlock.TextProperty, deltaText);
+            SetPerformanceStatus(L("ChatPerf.StatusCompleted", "Benchmark complete. Review the two passes for steady-state drift under streaming + scroll stress."));
 
             return new ChatPerfBenchmarkResult(
                 IdleMetrics: idleMetrics,
-                Baseline: baseline,
-                Optimized: optimized,
-                BaselineText: baselineText,
-                OptimizedText: optimizedText,
-                UpliftText: upliftText,
+                FirstPass: firstPass,
+                SecondPass: secondPass,
+                FirstPassText: firstPassText,
+                SecondPassText: secondPassText,
+                DeltaText: deltaText,
                 PerfPageVisible: perfPageVisible,
                 ShellVisible: shellVisible,
                 ShellWidth: shellWidth,
@@ -3272,7 +3272,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            _perfRunner.ResetToOptimizedDefaults();
+            _perfRunner.ResetToDefaults();
 
             SetPerformanceButtons(isRunning: false);
         }
@@ -3311,10 +3311,10 @@ public partial class MainWindow : Window
         _perfRunner.SeedTranscript();
 
         _perfInitialized = true;
-        _perfBaselineText?.SetCurrentValue(TextBlock.TextProperty, L("ChatPerf.NoResults", "No results yet."));
-        _perfOptimizedText?.SetCurrentValue(TextBlock.TextProperty, L("ChatPerf.NoResults", "No results yet."));
-        _perfUpliftText?.SetCurrentValue(TextBlock.TextProperty, L("ChatPerf.NoResults", "No results yet."));
-        SetPerformanceStatus(L("ChatPerf.StatusSeeded", "Transcript seeded with many messages. Run benchmark to compare baseline vs optimized."));
+        _perfFirstPassText?.SetCurrentValue(TextBlock.TextProperty, L("ChatPerf.NoResults", "No results yet."));
+        _perfSecondPassText?.SetCurrentValue(TextBlock.TextProperty, L("ChatPerf.NoResults", "No results yet."));
+        _perfDeltaText?.SetCurrentValue(TextBlock.TextProperty, L("ChatPerf.NoResults", "No results yet."));
+        SetPerformanceStatus(L("ChatPerf.StatusSeeded", "Transcript seeded with many messages. Run benchmark to record two stress passes."));
     }
 
     private void SetPerformanceStatus(string text)
