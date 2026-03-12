@@ -119,6 +119,12 @@ public class StrataChatShell : TemplatedControl
     public object? Composer { get => GetValue(ComposerProperty); set => SetValue(ComposerProperty, value); }
     public bool IsOnline { get => GetValue(IsOnlineProperty); set => SetValue(IsOnlineProperty, value); }
     public string PresenceText { get => GetValue(PresenceTextProperty); set => SetValue(PresenceTextProperty, value); }
+    public ScrollViewer? TranscriptScrollViewer => _scrollViewer;
+    public double VerticalOffset => _scrollViewer?.Offset.Y ?? 0d;
+    public double ViewportHeight => _scrollViewer?.Viewport.Height ?? 0d;
+    public double ExtentHeight => _scrollViewer?.Extent.Height ?? 0d;
+    public double CurrentDistanceFromBottom => _scrollViewer is null ? 0d : DistanceFromBottom(_scrollViewer);
+    public bool IsPinnedToBottom => !_userScrolledAway && CurrentDistanceFromBottom <= 8d;
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -516,6 +522,20 @@ public class StrataChatShell : TemplatedControl
         _suspendAutoScrollUntilUtc = default;
     }
 
+    public void ScrollToVerticalOffset(double verticalOffset)
+    {
+        if (_scrollViewer is null)
+            return;
+
+        var maxOffset = Math.Max(0d, _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height);
+        var clampedOffset = Math.Clamp(verticalOffset, 0d, maxOffset);
+
+        _isProgrammaticScroll = true;
+        _lastProgrammaticScrollUtc = DateTime.UtcNow;
+        _scrollViewer.Offset = _scrollViewer.Offset.WithY(clampedOffset);
+        Dispatcher.UIThread.Post(() => _isProgrammaticScroll = false, DispatcherPriority.Loaded);
+    }
+
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         if (_scrollViewer is null || _isProgrammaticScroll)
@@ -611,7 +631,8 @@ public class StrataChatShell : TemplatedControl
                 foreach (var child in itemsHostPanel.Children)
                 {
                     ApplyScrollingRenderHint(child, isScrolling);
-                    ApplyScrollingStateRecursive(child, isScrolling);
+                    if (!TryApplyScrollingStateFlatScan(child, isScrolling))
+                        ApplyScrollingStateRecursive(child, isScrolling);
                 }
                 return;
             }
@@ -621,7 +642,11 @@ public class StrataChatShell : TemplatedControl
         if (Transcript is Panel panel)
         {
             foreach (var child in panel.Children)
-                ApplyScrollingStateRecursive(child, isScrolling);
+            {
+                ApplyScrollingRenderHint(child, isScrolling);
+                if (!TryApplyScrollingStateFlatScan(child, isScrolling))
+                    ApplyScrollingStateRecursive(child, isScrolling);
+            }
             return;
         }
 
@@ -667,14 +692,14 @@ public class StrataChatShell : TemplatedControl
     /// Handles the common case of ContentPresenter wrapping a message control
     /// without the overhead of a full recursive tree walk.
     /// </summary>
-    private static void ApplyScrollingStateFlatScan(Control container, bool isScrolling)
+    private static bool TryApplyScrollingStateFlatScan(Control container, bool isScrolling)
     {
         // Direct message
         if (container is StrataChatMessage message)
         {
             if (message.IsHostScrolling != isScrolling)
                 message.IsHostScrolling = isScrolling;
-            return;
+            return true;
         }
 
         // ContentPresenter wrapping a message (ItemsControl container)
@@ -684,11 +709,13 @@ public class StrataChatShell : TemplatedControl
             {
                 if (cpMsg.IsHostScrolling != isScrolling)
                     cpMsg.IsHostScrolling = isScrolling;
-                return;
+                return true;
             }
             // Content might be a non-message control (StrataThink, etc.) — skip
-            return;
+            return false;
         }
+
+        return false;
     }
 
     private static void ApplyScrollingStateToItems(IList? items, bool isScrolling)
@@ -697,7 +724,16 @@ public class StrataChatShell : TemplatedControl
             return;
 
         for (var i = 0; i < items.Count; i++)
+        {
+            if (items[i] is Control control)
+            {
+                ApplyScrollingRenderHint(control, isScrolling);
+                if (TryApplyScrollingStateFlatScan(control, isScrolling))
+                    continue;
+            }
+
             ApplyScrollingStateRecursive(items[i], isScrolling);
+        }
     }
 
     private static bool AreAllControls(IList? items)
