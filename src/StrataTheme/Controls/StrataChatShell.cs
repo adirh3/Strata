@@ -657,21 +657,18 @@ public class StrataChatShell : TemplatedControl
     {
         if (!container.IsVisible)
         {
-            if (!isScrolling)
-            {
-                if (container.CacheMode is not null)
-                    container.CacheMode = null;
-                if (!container.IsHitTestVisible)
-                    container.IsHitTestVisible = true;
-            }
+            if (!isScrolling && container.CacheMode is not null)
+                container.CacheMode = null;
+
             return;
         }
 
         if (isScrolling)
         {
-            if (container.IsHitTestVisible)
-                container.IsHitTestVisible = false;
-
+            // Keep nested interactive controls (for example the expanded reasoning
+            // ScrollViewer inside StrataThink) hit-testable while the host transcript
+            // is scrolling. Message-level hover simplification still flows through
+            // StrataChatMessage.IsHostScrolling.
             container.CacheMode ??= new BitmapCache
             {
                 RenderAtScale = 1d,
@@ -683,8 +680,6 @@ public class StrataChatShell : TemplatedControl
 
         if (container.CacheMode is not null)
             container.CacheMode = null;
-        if (!container.IsHitTestVisible)
-            container.IsHitTestVisible = true;
     }
 
     /// <summary>
