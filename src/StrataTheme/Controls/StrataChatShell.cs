@@ -47,9 +47,7 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataChatShell : TemplatedControl
 {
-    private const int AutoScrollInteractionCooldownMs = 220;
     private const int ScrollingVisualCooldownMs = 140;
-    private static readonly TimeSpan ProgrammaticScrollMinInterval = TimeSpan.FromMilliseconds(90);
     private const double UserScrollDeltaThreshold = 0.05;
     private const double LayoutShiftDeltaTolerance = 0.2;
 
@@ -62,8 +60,6 @@ public class StrataChatShell : TemplatedControl
     private bool _isProgrammaticScroll;
     private bool _alignmentQueued;
     private bool _scrollQueued;
-    private DateTime _suspendAutoScrollUntilUtc;
-    private DateTime _lastProgrammaticScrollUtc;
     private bool _forceFullAlignment = true;
     private int _lastAlignedMessageCount;
     private bool _isPulseRunning;
@@ -475,15 +471,11 @@ public class StrataChatShell : TemplatedControl
     /// Scrolls transcript to the bottom. Call this during streaming/generation.
     /// Respects user scroll-away: if the user scrolled up, this is a no-op
     /// until <see cref="ResetAutoScroll"/> is called.
-    /// Debounced: multiple calls within the same frame coalesce into one scroll.
+    /// Coalesced: multiple calls within the same frame produce one scroll.
     /// </summary>
     public void ScrollToEnd()
     {
-        if (_scrollViewer is null || _userScrolledAway || IsAutoScrollSuspended())
-            return;
-
-        var now = DateTime.UtcNow;
-        if (_lastProgrammaticScrollUtc != default && (now - _lastProgrammaticScrollUtc) < ProgrammaticScrollMinInterval)
+        if (_scrollViewer is null || _userScrolledAway)
             return;
 
         if (_scrollQueued) return;
@@ -491,21 +483,17 @@ public class StrataChatShell : TemplatedControl
         Dispatcher.UIThread.Post(() =>
         {
             _scrollQueued = false;
-            if (_scrollViewer is null || _userScrolledAway || IsAutoScrollSuspended()) return;
+            if (_scrollViewer is null || _userScrolledAway) return;
 
             _isProgrammaticScroll = true;
-            _lastProgrammaticScrollUtc = DateTime.UtcNow;
             _scrollViewer.ScrollToEnd();
 
             // Scroll once more after layout settles so streaming content growth
             // (e.g., markdown reflow) still keeps the viewport pinned to the bottom.
             Dispatcher.UIThread.Post(() =>
             {
-                if (_scrollViewer is not null && !_userScrolledAway && !IsAutoScrollSuspended())
-                {
-                    _lastProgrammaticScrollUtc = DateTime.UtcNow;
+                if (_scrollViewer is not null && !_userScrolledAway)
                     _scrollViewer.ScrollToEnd();
-                }
 
                 _isProgrammaticScroll = false;
             }, DispatcherPriority.Loaded);
@@ -519,7 +507,6 @@ public class StrataChatShell : TemplatedControl
     public void ResetAutoScroll()
     {
         _userScrolledAway = false;
-        _suspendAutoScrollUntilUtc = default;
     }
 
     public void ScrollToVerticalOffset(double verticalOffset)
@@ -531,7 +518,6 @@ public class StrataChatShell : TemplatedControl
         var clampedOffset = Math.Clamp(verticalOffset, 0d, maxOffset);
 
         _isProgrammaticScroll = true;
-        _lastProgrammaticScrollUtc = DateTime.UtcNow;
         _scrollViewer.Offset = _scrollViewer.Offset.WithY(clampedOffset);
         Dispatcher.UIThread.Post(() => _isProgrammaticScroll = false, DispatcherPriority.Loaded);
     }
@@ -551,21 +537,19 @@ public class StrataChatShell : TemplatedControl
 
         MarkTranscriptScrollingActive();
 
-        SuspendAutoScrollBriefly();
-
         var distanceFromBottom = DistanceFromBottom(_scrollViewer);
         if (distanceFromBottom > 40)
             _userScrolledAway = true;
-        else if (distanceFromBottom <= 8)
+        else if (distanceFromBottom <= 8 && e.OffsetDelta.Y > 0)
+            // Only re-enable auto-scroll when actively scrolling toward bottom
+            // (e.g. scrollbar drag down). Prevents wheel-up near bottom from
+            // being immediately undone by the resulting ScrollChanged event.
             _userScrolledAway = false;
     }
 
     private void OnUserWheelScroll(object? sender, PointerWheelEventArgs e)
     {
-        // Don't intercept — let ScrollViewer handle natively (especially for touchpad).
-        // Just detect scroll-away intent so auto-scroll pauses during streaming.
         MarkTranscriptScrollingActive();
-        SuspendAutoScrollBriefly();
         if (e.Delta.Y > 0)
             _userScrolledAway = true;
         else if (_scrollViewer is not null && e.Delta.Y < 0 && DistanceFromBottom(_scrollViewer) <= 8)
@@ -578,7 +562,6 @@ public class StrataChatShell : TemplatedControl
             return;
 
         MarkTranscriptScrollingActive();
-        SuspendAutoScrollBriefly();
         _userScrolledAway = true;
     }
 
@@ -787,16 +770,6 @@ public class StrataChatShell : TemplatedControl
             return false;
 
         return Math.Abs(absoluteOffsetDeltaY - extentDeltaY) <= LayoutShiftDeltaTolerance;
-    }
-
-    private bool IsAutoScrollSuspended()
-    {
-        return DateTime.UtcNow < _suspendAutoScrollUntilUtc;
-    }
-
-    private void SuspendAutoScrollBriefly()
-    {
-        _suspendAutoScrollUntilUtc = DateTime.UtcNow.AddMilliseconds(AutoScrollInteractionCooldownMs);
     }
 
     private static double DistanceFromBottom(ScrollViewer scrollViewer)
