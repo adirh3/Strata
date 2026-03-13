@@ -325,11 +325,11 @@
               <Grid x:Name="FormTextGrid" ColumnDefinitions="*,24,*">
                 <StackPanel Grid.Column="0" Spacing="6">
                   <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[FullName]}" />
-                  <TextBox Watermark="{Binding Strings[EnterYourName]}" Text="{Binding SampleText}" />
+                  <TextBox PlaceholderText="{Binding Strings[EnterYourName]}" Text="{Binding SampleText}" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Spacing="6">
                   <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[EmailDisabled]}" />
-                  <TextBox Watermark="{Binding Strings[DisabledInput]}" IsEnabled="False" Text="user@example.com" />
+                  <TextBox PlaceholderText="{Binding Strings[DisabledInput]}" IsEnabled="False" Text="user@example.com" />
                 </StackPanel>
               </Grid>
             </StackPanel>
@@ -602,7 +602,7 @@
                 <StackPanel Spacing="8" Margin="0,4">
                   <CheckBox Content="{Binding Strings[EnableExperimental]}" />
                   <CheckBox Content="{Binding Strings[VerboseLogging]}" />
-                  <TextBox Watermark="{Binding Strings[CustomEndpoint]}" />
+                  <TextBox PlaceholderText="{Binding Strings[CustomEndpoint]}" />
                 </StackPanel>
               </Expander>
               <Expander Header="{Binding Strings[About]}" IsExpanded="True">

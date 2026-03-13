@@ -132,7 +132,7 @@
 
                 <!-- Search box -->
                 <TextBox Name="PART_SearchBox"
-                         Watermark="Search emoji…"
+                         PlaceholderText="Search emoji…"
                          FontSize="{DynamicResource Font.SizeBody}"
                          Height="{DynamicResource Size.ControlHeightS}" />
 

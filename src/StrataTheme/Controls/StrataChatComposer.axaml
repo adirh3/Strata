@@ -105,7 +105,7 @@
                   <TextBox Name="PART_Input"
                            Classes="composer-embed"
                            Text="{Binding PromptText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
-                           Watermark="{TemplateBinding Placeholder}"
+                           PlaceholderText="{TemplateBinding Placeholder}"
                            AcceptsReturn="True"
                            TextWrapping="Wrap"
                            MinHeight="40" MaxHeight="180"

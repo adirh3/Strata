@@ -44,7 +44,7 @@
                 <!-- Input area -->
                 <TextBox Name="PART_Input"
                          Text="{TemplateBinding PromptText}"
-                         Watermark="{TemplateBinding Placeholder}"
+                         PlaceholderText="{TemplateBinding Placeholder}"
                          AcceptsReturn="True"
                          TextWrapping="Wrap"
                          MinHeight="38"

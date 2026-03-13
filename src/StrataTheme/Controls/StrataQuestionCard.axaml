@@ -126,7 +126,7 @@
                   ColumnDefinitions="*,Auto"
                   IsVisible="False">
               <TextBox Name="PART_FreeTextBox"
-                       Watermark="{TemplateBinding FreeTextPlaceholder}"
+                       PlaceholderText="{TemplateBinding FreeTextPlaceholder}"
                        FontSize="12.5"
                        Padding="10,7"
                        CornerRadius="8"

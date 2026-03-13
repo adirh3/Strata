@@ -221,7 +221,7 @@
                     <!-- Search box (visible when IsSearchable) -->
                     <TextBox x:Name="PART_SearchBox"
                              DockPanel.Dock="Top"
-                             Watermark="{TemplateBinding SearchWatermark}"
+                             PlaceholderText="{TemplateBinding SearchWatermark}"
                              Margin="4,4,4,6"
                              IsVisible="False" />
 
