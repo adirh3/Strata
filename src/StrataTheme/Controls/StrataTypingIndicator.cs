@@ -25,6 +25,7 @@ public class StrataTypingIndicator : TemplatedControl
     private Border? _dot1;
     private Border? _dot2;
     private Border? _dot3;
+    private bool _attached;
 
     /// <summary>Text displayed next to the dots (e.g. "Thinking…", "Typing…").</summary>
     public static readonly StyledProperty<string> LabelProperty =
@@ -54,13 +55,19 @@ public class StrataTypingIndicator : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _attached = true;
         // Composition visuals are only available after visual tree attachment.
         // Defer so the compositor has created them by the time we animate.
-        Dispatcher.UIThread.Post(Refresh, DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_attached)
+                Refresh();
+        }, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _attached = false;
         StopPulse();
         base.OnDetachedFromVisualTree(e);
     }
@@ -73,9 +80,6 @@ public class StrataTypingIndicator : TemplatedControl
 
     private void StartPulse()
     {
-        // Stop any existing animations first to avoid stale compositor state
-        // (Avalonia #17368: re-triggering composition animations without stop can break them)
-        StopPulse();
         AnimateDot(_dot1, 0);
         AnimateDot(_dot2, 140);
         AnimateDot(_dot3, 280);
@@ -94,6 +98,10 @@ public class StrataTypingIndicator : TemplatedControl
 
         var visual = ElementComposition.GetElementVisual(dot);
         if (visual is null) return;
+
+        // Stop existing animation before starting new one to avoid stale compositor state
+        // (Avalonia #17368: re-triggering composition animations without stop can break them)
+        visual.StopAnimation("Opacity");
 
         var anim = visual.Compositor.CreateScalarKeyFrameAnimation();
         anim.Target = "Opacity";
