@@ -54,6 +54,9 @@ public class StrataTypingIndicator : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        // Composition visuals are only available after visual tree attachment.
+        // Defer so the compositor has created them by the time we animate.
+        Dispatcher.UIThread.Post(Refresh, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -70,6 +73,9 @@ public class StrataTypingIndicator : TemplatedControl
 
     private void StartPulse()
     {
+        // Stop any existing animations first to avoid stale compositor state
+        // (Avalonia #17368: re-triggering composition animations without stop can break them)
+        StopPulse();
         AnimateDot(_dot1, 0);
         AnimateDot(_dot2, 140);
         AnimateDot(_dot3, 280);
