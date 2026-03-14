@@ -1,9 +1,8 @@
 using System;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Rendering.Composition;
-using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
 
 namespace StrataTheme.Controls;
@@ -22,10 +21,19 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataTypingIndicator : TemplatedControl
 {
+    private const double PulseCycleMs = 980d;
+    private const double PulsePeakPhase = 0.35d;
+    private const double PulseFadePhase = 0.7d;
+    private const double PulseMinOpacity = 0.28d;
+    private const double PulseMaxOpacity = 1d;
+    private const double InactiveOpacity = 0.45d;
+
     private Border? _dot1;
     private Border? _dot2;
     private Border? _dot3;
     private bool _attached;
+    private readonly Stopwatch _pulseClock = new();
+    private readonly DispatcherTimer _pulseTimer;
 
     /// <summary>Text displayed next to the dots (e.g. "Thinking…", "Typing…").</summary>
     public static readonly StyledProperty<string> LabelProperty =
@@ -38,6 +46,11 @@ public class StrataTypingIndicator : TemplatedControl
     static StrataTypingIndicator()
     {
         IsActiveProperty.Changed.AddClassHandler<StrataTypingIndicator>((c, _) => c.Refresh());
+    }
+
+    public StrataTypingIndicator()
+    {
+        _pulseTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(40), DispatcherPriority.Render, OnPulseTick);
     }
 
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
@@ -56,13 +69,7 @@ public class StrataTypingIndicator : TemplatedControl
     {
         base.OnAttachedToVisualTree(e);
         _attached = true;
-        // Composition visuals are only available after visual tree attachment.
-        // Defer so the compositor has created them by the time we animate.
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_attached)
-                Refresh();
-        }, DispatcherPriority.Loaded);
+        Refresh();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -75,54 +82,89 @@ public class StrataTypingIndicator : TemplatedControl
     private void Refresh()
     {
         PseudoClasses.Set(":active", IsActive);
-        if (IsActive) StartPulse(); else StopPulse();
+
+        if (IsActive && _attached && HasTemplateParts)
+        {
+            StartPulse();
+            return;
+        }
+
+        StopPulse();
     }
 
     private void StartPulse()
     {
-        AnimateDot(_dot1, 0);
-        AnimateDot(_dot2, 140);
-        AnimateDot(_dot3, 280);
+        if (_pulseTimer.IsEnabled)
+        {
+            UpdateDots();
+            return;
+        }
+
+        _pulseClock.Restart();
+        UpdateDots();
+        _pulseTimer.Start();
     }
 
     private void StopPulse()
     {
+        _pulseTimer.Stop();
+        _pulseClock.Reset();
         ResetDot(_dot1);
         ResetDot(_dot2);
         ResetDot(_dot3);
     }
 
-    private static void AnimateDot(Border? dot, int delayMs)
+    private void OnPulseTick(object? sender, EventArgs e)
     {
-        if (dot is null) return;
+        if (!_attached || !IsActive || !HasTemplateParts)
+        {
+            StopPulse();
+            return;
+        }
 
-        var visual = ElementComposition.GetElementVisual(dot);
-        if (visual is null) return;
+        UpdateDots();
+    }
 
-        // Stop existing animation before starting new one to avoid stale compositor state
-        // (Avalonia #17368: re-triggering composition animations without stop can break them)
-        visual.StopAnimation("Opacity");
-
-        var anim = visual.Compositor.CreateScalarKeyFrameAnimation();
-        anim.Target = "Opacity";
-        anim.InsertKeyFrame(0f, 0.28f);
-        anim.InsertKeyFrame(0.35f, 1f);
-        anim.InsertKeyFrame(0.7f, 0.28f);
-        anim.InsertKeyFrame(1f, 0.28f);
-        anim.DelayTime = TimeSpan.FromMilliseconds(delayMs);
-        anim.Duration = TimeSpan.FromMilliseconds(980);
-        anim.IterationBehavior = AnimationIterationBehavior.Forever;
-        visual.StartAnimation("Opacity", anim);
+    private void UpdateDots()
+    {
+        var elapsedMs = _pulseClock.Elapsed.TotalMilliseconds;
+        ApplyDotOpacity(_dot1, elapsedMs, 0d);
+        ApplyDotOpacity(_dot2, elapsedMs, 140d);
+        ApplyDotOpacity(_dot3, elapsedMs, 280d);
     }
 
     private static void ResetDot(Border? dot)
     {
         if (dot is null) return;
-
-        var visual = ElementComposition.GetElementVisual(dot);
-        if (visual is null) return;
-
-        visual.StopAnimation("Opacity");
-        visual.Opacity = 0.45f;
+        dot.Opacity = InactiveOpacity;
     }
+
+    private static void ApplyDotOpacity(Border? dot, double elapsedMs, double delayMs)
+    {
+        if (dot is null)
+            return;
+
+        dot.Opacity = CalculatePulseOpacity(elapsedMs, delayMs);
+    }
+
+    private static double CalculatePulseOpacity(double elapsedMs, double delayMs)
+    {
+        var shiftedMs = elapsedMs - delayMs;
+        while (shiftedMs < 0d)
+            shiftedMs += PulseCycleMs;
+
+        var phase = (shiftedMs % PulseCycleMs) / PulseCycleMs;
+        if (phase <= PulsePeakPhase)
+            return Lerp(PulseMinOpacity, PulseMaxOpacity, phase / PulsePeakPhase);
+
+        if (phase <= PulseFadePhase)
+            return Lerp(PulseMaxOpacity, PulseMinOpacity, (phase - PulsePeakPhase) / (PulseFadePhase - PulsePeakPhase));
+
+        return PulseMinOpacity;
+    }
+
+    private static double Lerp(double from, double to, double progress)
+        => from + ((to - from) * progress);
+
+    private bool HasTemplateParts => _dot1 is not null && _dot2 is not null && _dot3 is not null;
 }
