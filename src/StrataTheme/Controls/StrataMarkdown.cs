@@ -227,6 +227,83 @@ public class StrataMarkdown : ContentControl
     }
 
     /// <summary>
+    /// Releases caches, event handlers, and disposables when this control leaves the
+    /// visual tree. Without this, orphaned StrataMarkdown instances hold charts,
+    /// diagrams, tables, link-handler delegates, and CancellationTokenSources in memory
+    /// indefinitely.
+    /// </summary>
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _rebuildDelayCts?.Cancel();
+        _rebuildDelayCts?.Dispose();
+        _rebuildDelayCts = null;
+        _rebuildQueued = false;
+
+        // Unsubscribe link handlers from all SelectableTextBlocks in _contentHost
+        DetachLinkHandlers();
+
+        _linkRuns.Clear();
+
+        _chartCache.Clear();
+        _chartKeysUsed.Clear();
+        _diagramCache.Clear();
+        _diagramKeysUsed.Clear();
+        _confidenceCache.Clear();
+        _confidenceKeysUsed.Clear();
+        _comparisonCache.Clear();
+        _comparisonKeysUsed.Clear();
+        _cardCache.Clear();
+        _cardKeysUsed.Clear();
+        _sourcesCache.Clear();
+        _sourcesKeysUsed.Clear();
+        _tableCache.Clear();
+        _tableKeysUsed.Clear();
+
+        _contentHost.Children.Clear();
+        _previousBlocks.Clear();
+        _previousMarkdownNormalized = null;
+        _previousMarkdownLength = 0;
+
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        // If re-attached after being detached (e.g. control recycling), rebuild
+        // from the current Markdown value since OnDetachedFromVisualTree clears state.
+        if (Markdown is not null && _contentHost.Children.Count == 0)
+            ScheduleRebuild();
+    }
+
+    /// <summary>Detach Tapped/PointerMoved handlers from all SelectableTextBlocks in the content host.</summary>
+    private void DetachLinkHandlers()
+    {
+        DetachLinkHandlersFromChildren(_contentHost);
+    }
+
+    private void DetachLinkHandlersFromChildren(Panel panel)
+    {
+        foreach (var child in panel.Children)
+        {
+            if (child is SelectableTextBlock tb)
+            {
+                tb.Tapped -= OnLinkTapped;
+                tb.PointerMoved -= OnTextBlockPointerMoved;
+            }
+            else if (child is Panel nested)
+            {
+                DetachLinkHandlersFromChildren(nested);
+            }
+            else if (child is Decorator decorator && decorator.Child is Panel decoratorPanel)
+            {
+                DetachLinkHandlersFromChildren(decoratorPanel);
+            }
+        }
+    }
+
+    /// <summary>
     /// Debounces rapid Markdown changes (e.g., streaming tokens) into a single rebuild pass.
     /// This prevents multiple full parses within the same UI frame.
     /// </summary>

@@ -118,6 +118,10 @@ public class StrataPeek : TemplatedControl
         _transitionCts?.Cancel();
         _transitionCts?.Dispose();
         _transitionCts = null;
+
+        if (_toggleButton is not null)
+            _toggleButton.Click -= OnToggleButtonClick;
+
         base.OnDetachedFromVisualTree(e);
     }
 

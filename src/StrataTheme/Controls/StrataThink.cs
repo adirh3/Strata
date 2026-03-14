@@ -322,6 +322,7 @@ public class StrataThink : TemplatedControl
             return;
 
         expandedRevealCts.Cancel();
+        expandedRevealCts.Dispose();
     }
 
     private void StartPulse()

@@ -188,6 +188,13 @@ public class StrataAiToolCall : TemplatedControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         StopRunningPulse();
+
+        if (_contextMenu is not null)
+        {
+            _contextMenu.Opening -= OnContextMenuOpening;
+            _contextMenu = null;
+        }
+
         base.OnDetachedFromVisualTree(e);
     }
 

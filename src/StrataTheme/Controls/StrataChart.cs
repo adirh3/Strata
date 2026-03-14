@@ -355,7 +355,7 @@ public class StrataChart : TemplatedControl
             base.OnDetachedFromVisualTree(e);
             _entranceDelayTimer?.Stop();
             _animTimer?.Stop();
-            _animWatch.Stop(); // Pause — preserve elapsed time for resume
+            _animWatch.Stop();
             _entranceReady = false;
         }
 
