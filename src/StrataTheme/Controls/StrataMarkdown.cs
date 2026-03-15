@@ -333,20 +333,21 @@ public class StrataMarkdown : ContentControl
         }
 
         var cts = new System.Threading.CancellationTokenSource();
+        var token = cts.Token;
         _rebuildDelayCts = cts;
 
         Dispatcher.UIThread.Post(async () =>
         {
             try
             {
-                await Task.Delay(delayMs, cts.Token);
+                await Task.Delay(delayMs, token);
             }
             catch (TaskCanceledException)
             {
                 return;
             }
 
-            if (cts.IsCancellationRequested)
+            if (token.IsCancellationRequested)
                 return;
 
             FlushQueuedRebuild();
