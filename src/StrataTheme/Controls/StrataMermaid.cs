@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
@@ -571,7 +570,7 @@ public class StrataMermaid : TemplatedControl
                         var id = m.Groups[1].Value;
                         lineNodeIds.Add(id);
                         if (!_fNodes.ContainsKey(id))
-                            _fNodes[id] = new FNode { Id = id, Text = CleanText(m.Groups[2].Value.Trim()), Shape = shape };
+                            _fNodes[id] = new FNode { Id = id, Text = MermaidTextHelper.NormalizeLabelText(m.Groups[2].Value), Shape = shape };
                     }
 
                 if (subgraphStack.Count > 0 && lineNodeIds.Count > 0)
@@ -605,7 +604,7 @@ public class StrataMermaid : TemplatedControl
                             var end = toPart.IndexOf('|', 1);
                             if (end > 0)
                             {
-                                label = CleanText(toPart[1..end].Trim());
+                                label = MermaidTextHelper.NormalizeLabelText(toPart[1..end]);
                                 toPart = toPart[(end + 1)..].Trim();
                             }
                         }
@@ -698,7 +697,7 @@ public class StrataMermaid : TemplatedControl
                 if (pm.Success)
                 {
                     var id = pm.Groups[1].Value;
-                    var label = pm.Groups[2].Success ? CleanText(pm.Groups[2].Value.Trim()) : id;
+                    var label = pm.Groups[2].Success ? MermaidTextHelper.NormalizeLabelText(pm.Groups[2].Value) : id;
                     if (_sParts.All(p => p.Id != id))
                         _sParts.Add(new SParticipant { Id = id, Label = label });
                     continue;
@@ -710,7 +709,7 @@ public class StrataMermaid : TemplatedControl
                     var from = mm.Groups[1].Value;
                     var arrow = mm.Groups[2].Value;
                     var to = mm.Groups[3].Value;
-                    var text = CleanText(mm.Groups[4].Value.Trim());
+                    var text = MermaidTextHelper.NormalizeLabelText(mm.Groups[4].Value);
 
                     EnsurePart(from);
                     EnsurePart(to);
@@ -742,7 +741,7 @@ public class StrataMermaid : TemplatedControl
                 var dm = StDeclRx.Match(line);
                 if (dm.Success)
                 {
-                    _stNodes[dm.Groups[2].Value] = new StNode { Id = dm.Groups[2].Value, Text = CleanText(dm.Groups[1].Value) };
+                    _stNodes[dm.Groups[2].Value] = new StNode { Id = dm.Groups[2].Value, Text = MermaidTextHelper.NormalizeLabelText(dm.Groups[1].Value) };
                     continue;
                 }
 
@@ -751,7 +750,7 @@ public class StrataMermaid : TemplatedControl
                 {
                     var fromRaw = tm.Groups[1].Value;
                     var toRaw = tm.Groups[2].Value;
-                    var label = tm.Groups[3].Success ? CleanText(tm.Groups[3].Value.Trim()) : null;
+                    var label = tm.Groups[3].Success ? MermaidTextHelper.NormalizeLabelText(tm.Groups[3].Value) : null;
 
                     var from = fromRaw == "[*]" ? "__start__" : fromRaw;
                     var to = toRaw == "[*]" ? "__end__" : toRaw;
@@ -832,7 +831,7 @@ public class StrataMermaid : TemplatedControl
                         To = rm.Groups[3].Value,
                         LeftCard = leftCard,
                         RightCard = rightCard,
-                        Label = CleanText(rm.Groups[4].Value.Trim())
+                        Label = MermaidTextHelper.NormalizeLabelText(rm.Groups[4].Value)
                     });
 
                     // Ensure entities exist
@@ -918,7 +917,7 @@ public class StrataMermaid : TemplatedControl
                         From = rm.Groups[1].Value,
                         To = rm.Groups[3].Value,
                         Type = relType,
-                        Label = rm.Groups[4].Success ? CleanText(rm.Groups[4].Value.Trim()) : null
+                        Label = rm.Groups[4].Success ? MermaidTextHelper.NormalizeLabelText(rm.Groups[4].Value) : null
                     });
 
                     // Ensure classes exist
@@ -961,7 +960,7 @@ public class StrataMermaid : TemplatedControl
                 var colonIdx = line.IndexOf(':');
                 if (colonIdx > 0)
                 {
-                    var timeLabel = CleanText(line[..colonIdx].Trim());
+                    var timeLabel = MermaidTextHelper.NormalizeLabelText(line[..colonIdx]);
                     var eventsStr = line[(colonIdx + 1)..];
                     var events = eventsStr.Split(':', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
@@ -972,11 +971,11 @@ public class StrataMermaid : TemplatedControl
                     }
 
                     foreach (var evt in events)
-                        currentSection.Events.Add(new TlEvent { TimeLabel = timeLabel, Text = CleanText(evt) });
+                        currentSection.Events.Add(new TlEvent { TimeLabel = timeLabel, Text = MermaidTextHelper.NormalizeLabelText(evt) });
                 }
                 else if (currentSection is not null)
                 {
-                    currentSection.Events.Add(new TlEvent { TimeLabel = "", Text = CleanText(line) });
+                    currentSection.Events.Add(new TlEvent { TimeLabel = "", Text = MermaidTextHelper.NormalizeLabelText(line) });
                 }
             }
         }
@@ -1043,7 +1042,7 @@ public class StrataMermaid : TemplatedControl
                     {
                         _qdPoints.Add(new QdPoint
                         {
-                            Label = CleanText(pm.Groups[1].Value.Trim()),
+                            Label = MermaidTextHelper.NormalizeLabelText(pm.Groups[1].Value),
                             X = Math.Clamp(px, 0, 1),
                             Y = Math.Clamp(py, 0, 1)
                         });
@@ -2597,7 +2596,7 @@ public class StrataMermaid : TemplatedControl
         private static FormattedText Txt(string text, double size, IBrush? brush = null,
             FontWeight weight = FontWeight.Normal)
         {
-            return new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+            return new FormattedText(text, CultureInfo.CurrentUICulture, MermaidTextHelper.GetFlowDirection(text),
                 new Typeface(FontFamily.Default, FontStyle.Normal, weight), size,
                 brush ?? Brushes.White);
         }
@@ -2622,29 +2621,6 @@ public class StrataMermaid : TemplatedControl
 
             var idx = t.IndexOf(' ');
             return idx >= 0 ? t[..idx] : t;
-        }
-
-        private static readonly Regex BrTagRx = new(@"<br\s*/?>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-        private static string CleanText(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return text;
-
-            // Strip surrounding quotes
-            if (text.Length >= 2 &&
-                ((text[0] == '"' && text[^1] == '"') || (text[0] == '\'' && text[^1] == '\'')))
-                text = text[1..^1];
-
-            // Replace <br>, <br/>, <br /> with newline
-            text = BrTagRx.Replace(text, "\n");
-
-            // Replace literal \n with newline
-            text = text.Replace("\\n", "\n");
-
-            // Decode HTML entities
-            text = WebUtility.HtmlDecode(text);
-
-            return text;
         }
 
         private static bool IsInsideBracketLabel(string line, int index)

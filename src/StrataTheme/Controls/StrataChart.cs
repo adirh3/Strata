@@ -1296,7 +1296,7 @@ public class StrataChart : TemplatedControl
         private static FormattedText Txt(string text, double size, IBrush brush,
             FontWeight weight = FontWeight.Normal)
         {
-            return new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+            return new FormattedText(text, CultureInfo.CurrentUICulture, MermaidTextHelper.GetFlowDirection(text),
                 new Typeface(FontFamily.Default, FontStyle.Normal, weight), size, brush);
         }
     }

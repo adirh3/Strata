@@ -4,6 +4,7 @@
   <Styles.Resources>
     <ResourceDictionary>
       <ControlTheme x:Key="{x:Type controls:StrataMermaid}" TargetType="controls:StrataMermaid">
+        <Setter Property="FlowDirection" Value="LeftToRight" />
         <Setter Property="Template">
           <ControlTemplate>
             <Panel ClipToBounds="True">

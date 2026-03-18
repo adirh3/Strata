@@ -1656,14 +1656,14 @@ public class StrataMarkdown : ContentControl
 
             if (line.StartsWith("title ", StringComparison.OrdinalIgnoreCase))
             {
-                title = line[6..].Trim().Trim('"');
+                title = MermaidTextHelper.NormalizeLabelText(line[6..]);
                 continue;
             }
 
             var match = MermaidPieEntryRegex.Match(line);
             if (match.Success)
             {
-                labels.Add(match.Groups["label"].Value);
+                labels.Add(MermaidTextHelper.NormalizeLabelText(match.Groups["label"].Value));
                 if (double.TryParse(match.Groups["value"].Value, NumberStyles.Float,
                         CultureInfo.InvariantCulture, out var val))
                     values.Add(val);
@@ -1717,7 +1717,7 @@ public class StrataMarkdown : ContentControl
 
             if (line.StartsWith("title", StringComparison.OrdinalIgnoreCase))
             {
-                var rest = line[5..].Trim().Trim('"');
+                var rest = MermaidTextHelper.NormalizeLabelText(line[5..]);
                 if (!string.IsNullOrWhiteSpace(rest))
                     title = rest;
                 continue;
@@ -1806,6 +1806,7 @@ public class StrataMarkdown : ContentControl
             foreach (var part in inner.Split(','))
             {
                 var val = part.Trim().Trim('"');
+                val = MermaidTextHelper.NormalizeLabelText(val);
                 if (!string.IsNullOrWhiteSpace(val))
                     results.Add(val);
             }
@@ -1825,6 +1826,7 @@ public class StrataMarkdown : ContentControl
                     foreach (var part in rest.Split(','))
                     {
                         var val = part.Trim().Trim('"');
+                        val = MermaidTextHelper.NormalizeLabelText(val);
                         if (!string.IsNullOrWhiteSpace(val))
                             results.Add(val);
                     }

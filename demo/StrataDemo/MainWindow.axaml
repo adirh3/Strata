@@ -1031,6 +1031,12 @@
               <sc:StrataMarkdown IsInline="True"
                                  Markdown="### Quadrant Chart&#x0a;&#x0a;```mermaid&#x0a;quadrantChart&#x0a;    title Feature Priority Matrix&#x0a;    x-axis Low Effort --&gt; High Effort&#x0a;    y-axis Low Impact --&gt; High Impact&#x0a;    quadrant-1 Do First&#x0a;    quadrant-2 Plan Carefully&#x0a;    quadrant-3 Delegate&#x0a;    quadrant-4 Eliminate&#x0a;    Auth Revamp: [0.35, 0.85]&#x0a;    Dark Mode: [0.15, 0.70]&#x0a;    Refactor DB: [0.80, 0.75]&#x0a;    Fix Typo: [0.10, 0.15]&#x0a;    New Onboarding: [0.65, 0.55]&#x0a;    Icon Update: [0.25, 0.30]&#x0a;```" />
 
+              <sc:StrataMarkdown IsInline="True"
+                                 Markdown="### Hebrew Flowchart&#x0a;&#x0a;```mermaid&#x0a;flowchart TD&#x0a;    A[קליטת בקשה] --&gt; B{האם המשתמש מאומת?}&#x0a;    B --&gt;|כן| C[טעינת נתונים]&#x0a;    B --&gt;|לא| D[הצגת מסך התחברות]&#x0a;    C --&gt; E[עדכון לוח הבקרה]&#x0a;    D --&gt; F[שליחת קוד אימות]&#x0a;```" />
+
+              <sc:StrataMarkdown IsInline="True"
+                                 Markdown="### Hebrew Pie Chart&#x0a;&#x0a;```mermaid&#x0a;pie&#x0a;    title חלוקת בקשות בעברית&#x0a;    &quot;אימות&quot; : 30&#x0a;    &quot;עיבוד&quot; : 45&#x0a;    &quot;התראות&quot; : 15&#x0a;    &quot;דוחות&quot; : 10&#x0a;```" />
+
               <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
                          Text="{Binding Strings[MermaidDiagrams.Footer]}" />
             </StackPanel>
