@@ -36,6 +36,7 @@ public class StrataThink : TemplatedControl
 
     private Border? _dot;
     private Border? _pill;
+    private Border? _header;
     private Border? _contentHost;
     private Control? _headerRow;
     private Transitions? _savedPillTransitions;
@@ -111,14 +112,19 @@ public class StrataThink : TemplatedControl
     {
         base.OnApplyTemplate(e);
 
+        if (_header is not null)
+            _header.PointerPressed -= OnHeaderPointerPressed;
         if (_pill is not null)
             _pill.PointerPressed -= OnPillPointerPressed;
 
         _dot = e.NameScope.Find<Border>("PART_Dot");
         _pill = e.NameScope.Find<Border>("PART_Pill");
+        _header = e.NameScope.Find<Border>("PART_Header");
         _contentHost = e.NameScope.Find<Border>("PART_ContentHost");
         _headerRow = e.NameScope.Find<Control>("PART_HeaderRow");
 
+        if (_header is not null)
+            _header.PointerPressed += OnHeaderPointerPressed;
         if (_pill is not null)
             _pill.PointerPressed += OnPillPointerPressed;
 
@@ -156,6 +162,11 @@ public class StrataThink : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (_header is not null)
+            _header.PointerPressed -= OnHeaderPointerPressed;
+        if (_pill is not null)
+            _pill.PointerPressed -= OnPillPointerPressed;
+
         if (Parent is Control parent)
             parent.SizeChanged -= OnParentSizeChanged;
 
@@ -175,7 +186,26 @@ public class StrataThink : TemplatedControl
         }
     }
 
-    private void OnPillPointerPressed(object? sender, PointerPressedEventArgs e) => IsExpanded = !IsExpanded;
+    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            IsExpanded = !IsExpanded;
+            e.Handled = true;
+        }
+    }
+
+    private void OnPillPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        // When collapsed, clicking anywhere on the pill should expand.
+        // When expanded, only the PART_Header area handles toggling — this
+        // prevents clicks on child content from collapsing the parent.
+        if (!IsExpanded && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            IsExpanded = true;
+            e.Handled = true;
+        }
+    }
 
     private void UpdatePseudoClasses()
     {
@@ -206,9 +236,15 @@ public class StrataThink : TemplatedControl
         CancelExpandedReveal();
 
         if (!IsExpanded)
+        {
+            // Clear any local MaxHeight override so the style/template defaults
+            // take over and the collapse animation (5000 → 0) plays smoothly.
+            _contentHost?.ClearValue(MaxHeightProperty);
             return;
+        }
 
         ScheduleExpandedReveal();
+        ScheduleMaxHeightUncap();
     }
 
     private void OnParentSizeChanged(object? sender, SizeChangedEventArgs e)
@@ -302,6 +338,20 @@ public class StrataThink : TemplatedControl
 
             cancellationTokenSource.Dispose();
         }
+    }
+
+    /// <summary>
+    /// After the expand animation completes (~300ms), remove the MaxHeight cap
+    /// so content of any size renders without clipping or internal scrollbars.
+    /// </summary>
+    private async void ScheduleMaxHeightUncap()
+    {
+        await Task.Delay(360); // slightly longer than the 300ms MaxHeight transition
+
+        if (!IsExpanded || _contentHost is null)
+            return;
+
+        _contentHost.MaxHeight = double.PositiveInfinity;
     }
 
     private void RequestExpandedReveal()

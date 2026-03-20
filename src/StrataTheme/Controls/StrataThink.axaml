@@ -9,7 +9,6 @@
           <ControlTemplate>
             <!-- Single rounded container — fixed radius, just grows in height -->
             <Border Name="PART_Pill"
-                    Cursor="Hand"
                     Background="{DynamicResource Brush.ControlDefault}"
                     BorderBrush="{DynamicResource Brush.ControlElevationBorder}"
                     BorderThickness="{DynamicResource Stroke.Thin}"
@@ -30,56 +29,60 @@
               </Border.Transitions>
 
               <StackPanel Spacing="0">
-                <!-- Compact header row -->
-                <Grid Name="PART_HeaderRow" ColumnDefinitions="Auto,6,Auto,8,Auto,4,Auto" VerticalAlignment="Center">
-                  <Border Name="PART_Dot"
-                          Width="6" Height="6"
-                          CornerRadius="3"
-                          Background="{DynamicResource Brush.TextTertiary}">
-                    <Border.Transitions>
-                      <Transitions>
-                        <BrushTransition Property="Background" Duration="0:0:0.2" />
-                      </Transitions>
-                    </Border.Transitions>
-                  </Border>
-                  <TextBlock Text="{TemplateBinding Label}"
-                         Grid.Column="2"
-                             FontSize="{DynamicResource Font.SizeCaption}"
-                             FontWeight="SemiBold"
-                         Foreground="{DynamicResource Brush.TextSecondary}"
-                       MaxWidth="360"
-                         TextTrimming="CharacterEllipsis"
-                         MaxLines="1" />
+                <!-- Clickable header region — only this area toggles expand/collapse -->
+                <Border Name="PART_Header" Background="Transparent" Cursor="Hand">
+                  <StackPanel Spacing="0">
+                    <Grid Name="PART_HeaderRow" ColumnDefinitions="Auto,6,Auto,8,Auto,4,Auto" VerticalAlignment="Center">
+                      <Border Name="PART_Dot"
+                              Width="6" Height="6"
+                              CornerRadius="3"
+                              Background="{DynamicResource Brush.TextTertiary}">
+                        <Border.Transitions>
+                          <Transitions>
+                            <BrushTransition Property="Background" Duration="0:0:0.2" />
+                          </Transitions>
+                        </Border.Transitions>
+                      </Border>
+                      <TextBlock Text="{TemplateBinding Label}"
+                                 Grid.Column="2"
+                                 FontSize="{DynamicResource Font.SizeCaption}"
+                                 FontWeight="SemiBold"
+                                 Foreground="{DynamicResource Brush.TextSecondary}"
+                                 MaxWidth="360"
+                                 TextTrimming="CharacterEllipsis"
+                                 MaxLines="1" />
 
-                    <TextBlock Name="PART_MetaText"
-                         Grid.Column="4"
-                         Text="{TemplateBinding Meta}"
-                         FontSize="10.5"
-                         FontWeight="SemiBold"
-                         Foreground="{DynamicResource Brush.TextTertiary}"
-                           MaxWidth="180"
-                         TextTrimming="CharacterEllipsis"
-                         MaxLines="1"
-                         IsVisible="False" />
-                    <ContentPresenter Grid.Column="6"
-                         Content="{TemplateBinding HeaderExtra}"
-                         VerticalAlignment="Center" />
-                  </Grid>
+                      <TextBlock Name="PART_MetaText"
+                                 Grid.Column="4"
+                                 Text="{TemplateBinding Meta}"
+                                 FontSize="10.5"
+                                 FontWeight="SemiBold"
+                                 Foreground="{DynamicResource Brush.TextTertiary}"
+                                 MaxWidth="180"
+                                 TextTrimming="CharacterEllipsis"
+                                 MaxLines="1"
+                                 IsVisible="False" />
+                      <ContentPresenter Grid.Column="6"
+                                        Content="{TemplateBinding HeaderExtra}"
+                                        VerticalAlignment="Center" />
+                    </Grid>
 
-                  <Border Name="PART_ProgressHost"
-                    IsVisible="False"
-                    Margin="0,6,0,0">
-                    <ProgressBar Name="PART_Progress"
-                           Minimum="0"
-                           Maximum="100"
-                           Height="3"
-                           Value="{TemplateBinding ProgressValue}" />
-                  </Border>
+                    <Border Name="PART_ProgressHost"
+                            IsVisible="False"
+                            Margin="0,6,0,0">
+                      <ProgressBar Name="PART_Progress"
+                                   Minimum="0"
+                                   Maximum="100"
+                                   Height="3"
+                                   Value="{TemplateBinding ProgressValue}" />
+                    </Border>
+                  </StackPanel>
+                </Border>
 
-                <!-- Content area — animated MaxHeight reveal -->
+                <!-- Content area — animated MaxHeight reveal, no inner ScrollViewer -->
                 <Border Name="PART_ContentHost"
                         ClipToBounds="True"
-                  IsVisible="False"
+                        IsVisible="False"
                         MaxHeight="0"
                         Opacity="0"
                         RenderTransformOrigin="0.5,0"
@@ -93,14 +96,10 @@
                   </Border.Transitions>
                   <StackPanel>
                     <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,6,0,6" />
-                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                  VerticalScrollBarVisibility="Auto"
-                                  MaxHeight="480">
-                      <Border Padding="0,0,2,0">
-                        <ContentPresenter Content="{TemplateBinding DisplayedContent}"
-                                          HorizontalAlignment="Left" />
-                      </Border>
-                    </ScrollViewer>
+                    <Border Padding="0,0,2,0">
+                      <ContentPresenter Content="{TemplateBinding DisplayedContent}"
+                                        HorizontalAlignment="Left" />
+                    </Border>
                   </StackPanel>
                 </Border>
               </StackPanel>
@@ -116,7 +115,7 @@
         </Style>
         <Style Selector="^[IsExpanded=True] /template/ Border#PART_ContentHost">
           <Setter Property="IsVisible" Value="True" />
-          <Setter Property="MaxHeight" Value="520" />
+          <Setter Property="MaxHeight" Value="5000" />
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
         </Style>
