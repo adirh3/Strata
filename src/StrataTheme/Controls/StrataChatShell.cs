@@ -488,8 +488,6 @@ public class StrataChatShell : TemplatedControl
             _isProgrammaticScroll = true;
             _scrollViewer.ScrollToEnd();
 
-            // Scroll once more after layout settles so streaming content growth
-            // (e.g., markdown reflow) still keeps the viewport pinned to the bottom.
             Dispatcher.UIThread.Post(() =>
             {
                 if (_scrollViewer is not null && !_userScrolledAway)
@@ -541,19 +539,21 @@ public class StrataChatShell : TemplatedControl
         if (distanceFromBottom > 40)
             _userScrolledAway = true;
         else if (distanceFromBottom <= 8 && e.OffsetDelta.Y > 0)
-            // Only re-enable auto-scroll when actively scrolling toward bottom
-            // (e.g. scrollbar drag down). Prevents wheel-up near bottom from
-            // being immediately undone by the resulting ScrollChanged event.
             _userScrolledAway = false;
     }
 
     private void OnUserWheelScroll(object? sender, PointerWheelEventArgs e)
     {
         MarkTranscriptScrollingActive();
+        // Only mark scroll-away on upward wheel input. Do NOT re-enable
+        // auto-scroll from wheel-down: touchpad/precision-scroll devices
+        // fire interleaved up+down deltas in the same gesture, which races
+        // with programmatic ScrollToEnd and immediately undoes the user's
+        // intent. Re-enabling auto-scroll is handled by ResetAutoScroll
+        // (user sends a message) or by OnScrollChanged detecting a scrollbar
+        // drag to within 8px of the bottom.
         if (e.Delta.Y > 0)
             _userScrolledAway = true;
-        else if (_scrollViewer is not null && e.Delta.Y < 0 && DistanceFromBottom(_scrollViewer) <= 8)
-            _userScrolledAway = false;
     }
 
     private void OnTranscriptPointerPressed(object? sender, PointerPressedEventArgs e)
