@@ -26,7 +26,6 @@
                     RenderTransform="translateX(0)">
               <Border.Transitions>
                 <Transitions>
-                  <BrushTransition Property="Background" Duration="0:0:0.12" />
                   <TransformOperationsTransition Property="RenderTransform"
                                                   Duration="0:0:0.12" Easing="CubicEaseOut" />
                 </Transitions>

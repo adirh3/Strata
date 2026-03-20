@@ -69,7 +69,6 @@
                     RenderTransformOrigin="0,0.5">
               <Border.Transitions>
                 <Transitions>
-                  <BrushTransition Property="Background" Duration="0:0:0.12" />
                   <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="0.2,0 0,1" />
                 </Transitions>
               </Border.Transitions>

@@ -21,7 +21,6 @@
                     ClipToBounds="True">
               <Border.Transitions>
                 <Transitions>
-                  <BrushTransition Property="Background" Duration="0:0:0.14" />
                   <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
                   <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.20" />
                 </Transitions>

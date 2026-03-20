@@ -38,7 +38,6 @@
                         MinHeight="{TemplateBinding MinHeight}">
                   <Border.Transitions>
                     <Transitions>
-                      <BrushTransition Property="Background" Duration="0:0:0.15" />
                       <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
                       <CornerRadiusTransition Property="CornerRadius" Duration="0:0:0.15" />
                     </Transitions>
@@ -165,7 +164,6 @@
                     RenderTransform="translateX(0)">
               <Border.Transitions>
                 <Transitions>
-                  <BrushTransition Property="Background" Duration="0:0:0.12" />
                     <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
                 </Transitions>
               </Border.Transitions>

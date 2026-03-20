@@ -16,11 +16,7 @@
                       Background="#00000000"
                       CornerRadius="{DynamicResource Radius.Base}"
                       Padding="4,5,8,5">
-                <Border.Transitions>
-                  <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.12" />
-                  </Transitions>
-                </Border.Transitions>
+
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <!-- Status dot -->
                   <Border Name="PART_Dot"

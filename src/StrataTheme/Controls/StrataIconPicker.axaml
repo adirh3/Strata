@@ -26,7 +26,6 @@
                     RenderTransform="scale(1)">
               <Border.Transitions>
                 <Transitions>
-                  <BrushTransition Property="Background" Duration="0:0:0.12" />
                   <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
                 </Transitions>
               </Border.Transitions>
@@ -72,11 +71,6 @@
             <Border Background="{TemplateBinding Background}"
                     CornerRadius="{TemplateBinding CornerRadius}"
                     Padding="{TemplateBinding Padding}">
-              <Border.Transitions>
-                <Transitions>
-                  <BrushTransition Property="Background" Duration="0:0:0.12" />
-                </Transitions>
-              </Border.Transitions>
               <ContentPresenter Content="{TemplateBinding Content}"
                                 HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                 VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />

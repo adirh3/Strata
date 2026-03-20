@@ -21,11 +21,7 @@
                       CornerRadius="{DynamicResource Radius.Base}"
                       Background="Transparent"
                       Padding="10,6">
-                <Border.Transitions>
-                  <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.12" />
-                  </Transitions>
-                </Border.Transitions>
+
                 <Grid Name="PART_Row"
                       ColumnDefinitions="Auto,*,Auto"
                       MinHeight="{DynamicResource Size.ControlHeightM}">
