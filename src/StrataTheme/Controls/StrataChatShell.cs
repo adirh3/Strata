@@ -177,7 +177,7 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is not null)
         {
             _scrollViewer.ScrollChanged -= OnScrollChanged;
-            _scrollViewer.PointerWheelChanged -= OnUserWheelScroll;
+            _scrollViewer.RemoveHandler(InputElement.PointerWheelChangedEvent, OnUserWheelScroll);
             _scrollViewer.RemoveHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed);
         }
 

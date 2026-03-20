@@ -43,6 +43,7 @@ public class StrataThink : TemplatedControl
     private CancellationTokenSource? _expandedRevealCts;
     private bool _initialWidthTransitionSuppressed;
     private bool _pulseRunning;
+    private bool _isUserInteractionExpand;
     private object? _displayedContent;
 
     public static readonly StyledProperty<string> LabelProperty =
@@ -182,6 +183,7 @@ public class StrataThink : TemplatedControl
         if (e.Key is Key.Enter or Key.Space)
         {
             e.Handled = true;
+            _isUserInteractionExpand = !IsExpanded;
             IsExpanded = !IsExpanded;
         }
     }
@@ -190,6 +192,7 @@ public class StrataThink : TemplatedControl
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
+            _isUserInteractionExpand = !IsExpanded;
             IsExpanded = !IsExpanded;
             e.Handled = true;
         }
@@ -202,6 +205,7 @@ public class StrataThink : TemplatedControl
         // prevents clicks on child content from collapsing the parent.
         if (!IsExpanded && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
+            _isUserInteractionExpand = true;
             IsExpanded = true;
             e.Handled = true;
         }
@@ -237,13 +241,22 @@ public class StrataThink : TemplatedControl
 
         if (!IsExpanded)
         {
+            _isUserInteractionExpand = false;
             // Clear any local MaxHeight override so the style/template defaults
             // take over and the collapse animation (5000 → 0) plays smoothly.
             _contentHost?.ClearValue(MaxHeightProperty);
             return;
         }
 
-        ScheduleExpandedReveal();
+        // Only scroll into view when the user expanded via click/keyboard.
+        // Programmatic expansions (e.g. streaming tool calls setting IsExpanded
+        // via data binding) must not steal the scroll position.
+        if (_isUserInteractionExpand)
+        {
+            _isUserInteractionExpand = false;
+            ScheduleExpandedReveal();
+        }
+
         ScheduleMaxHeightUncap();
     }
 
