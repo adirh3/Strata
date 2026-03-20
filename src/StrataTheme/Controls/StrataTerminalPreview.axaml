@@ -110,18 +110,19 @@
                           Padding="12,8">
                     <StackPanel Spacing="6">
                       <!-- Command line -->
-                      <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Grid ColumnDefinitions="Auto,6,*">
                         <TextBlock Text="$"
                                    FontFamily="Cascadia Code, Consolas, Courier New, monospace"
                                    FontSize="12"
                                    Foreground="{DynamicResource Brush.TerminalPreviewPrompt}"
                                    VerticalAlignment="Top" />
-                        <TextBlock Text="{TemplateBinding Command}"
+                        <TextBlock Grid.Column="2"
+                                   Text="{TemplateBinding Command}"
                                    FontFamily="Cascadia Code, Consolas, Courier New, monospace"
                                    FontSize="12"
                                    Foreground="{DynamicResource Brush.TerminalPreviewCommand}"
                                    TextWrapping="Wrap" />
-                      </StackPanel>
+                      </Grid>
 
                       <!-- Output area -->
                       <ScrollViewer Name="PART_OutputScroll"

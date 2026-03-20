@@ -548,6 +548,29 @@
     </ResourceDictionary>
   </Styles.Resources>
 
+  <!-- Button hover overrides targeting PART_Surface (must be outside ControlTheme to use double /template/) -->
+  <Style Selector="controls|StrataChatComposer /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer /template/ Button#PART_SendButton:pressed /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientPressed}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:busy /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:busy /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.DangerHover}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:stop-send /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:stop-send /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:has-mcps /template/ Button#PART_McpButton /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+
   <!-- Embedded TextBox chrome removal (regular styles, outside ControlTheme) -->
   <Style Selector="TextBox.composer-embed /template/ Border#PART_Border">
     <Setter Property="Background" Value="Transparent" />

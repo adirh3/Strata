@@ -64,4 +64,14 @@
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
+
+  <!-- Hover targeting PART_Surface (must be outside ControlTheme to use double /template/) -->
+  <Style Selector="controls|StrataAttachmentList /template/ Button#PART_AddButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="controls|StrataAttachmentList /template/ Button#PART_AddButton:pointerover /template/ Border#PART_Aurora">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
 </Styles>

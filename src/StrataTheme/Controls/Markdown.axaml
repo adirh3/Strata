@@ -37,8 +37,12 @@
     <Setter Property="TextDecorations" Value="Underline" />
   </Style>
 
-  <Style Selector="Button.strata-md-link:pointerover">
+  <Style Selector="Button.strata-md-link:pointerover /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="Button.strata-md-link:pointerover /template/ Border#PART_Aurora">
+    <Setter Property="Opacity" Value="0" />
   </Style>
 
   <Style Selector="Button.strata-md-link:pointerover TextBlock.strata-md-link-text">
