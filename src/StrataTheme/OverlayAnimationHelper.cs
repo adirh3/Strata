@@ -45,7 +45,7 @@ public static class OverlayAnimationHelper
             return;
 
         // Only animate when appearing inside a popup (native or overlay)
-        if (e.Root is not PopupRoot && !IsInsideOverlayPopup(control))
+        if (e.RootVisual is not PopupRoot && !IsInsideOverlayPopup(control))
             return;
 
         Dispatcher.UIThread.Post(() => PlayEntrance(control), DispatcherPriority.Loaded);

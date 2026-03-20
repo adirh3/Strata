@@ -58,18 +58,18 @@ public static class PopupAnimationHelper
 
     private static void OnPopupOpened(object? sender, EventArgs e)
     {
-        if (sender is not Popup { Host: Control popupHost })
+        if (sender is not Popup { Child: Control popupChild })
             return;
 
-        var visual = ElementComposition.GetElementVisual(popupHost);
+        var visual = ElementComposition.GetElementVisual(popupChild);
         if (visual is null)
             return;
 
         var compositor = visual.Compositor;
 
-        var bounds = popupHost.Bounds;
-        var w = bounds.Width > 0 ? bounds.Width : popupHost.DesiredSize.Width;
-        var h = bounds.Height > 0 ? bounds.Height : popupHost.DesiredSize.Height;
+        var bounds = popupChild.Bounds;
+        var w = bounds.Width > 0 ? bounds.Width : popupChild.DesiredSize.Width;
+        var h = bounds.Height > 0 ? bounds.Height : popupChild.DesiredSize.Height;
 
         // Scale from center — looks like the combobox itself is expanding
         visual.CenterPoint = new Vector3((float)(w / 2f), (float)(h / 2f), 0f);
@@ -96,19 +96,19 @@ public static class PopupAnimationHelper
 
     private static void OnPopupOpenedOverlay(object? sender, EventArgs e)
     {
-        if (sender is not Popup { Host: Control popupHost })
+        if (sender is not Popup { Child: Control popupChild })
             return;
 
-        var visual = ElementComposition.GetElementVisual(popupHost);
+        var visual = ElementComposition.GetElementVisual(popupChild);
         if (visual is null)
             return;
 
         var compositor = visual.Compositor;
 
-        var bounds = popupHost.Bounds;
-        var w = bounds.Width > 0 ? bounds.Width : popupHost.DesiredSize.Width;
+        var bounds = popupChild.Bounds;
+        var w = bounds.Width > 0 ? bounds.Width : popupChild.DesiredSize.Width;
 
-        var h = bounds.Height > 0 ? bounds.Height : popupHost.DesiredSize.Height;
+        var h = bounds.Height > 0 ? bounds.Height : popupChild.DesiredSize.Height;
 
         // Scale from center for a clean, uniform expansion
         visual.CenterPoint = new Vector3((float)(w / 2f), (float)(h / 2f), 0f);

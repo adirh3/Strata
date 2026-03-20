@@ -70,7 +70,7 @@ public static class SelectionIndicatorAnimationHelper
                 var prevInd = FindIndicator(oldContainer);
                 if (prevInd is not null)
                 {
-                    var root = nextInd.GetVisualRoot() as Visual;
+                    var root = TopLevel.GetTopLevel(nextInd) as Visual;
                     if (root is not null)
                     {
                         var prevPos = prevInd.TranslatePoint(new Point(0, 0), root);
