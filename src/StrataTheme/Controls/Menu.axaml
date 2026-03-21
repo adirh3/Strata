@@ -209,7 +209,7 @@
         </Setter>
 
         <!-- Show chevron when item has submenu children -->
-        <Style Selector="^:open /template/ TextBlock#PART_ChevronPath">
+        <Style Selector="^:not(:empty) /template/ TextBlock#PART_ChevronPath">
           <Setter Property="IsVisible" Value="True" />
         </Style>
 
