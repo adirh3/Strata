@@ -8,11 +8,12 @@
         <Setter Property="Template">
           <ControlTemplate>
             <StackPanel Spacing="10">
-              <Grid ColumnDefinitions="*,6,*,6,*,6,*">
+              <Grid ColumnDefinitions="*,6,*,6,*,6,*,6,*">
                 <Button Name="PART_Step0" Grid.Column="0" Classes="subtle" Content="{TemplateBinding Step0Title}" Padding="10,4" MinHeight="0" />
                 <Button Name="PART_Step1" Grid.Column="2" Classes="subtle" Content="{TemplateBinding Step1Title}" Padding="10,4" MinHeight="0" />
                 <Button Name="PART_Step2" Grid.Column="4" Classes="subtle" Content="{TemplateBinding Step2Title}" Padding="10,4" MinHeight="0" />
                 <Button Name="PART_Step3" Grid.Column="6" Classes="subtle" Content="{TemplateBinding Step3Title}" Padding="10,4" MinHeight="0" />
+                <Button Name="PART_Step4" Grid.Column="8" Classes="subtle" Content="{TemplateBinding Step4Title}" Padding="10,4" MinHeight="0" />
               </Grid>
 
               <Border Name="PART_Track"
@@ -63,6 +64,7 @@
                   <ContentPresenter Name="PART_Content1" Content="{TemplateBinding Step1Content}" IsVisible="False" />
                   <ContentPresenter Name="PART_Content2" Content="{TemplateBinding Step2Content}" IsVisible="False" />
                   <ContentPresenter Name="PART_Content3" Content="{TemplateBinding Step3Content}" IsVisible="False" />
+                  <ContentPresenter Name="PART_Content4" Content="{TemplateBinding Step4Content}" IsVisible="False" />
                 </Grid>
               </Border>
             </StackPanel>
@@ -88,6 +90,12 @@
         </Style>
 
         <Style Selector="^:s3 /template/ Button#PART_Step3">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="^:s4 /template/ Button#PART_Step4">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
           <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
           <Setter Property="FontWeight" Value="SemiBold" />

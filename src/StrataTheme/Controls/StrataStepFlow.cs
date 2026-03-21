@@ -26,8 +26,8 @@ namespace StrataTheme.Controls;
 /// &lt;/controls:StrataStepFlow&gt;
 /// </code>
 /// <para><b>Template parts:</b> PART_Track (Border), PART_Fill (Border), PART_Head (Border),
-/// PART_Content0–PART_Content3 (ContentPresenter), PART_Step0–PART_Step3 (Button).</para>
-/// <para><b>Pseudo-classes:</b> :s0, :s1, :s2, :s3.</para>
+/// PART_Content0–PART_Content4 (ContentPresenter), PART_Step0–PART_Step4 (Button).</para>
+/// <para><b>Pseudo-classes:</b> :s0, :s1, :s2, :s3, :s4.</para>
 /// </remarks>
 public class StrataStepFlow : TemplatedControl
 {
@@ -38,14 +38,20 @@ public class StrataStepFlow : TemplatedControl
     private Button? _stepBtn1;
     private Button? _stepBtn2;
     private Button? _stepBtn3;
+    private Button? _stepBtn4;
     private ContentPresenter? _content0;
     private ContentPresenter? _content1;
     private ContentPresenter? _content2;
     private ContentPresenter? _content3;
+    private ContentPresenter? _content4;
     private CancellationTokenSource? _transitionCts;
 
     public static readonly StyledProperty<int> CurrentStepProperty =
         AvaloniaProperty.Register<StrataStepFlow, int>(nameof(CurrentStep), 0);
+
+    /// <summary>When true, users can only click steps ≤ CurrentStep (no skipping ahead).</summary>
+    public static readonly StyledProperty<bool> DisableFutureStepsProperty =
+        AvaloniaProperty.Register<StrataStepFlow, bool>(nameof(DisableFutureSteps), false);
 
     public static readonly StyledProperty<string> Step0TitleProperty =
         AvaloniaProperty.Register<StrataStepFlow, string>(nameof(Step0Title), "Draft");
@@ -59,6 +65,9 @@ public class StrataStepFlow : TemplatedControl
     public static readonly StyledProperty<string> Step3TitleProperty =
         AvaloniaProperty.Register<StrataStepFlow, string>(nameof(Step3Title), "Finalize");
 
+    public static readonly StyledProperty<string> Step4TitleProperty =
+        AvaloniaProperty.Register<StrataStepFlow, string>(nameof(Step4Title), "Step 5");
+
     public static readonly StyledProperty<object?> Step0ContentProperty =
         AvaloniaProperty.Register<StrataStepFlow, object?>(nameof(Step0Content));
 
@@ -71,6 +80,9 @@ public class StrataStepFlow : TemplatedControl
     public static readonly StyledProperty<object?> Step3ContentProperty =
         AvaloniaProperty.Register<StrataStepFlow, object?>(nameof(Step3Content));
 
+    public static readonly StyledProperty<object?> Step4ContentProperty =
+        AvaloniaProperty.Register<StrataStepFlow, object?>(nameof(Step4Content));
+
     static StrataStepFlow()
     {
         CurrentStepProperty.Changed.AddClassHandler<StrataStepFlow>((flow, _) => flow.OnCurrentStepChanged());
@@ -79,7 +91,13 @@ public class StrataStepFlow : TemplatedControl
     public int CurrentStep
     {
         get => GetValue(CurrentStepProperty);
-        set => SetValue(CurrentStepProperty, Math.Clamp(value, 0, 3));
+        set => SetValue(CurrentStepProperty, Math.Clamp(value, 0, 4));
+    }
+
+    public bool DisableFutureSteps
+    {
+        get => GetValue(DisableFutureStepsProperty);
+        set => SetValue(DisableFutureStepsProperty, value);
     }
 
     public string Step0Title
@@ -106,6 +124,12 @@ public class StrataStepFlow : TemplatedControl
         set => SetValue(Step3TitleProperty, value);
     }
 
+    public string Step4Title
+    {
+        get => GetValue(Step4TitleProperty);
+        set => SetValue(Step4TitleProperty, value);
+    }
+
     public object? Step0Content
     {
         get => GetValue(Step0ContentProperty);
@@ -130,6 +154,12 @@ public class StrataStepFlow : TemplatedControl
         set => SetValue(Step3ContentProperty, value);
     }
 
+    public object? Step4Content
+    {
+        get => GetValue(Step4ContentProperty);
+        set => SetValue(Step4ContentProperty, value);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         // Unsubscribe old handlers
@@ -137,6 +167,7 @@ public class StrataStepFlow : TemplatedControl
         if (_stepBtn1 is not null) _stepBtn1.Click -= OnStep1Click;
         if (_stepBtn2 is not null) _stepBtn2.Click -= OnStep2Click;
         if (_stepBtn3 is not null) _stepBtn3.Click -= OnStep3Click;
+        if (_stepBtn4 is not null) _stepBtn4.Click -= OnStep4Click;
         if (_track is not null) _track.SizeChanged -= OnTrackSizeChanged;
 
         base.OnApplyTemplate(e);
@@ -149,16 +180,19 @@ public class StrataStepFlow : TemplatedControl
         _content1 = e.NameScope.Find<ContentPresenter>("PART_Content1");
         _content2 = e.NameScope.Find<ContentPresenter>("PART_Content2");
         _content3 = e.NameScope.Find<ContentPresenter>("PART_Content3");
+        _content4 = e.NameScope.Find<ContentPresenter>("PART_Content4");
 
         _stepBtn0 = e.NameScope.Find<Button>("PART_Step0");
         _stepBtn1 = e.NameScope.Find<Button>("PART_Step1");
         _stepBtn2 = e.NameScope.Find<Button>("PART_Step2");
         _stepBtn3 = e.NameScope.Find<Button>("PART_Step3");
+        _stepBtn4 = e.NameScope.Find<Button>("PART_Step4");
 
         if (_stepBtn0 is not null) _stepBtn0.Click += OnStep0Click;
         if (_stepBtn1 is not null) _stepBtn1.Click += OnStep1Click;
         if (_stepBtn2 is not null) _stepBtn2.Click += OnStep2Click;
         if (_stepBtn3 is not null) _stepBtn3.Click += OnStep3Click;
+        if (_stepBtn4 is not null) _stepBtn4.Click += OnStep4Click;
 
         if (_track is not null)
             _track.SizeChanged += OnTrackSizeChanged;
@@ -171,10 +205,17 @@ public class StrataStepFlow : TemplatedControl
         }, DispatcherPriority.Loaded);
     }
 
-    private void OnStep0Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => CurrentStep = 0;
-    private void OnStep1Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => CurrentStep = 1;
-    private void OnStep2Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => CurrentStep = 2;
-    private void OnStep3Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => CurrentStep = 3;
+    private void GoToStep(int step)
+    {
+        if (DisableFutureSteps && step > CurrentStep) return;
+        CurrentStep = step;
+    }
+
+    private void OnStep0Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => GoToStep(0);
+    private void OnStep1Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => GoToStep(1);
+    private void OnStep2Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => GoToStep(2);
+    private void OnStep3Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => GoToStep(3);
+    private void OnStep4Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => GoToStep(4);
     private void OnTrackSizeChanged(object? sender, SizeChangedEventArgs e) => UpdateFlowProgress(animateHead: false);
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -201,7 +242,7 @@ public class StrataStepFlow : TemplatedControl
                 break;
             case Key.Right:
                 e.Handled = true;
-                CurrentStep = Math.Min(3, CurrentStep + 1);
+                CurrentStep = Math.Min(4, CurrentStep + 1);
                 break;
             case Key.Home:
                 e.Handled = true;
@@ -209,7 +250,7 @@ public class StrataStepFlow : TemplatedControl
                 break;
             case Key.End:
                 e.Handled = true;
-                CurrentStep = 3;
+                CurrentStep = 4;
                 break;
         }
     }
@@ -227,6 +268,7 @@ public class StrataStepFlow : TemplatedControl
         PseudoClasses.Set(":s1", CurrentStep == 1);
         PseudoClasses.Set(":s2", CurrentStep == 2);
         PseudoClasses.Set(":s3", CurrentStep == 3);
+        PseudoClasses.Set(":s4", CurrentStep == 4);
     }
 
     private void UpdateFlowProgress(bool animateHead)
@@ -238,7 +280,7 @@ public class StrataStepFlow : TemplatedControl
         if (trackWidth < 1)
             return;
 
-        var pct = (CurrentStep + 1) / 4.0;
+        var pct = (CurrentStep + 1) / 5.0;
         var fillWidth = Math.Max(0, trackWidth * pct);
         _fill.Width = fillWidth;
 
@@ -285,12 +327,13 @@ public class StrataStepFlow : TemplatedControl
         1 => _content1,
         2 => _content2,
         3 => _content3,
+        4 => _content4,
         _ => null
     };
 
     private void ApplyContentInstant()
     {
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < 5; i++)
         {
             var p = GetPresenter(i);
             if (p is null) continue;
@@ -312,7 +355,7 @@ public class StrataStepFlow : TemplatedControl
             return;
 
         ContentPresenter? outgoing = null;
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < 5; i++)
         {
             var p = GetPresenter(i);
             if (p is null || p == incoming) continue;
@@ -368,7 +411,7 @@ public class StrataStepFlow : TemplatedControl
         if (token.IsCancellationRequested)
             return;
 
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < 5; i++)
         {
             var p = GetPresenter(i);
             if (p is null) continue;
