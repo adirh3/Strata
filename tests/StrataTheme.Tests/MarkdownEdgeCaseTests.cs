@@ -988,4 +988,155 @@ public class MarkdownEdgeCaseTests
             Assert.Equal(staticBlocks[i].Content, pooledBlocks[i].Content);
         }
     }
+
+    // ─── Task list edge cases ───────────────────────────────────
+
+    [Fact]
+    public void TaskItem_PrecededByBulletAndFollowedByParagraph()
+    {
+        var md = "- Bullet\n- [x] Done\n- [ ] Todo\n\nParagraph";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(4, blocks.Count);
+        Assert.Equal(MdBlockKind.Bullet, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[1].Kind);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[2].Kind);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[3].Kind);
+    }
+
+    [Fact]
+    public void TaskItem_StreamingAppend()
+    {
+        var step1 = "- [x] First task";
+        var step2 = "- [x] First task\n- [ ] Second task";
+
+        var blocks1 = MarkdownParser.Parse(step1);
+        Assert.Single(blocks1);
+        Assert.Equal(MdBlockKind.TaskItem, blocks1[0].Kind);
+
+        var blocks2 = MarkdownParser.ParseIncrementalAppend(step1, blocks1, step2);
+        Assert.Equal(2, blocks2.Count);
+        Assert.All(blocks2, b => Assert.Equal(MdBlockKind.TaskItem, b.Kind));
+    }
+
+    [Fact]
+    public void TaskItem_InComplexDocument()
+    {
+        var md = string.Join("\n", new[]
+        {
+            "## Tasks",
+            "",
+            "- [x] Configure alerts",
+            "- [ ] Run load test",
+            "",
+            "> Review the results before proceeding.",
+            "",
+            "- Regular bullet"
+        });
+
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[1].Kind);
+        Assert.Equal(1, blocks[1].Level); // checked
+        Assert.Equal(MdBlockKind.TaskItem, blocks[2].Kind);
+        Assert.Equal(0, blocks[2].Level); // unchecked
+        Assert.Equal(MdBlockKind.Blockquote, blocks[3].Kind);
+        Assert.Equal(MdBlockKind.Bullet, blocks[4].Kind);
+    }
+
+    // ─── Inline formatting preserved in content ─────────────────
+
+    [Fact]
+    public void Paragraph_StrikethroughPreserved()
+    {
+        var blocks = MarkdownParser.Parse("This is ~~deleted~~ text");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
+        Assert.Contains("~~deleted~~", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Paragraph_UnderscoreItalicPreserved()
+    {
+        var blocks = MarkdownParser.Parse("This is _italic_ text");
+        Assert.Single(blocks);
+        Assert.Contains("_italic_", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Paragraph_UnderscoreBoldPreserved()
+    {
+        var blocks = MarkdownParser.Parse("This is __bold__ text");
+        Assert.Single(blocks);
+        Assert.Contains("__bold__", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Paragraph_ImageSyntaxPreserved()
+    {
+        var blocks = MarkdownParser.Parse("See ![logo](https://example.com/img.png) for reference");
+        Assert.Single(blocks);
+        Assert.Contains("![logo](https://example.com/img.png)", blocks[0].Content);
+    }
+
+    [Fact]
+    public void MixedContent_AllInlineTypes()
+    {
+        var md = "Use **bold**, *italic*, __underscored__, _underscore italic_, ~~strikethrough~~, `code`, [link](url), and ![img](url) together.";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
+        // All inline markers are preserved in the block content
+        Assert.Contains("**bold**", blocks[0].Content);
+        Assert.Contains("*italic*", blocks[0].Content);
+        Assert.Contains("__underscored__", blocks[0].Content);
+        Assert.Contains("_underscore italic_", blocks[0].Content);
+        Assert.Contains("~~strikethrough~~", blocks[0].Content);
+        Assert.Contains("`code`", blocks[0].Content);
+        Assert.Contains("[link](url)", blocks[0].Content);
+        Assert.Contains("![img](url)", blocks[0].Content);
+    }
+
+    [Fact]
+    public void MixedContent_AllBlockTypesIncludingTaskItems()
+    {
+        var md = string.Join("\n", new[]
+        {
+            "## Heading",
+            "",
+            "> Blockquote",
+            "",
+            "Paragraph.",
+            "",
+            "- Bullet",
+            "",
+            "1. Numbered",
+            "",
+            "- [x] Done task",
+            "- [ ] Pending task",
+            "",
+            "---",
+            "",
+            "```py",
+            "x = 1",
+            "```",
+            "",
+            "| H1 | H2 |",
+            "| --- | --- |",
+            "| A | B |"
+        });
+
+        var blocks = MarkdownParser.Parse(md);
+
+        Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[1].Kind);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[2].Kind);
+        Assert.Equal(MdBlockKind.Bullet, blocks[3].Kind);
+        Assert.Equal(MdBlockKind.NumberedItem, blocks[4].Kind);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[5].Kind);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[6].Kind);
+        Assert.Equal(MdBlockKind.HorizontalRule, blocks[7].Kind);
+        Assert.Equal(MdBlockKind.CodeBlock, blocks[8].Kind);
+        Assert.Equal(MdBlockKind.Table, blocks[9].Kind);
+        Assert.Equal(10, blocks.Count);
+    }
 }

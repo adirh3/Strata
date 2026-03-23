@@ -21,6 +21,7 @@ public enum MdBlockKind
     Card,
     Sources,
     Blockquote,
+    TaskItem,
 }
 
 /// <summary>
@@ -337,6 +338,22 @@ public sealed class MarkdownParser
                 continue;
             }
 
+            // Task list items: "- [ ] unchecked" or "- [x] checked"
+            // Must be checked before bullets since task items start with "- ".
+            if (TryParseTaskItem(lineSpan, out var isChecked, out var taskText))
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
+                blocks.Add(new MdBlock
+                {
+                    Kind = MdBlockKind.TaskItem,
+                    Content = taskText,
+                    Level = isChecked ? 1 : 0,
+                    SourceStart = absoluteLineStart,
+                });
+                continue;
+            }
+
             if (TryParseBullet(lineSpan, out var bulletText))
             {
                 FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
@@ -450,6 +467,32 @@ public sealed class MarkdownParser
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Returns true if the line is a task list item: "- [ ] text" or "- [x] text" (case-insensitive x).
+    /// Sets <paramref name="isChecked"/> and <paramref name="text"/> accordingly.
+    /// </summary>
+    internal static bool TryParseTaskItem(ReadOnlySpan<char> line, out bool isChecked, out string text)
+    {
+        isChecked = false;
+        text = string.Empty;
+        var trimmed = line.TrimStart();
+
+        // Minimum: "- [ ] X" = 7 chars
+        if (trimmed.Length < 7) return false;
+        if (trimmed[0] != '-' && trimmed[0] != '*') return false;
+        if (trimmed[1] != ' ') return false;
+        if (trimmed[2] != '[') return false;
+
+        var marker = trimmed[3];
+        if (marker != ' ' && marker != 'x' && marker != 'X') return false;
+        if (trimmed[4] != ']') return false;
+        if (trimmed[5] != ' ') return false;
+
+        isChecked = marker is 'x' or 'X';
+        text = trimmed[6..].Trim().ToString();
+        return text.Length > 0;
     }
 
     internal static bool TryParseNumberedItem(ReadOnlySpan<char> line, out int number, out string text)

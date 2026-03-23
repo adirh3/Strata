@@ -503,4 +503,62 @@ public class MarkdownParserTests
         Assert.Equal(MdBlockKind.Blockquote, blocks[5].Kind);
         Assert.Equal(6, blocks.Count);
     }
+
+    // ─── Task Lists ─────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("- [ ] Unchecked task", false, "Unchecked task")]
+    [InlineData("- [x] Checked task", true, "Checked task")]
+    [InlineData("- [X] Checked uppercase", true, "Checked uppercase")]
+    public void TaskItem_ParsedCorrectly(string md, bool expectedChecked, string expectedText)
+    {
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[0].Kind);
+        Assert.Equal(expectedChecked ? 1 : 0, blocks[0].Level);
+        Assert.Equal(expectedText, blocks[0].Content);
+    }
+
+    [Fact]
+    public void TaskItem_MixedWithBullets()
+    {
+        var md = "- [x] Done task\n- Regular bullet\n- [ ] Pending task";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(3, blocks.Count);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[0].Kind);
+        Assert.Equal(1, blocks[0].Level); // checked
+        Assert.Equal(MdBlockKind.Bullet, blocks[1].Kind);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[2].Kind);
+        Assert.Equal(0, blocks[2].Level); // unchecked
+    }
+
+    [Theory]
+    [InlineData("- [] Missing space")]
+    [InlineData("- [y] Wrong marker")]
+    [InlineData("- [ ]")]                     // no text after
+    public void TaskItem_InvalidPatterns_NotParsedAsTaskItem(string md)
+    {
+        var blocks = MarkdownParser.Parse(md);
+        foreach (var block in blocks)
+            Assert.NotEqual(MdBlockKind.TaskItem, block.Kind);
+    }
+
+    [Fact]
+    public void TaskItem_WithInlineFormatting()
+    {
+        var md = "- [x] Update **config** and `deploy`";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[0].Kind);
+        Assert.Contains("**config**", blocks[0].Content);
+        Assert.Contains("`deploy`", blocks[0].Content);
+    }
+
+    [Fact]
+    public void TaskItem_StarBullet()
+    {
+        var blocks = MarkdownParser.Parse("* [x] Star bullet task");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.TaskItem, blocks[0].Kind);
+    }
 }

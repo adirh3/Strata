@@ -143,10 +143,10 @@ public class StrataMarkdown : ContentControl
     private readonly List<string> _evictBuffer = new();
     private readonly MarkdownParser _parser = new();
     private static readonly Regex PlainTextMarkdownBlockPattern = new(
-        @"(^|\n)\s{0,3}(#{1,6}\s+|[-*+]\s+|\d+\.\s+|>\s+|```|~~~)",
+        @"(^|\n)\s{0,3}(#{1,6}\s+|[-*+]\s+|\d+\.\s+|>\s+|```|~~~|[-*]\s+\[([ xX])\]\s+)",
         RegexOptions.Compiled | RegexOptions.Multiline);
     private static readonly Regex PlainTextMarkdownInlinePattern = new(
-        @"(\[[^\]\r\n]+\]\([^)\r\n]+\)|`[^`\r\n]+`|\*\*[^*\r\n]+\*\*|__[^_\r\n]+__)",
+        @"(\[[^\]\r\n]+\]\([^)\r\n]+\)|!\[[^\]\r\n]*\]\([^)\r\n]+\)|`[^`\r\n]+`|\*\*[^*\r\n]+\*\*|__[^_\r\n]+__|~~[^~\r\n]+~~|(?<!\w)_[^_\r\n]+_(?!\w))",
         RegexOptions.Compiled);
     private static readonly Regex PlainTextMarkdownTablePattern = new(
         @"^\s*\|?.+\|.+\n\s*\|?\s*:?-{3,}",
@@ -834,6 +834,7 @@ public class StrataMarkdown : ContentControl
             MdBlockKind.Heading => CreateHeadingControl(block.Content, block.Level),
             MdBlockKind.Bullet => CreateBulletControl(block.Content, block.Level),
             MdBlockKind.NumberedItem => CreateNumberedItemControl(block.Content, block.Level),
+            MdBlockKind.TaskItem => CreateTaskItemControl(block.Content, block.Level == 1),
             MdBlockKind.CodeBlock => CreateCodeBlockControl(block.Content, block.Language),
             MdBlockKind.HorizontalRule => CreateHorizontalRuleControl(),
             MdBlockKind.Blockquote => CreateBlockquoteControl(block.Content),
@@ -913,6 +914,19 @@ public class StrataMarkdown : ContentControl
         return border;
     }
 
+    private Control CreateTaskItemControl(string text, bool isChecked)
+    {
+        var prefix = isChecked ? "☑ " : "☐ ";
+        var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap, prefix);
+        textBlock.Classes.Add("strata-md-task-text");
+        if (isChecked)
+        {
+            textBlock.Opacity = 0.6;
+            textBlock.TextDecorations = TextDecorations.Strikethrough;
+        }
+        return textBlock;
+    }
+
     private static readonly Thickness RtlTextPadding = new(0, 0, 4, 0);
 
     private SelectableTextBlock CreateRichText(string text, double fontSize, double lineHeight, TextWrapping wrapping, string? prefix = null)
@@ -962,7 +976,7 @@ public class StrataMarkdown : ContentControl
         var span = text.AsSpan();
 
         // Fast path: no special characters — set Text directly (no Inlines list)
-        if (span.IndexOfAny('`', '*', '[') < 0)
+        if (span.IndexOfAny('`', '*', '[') < 0 && span.IndexOfAny('~', '_', '!') < 0)
         {
             target.Text = string.IsNullOrEmpty(prefix) ? text : prefix + text;
             return false;
@@ -1088,6 +1102,88 @@ public class StrataMarkdown : ContentControl
                 }
             }
 
+            // Image: ![alt](url)
+            if (c == '!' && pos + 1 < span.Length && span[pos + 1] == '[')
+            {
+                int bracketClose = FindClosingBracket(span, pos + 2);
+                if (bracketClose >= 0 && bracketClose + 1 < span.Length && span[bracketClose + 1] == '(')
+                {
+                    int parenClose = FindClosingParen(span, bracketClose + 2);
+                    if (parenClose >= 0)
+                    {
+                        if (pos > textStart)
+                            target.Inlines?.Add(new Run(text[textStart..pos]));
+
+                        var altText = text[(pos + 2)..bracketClose];
+                        var imageUrl = text[(bracketClose + 2)..parenClose].Trim();
+                        target.Inlines?.Add(CreateImageInline(altText, imageUrl, target.FontSize));
+                        pos = parenClose + 1;
+                        textStart = pos;
+                        continue;
+                    }
+                }
+            }
+
+            // Strikethrough: ~~text~~
+            if (c == '~' && pos + 1 < span.Length && span[pos + 1] == '~')
+            {
+                int closeIdx = FindClosingDelimiter(span, pos + 2, '~', 2);
+                if (closeIdx >= 0)
+                {
+                    if (pos > textStart)
+                        target.Inlines?.Add(new Run(text[textStart..pos]));
+
+                    var innerText = text[(pos + 2)..closeIdx];
+                    target.Inlines?.Add(new Run(innerText)
+                    {
+                        TextDecorations = TextDecorations.Strikethrough,
+                    });
+                    pos = closeIdx + 2;
+                    textStart = pos;
+                    continue;
+                }
+            }
+
+            // Bold/Italic with _ (only at word boundary — skip mid-word underscores)
+            if (c == '_' && (pos == 0 || !char.IsLetterOrDigit(span[pos - 1])))
+            {
+                int underCount = 1;
+                while (pos + underCount < span.Length && span[pos + underCount] == '_')
+                    underCount++;
+
+                if (underCount >= 2)
+                {
+                    int closeIdx = FindClosingDelimiter(span, pos + 2, '_', 2);
+                    if (closeIdx >= 0 && (closeIdx + 2 >= span.Length || !char.IsLetterOrDigit(span[closeIdx + 2])))
+                    {
+                        if (pos > textStart)
+                            target.Inlines?.Add(new Run(text[textStart..pos]));
+
+                        var innerText = text[(pos + 2)..closeIdx];
+                        hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Normal);
+                        pos = closeIdx + 2;
+                        textStart = pos;
+                        continue;
+                    }
+                }
+
+                if (underCount >= 1)
+                {
+                    int closeIdx = FindClosingDelimiter(span, pos + 1, '_', 1);
+                    if (closeIdx >= 0 && (closeIdx + 1 >= span.Length || !char.IsLetterOrDigit(span[closeIdx + 1])))
+                    {
+                        if (pos > textStart)
+                            target.Inlines?.Add(new Run(text[textStart..pos]));
+
+                        var innerText = text[(pos + 1)..closeIdx];
+                        hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Normal, FontStyle.Italic);
+                        pos = closeIdx + 1;
+                        textStart = pos;
+                        continue;
+                    }
+                }
+            }
+
             pos++;
         }
 
@@ -1173,6 +1269,30 @@ public class StrataMarkdown : ContentControl
                         textStart = pos;
                         continue;
                     }
+                }
+            }
+
+            // Strikethrough: ~~text~~
+            if (span[pos] == '~' && pos + 1 < span.Length && span[pos + 1] == '~')
+            {
+                int closeIdx = FindClosingDelimiter(span, pos + 2, '~', 2);
+                if (closeIdx >= 0)
+                {
+                    foundSpecial = true;
+
+                    if (pos > textStart)
+                        target.Inlines?.Add(new Run(text[textStart..pos]) { FontWeight = weight, FontStyle = style });
+
+                    var innerText = text[(pos + 2)..closeIdx];
+                    target.Inlines?.Add(new Run(innerText)
+                    {
+                        FontWeight = weight,
+                        FontStyle = style,
+                        TextDecorations = TextDecorations.Strikethrough,
+                    });
+                    pos = closeIdx + 2;
+                    textStart = pos;
+                    continue;
                 }
             }
 
@@ -1324,7 +1444,7 @@ public class StrataMarkdown : ContentControl
 
     /// <summary>Returns true for block kinds whose control contains an updatable SelectableTextBlock.</summary>
     private static bool IsTextBlockKind(MdBlockKind kind) =>
-        kind is MdBlockKind.Paragraph or MdBlockKind.Heading or MdBlockKind.Bullet or MdBlockKind.NumberedItem or MdBlockKind.Blockquote;
+        kind is MdBlockKind.Paragraph or MdBlockKind.Heading or MdBlockKind.Bullet or MdBlockKind.NumberedItem or MdBlockKind.Blockquote or MdBlockKind.TaskItem;
 
     /// <summary>
     /// Updates the SelectableTextBlock inside an existing paragraph/heading/bullet/numbered
@@ -2338,6 +2458,19 @@ public class StrataMarkdown : ContentControl
             FontWeight = weight == default ? FontWeight.Normal : weight,
             FontStyle = style,
             Background = _inlineCodeBrush ??= ResolveInlineCodeBrush(),
+        };
+    }
+
+    private static Inline CreateImageInline(string altText, string imageUrl, double fontSize)
+    {
+        // Inline images are rendered as styled alt-text placeholders with a 🖼 prefix.
+        // Full image loading would require async I/O which is impractical inside the
+        // inline text layout pipeline; the alt text gives the user meaningful context.
+        return new Run($"\U0001F5BC {altText}")
+        {
+            FontSize = fontSize,
+            FontStyle = FontStyle.Italic,
+            TextDecorations = TextDecorations.Underline,
         };
     }
 
