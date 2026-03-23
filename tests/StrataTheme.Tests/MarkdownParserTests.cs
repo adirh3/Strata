@@ -366,4 +366,141 @@ public class MarkdownParserTests
     {
         Assert.Empty(MarkdownParser.Parse("\n\n\n"));
     }
+
+    // ─── Blockquotes ────────────────────────────────────────────
+
+    [Fact]
+    public void Blockquote_BasicSingleLine()
+    {
+        var blocks = MarkdownParser.Parse("> This is a quote");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal("This is a quote", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Blockquote_MultipleConsecutiveLines()
+    {
+        var md = "> Line one\n> Line two\n> Line three";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Contains("Line one", blocks[0].Content);
+        Assert.Contains("Line two", blocks[0].Content);
+        Assert.Contains("Line three", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Blockquote_WithoutSpaceAfterMarker()
+    {
+        var blocks = MarkdownParser.Parse(">No space after marker");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal("No space after marker", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Blockquote_FollowedByParagraph()
+    {
+        var md = "> A quote\n\nA paragraph";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal("A quote", blocks[0].Content);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[1].Kind);
+    }
+
+    [Fact]
+    public void Blockquote_PrecededByParagraph()
+    {
+        var md = "Intro text\n\n> Quoted text";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[1].Kind);
+    }
+
+    [Fact]
+    public void Blockquote_WithInlineFormatting()
+    {
+        var md = "> This has **bold** and `code` and [link](url)";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Contains("**bold**", blocks[0].Content);
+        Assert.Contains("`code`", blocks[0].Content);
+        Assert.Contains("[link](url)", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Blockquote_EmptyQuote()
+    {
+        // A bare `>` with no text content produces no block (trimmed to empty)
+        var blocks = MarkdownParser.Parse(">");
+        Assert.Empty(blocks);
+    }
+
+    [Fact]
+    public void Blockquote_Interleaved_CreatesMultipleBlocks()
+    {
+        var md = "> Quote one\n\nMiddle paragraph\n\n> Quote two";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(3, blocks.Count);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal("Quote one", blocks[0].Content);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[1].Kind);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[2].Kind);
+        Assert.Equal("Quote two", blocks[2].Content);
+    }
+
+    [Fact]
+    public void Blockquote_ImmediatelyAfterHeading()
+    {
+        var md = "## Title\n> Quote right after heading";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[1].Kind);
+    }
+
+    [Fact]
+    public void Blockquote_ImmediatelyBeforeBullet()
+    {
+        var md = "> Quote text\n- Bullet after";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.Bullet, blocks[1].Kind);
+    }
+
+    [Fact]
+    public void Blockquote_InComplexDocument()
+    {
+        var md = string.Join("\n", new[]
+        {
+            "## Overview",
+            "",
+            "> Important note about the system.",
+            "> This spans multiple lines.",
+            "",
+            "Some regular text.",
+            "",
+            "- Bullet one",
+            "- Bullet two",
+            "",
+            "> Another quote after bullets."
+        });
+
+        var blocks = MarkdownParser.Parse(md);
+
+        Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[1].Kind);
+        Assert.Contains("Important note", blocks[1].Content);
+        Assert.Contains("multiple lines", blocks[1].Content);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[2].Kind);
+        Assert.Equal(MdBlockKind.Bullet, blocks[3].Kind);
+        Assert.Equal(MdBlockKind.Bullet, blocks[4].Kind);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[5].Kind);
+        Assert.Equal(6, blocks.Count);
+    }
 }

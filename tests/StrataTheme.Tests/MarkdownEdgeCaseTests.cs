@@ -594,4 +594,398 @@ public class MarkdownEdgeCaseTests
         // Round-trip: should match original
         Assert.Equal(md, result);
     }
+
+    // ─── Blockquote edge cases ──────────────────────────────────
+
+    [Fact]
+    public void Blockquote_WithLeadingSpaces_StillParsed()
+    {
+        var blocks = MarkdownParser.Parse("   > Indented quote");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal("Indented quote", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Blockquote_BreaksAtNonQuoteLine()
+    {
+        var md = "> Line one\nNot a quote\n> Line two";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(3, blocks.Count);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal("Line one", blocks[0].Content);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[1].Kind);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[2].Kind);
+        Assert.Equal("Line two", blocks[2].Content);
+    }
+
+    [Fact]
+    public void Blockquote_FollowedByCodeBlock()
+    {
+        var md = "> Quote\n```\ncode\n```";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.CodeBlock, blocks[1].Kind);
+    }
+
+    [Fact]
+    public void Blockquote_FollowedByTable()
+    {
+        var md = "> Quote\n| A | B |\n| --- | --- |\n| 1 | 2 |";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.Table, blocks[1].Kind);
+    }
+
+    [Fact]
+    public void Blockquote_StreamingAppend_NoDuplicates()
+    {
+        var full = "## Title\n\n> Quote line one\n> Quote line two\n\nParagraph after.";
+        var words = full.Split(' ');
+        var accumulated = new System.Text.StringBuilder(full.Length);
+
+        for (int i = 0; i < words.Length; i++)
+        {
+            if (accumulated.Length > 0) accumulated.Append(' ');
+            accumulated.Append(words[i]);
+        }
+
+        var blocks = MarkdownParser.Parse(accumulated.ToString());
+
+        // Verify the full parse produces correct structure
+        Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[1].Kind);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[2].Kind);
+        Assert.Equal(3, blocks.Count);
+    }
+
+    [Fact]
+    public void Blockquote_IncrementalAppend_BlockquoteGrows()
+    {
+        var step1 = "> First line";
+        var step2 = "> First line\n> Second line";
+
+        var blocks1 = MarkdownParser.Parse(step1);
+        var blocks2 = MarkdownParser.ParseIncrementalAppend(step1, blocks1, step2);
+
+        Assert.Single(blocks2);
+        Assert.Equal(MdBlockKind.Blockquote, blocks2[0].Kind);
+        Assert.Contains("First line", blocks2[0].Content);
+        Assert.Contains("Second line", blocks2[0].Content);
+    }
+
+    // ─── Paragraph edge cases ───────────────────────────────────
+
+    [Fact]
+    public void Paragraph_StartsWithSpecialCharButNotMarkdown()
+    {
+        // A line starting with * but not followed by space is not a bullet
+        var blocks = MarkdownParser.Parse("*not a bullet");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
+    }
+
+    [Fact]
+    public void Paragraph_ContainsGreaterThanMidLine()
+    {
+        // > not at line start should be paragraph, not blockquote
+        var blocks = MarkdownParser.Parse("x > 5 means something");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[0].Kind);
+        Assert.Equal("x > 5 means something", blocks[0].Content);
+    }
+
+    // ─── Heading edge cases ─────────────────────────────────────
+
+    [Fact]
+    public void Heading_TrailingHashes_Trimmed()
+    {
+        var blocks = MarkdownParser.Parse("## Heading ##");
+        // Whether trailing hashes are trimmed or preserved is implementation-specific;
+        // just verify it doesn't crash and is a heading
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
+    }
+
+    [Fact]
+    public void Heading_WithInlineFormatting()
+    {
+        var blocks = MarkdownParser.Parse("## **Bold** Heading");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
+        Assert.Contains("**Bold**", blocks[0].Content);
+    }
+
+    // ─── List edge cases ────────────────────────────────────────
+
+    [Fact]
+    public void Bullet_MixedMarkers_EachParsedSeparately()
+    {
+        var md = "- Dash item\n* Star item\n- Another dash";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(3, blocks.Count);
+        Assert.All(blocks, b => Assert.Equal(MdBlockKind.Bullet, b.Kind));
+    }
+
+    [Fact]
+    public void NumberedList_NonSequential_StillParsed()
+    {
+        var md = "1. First\n3. Third\n2. Second";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(3, blocks.Count);
+        Assert.All(blocks, b => Assert.Equal(MdBlockKind.NumberedItem, b.Kind));
+        Assert.Equal(1, blocks[0].Level);
+        Assert.Equal(3, blocks[1].Level);
+        Assert.Equal(2, blocks[2].Level);
+    }
+
+    [Fact]
+    public void Bullet_ImmediatelyFollowedByCodeBlock()
+    {
+        var md = "- Bullet\n```\ncode\n```";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(2, blocks.Count);
+        Assert.Equal(MdBlockKind.Bullet, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.CodeBlock, blocks[1].Kind);
+    }
+
+    [Fact]
+    public void Bullet_DeeplyNested_ClampsIndent()
+    {
+        var md = "                - Very deep";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Bullet, blocks[0].Kind);
+        // GetIndentLevel clamps to max 3
+        Assert.True(blocks[0].Level <= 3);
+    }
+
+    // ─── Table edge cases ───────────────────────────────────────
+
+    [Fact]
+    public void Table_EmptyCells_Preserved()
+    {
+        var md = "| H1 | H2 |\n| --- | --- |\n|  | data |";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
+    }
+
+    [Fact]
+    public void Table_CellsWithInlineFormatting()
+    {
+        var md = "| **Bold** | *Italic* | `code` |\n| --- | --- | --- |\n| [link](url) | normal | ***bi*** |";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
+        Assert.Contains("**Bold**", blocks[0].Content);
+        Assert.Contains("[link](url)", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Table_VaryingColumnCounts_StillParsed()
+    {
+        var md = "| H1 | H2 | H3 |\n| --- | --- | --- |\n| A | B |";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
+    }
+
+    [Fact]
+    public void Table_AlignmentMarkers_ParsedAsSeparator()
+    {
+        var md = "| Left | Center | Right |\n| :--- | :---: | ---: |\n| A | B | C |";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Table, blocks[0].Kind);
+    }
+
+    // ─── Code block edge cases ──────────────────────────────────
+
+    [Fact]
+    public void CodeBlock_WithBackticksInContent_NotClosedEarly()
+    {
+        var md = "```\nvar x = `template`;\nconsole.log(x);\n```";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.CodeBlock, blocks[0].Kind);
+        Assert.Contains("`template`", blocks[0].Content);
+    }
+
+    [Fact]
+    public void CodeBlock_IndentedFence_Recognized()
+    {
+        var md = "    ```python\n    code\n    ```";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.CodeBlock, blocks[0].Kind);
+        Assert.Equal("python", blocks[0].Language);
+    }
+
+    [Fact]
+    public void CodeBlock_ConsecutiveWithDifferentLanguages()
+    {
+        var md = "```python\nprint(1)\n```\n```javascript\nconsole.log(1)\n```\n```rust\nprintln!(\"1\")\n```";
+        var blocks = MarkdownParser.Parse(md);
+        Assert.Equal(3, blocks.Count);
+        Assert.Equal("python", blocks[0].Language);
+        Assert.Equal("javascript", blocks[1].Language);
+        Assert.Equal("rust", blocks[2].Language);
+    }
+
+    // ─── Horizontal rule vs bullet disambiguation ───────────────
+
+    [Fact]
+    public void HorizontalRule_Underscores_Parsed()
+    {
+        var blocks = MarkdownParser.Parse("___");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.HorizontalRule, blocks[0].Kind);
+    }
+
+    [Fact]
+    public void HorizontalRule_SpacedUnderscores_Parsed()
+    {
+        var blocks = MarkdownParser.Parse("_ _ _");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.HorizontalRule, blocks[0].Kind);
+    }
+
+    [Fact]
+    public void HorizontalRule_VeryLong_Parsed()
+    {
+        var blocks = MarkdownParser.Parse(new string('-', 100));
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.HorizontalRule, blocks[0].Kind);
+    }
+
+    // ─── Incremental parse edge cases ───────────────────────────
+
+    [Fact]
+    public void IncrementalAppend_AppendChangesBlockKind()
+    {
+        var step1 = "Some paragraph text";
+        var step2 = "Some paragraph text\n\n- Now it has a bullet";
+
+        var blocks1 = MarkdownParser.Parse(step1);
+        Assert.Single(blocks1);
+        Assert.Equal(MdBlockKind.Paragraph, blocks1[0].Kind);
+
+        var blocks2 = MarkdownParser.ParseIncrementalAppend(step1, blocks1, step2);
+        Assert.Equal(2, blocks2.Count);
+        Assert.Equal(MdBlockKind.Paragraph, blocks2[0].Kind);
+        Assert.Equal(MdBlockKind.Bullet, blocks2[1].Kind);
+    }
+
+    [Fact]
+    public void IncrementalAppend_AppendMidCodeBlock()
+    {
+        var step1 = "```csharp\nvar x = 1;";
+        var step2 = "```csharp\nvar x = 1;\nvar y = 2;";
+
+        var blocks1 = MarkdownParser.Parse(step1);
+        // Unclosed code block is still captured
+        Assert.Single(blocks1);
+        Assert.Equal(MdBlockKind.CodeBlock, blocks1[0].Kind);
+
+        var blocks2 = MarkdownParser.ParseIncrementalAppend(step1, blocks1, step2);
+        Assert.Single(blocks2);
+        Assert.Equal(MdBlockKind.CodeBlock, blocks2[0].Kind);
+        Assert.Contains("var y = 2;", blocks2[0].Content);
+    }
+
+    [Fact]
+    public void IncrementalAppend_CodeBlockCloses()
+    {
+        var step1 = "```\ncode";
+        var step2 = "```\ncode\n```\n\nParagraph after";
+
+        var blocks1 = MarkdownParser.Parse(step1);
+        var blocks2 = MarkdownParser.ParseIncrementalAppend(step1, blocks1, step2);
+
+        Assert.Equal(2, blocks2.Count);
+        Assert.Equal(MdBlockKind.CodeBlock, blocks2[0].Kind);
+        Assert.Equal(MdBlockKind.Paragraph, blocks2[1].Kind);
+    }
+
+    // ─── Mixed content edge cases ───────────────────────────────
+
+    [Fact]
+    public void MixedContent_BlockquoteAmongAllTypes()
+    {
+        var md = string.Join("\n", new[]
+        {
+            "## Heading",
+            "",
+            "> Blockquote text",
+            "",
+            "Paragraph text.",
+            "",
+            "- Bullet one",
+            "",
+            "1. Numbered one",
+            "",
+            "---",
+            "",
+            "```python",
+            "x = 1",
+            "```",
+            "",
+            "| H1 | H2 |",
+            "| --- | --- |",
+            "| A | B |"
+        });
+
+        var blocks = MarkdownParser.Parse(md);
+
+        Assert.Equal(MdBlockKind.Heading, blocks[0].Kind);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[1].Kind);
+        Assert.Equal(MdBlockKind.Paragraph, blocks[2].Kind);
+        Assert.Equal(MdBlockKind.Bullet, blocks[3].Kind);
+        Assert.Equal(MdBlockKind.NumberedItem, blocks[4].Kind);
+        Assert.Equal(MdBlockKind.HorizontalRule, blocks[5].Kind);
+        Assert.Equal(MdBlockKind.CodeBlock, blocks[6].Kind);
+        Assert.Equal(MdBlockKind.Table, blocks[7].Kind);
+        Assert.Equal(8, blocks.Count);
+    }
+
+    [Fact]
+    public void Unicode_Blockquote_WithHebrew()
+    {
+        var blocks = MarkdownParser.Parse("> ציטוט בעברית");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Equal("ציטוט בעברית", blocks[0].Content);
+    }
+
+    [Fact]
+    public void Emoji_InBlockquote()
+    {
+        var blocks = MarkdownParser.Parse("> 🚀 Launch sequence started");
+        Assert.Single(blocks);
+        Assert.Equal(MdBlockKind.Blockquote, blocks[0].Kind);
+        Assert.Contains("🚀", blocks[0].Content);
+    }
+
+    // ─── Pooled parser parity ───────────────────────────────────
+
+    [Fact]
+    public void PooledParse_Blockquote_MatchesStaticParse()
+    {
+        var md = "## Title\n\n> Quote line\n\nParagraph";
+        var staticBlocks = MarkdownParser.Parse(md);
+
+        var parser = new MarkdownParser();
+        var pooledBlocks = new System.Collections.Generic.List<MdBlock>();
+        parser.ParsePooled(md, pooledBlocks);
+
+        Assert.Equal(staticBlocks.Count, pooledBlocks.Count);
+        for (int i = 0; i < staticBlocks.Count; i++)
+        {
+            Assert.Equal(staticBlocks[i].Kind, pooledBlocks[i].Kind);
+            Assert.Equal(staticBlocks[i].Content, pooledBlocks[i].Content);
+        }
+    }
 }

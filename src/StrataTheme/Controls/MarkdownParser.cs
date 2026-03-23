@@ -226,6 +226,8 @@ public sealed class MarkdownParser
             {
                 FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
                 paragraphStart = -1;
+                FlushBlockquoteBlock(blockquoteBuffer, blocks, blockquoteStart);
+                blockquoteStart = -1;
                 FlushTableBlock(tableBuffer, blocks, tableStart);
                 tableStart = -1;
 
@@ -267,6 +269,8 @@ public sealed class MarkdownParser
             {
                 FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
                 paragraphStart = -1;
+                FlushBlockquoteBlock(blockquoteBuffer, blocks, blockquoteStart);
+                blockquoteStart = -1;
                 if (tableBuffer.Count == 0)
                     tableStart = absoluteLineStart;
                 tableBuffer.Add(lineSpan.ToString());
