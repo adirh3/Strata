@@ -836,6 +836,7 @@ public class StrataMarkdown : ContentControl
             MdBlockKind.NumberedItem => CreateNumberedItemControl(block.Content, block.Level),
             MdBlockKind.CodeBlock => CreateCodeBlockControl(block.Content, block.Language),
             MdBlockKind.HorizontalRule => CreateHorizontalRuleControl(),
+            MdBlockKind.Blockquote => CreateBlockquoteControl(block.Content),
             MdBlockKind.Table => CreateTableControl(block.Content),
             MdBlockKind.Chart => CreateChartControl(block.Content),
             MdBlockKind.Mermaid => CreateMermaidControl(block.Content),
@@ -901,6 +902,15 @@ public class StrataMarkdown : ContentControl
         textBlock.Classes.Add("strata-md-bullet-text");
         textBlock.Margin = indentLevel == 0 ? ZeroThickness : new Thickness(indentLevel * 16, 0, 0, 0);
         return textBlock;
+    }
+
+    private Control CreateBlockquoteControl(string text)
+    {
+        var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
+        textBlock.Classes.Add("strata-md-paragraph");
+        var border = new Border { Child = textBlock };
+        border.Classes.Add("strata-md-blockquote");
+        return border;
     }
 
     private static readonly Thickness RtlTextPadding = new(0, 0, 4, 0);
@@ -1006,7 +1016,7 @@ public class StrataMarkdown : ContentControl
                             target.Inlines?.Add(new Run(text[textStart..pos]));
 
                         var innerText = text[(pos + 3)..closeIdx];
-                        AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Italic);
+                        hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Italic);
                         pos = closeIdx + 3;
                         textStart = pos;
                         continue;
@@ -1023,7 +1033,7 @@ public class StrataMarkdown : ContentControl
                             target.Inlines?.Add(new Run(text[textStart..pos]));
 
                         var innerText = text[(pos + 2)..closeIdx];
-                        AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Normal);
+                        hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Normal);
                         pos = closeIdx + 2;
                         textStart = pos;
                         continue;
@@ -1040,7 +1050,7 @@ public class StrataMarkdown : ContentControl
                             target.Inlines?.Add(new Run(text[textStart..pos]));
 
                         var innerText = text[(pos + 1)..closeIdx];
-                        AppendNestedCodeInlines(target, innerText, FontWeight.Normal, FontStyle.Italic);
+                        hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Normal, FontStyle.Italic);
                         pos = closeIdx + 1;
                         textStart = pos;
                         continue;
@@ -1099,16 +1109,17 @@ public class StrataMarkdown : ContentControl
     }
 
     /// <summary>
-    /// Span-based nested code scanner for bold/italic content. Replaces regex-based
-    /// AppendNestedInlines to avoid MatchCollection allocations.
+    /// Span-based nested inline scanner for bold/italic content. Handles inline code
+    /// and links within styled text. Returns true if any link inlines were added.
     /// </summary>
-    private void AppendNestedCodeInlines(SelectableTextBlock target, string text,
+    private bool AppendNestedCodeInlines(SelectableTextBlock target, string text,
         FontWeight weight, FontStyle style)
     {
         var span = text.AsSpan();
         int pos = 0;
         int textStart = 0;
-        bool foundCode = false;
+        bool foundSpecial = false;
+        bool hasLinks = false;
 
         while (pos < span.Length)
         {
@@ -1118,7 +1129,7 @@ public class StrataMarkdown : ContentControl
                 if (closePos >= 0)
                 {
                     closePos += pos + 1;
-                    foundCode = true;
+                    foundSpecial = true;
 
                     if (pos > textStart)
                         target.Inlines?.Add(new Run(text[textStart..pos]) { FontWeight = weight, FontStyle = style });
@@ -1130,10 +1141,45 @@ public class StrataMarkdown : ContentControl
                     continue;
                 }
             }
+
+            // Link: [text](url)
+            if (span[pos] == '[')
+            {
+                int bracketClose = FindClosingBracket(span, pos + 1);
+                if (bracketClose >= 0 && bracketClose + 1 < span.Length && span[bracketClose + 1] == '(')
+                {
+                    int parenClose = FindClosingParen(span, bracketClose + 2);
+                    if (parenClose >= 0)
+                    {
+                        foundSpecial = true;
+                        hasLinks = true;
+
+                        if (pos > textStart)
+                            target.Inlines?.Add(new Run(text[textStart..pos]) { FontWeight = weight, FontStyle = style });
+
+                        var linkLabel = text[(pos + 1)..bracketClose];
+                        var linkTarget = text[(bracketClose + 2)..parenClose].Trim();
+
+                        var linkRun = new Run(linkLabel)
+                        {
+                            FontWeight = weight,
+                            FontStyle = style,
+                            Foreground = _linkBrush ??= ResolveLinkBrush(),
+                            TextDecorations = TextDecorations.Underline,
+                        };
+                        _linkRuns[linkRun] = linkTarget;
+                        target.Inlines?.Add(linkRun);
+                        pos = parenClose + 1;
+                        textStart = pos;
+                        continue;
+                    }
+                }
+            }
+
             pos++;
         }
 
-        if (!foundCode)
+        if (!foundSpecial)
         {
             target.Inlines?.Add(new Run(text) { FontWeight = weight, FontStyle = style });
         }
@@ -1141,6 +1187,8 @@ public class StrataMarkdown : ContentControl
         {
             target.Inlines?.Add(new Run(text[textStart..]) { FontWeight = weight, FontStyle = style });
         }
+
+        return hasLinks;
     }
 
     /// <summary>
@@ -1276,7 +1324,7 @@ public class StrataMarkdown : ContentControl
 
     /// <summary>Returns true for block kinds whose control contains an updatable SelectableTextBlock.</summary>
     private static bool IsTextBlockKind(MdBlockKind kind) =>
-        kind is MdBlockKind.Paragraph or MdBlockKind.Heading or MdBlockKind.Bullet or MdBlockKind.NumberedItem;
+        kind is MdBlockKind.Paragraph or MdBlockKind.Heading or MdBlockKind.Bullet or MdBlockKind.NumberedItem or MdBlockKind.Blockquote;
 
     /// <summary>
     /// Updates the SelectableTextBlock inside an existing paragraph/heading/bullet/numbered
@@ -1322,12 +1370,16 @@ public class StrataMarkdown : ContentControl
         return true;
     }
 
-    /// <summary>Finds the SelectableTextBlock inside paragraph/heading/bullet/numbered controls.</summary>
+    /// <summary>Finds the SelectableTextBlock inside paragraph/heading/bullet/numbered/blockquote controls.</summary>
     private static SelectableTextBlock? FindSelectableTextBlock(Control control)
     {
         // Paragraph/Heading: the control IS a SelectableTextBlock
         if (control is SelectableTextBlock stb)
             return stb;
+
+        // Blockquote: Border with SelectableTextBlock child
+        if (control is Border border && border.Child is SelectableTextBlock borderChild)
+            return borderChild;
 
         // Bullet/NumberedItem: Grid with SelectableTextBlock at column 2
         if (control is Grid grid)

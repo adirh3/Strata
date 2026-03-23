@@ -4,7 +4,7 @@
 
   <!-- Default text color for all markdown content (inherited by children) -->
   <Style Selector="controls|StrataMarkdown">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
   <Style Selector="TextBlock.strata-md-title">
@@ -20,6 +20,16 @@
 
   <Style Selector="Border.strata-md-hr">
     <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
+  </Style>
+
+  <!-- Blockquote: left accent bar with subtle background -->
+  <Style Selector="Border.strata-md-blockquote">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="BorderThickness" Value="3,0,0,0" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Padding" Value="12,6,8,6" />
+    <Setter Property="Margin" Value="0,2,0,2" />
   </Style>
 
   <Style Selector="Button.strata-md-link">

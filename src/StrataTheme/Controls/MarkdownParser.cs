@@ -20,6 +20,7 @@ public enum MdBlockKind
     Comparison,
     Card,
     Sources,
+    Blockquote,
 }
 
 /// <summary>
@@ -58,6 +59,7 @@ public sealed class MarkdownParser
 {
     private readonly StringBuilder _paragraphBuffer = new();
     private readonly StringBuilder _codeBuffer = new();
+    private readonly StringBuilder _blockquoteBuffer = new();
     private readonly List<string> _tableBuffer = new();
 
     // ── Static API ──────────────────────────────────────────────
@@ -66,7 +68,7 @@ public sealed class MarkdownParser
     public static List<MdBlock> Parse(string normalized)
     {
         var blocks = new List<MdBlock>();
-        ParseCore(normalized.AsSpan(), blocks, new StringBuilder(), new StringBuilder(), new List<string>(), 0);
+        ParseCore(normalized.AsSpan(), blocks, new StringBuilder(), new StringBuilder(), new StringBuilder(), new List<string>(), 0);
         return blocks;
     }
 
@@ -100,6 +102,7 @@ public sealed class MarkdownParser
             merged,
             new StringBuilder(),
             new StringBuilder(),
+            new StringBuilder(),
             new List<string>(),
             lastBlockStart);
 
@@ -114,8 +117,9 @@ public sealed class MarkdownParser
         target.Clear();
         _paragraphBuffer.Clear();
         _codeBuffer.Clear();
+        _blockquoteBuffer.Clear();
         _tableBuffer.Clear();
-        ParseCore(normalized.AsSpan(), target, _paragraphBuffer, _codeBuffer, _tableBuffer, 0);
+        ParseCore(normalized.AsSpan(), target, _paragraphBuffer, _codeBuffer, _blockquoteBuffer, _tableBuffer, 0);
     }
 
     /// <summary>
@@ -152,12 +156,14 @@ public sealed class MarkdownParser
 
         _paragraphBuffer.Clear();
         _codeBuffer.Clear();
+        _blockquoteBuffer.Clear();
         _tableBuffer.Clear();
         ParseCore(
             nextNormalized.AsSpan(lastBlockStart),
             target,
             _paragraphBuffer,
             _codeBuffer,
+            _blockquoteBuffer,
             _tableBuffer,
             lastBlockStart);
     }
@@ -170,11 +176,12 @@ public sealed class MarkdownParser
     /// </summary>
     internal static void ParseCore(
         ReadOnlySpan<char> source, List<MdBlock> blocks,
-        StringBuilder paragraphBuffer, StringBuilder codeBuffer, List<string> tableBuffer,
+        StringBuilder paragraphBuffer, StringBuilder codeBuffer, StringBuilder blockquoteBuffer, List<string> tableBuffer,
         int baseOffset)
     {
         paragraphBuffer.Clear();
         codeBuffer.Clear();
+        blockquoteBuffer.Clear();
         tableBuffer.Clear();
         var inCodeBlock = false;
         var codeLanguage = string.Empty;
@@ -182,6 +189,7 @@ public sealed class MarkdownParser
         var paragraphStart = -1;
         var codeStart = -1;
         var tableStart = -1;
+        var blockquoteStart = -1;
 
         // Enumerate lines using span slicing — no Split allocation
         var remaining = source;
@@ -279,6 +287,22 @@ public sealed class MarkdownParser
                 tableStart = -1;
             }
 
+            // Blockquote: lines starting with > (optionally followed by space)
+            if (TryParseBlockquote(lineSpan, out var quoteText))
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
+                if (blockquoteStart < 0)
+                    blockquoteStart = absoluteLineStart;
+                if (blockquoteBuffer.Length > 0)
+                    blockquoteBuffer.Append('\n');
+                blockquoteBuffer.Append(quoteText);
+                continue;
+            }
+
+            FlushBlockquoteBlock(blockquoteBuffer, blocks, blockquoteStart);
+            blockquoteStart = -1;
+
             if (TryParseHeading(lineSpan, out var level, out var headingText))
             {
                 FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
@@ -369,6 +393,7 @@ public sealed class MarkdownParser
         }
 
         FlushTableBlock(tableBuffer, blocks, tableStart);
+        FlushBlockquoteBlock(blockquoteBuffer, blocks, blockquoteStart);
         FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, endOffset);
     }
 
@@ -475,6 +500,25 @@ public sealed class MarkdownParser
             else break;
         }
         return Math.Min(spaces / 2, 3);
+    }
+
+    /// <summary>
+    /// Returns true if the line is a blockquote (starts with '>' optionally followed by a space).
+    /// Outputs the text content after stripping the '>' prefix.
+    /// </summary>
+    internal static bool TryParseBlockquote(ReadOnlySpan<char> line, out ReadOnlySpan<char> text)
+    {
+        var trimmed = line.TrimStart();
+        if (trimmed.Length >= 1 && trimmed[0] == '>')
+        {
+            // Strip '>' and optional single space after it
+            text = trimmed.Length > 1 && trimmed[1] == ' '
+                ? trimmed[2..]
+                : trimmed[1..];
+            return true;
+        }
+        text = default;
+        return false;
     }
 
     internal static bool IsTableLine(ReadOnlySpan<char> line)
@@ -619,6 +663,25 @@ public sealed class MarkdownParser
             Kind = MdBlockKind.Paragraph,
             Content = text,
             SourceStart = paragraphStart >= 0 ? paragraphStart : fallbackStart,
+        });
+    }
+
+    private static void FlushBlockquoteBlock(StringBuilder buffer, List<MdBlock> blocks, int blockquoteStart)
+    {
+        if (buffer.Length == 0)
+            return;
+
+        var text = buffer.ToString().Trim();
+        buffer.Clear();
+
+        if (text.Length == 0)
+            return;
+
+        blocks.Add(new MdBlock
+        {
+            Kind = MdBlockKind.Blockquote,
+            Content = text,
+            SourceStart = blockquoteStart >= 0 ? blockquoteStart : 0,
         });
     }
 
