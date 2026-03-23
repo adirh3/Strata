@@ -87,14 +87,77 @@
 
                 <!-- Scrollable transcript fills remaining space -->
                 <Border Name="PART_TranscriptHost">
-                  <ScrollViewer Name="PART_TranscriptScroll"
-                                VerticalScrollBarVisibility="Auto"
-                                HorizontalScrollBarVisibility="Disabled"
-                                IsScrollChainingEnabled="False">
-                    <Border Name="PART_ScrollContent" Padding="16,12,16,12">
-                      <ContentPresenter Content="{TemplateBinding Transcript}" />
-                    </Border>
-                  </ScrollViewer>
+                  <Grid>
+                    <ScrollViewer Name="PART_TranscriptScroll"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  IsScrollChainingEnabled="False">
+                      <Border Name="PART_ScrollContent" Padding="16,12,16,12">
+                        <ContentPresenter Content="{TemplateBinding Transcript}" />
+                      </Border>
+                    </ScrollViewer>
+
+                    <!-- Scroll-to-bottom floating button -->
+                    <Panel Name="PART_ScrollToBottomButton"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Bottom"
+                           Margin="0,0,0,12"
+                           Width="36" Height="36"
+                           Opacity="0"
+                           IsHitTestVisible="False">
+                      <Panel.Transitions>
+                        <Transitions>
+                          <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </Panel.Transitions>
+
+                      <!-- Button surface (hit-testable) -->
+                      <Border Name="PART_ScrollToBottomChrome"
+                              CornerRadius="18"
+                              Background="{DynamicResource Brush.Surface1}"
+                              BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                              BorderThickness="1"
+                              BoxShadow="0 2 8 0 #20000000"
+                              Cursor="Hand">
+                        <Border.Transitions>
+                          <Transitions>
+                            <BrushTransition Property="Background" Duration="0:0:0.12" />
+                            <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                            <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.12" />
+                          </Transitions>
+                        </Border.Transitions>
+                      </Border>
+
+                      <!-- Down chevron icon -->
+                      <Path Name="PART_ScrollToBottomIcon"
+                            Data="M0,0 L6,6 L12,0"
+                            Stroke="{DynamicResource Brush.TextSecondary}"
+                            StrokeThickness="2"
+                            StrokeLineCap="Round"
+                            StrokeJoin="Round"
+                            Stretch="None"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            IsHitTestVisible="False">
+                        <Path.Transitions>
+                          <Transitions>
+                            <BrushTransition Property="Stroke" Duration="0:0:0.12" />
+                          </Transitions>
+                        </Path.Transitions>
+                      </Path>
+
+                      <!-- New content indicator badge -->
+                      <Border Name="PART_NewContentDot"
+                              IsVisible="False"
+                              Width="10" Height="10"
+                              CornerRadius="5"
+                              Background="{DynamicResource Brush.AccentDefault}"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Top"
+                              Margin="0,-1,-1,0"
+                              IsHitTestVisible="False" />
+                    </Panel>
+                  </Grid>
                 </Border>
               </DockPanel>
             </Border>
@@ -145,6 +208,26 @@
         </Style>
         <Style Selector="^:offline /template/ Border#PART_PresenceDot">
           <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+
+        <!-- ── Scroll-to-bottom button ── -->
+        <Style Selector="^:scrolled-away /template/ Panel#PART_ScrollToBottomButton">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:scrolled-away /template/ Panel#PART_ScrollToBottomButton:pointerover Border#PART_ScrollToBottomChrome">
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+          <Setter Property="BoxShadow" Value="0 4 12 0 #30000000" />
+        </Style>
+
+        <Style Selector="^:scrolled-away /template/ Panel#PART_ScrollToBottomButton:pointerover Path#PART_ScrollToBottomIcon">
+          <Setter Property="Stroke" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+
+        <Style Selector="^:has-new-content /template/ Border#PART_NewContentDot">
+          <Setter Property="IsVisible" Value="True" />
         </Style>
       </ControlTheme>
     </ResourceDictionary>

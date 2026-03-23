@@ -42,8 +42,11 @@ namespace StrataTheme.Controls;
 /// <para>Call <see cref="ScrollToEnd"/> during streaming to auto-scroll.
 /// Call <see cref="ResetAutoScroll"/> when the user sends a new message.</para>
 /// <para><b>Template parts:</b> PART_Root (Border), PART_TranscriptScroll (ScrollViewer),
-/// PART_HeaderPresenter (ContentPresenter), PART_PresenceDot (Border), PART_PresencePill (Border).</para>
-/// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence, :scrolling.</para>
+/// PART_HeaderPresenter (ContentPresenter), PART_PresenceDot (Border), PART_PresencePill (Border),
+/// PART_ScrollToBottomChrome (Border – scroll-to-bottom button surface),
+/// PART_NewContentDot (Border – pulsing badge on the scroll-to-bottom button).</para>
+/// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence, :scrolling,
+/// :scrolled-away, :has-new-content.</para>
 /// </remarks>
 public class StrataChatShell : TemplatedControl
 {
@@ -72,6 +75,11 @@ public class StrataChatShell : TemplatedControl
     private readonly DispatcherTimer _scrollingStateTimer;
     private DateTime _lastScrollActivityUtc;
     private bool _isTranscriptScrolling;
+    private Border? _scrollToBottomChrome;
+    private Border? _newContentDot;
+    private bool _hasUnseenContent;
+    private bool _isNewContentPulseRunning;
+    private bool _hasNewContent;
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
     public static readonly StyledProperty<object?> HeaderProperty =
@@ -93,12 +101,29 @@ public class StrataChatShell : TemplatedControl
     public static readonly StyledProperty<string> PresenceTextProperty =
         AvaloniaProperty.Register<StrataChatShell, string>(nameof(PresenceText), string.Empty);
 
+    /// <summary>
+    /// Whether the agent is actively streaming a response. When true and the user
+    /// is scrolled away, the scroll-to-bottom button shows a pulsing accent badge.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsStreamingProperty =
+        AvaloniaProperty.Register<StrataChatShell, bool>(nameof(IsStreaming));
+
+    /// <summary>
+    /// Read-only indicator that new content is available below the current scroll
+    /// position — either because the agent is streaming or new messages arrived
+    /// while the user was scrolled away.
+    /// </summary>
+    public static readonly DirectProperty<StrataChatShell, bool> HasNewContentProperty =
+        AvaloniaProperty.RegisterDirect<StrataChatShell, bool>(
+            nameof(HasNewContent), o => o.HasNewContent);
+
     static StrataChatShell()
     {
         IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnIsOnlineChanged());
         HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
             c.PseudoClasses.Set(":has-header", c.Header is not null));
         PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnPresenceTextChanged());
+        IsStreamingProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.UpdateHasNewContent());
         TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
         {
             c._lastAlignedMessageCount = 0;
@@ -121,6 +146,17 @@ public class StrataChatShell : TemplatedControl
     public object? Composer { get => GetValue(ComposerProperty); set => SetValue(ComposerProperty, value); }
     public bool IsOnline { get => GetValue(IsOnlineProperty); set => SetValue(IsOnlineProperty, value); }
     public string PresenceText { get => GetValue(PresenceTextProperty); set => SetValue(PresenceTextProperty, value); }
+    public bool IsStreaming { get => GetValue(IsStreamingProperty); set => SetValue(IsStreamingProperty, value); }
+
+    /// <summary>
+    /// True when the user is scrolled away and new content exists below (streaming or new messages).
+    /// </summary>
+    public bool HasNewContent
+    {
+        get => _hasNewContent;
+        private set => SetAndRaise(HasNewContentProperty, ref _hasNewContent, value);
+    }
+
     public ScrollViewer? TranscriptScrollViewer => _scrollViewer;
     public double VerticalOffset => _scrollViewer?.Offset.Y ?? 0d;
     public double ViewportHeight => _scrollViewer?.Viewport.Height ?? 0d;
@@ -139,8 +175,13 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.RemoveHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed);
         }
 
+        if (_scrollToBottomChrome is not null)
+            _scrollToBottomChrome.RemoveHandler(InputElement.PointerPressedEvent, OnScrollToBottomPressed);
+
         _presenceDot = e.NameScope.Find<Border>("PART_PresenceDot");
         _scrollViewer = e.NameScope.Find<ScrollViewer>("PART_TranscriptScroll");
+        _scrollToBottomChrome = e.NameScope.Find<Border>("PART_ScrollToBottomChrome");
+        _newContentDot = e.NameScope.Find<Border>("PART_NewContentDot");
 
         if (_scrollViewer is not null)
         {
@@ -148,6 +189,9 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.AddHandler(InputElement.PointerWheelChangedEvent, OnUserWheelScroll, RoutingStrategies.Bubble, handledEventsToo: true);
             _scrollViewer.AddHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         }
+
+        if (_scrollToBottomChrome is not null)
+            _scrollToBottomChrome.AddHandler(InputElement.PointerPressedEvent, OnScrollToBottomPressed, RoutingStrategies.Bubble);
 
         _scrollingStateTimer.Stop();
         SetTranscriptScrollingState(false);
@@ -160,9 +204,12 @@ public class StrataChatShell : TemplatedControl
         PseudoClasses.Set(":offline", !online);
         PseudoClasses.Set(":has-header", Header is not null);
         PseudoClasses.Set(":has-presence", !string.IsNullOrWhiteSpace(PresenceText));
+        PseudoClasses.Set(":scrolled-away", _userScrolledAway);
 
         _isPulseRunning = false;
+        _isNewContentPulseRunning = false;
         UpdatePresencePulse();
+        UpdateHasNewContent();
         ScheduleApplyTranscriptAlignment(forceFull: true);
     }
 
@@ -171,9 +218,11 @@ public class StrataChatShell : TemplatedControl
         base.OnAttachedToVisualTree(e);
         // Compositor visual may have been recreated on re-attach.
         _isPulseRunning = false;
+        _isNewContentPulseRunning = false;
         Dispatcher.UIThread.Post(() =>
         {
             UpdatePresencePulse();
+            UpdateHasNewContent();
             ApplyTranscriptAlignment(forceFull: true);
         }, DispatcherPriority.Loaded);
     }
@@ -187,10 +236,14 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.RemoveHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed);
         }
 
+        if (_scrollToBottomChrome is not null)
+            _scrollToBottomChrome.RemoveHandler(InputElement.PointerPressedEvent, OnScrollToBottomPressed);
+
         _scrollingStateTimer.Stop();
         SetTranscriptScrollingState(false);
         UnsubscribeTranscriptPanel();
-        _isPulseRunning = false;
+        StopPresencePulse();
+        StopNewContentPulse();
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -272,6 +325,13 @@ public class StrataChatShell : TemplatedControl
         {
             if (e.Action == NotifyCollectionChangedAction.Add && AreAllControls(e.NewItems))
                 ApplyScrollingStateToItems(e.NewItems, isScrolling: true);
+        }
+
+        // Mark unseen content when new messages arrive while scrolled away.
+        if (_userScrolledAway && e.Action == NotifyCollectionChangedAction.Add)
+        {
+            _hasUnseenContent = true;
+            UpdateHasNewContent();
         }
     }
 
@@ -514,7 +574,7 @@ public class StrataChatShell : TemplatedControl
     /// </summary>
     public void ResetAutoScroll()
     {
-        _userScrolledAway = false;
+        SetUserScrolledAway(false);
     }
 
     public void ScrollToVerticalOffset(double verticalOffset)
@@ -547,9 +607,9 @@ public class StrataChatShell : TemplatedControl
 
         var distanceFromBottom = DistanceFromBottom(_scrollViewer);
         if (distanceFromBottom > 40)
-            _userScrolledAway = true;
+            SetUserScrolledAway(true);
         else if (distanceFromBottom <= 8 && e.OffsetDelta.Y > 0)
-            _userScrolledAway = false;
+            SetUserScrolledAway(false);
     }
 
     private void OnUserWheelScroll(object? sender, PointerWheelEventArgs e)
@@ -563,7 +623,7 @@ public class StrataChatShell : TemplatedControl
         // (user sends a message) or by OnScrollChanged detecting a scrollbar
         // drag to within 8px of the bottom.
         if (e.Delta.Y > 0)
-            _userScrolledAway = true;
+            SetUserScrolledAway(true);
     }
 
     private void OnTranscriptPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -572,7 +632,7 @@ public class StrataChatShell : TemplatedControl
             return;
 
         MarkTranscriptScrollingActive();
-        _userScrolledAway = true;
+        SetUserScrolledAway(true);
     }
 
     private void MarkTranscriptScrollingActive()
@@ -796,5 +856,100 @@ public class StrataChatShell : TemplatedControl
             || control.FindAncestorOfType<ScrollBar>() is not null
             || control.FindAncestorOfType<Thumb>() is not null
             || control.FindAncestorOfType<Track>() is not null;
+    }
+
+    /// <summary>
+    /// Centralised setter for the user-scrolled-away state. Updates pseudo-class
+    /// and clears unseen-content tracking when the user returns to the bottom.
+    /// </summary>
+    private void SetUserScrolledAway(bool value)
+    {
+        if (_userScrolledAway == value)
+            return;
+
+        _userScrolledAway = value;
+        PseudoClasses.Set(":scrolled-away", value);
+
+        if (!value)
+            _hasUnseenContent = false;
+
+        UpdateHasNewContent();
+    }
+
+    /// <summary>
+    /// Re-evaluates whether the scroll-to-bottom badge should be visible.
+    /// True when the user is scrolled away AND either streaming or unseen messages exist.
+    /// </summary>
+    private void UpdateHasNewContent()
+    {
+        var hasNew = _userScrolledAway && (_hasUnseenContent || IsStreaming);
+
+        PseudoClasses.Set(":has-new-content", hasNew);
+
+        var prev = _hasNewContent;
+        HasNewContent = hasNew;
+
+        if (hasNew && !prev)
+            StartNewContentPulse();
+        else if (!hasNew && prev)
+            StopNewContentPulse();
+    }
+
+    private void OnScrollToBottomPressed(object? sender, PointerPressedEventArgs e)
+    {
+        e.Handled = true;
+
+        _hasUnseenContent = false;
+        SetUserScrolledAway(false);
+
+        if (_scrollViewer is null) return;
+
+        _isProgrammaticScroll = true;
+        _scrollViewer.ScrollToEnd();
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            _scrollViewer?.ScrollToEnd();
+            _isProgrammaticScroll = false;
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void StartNewContentPulse()
+    {
+        if (_newContentDot is null || _isNewContentPulseRunning)
+            return;
+
+        var visual = ElementComposition.GetElementVisual(_newContentDot);
+        if (visual is null)
+            return;
+
+        _isNewContentPulseRunning = true;
+        var anim = visual.Compositor.CreateScalarKeyFrameAnimation();
+        anim.Target = "Opacity";
+        anim.InsertKeyFrame(0f, 1f);
+        anim.InsertKeyFrame(0.5f, 0.4f);
+        anim.InsertKeyFrame(1f, 1f);
+        anim.Duration = TimeSpan.FromMilliseconds(1800);
+        anim.IterationBehavior = AnimationIterationBehavior.Forever;
+        visual.StartAnimation("Opacity", anim);
+    }
+
+    private void StopNewContentPulse()
+    {
+        if (_newContentDot is null || !_isNewContentPulseRunning)
+            return;
+
+        _isNewContentPulseRunning = false;
+        var visual = ElementComposition.GetElementVisual(_newContentDot);
+        if (visual is null)
+            return;
+
+        var reset = visual.Compositor.CreateScalarKeyFrameAnimation();
+        reset.Target = "Opacity";
+        reset.InsertKeyFrame(0f, 1f);
+        reset.Duration = TimeSpan.FromMilliseconds(1);
+        reset.IterationBehavior = AnimationIterationBehavior.Count;
+        reset.IterationCount = 1;
+        visual.StartAnimation("Opacity", reset);
     }
 }

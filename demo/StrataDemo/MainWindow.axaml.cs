@@ -464,6 +464,9 @@ public partial class MainWindow : Window
         }
         finally
         {
+            if (_mainChatShell is not null)
+                _mainChatShell.IsStreaming = false;
+
             if (_liveComposer is not null)
                 _liveComposer.IsBusy = false;
 
@@ -568,6 +571,8 @@ public partial class MainWindow : Window
         };
 
         _liveTranscript.Items.Add(assistantMessage);
+        if (_mainChatShell is not null)
+            _mainChatShell.IsStreaming = true;
         _mainChatShell?.ScrollToEnd();
 
         // Stream markdown token-by-token. Split on spaces but also break on
