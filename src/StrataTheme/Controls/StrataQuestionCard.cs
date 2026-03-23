@@ -23,7 +23,7 @@ namespace StrataTheme.Controls;
 /// <para><b>Template parts:</b> PART_Root (Border), PART_Stratum (Border),
 /// PART_OptionsPanel (WrapPanel), PART_FreeTextBox (TextBox),
 /// PART_FreeTextSubmit (Button), PART_MultiSubmit (Button).</para>
-/// <para><b>Pseudo-classes:</b> :answered, :has-free-text, :multi-select.</para>
+/// <para><b>Pseudo-classes:</b> :answered, :expired, :has-free-text, :multi-select.</para>
 /// </remarks>
 public class StrataQuestionCard : TemplatedControl
 {
@@ -54,10 +54,14 @@ public class StrataQuestionCard : TemplatedControl
     public static readonly StyledProperty<bool> IsAnsweredProperty =
         AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(IsAnswered));
 
+    public static readonly StyledProperty<bool> IsExpiredProperty =
+        AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(IsExpired));
+
     static StrataQuestionCard()
     {
         OptionsProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.RebuildOptions());
         IsAnsweredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
+        IsExpiredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnIsExpiredChanged());
         AllowFreeTextProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         AllowMultiSelectProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
     }
@@ -82,6 +86,9 @@ public class StrataQuestionCard : TemplatedControl
 
     /// <summary>Whether the user has submitted an answer.</summary>
     public bool IsAnswered { get => GetValue(IsAnsweredProperty); set => SetValue(IsAnsweredProperty, value); }
+
+    /// <summary>Whether the question has expired (session stopped or user moved on).</summary>
+    public bool IsExpired { get => GetValue(IsExpiredProperty); set => SetValue(IsExpiredProperty, value); }
 
     /// <summary>Raised when the user selects an option or submits free text.</summary>
     public event EventHandler<string>? AnswerSubmitted;
@@ -159,7 +166,7 @@ public class StrataQuestionCard : TemplatedControl
 
     private void OnOptionClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (IsAnswered) return;
+        if (IsAnswered || IsExpired) return;
         if (sender is not Button btn || btn.Tag is not string opt) return;
 
         if (AllowMultiSelect)
@@ -184,7 +191,7 @@ public class StrataQuestionCard : TemplatedControl
 
     private void OnMultiSubmitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (IsAnswered) return;
+        if (IsAnswered || IsExpired) return;
 
         // Include any pending free text that wasn't explicitly added yet
         var pendingText = _freeTextBox?.Text?.Trim();
@@ -219,7 +226,7 @@ public class StrataQuestionCard : TemplatedControl
 
     private void SubmitFreeText()
     {
-        if (IsAnswered) return;
+        if (IsAnswered || IsExpired) return;
         var text = _freeTextBox?.Text?.Trim();
         if (string.IsNullOrEmpty(text)) return;
 
@@ -267,9 +274,35 @@ public class StrataQuestionCard : TemplatedControl
         AnswerSubmitted?.Invoke(this, answer);
     }
 
+    private void OnIsExpiredChanged()
+    {
+        if (!IsExpired) return;
+
+        // Disable all option buttons
+        if (_optionsPanel is not null)
+        {
+            foreach (var child in _optionsPanel.Children)
+            {
+                if (child is Button btn)
+                    btn.IsEnabled = false;
+            }
+        }
+
+        // Disable free text
+        if (_freeTextBox is not null)
+            _freeTextBox.IsEnabled = false;
+        if (_freeTextSubmit is not null)
+            _freeTextSubmit.IsEnabled = false;
+        if (_multiSubmit is not null)
+            _multiSubmit.IsVisible = false;
+
+        UpdatePseudoClasses();
+    }
+
     private void UpdatePseudoClasses()
     {
         PseudoClasses.Set(":answered", IsAnswered);
+        PseudoClasses.Set(":expired", IsExpired);
         PseudoClasses.Set(":has-free-text", AllowFreeText);
         PseudoClasses.Set(":multi-select", AllowMultiSelect);
     }

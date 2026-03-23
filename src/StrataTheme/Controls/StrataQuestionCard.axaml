@@ -239,6 +239,22 @@
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     </Style>
 
+    <!-- ─── Expired ─── -->
+    <Style Selector="^:expired /template/ Border#PART_Stratum">
+      <Setter Property="Background" Value="{DynamicResource Brush.TextSecondary}" />
+      <Setter Property="Opacity" Value="0.4" />
+    </Style>
+    <Style Selector="^:expired /template/ Grid#PART_FreeTextArea">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:expired /template/ Button#PART_MultiSubmit">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:expired /template/ Border#PART_Root">
+      <Setter Property="Opacity" Value="0.55" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    </Style>
+
   </ControlTheme>
 
     </ResourceDictionary>
