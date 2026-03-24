@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
@@ -56,11 +57,17 @@ public class StrataFileAttachment : TemplatedControl
     public static readonly StyledProperty<string> IconGlyphProperty =
         AvaloniaProperty.Register<StrataFileAttachment, string>(nameof(IconGlyph), "\U0001F4CE");
 
+    public static readonly StyledProperty<IImage?> IconImageProperty =
+        AvaloniaProperty.Register<StrataFileAttachment, IImage?>(nameof(IconImage));
+
     public static readonly StyledProperty<StrataAttachmentStatus> StatusProperty =
         AvaloniaProperty.Register<StrataFileAttachment, StrataAttachmentStatus>(nameof(Status), StrataAttachmentStatus.Completed);
 
     public static readonly StyledProperty<bool> IsRemovableProperty =
         AvaloniaProperty.Register<StrataFileAttachment, bool>(nameof(IsRemovable), true);
+
+    public static readonly StyledProperty<bool> IsCompactProperty =
+        AvaloniaProperty.Register<StrataFileAttachment, bool>(nameof(IsCompact), false);
 
     public static readonly StyledProperty<double> ProgressProperty =
         AvaloniaProperty.Register<StrataFileAttachment, double>(nameof(Progress), 0);
@@ -81,6 +88,8 @@ public class StrataFileAttachment : TemplatedControl
     {
         StatusProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
         IsRemovableProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
+        IsCompactProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
+        IconImageProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
         FileNameProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateIconForExtension());
     }
 
@@ -102,6 +111,12 @@ public class StrataFileAttachment : TemplatedControl
         set => SetValue(IconGlyphProperty, value);
     }
 
+    public IImage? IconImage
+    {
+        get => GetValue(IconImageProperty);
+        set => SetValue(IconImageProperty, value);
+    }
+
     public StrataAttachmentStatus Status
     {
         get => GetValue(StatusProperty);
@@ -112,6 +127,12 @@ public class StrataFileAttachment : TemplatedControl
     {
         get => GetValue(IsRemovableProperty);
         set => SetValue(IsRemovableProperty, value);
+    }
+
+    public bool IsCompact
+    {
+        get => GetValue(IsCompactProperty);
+        set => SetValue(IsCompactProperty, value);
     }
 
     public double Progress
@@ -226,6 +247,8 @@ public class StrataFileAttachment : TemplatedControl
         PseudoClasses.Set(":completed", Status == StrataAttachmentStatus.Completed);
         PseudoClasses.Set(":failed", Status == StrataAttachmentStatus.Failed);
         PseudoClasses.Set(":removable", IsRemovable);
+        PseudoClasses.Set(":compact", IsCompact);
+        PseudoClasses.Set(":has-icon-image", IconImage is not null);
 
         if (Status == StrataAttachmentStatus.Uploading)
             StartUploadPulse();

@@ -100,6 +100,11 @@
                   <!-- Skill chips are appended here programmatically -->
                 </WrapPanel>
 
+                <!-- Inline attachment chips (above the text input) -->
+                <ContentPresenter Name="PART_AttachmentContent"
+                                  Content="{TemplateBinding AttachmentContent}"
+                                  Margin="8,4,8,0" />
+
                 <!-- Text input -->
                 <Panel>
                   <TextBox Name="PART_Input"

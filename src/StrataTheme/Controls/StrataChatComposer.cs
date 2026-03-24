@@ -220,6 +220,10 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<object?> StatusContentProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(StatusContent));
 
+    /// <summary>Optional content for displaying pending file attachments inside the composer.</summary>
+    public static readonly StyledProperty<object?> AttachmentContentProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(AttachmentContent));
+
     /// <summary>Raised when the user sends a prompt (Enter key or send button click).</summary>
     public static readonly RoutedEvent<RoutedEventArgs> SendRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(SendRequested), RoutingStrategies.Bubble);
@@ -494,6 +498,7 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? AvailableFiles { get => GetValue(AvailableFilesProperty); set => SetValue(AvailableFilesProperty, value); }
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
     public object? StatusContent { get => GetValue(StatusContentProperty); set => SetValue(StatusContentProperty, value); }
+    public object? AttachmentContent { get => GetValue(AttachmentContentProperty); set => SetValue(AttachmentContentProperty, value); }
 
     /// <summary>
     /// Raised when the # file autocomplete query changes. The consumer should
