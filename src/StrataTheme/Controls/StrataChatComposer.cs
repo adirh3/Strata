@@ -1058,38 +1058,56 @@ public class StrataChatComposer : TemplatedControl
 
         var text = PromptText ?? "";
         var caret = _input?.CaretIndex ?? text.Length;
-        if (_triggerIndex >= 0 && _triggerIndex < text.Length && caret <= text.Length)
+
+        if (kind == ChipKind.File)
         {
-            var removeLen = caret - _triggerIndex;
-            if (removeLen > 0)
+            // Replace #query with #filename inline so the user sees the reference in context
+            var fileName = System.IO.Path.GetFileName(chip.Name);
+            var inlineRef = $"#{fileName} ";
+            if (_triggerIndex >= 0 && _triggerIndex < text.Length && caret <= text.Length)
             {
-                var restoreCaret = _triggerIndex;
+                var removeLen = caret - _triggerIndex;
                 _suppressAutoComplete = true;
-                PromptText = text.Remove(_triggerIndex, removeLen);
+                text = text.Remove(_triggerIndex, removeLen).Insert(_triggerIndex, inlineRef);
+                PromptText = text;
                 if (_input is not null)
-                    _input.CaretIndex = restoreCaret;
+                    _input.CaretIndex = _triggerIndex + inlineRef.Length;
                 _suppressAutoComplete = false;
             }
-        }
 
-        switch (kind)
+            FileSelected?.Invoke(this, new FileSelectedEventArgs(chip.Glyph));
+            CommandHelper.Execute(FileSelectedCommand, FileSelectedCommandParameter ?? chip.Glyph);
+        }
+        else
         {
-            case ChipKind.Agent:
-                AgentName = chip.Name;
-                AgentGlyph = chip.Glyph;
-                break;
-            case ChipKind.Skill:
-                if (SkillItems is System.Collections.IList skillList && !IsAlreadyActiveSkill(chip))
-                    skillList.Add(chip);
-                break;
-            case ChipKind.Project:
-                ProjectName = chip.Name;
-                break;
-            case ChipKind.File:
-                // Glyph stores the full file path for File chips
-                FileSelected?.Invoke(this, new FileSelectedEventArgs(chip.Glyph));
-                CommandHelper.Execute(FileSelectedCommand, FileSelectedCommandParameter ?? chip.Glyph);
-                break;
+            if (_triggerIndex >= 0 && _triggerIndex < text.Length && caret <= text.Length)
+            {
+                var removeLen = caret - _triggerIndex;
+                if (removeLen > 0)
+                {
+                    var restoreCaret = _triggerIndex;
+                    _suppressAutoComplete = true;
+                    PromptText = text.Remove(_triggerIndex, removeLen);
+                    if (_input is not null)
+                        _input.CaretIndex = restoreCaret;
+                    _suppressAutoComplete = false;
+                }
+            }
+
+            switch (kind)
+            {
+                case ChipKind.Agent:
+                    AgentName = chip.Name;
+                    AgentGlyph = chip.Glyph;
+                    break;
+                case ChipKind.Skill:
+                    if (SkillItems is System.Collections.IList skillList && !IsAlreadyActiveSkill(chip))
+                        skillList.Add(chip);
+                    break;
+                case ChipKind.Project:
+                    ProjectName = chip.Name;
+                    break;
+            }
         }
 
         CloseAutoComplete();
@@ -1155,8 +1173,14 @@ public class StrataChatComposer : TemplatedControl
         var glyph = new TextBlock { Text = glyphDisplay };
         glyph.Classes.Add("autocomplete-glyph");
 
-        var name = new TextBlock { Text = chip.Name };
+        var name = new TextBlock
+        {
+            Text = chip.Name,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
         name.Classes.Add("autocomplete-name");
+        if (kind == ChipKind.File)
+            ToolTip.SetTip(name, chip.Name);
 
         var kindLabel = kind switch
         {
@@ -1170,10 +1194,12 @@ public class StrataChatComposer : TemplatedControl
         var kindText = new TextBlock { Text = kindLabel };
         kindText.Classes.Add("autocomplete-kind");
 
-        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        var panel = new DockPanel();
+        DockPanel.SetDock(kindText, Dock.Right);
+        DockPanel.SetDock(glyph, Dock.Left);
+        panel.Children.Add(kindText);
         panel.Children.Add(glyph);
         panel.Children.Add(name);
-        panel.Children.Add(kindText);
 
         var border = new Border
         {

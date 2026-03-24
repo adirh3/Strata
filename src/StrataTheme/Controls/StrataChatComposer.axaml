@@ -131,7 +131,7 @@
                             CornerRadius="8"
                             Padding="4"
                             MinWidth="220"
-                            MaxWidth="330"
+                            MaxWidth="500"
                             BoxShadow="0 4 16 0 #1A000000">
                       <ScrollViewer MaxHeight="260"
                                     HorizontalScrollBarVisibility="Disabled"
@@ -749,13 +749,13 @@
     <Setter Property="Width" Value="18" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,0,6,0" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
   <Style Selector="Border.autocomplete-item TextBlock.autocomplete-name">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="Margin" Value="6,0,0,0" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
   <Style Selector="Border.autocomplete-item TextBlock.autocomplete-kind">
@@ -763,6 +763,7 @@
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="Margin" Value="12,0,0,0" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="MinWidth" Value="24" />
   </Style>
 
 </Styles>
