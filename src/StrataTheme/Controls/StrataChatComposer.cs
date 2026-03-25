@@ -539,6 +539,11 @@ public class StrataChatComposer : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (_input is not null)
+            _input.RemoveHandler(KeyDownEvent, OnInputKeyDown);
+        if (_autoCompletePopup is not null)
+            _autoCompletePopup.Closed -= OnAutoCompletePopupClosed;
+
         if (_subscribedSkillCollection is not null)
         {
             _subscribedSkillCollection.CollectionChanged -= OnSkillCollectionChanged;
@@ -562,6 +567,11 @@ public class StrataChatComposer : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_input is not null)
+            _input.RemoveHandler(KeyDownEvent, OnInputKeyDown);
+        if (_autoCompletePopup is not null)
+            _autoCompletePopup.Closed -= OnAutoCompletePopupClosed;
+
         base.OnApplyTemplate(e);
         _input = e.NameScope.Find<TextBox>("PART_Input");
         if (_input is not null)
@@ -607,11 +617,7 @@ public class StrataChatComposer : TemplatedControl
         if (_autoCompletePopup is not null)
         {
             _autoCompletePopup.PlacementTarget = _input;
-            _autoCompletePopup.Closed += (_, _) =>
-            {
-                _triggerIndex = -1;
-                _autoCompleteSelectedIndex = -1;
-            };
+            _autoCompletePopup.Closed += OnAutoCompletePopupClosed;
         }
         RebuildSkillChips();
         Wire(e, "PART_ActionA", () => Fire(SuggestionA));
@@ -715,6 +721,12 @@ public class StrataChatComposer : TemplatedControl
     {
         var btn = e.NameScope.Find<Button>(name);
         if (btn is not null) btn.Click += (_, _) => action();
+    }
+
+    private void OnAutoCompletePopupClosed(object? sender, EventArgs e)
+    {
+        _triggerIndex = -1;
+        _autoCompleteSelectedIndex = -1;
     }
 
     private void Fire(string suggestion)

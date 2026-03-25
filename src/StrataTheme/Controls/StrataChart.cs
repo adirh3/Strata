@@ -341,22 +341,33 @@ public class StrataChart : TemplatedControl
             {
                 Interval = TimeSpan.FromMilliseconds(150),
             };
-            _entranceDelayTimer.Tick += (_, _) =>
-            {
-                _entranceDelayTimer!.Stop();
-                _entranceReady = true;
-                InvalidateVisual();
-            };
+            _entranceDelayTimer.Tick += OnEntranceDelayTick;
             _entranceDelayTimer.Start();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnDetachedFromVisualTree(e);
-            _entranceDelayTimer?.Stop();
-            _animTimer?.Stop();
+            if (_entranceDelayTimer is not null)
+            {
+                _entranceDelayTimer.Tick -= OnEntranceDelayTick;
+                _entranceDelayTimer.Stop();
+                _entranceDelayTimer = null;
+            }
+            if (_animTimer is not null)
+            {
+                _animTimer.Stop();
+                _animTimer = null;
+            }
             _animWatch.Stop();
             _entranceReady = false;
+        }
+
+        private void OnEntranceDelayTick(object? sender, EventArgs e)
+        {
+            _entranceDelayTimer?.Stop();
+            _entranceReady = true;
+            InvalidateVisual();
         }
 
         private void EnsureAnimation()

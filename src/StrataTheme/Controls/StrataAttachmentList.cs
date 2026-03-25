@@ -23,6 +23,8 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataAttachmentList : ItemsControl
 {
+    private Button? _addButton;
+
     public static readonly StyledProperty<bool> ShowAddButtonProperty =
         AvaloniaProperty.Register<StrataAttachmentList, bool>(nameof(ShowAddButton), true);
 
@@ -74,14 +76,26 @@ public class StrataAttachmentList : ItemsControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_addButton is not null)
+            _addButton.Click -= OnAddButtonClick;
+
         base.OnApplyTemplate(e);
 
-        var addBtn = e.NameScope.Find<Button>("PART_AddButton");
-        if (addBtn is not null)
-            addBtn.Click += (_, _) =>
-            {
-                RaiseEvent(new RoutedEventArgs(AddRequestedEvent));
-                CommandHelper.Execute(AddCommand, AddCommandParameter);
-            };
+        _addButton = e.NameScope.Find<Button>("PART_AddButton");
+        if (_addButton is not null)
+            _addButton.Click += OnAddButtonClick;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_addButton is not null)
+            _addButton.Click -= OnAddButtonClick;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnAddButtonClick(object? sender, RoutedEventArgs e)
+    {
+        RaiseEvent(new RoutedEventArgs(AddRequestedEvent));
+        CommandHelper.Execute(AddCommand, AddCommandParameter);
     }
 }

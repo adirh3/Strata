@@ -70,8 +70,11 @@ public class StrataChatMessage : TemplatedControl
     private Border? _retrySeparator;
     private TextBox? _editBox;
     private TextBlock? _editHint;
+    private Button? _copyButton;
     private Button? _editButton;
     private Button? _retryButton;
+    private Button? _saveButton;
+    private Button? _cancelButton;
     private ContextMenu? _contextMenu;
     private Control? _actionLayerChild;
     private Control? _editAreaChild;
@@ -233,6 +236,13 @@ public class StrataChatMessage : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_copyButton is not null) _copyButton.Click -= OnCopyButtonClick;
+        if (_retryButton is not null) _retryButton.Click -= OnRegenerateButtonClick;
+        if (_editButton is not null) _editButton.Click -= OnEditButtonClick;
+        if (_saveButton is not null) _saveButton.Click -= OnSaveButtonClick;
+        if (_cancelButton is not null) _cancelButton.Click -= OnCancelButtonClick;
+        if (_editBox is not null) _editBox.RemoveHandler(KeyDownEvent, OnEditBoxKeyDown);
+
         base.OnApplyTemplate(e);
         _streamBar = e.NameScope.Find<Border>("PART_StreamBar");
         _bubble = e.NameScope.Find<Border>("PART_Bubble");
@@ -243,37 +253,21 @@ public class StrataChatMessage : TemplatedControl
         _actionLayerChild = _actionLayer?.Child;
         _editAreaChild = _editArea?.Child;
 
-        var copyBtn = e.NameScope.Find<Button>("PART_CopyButton");
+        _copyButton = e.NameScope.Find<Button>("PART_CopyButton");
         var regenBtn = e.NameScope.Find<Button>("PART_RegenerateButton");
         var editBtn = e.NameScope.Find<Button>("PART_EditButton");
-        var saveBtn = e.NameScope.Find<Button>("PART_SaveButton");
-        var cancelBtn = e.NameScope.Find<Button>("PART_CancelButton");
+        _saveButton = e.NameScope.Find<Button>("PART_SaveButton");
+        _cancelButton = e.NameScope.Find<Button>("PART_CancelButton");
         _editSeparator = e.NameScope.Find<Border>("PART_EditSep");
         _retrySeparator = e.NameScope.Find<Border>("PART_RegenerateSep");
         _editButton = editBtn;
         _retryButton = regenBtn;
 
-        if (copyBtn is not null)
-            copyBtn.Click += async (_, ev) =>
-            {
-                ev.Handled = true;
-                var text = await CopyMessageTextAsync();
-                RaiseEvent(new RoutedEventArgs(CopyRequestedEvent));
-                CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? text);
-            };
-        if (regenBtn is not null)
-            regenBtn.Click += (_, ev) =>
-            {
-                ev.Handled = true;
-                RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent));
-                CommandHelper.Execute(RegenerateCommand, RegenerateCommandParameter);
-            };
-        if (editBtn is not null)
-            editBtn.Click += (_, ev) => { ev.Handled = true; BeginEdit(); };
-        if (saveBtn is not null)
-            saveBtn.Click += (_, ev) => { ev.Handled = true; ConfirmEdit(); };
-        if (cancelBtn is not null)
-            cancelBtn.Click += (_, ev) => { ev.Handled = true; CancelEdit(); };
+        if (_copyButton is not null) _copyButton.Click += OnCopyButtonClick;
+        if (_retryButton is not null) _retryButton.Click += OnRegenerateButtonClick;
+        if (_editButton is not null) _editButton.Click += OnEditButtonClick;
+        if (_saveButton is not null) _saveButton.Click += OnSaveButtonClick;
+        if (_cancelButton is not null) _cancelButton.Click += OnCancelButtonClick;
 
         if (_editBox is not null)
             _editBox.AddHandler(KeyDownEvent, OnEditBoxKeyDown, RoutingStrategies.Tunnel);
@@ -304,6 +298,14 @@ public class StrataChatMessage : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (_copyButton is not null) _copyButton.Click -= OnCopyButtonClick;
+        if (_retryButton is not null) _retryButton.Click -= OnRegenerateButtonClick;
+        if (_editButton is not null) _editButton.Click -= OnEditButtonClick;
+        if (_saveButton is not null) _saveButton.Click -= OnSaveButtonClick;
+        if (_cancelButton is not null) _cancelButton.Click -= OnCancelButtonClick;
+        if (_editBox is not null) _editBox.RemoveHandler(KeyDownEvent, OnEditBoxKeyDown);
+        if (_contextMenu is not null) _contextMenu.Opening -= OnContextMenuOpening;
+        if (_bubble is not null) _bubble.RemoveHandler(PointerReleasedEvent, InterceptRightClick);
         DetachContentObservers();
         base.OnDetachedFromVisualTree(e);
     }
@@ -320,6 +322,25 @@ public class StrataChatMessage : TemplatedControl
             CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? text);
         }
     }
+
+    private async void OnCopyButtonClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        var text = await CopyMessageTextAsync();
+        RaiseEvent(new RoutedEventArgs(CopyRequestedEvent));
+        CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? text);
+    }
+
+    private void OnRegenerateButtonClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent));
+        CommandHelper.Execute(RegenerateCommand, RegenerateCommandParameter);
+    }
+
+    private void OnEditButtonClick(object? sender, RoutedEventArgs e) { e.Handled = true; BeginEdit(); }
+    private void OnSaveButtonClick(object? sender, RoutedEventArgs e) { e.Handled = true; ConfirmEdit(); }
+    private void OnCancelButtonClick(object? sender, RoutedEventArgs e) { e.Handled = true; CancelEdit(); }
 
     private void AttachContextMenu()
     {

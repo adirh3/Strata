@@ -127,10 +127,36 @@ public class StrataQuestionCard : TemplatedControl
         SyncFreeTextListener();
     }
 
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_freeTextSubmit is not null)
+            _freeTextSubmit.Click -= OnFreeTextSubmitClick;
+        if (_freeTextBox is not null)
+        {
+            _freeTextBox.KeyDown -= OnFreeTextKeyDown;
+            _freeTextBox.PropertyChanged -= OnFreeTextBoxPropertyChanged;
+        }
+        if (_multiSubmit is not null)
+            _multiSubmit.Click -= OnMultiSubmitClick;
+        if (_optionsPanel is not null)
+        {
+            foreach (var child in _optionsPanel.Children)
+            {
+                if (child is Button btn)
+                    btn.Click -= OnOptionClick;
+            }
+        }
+        base.OnDetachedFromVisualTree(e);
+    }
+
     private void SyncFreeTextListener()
     {
-        if (_freeTextBox is not null && AllowMultiSelect)
-            _freeTextBox.PropertyChanged += OnFreeTextBoxPropertyChanged;
+        if (_freeTextBox is not null)
+        {
+            _freeTextBox.PropertyChanged -= OnFreeTextBoxPropertyChanged;
+            if (AllowMultiSelect)
+                _freeTextBox.PropertyChanged += OnFreeTextBoxPropertyChanged;
+        }
     }
 
     private void OnFreeTextBoxPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -142,6 +168,12 @@ public class StrataQuestionCard : TemplatedControl
     private void RebuildOptions()
     {
         if (_optionsPanel is null) return;
+
+        foreach (var child in _optionsPanel.Children)
+        {
+            if (child is Button btn)
+                btn.Click -= OnOptionClick;
+        }
         _optionsPanel.Children.Clear();
 
         var options = Options;

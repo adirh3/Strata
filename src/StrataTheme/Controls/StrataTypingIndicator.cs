@@ -68,6 +68,8 @@ public class StrataTypingIndicator : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _pulseTimer.Tick -= OnPulseTick;
+        _pulseTimer.Tick += OnPulseTick;
         _attached = true;
         Refresh();
     }
@@ -76,6 +78,7 @@ public class StrataTypingIndicator : TemplatedControl
     {
         _attached = false;
         StopPulse();
+        _pulseTimer.Tick -= OnPulseTick;
         base.OnDetachedFromVisualTree(e);
     }
 

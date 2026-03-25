@@ -216,6 +216,8 @@ public class StrataChatShell : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _scrollingStateTimer.Tick -= OnScrollingStateTimerTick;
+        _scrollingStateTimer.Tick += OnScrollingStateTimerTick;
         // Compositor visual may have been recreated on re-attach.
         _isPulseRunning = false;
         _isNewContentPulseRunning = false;
@@ -239,6 +241,7 @@ public class StrataChatShell : TemplatedControl
         if (_scrollToBottomChrome is not null)
             _scrollToBottomChrome.RemoveHandler(InputElement.PointerPressedEvent, OnScrollToBottomPressed);
 
+        _scrollingStateTimer.Tick -= OnScrollingStateTimerTick;
         _scrollingStateTimer.Stop();
         SetTranscriptScrollingState(false);
         UnsubscribeTranscriptPanel();

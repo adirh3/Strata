@@ -33,6 +33,9 @@ public class StrataPromptBar : TemplatedControl
 {
     private TextBox? _input;
     private Button? _sendButton;
+    private Button? _summaryButton;
+    private Button? _reportButton;
+    private Button? _actionButton;
 
     public static readonly StyledProperty<string?> PromptTextProperty =
         AvaloniaProperty.Register<StrataPromptBar, string?>(nameof(PromptText));
@@ -128,38 +131,52 @@ public class StrataPromptBar : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_input is not null)
+            _input.KeyDown -= OnInputKeyDown;
+        if (_summaryButton is not null)
+            _summaryButton.Click -= OnSummaryClick;
+        if (_reportButton is not null)
+            _reportButton.Click -= OnReportClick;
+        if (_actionButton is not null)
+            _actionButton.Click -= OnActionClick;
+        if (_sendButton is not null)
+            _sendButton.Click -= OnSendClick;
+
         base.OnApplyTemplate(e);
 
         _input = e.NameScope.Find<TextBox>("PART_Input");
-
-        var summary = e.NameScope.Find<Button>("PART_IntentSummary");
-        var report = e.NameScope.Find<Button>("PART_IntentReport");
-        var action = e.NameScope.Find<Button>("PART_IntentAction");
+        _summaryButton = e.NameScope.Find<Button>("PART_IntentSummary");
+        _reportButton = e.NameScope.Find<Button>("PART_IntentReport");
+        _actionButton = e.NameScope.Find<Button>("PART_IntentAction");
         _sendButton = e.NameScope.Find<Button>("PART_SendButton");
 
         if (_input is not null)
             _input.KeyDown += OnInputKeyDown;
-
-        if (summary is not null)
-            summary.Click += (_, _) => Intent = PromptIntent.Summary;
-
-        if (report is not null)
-            report.Click += (_, _) => Intent = PromptIntent.FullReport;
-
-        if (action is not null)
-            action.Click += (_, _) => Intent = PromptIntent.ActionPlan;
-
+        if (_summaryButton is not null)
+            _summaryButton.Click += OnSummaryClick;
+        if (_reportButton is not null)
+            _reportButton.Click += OnReportClick;
+        if (_actionButton is not null)
+            _actionButton.Click += OnActionClick;
         if (_sendButton is not null)
-            _sendButton.Click += (_, _) =>
-            {
-                if (!IsBusy && string.IsNullOrWhiteSpace(PromptText))
-                    return;
-
-                RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
-                CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
-            };
+            _sendButton.Click += OnSendClick;
 
         UpdatePseudoClasses();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_input is not null)
+            _input.KeyDown -= OnInputKeyDown;
+        if (_summaryButton is not null)
+            _summaryButton.Click -= OnSummaryClick;
+        if (_reportButton is not null)
+            _reportButton.Click -= OnReportClick;
+        if (_actionButton is not null)
+            _actionButton.Click -= OnActionClick;
+        if (_sendButton is not null)
+            _sendButton.Click -= OnSendClick;
+        base.OnDetachedFromVisualTree(e);
     }
 
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
@@ -197,6 +214,19 @@ public class StrataPromptBar : TemplatedControl
                 CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
             }
         }
+    }
+
+    private void OnSummaryClick(object? sender, RoutedEventArgs e) => Intent = PromptIntent.Summary;
+    private void OnReportClick(object? sender, RoutedEventArgs e) => Intent = PromptIntent.FullReport;
+    private void OnActionClick(object? sender, RoutedEventArgs e) => Intent = PromptIntent.ActionPlan;
+
+    private void OnSendClick(object? sender, RoutedEventArgs e)
+    {
+        if (!IsBusy && string.IsNullOrWhiteSpace(PromptText))
+            return;
+
+        RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
+        CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
     }
 
     private void UpdatePseudoClasses()
