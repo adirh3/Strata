@@ -171,6 +171,21 @@ public class StrataChart : TemplatedControl
         set => SetValue(DonutCenterValueProperty, value);
     }
 
+    // ── Layout ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Charts fill all available horizontal space so parent containers
+    /// (e.g. left-aligned chat bubbles) expand to their MaxWidth.
+    /// </summary>
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var result = base.MeasureOverride(availableSize);
+        var w = double.IsInfinity(availableSize.Width)
+            ? result.Width
+            : Math.Max(result.Width, availableSize.Width);
+        return new Size(w, result.Height);
+    }
+
     // ── Lifecycle ──────────────────────────────────────────────
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
