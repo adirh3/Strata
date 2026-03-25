@@ -57,10 +57,8 @@ public class StrataChatShell : TemplatedControl
     /// <summary>
     /// When the total scrollable distance is this small, suppress auto-scroll
     /// so the user's first message stays visible in short conversations.
-    /// Accounts for StrataThink expand animations (MaxHeight 0→5000 over 300ms)
-    /// which can briefly inflate the extent beyond the viewport.
     /// </summary>
-    private const double ShortTranscriptMaxScroll = 600d;
+    private const double ShortTranscriptMaxScroll = 300d;
 
     private Border? _presenceDot;
     private ScrollViewer? _scrollViewer;
@@ -547,7 +545,7 @@ public class StrataChatShell : TemplatedControl
             return;
 
         // Don't push the first message out of view in short conversations.
-        if (IsShortTranscript())
+        if (_scrollViewer.Extent.Height - _scrollViewer.Viewport.Height <= ShortTranscriptMaxScroll)
             return;
 
         if (_scrollQueued) return;
@@ -557,32 +555,18 @@ public class StrataChatShell : TemplatedControl
             _scrollQueued = false;
             if (_scrollViewer is null || _userScrolledAway) return;
 
-            // Re-check with up-to-date layout values — the extent may have
-            // changed between the call and this dispatched callback (e.g. a
-            // StrataThink expand animation is still in progress).
-            if (IsShortTranscript())
-            {
-                _isProgrammaticScroll = false;
-                return;
-            }
-
             _isProgrammaticScroll = true;
             _scrollViewer.ScrollToEnd();
 
             Dispatcher.UIThread.Post(() =>
             {
-                if (_scrollViewer is not null && !_userScrolledAway && !IsShortTranscript())
+                if (_scrollViewer is not null && !_userScrolledAway)
                     _scrollViewer.ScrollToEnd();
 
                 _isProgrammaticScroll = false;
             }, DispatcherPriority.Loaded);
         }, DispatcherPriority.Render);
     }
-
-    private bool IsShortTranscript()
-        => _scrollViewer is not null
-        && _scrollViewer.Extent.Height > 0
-        && _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height <= ShortTranscriptMaxScroll;
 
     /// <summary>
     /// Resets the user-scrolled-away flag so auto-scroll resumes.
