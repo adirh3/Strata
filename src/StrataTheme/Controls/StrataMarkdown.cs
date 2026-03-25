@@ -127,6 +127,16 @@ public class StrataMarkdown : ContentControl
     // ── Cached shared objects ──
     private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
 
+    // ── Block group merging ──
+    // Consecutive same-kind text blocks are merged into a single SelectableTextBlock
+    // to reduce control count. Each MdBlockGroup describes a run of blocks rendered
+    // by one control.
+    private readonly record struct MdBlockGroup(int StartIndex, int Count, MdBlockKind Kind, int Level);
+
+    private readonly List<MdBlockGroup> _groupListA = new();
+    private readonly List<MdBlockGroup> _groupListB = new();
+    private List<MdBlockGroup> _previousGroups;
+
     // ── Incremental state ──
     private readonly List<MdBlock> _blockListA = new();
     private readonly List<MdBlock> _blockListB = new();
@@ -424,6 +434,7 @@ public class StrataMarkdown : ContentControl
 
         Content = _root;
         _previousBlocks = _blockListA;
+        _previousGroups = _groupListA;
         _lastThemeVariant = (Application.Current?.ActualThemeVariant ?? ThemeVariant.Light).ToString();
         // Skip Rebuild() — Markdown is null at construction time, so Rebuild()
         // just hits the IsNullOrWhiteSpace fast path.  The property-changed handler
@@ -439,6 +450,7 @@ public class StrataMarkdown : ContentControl
         if (string.Equals(change.Property.Name, nameof(FontSize), StringComparison.Ordinal))
         {
             _previousBlocks.Clear();
+            _previousGroups.Clear();
             _previousMarkdownNormalized = null;
             _previousMarkdownLength = 0;
             Rebuild();
@@ -457,6 +469,7 @@ public class StrataMarkdown : ContentControl
         _linkBrush = null;
         // Force full rebuild (not incremental) since brushes changed
         _previousBlocks.Clear();
+        _previousGroups.Clear();
         _previousMarkdownNormalized = null;
         _previousMarkdownLength = 0;
         Rebuild();
@@ -523,6 +536,7 @@ public class StrataMarkdown : ContentControl
                 _contentHost.Children.Clear();
                 _linkRuns.Clear();
                 _previousBlocks.Clear();
+                _previousGroups.Clear();
                 _previousMarkdownNormalized = null;
                 _previousMarkdownLength = 0;
                 EvictStaleCaches();
@@ -570,10 +584,15 @@ public class StrataMarkdown : ContentControl
 
             System.Threading.Interlocked.Add(ref _diagnosticParsedBlockCount, newBlocks.Count);
 
-            // ── Incremental diff: only touch changed blocks ──
-            ApplyBlocksDiff(newBlocks, isStreamingAppend);
+            // Compute groups for the new blocks
+            var newGroups = ReferenceEquals(_previousGroups, _groupListA) ? _groupListB : _groupListA;
+            ComputeGroups(newBlocks, newGroups);
+
+            // ── Incremental diff: only touch changed groups ──
+            ApplyGroupsDiff(newBlocks, newGroups, isStreamingAppend);
 
             _previousBlocks = newBlocks;
+            _previousGroups = newGroups;
             _previousMarkdownNormalized = normalized;
             _previousMarkdownLength = normalized.Length;
 
@@ -596,6 +615,7 @@ public class StrataMarkdown : ContentControl
         _contentHost.Children.Add(textBlock);
 
         _previousBlocks.Clear();
+        _previousGroups.Clear();
         _previousMarkdownNormalized = normalized;
         _previousMarkdownLength = normalized.Length;
         EvictStaleCaches();
@@ -643,128 +663,164 @@ public class StrataMarkdown : ContentControl
     private static string NormalizeLineEndings(string source) => MarkdownParser.NormalizeLineEndings(source);
 
     /// <summary>
-    /// Applies block diff: reuses unchanged controls, updates changed ones, adds/removes as needed.
-    /// During streaming append, blocks before the last old block are guaranteed unchanged
-    /// (the text is a strict prefix), so we skip straight to the divergence point.
+    /// Checks whether two groups cover identical blocks (same kind, level, count, and content).
     /// </summary>
-    private void ApplyBlocksDiff(List<MdBlock> newBlocks, bool isStreamingAppend)
+    private static bool GroupsEqual(
+        IReadOnlyList<MdBlock> oldBlocks, MdBlockGroup oldGroup,
+        IReadOnlyList<MdBlock> newBlocks, MdBlockGroup newGroup)
     {
-        var oldBlocks = _previousBlocks;
-        var oldCount = oldBlocks.Count;
-        var newCount = newBlocks.Count;
-
-        // Safety: if children count is out of sync with tracked blocks, do a full rebuild
-        if (_contentHost.Children.Count != oldCount)
+        if (oldGroup.Kind != newGroup.Kind || oldGroup.Level != newGroup.Level || oldGroup.Count != newGroup.Count)
+            return false;
+        for (int i = 0; i < oldGroup.Count; i++)
         {
-            RebuildChildrenFromBlocks(newBlocks);
+            if (!oldBlocks[oldGroup.StartIndex + i].Equals(newBlocks[newGroup.StartIndex + i]))
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Group-level diff: compares old and new groups, reusing controls for unchanged groups,
+    /// updating in-place where possible, and creating/removing controls as needed.
+    /// Each group maps to exactly one child control in _contentHost.
+    /// </summary>
+    private void ApplyGroupsDiff(List<MdBlock> newBlocks, List<MdBlockGroup> newGroups, bool isStreamingAppend)
+    {
+        var oldGroups = _previousGroups;
+        var oldBlocks = _previousBlocks;
+        var oldGroupCount = oldGroups.Count;
+        var newGroupCount = newGroups.Count;
+
+        // Safety: children count must match old group count
+        if (_contentHost.Children.Count != oldGroupCount)
+        {
+            RebuildChildrenFromGroups(newBlocks, newGroups);
             return;
         }
 
-        // During streaming, text is a strict prefix so blocks before the last are unchanged.
-        var diffStart = isStreamingAppend && oldCount > 0 ? oldCount - 1 : 0;
-        diffStart = Math.Min(diffStart, newCount);
+        // During streaming, groups before the last are likely unchanged
+        var diffStart = isStreamingAppend && oldGroupCount > 0 ? oldGroupCount - 1 : 0;
+        diffStart = Math.Min(diffStart, newGroupCount);
 
-        // Track cache keys for skipped unchanged blocks
-        for (int i = 0; i < diffStart; i++)
-            TrackCacheKeysForBlock(newBlocks[i]);
-
-        var minCount = Math.Min(oldCount, newCount);
-
-        // Update/skip from diffStart through the overlap range
-        for (int i = diffStart; i < minCount; i++)
+        // Track cache keys for skipped unchanged groups
+        for (int g = 0; g < diffStart; g++)
         {
-            if (oldBlocks[i].Equals(newBlocks[i]))
+            var grp = newGroups[g];
+            for (int i = 0; i < grp.Count; i++)
+                TrackCacheKeysForBlock(newBlocks[grp.StartIndex + i]);
+        }
+
+        var minGroupCount = Math.Min(oldGroupCount, newGroupCount);
+
+        for (int g = diffStart; g < minGroupCount; g++)
+        {
+            var oldGroup = oldGroups[g];
+            var newGroup = newGroups[g];
+
+            // Identical groups - skip
+            if (GroupsEqual(oldBlocks, oldGroup, newBlocks, newGroup))
             {
-                TrackCacheKeysForBlock(newBlocks[i]);
+                for (int i = 0; i < newGroup.Count; i++)
+                    TrackCacheKeysForBlock(newBlocks[newGroup.StartIndex + i]);
                 continue;
             }
 
-            // Fast path: code block with same language — update StrataCodeBlock.Text
-            // in-place instead of recreating the control subtree.
-            if (oldBlocks[i].Kind == MdBlockKind.CodeBlock &&
-                newBlocks[i].Kind == MdBlockKind.CodeBlock &&
-                string.Equals(oldBlocks[i].Language, newBlocks[i].Language, StringComparison.Ordinal) &&
-                i < _contentHost.Children.Count &&
-                TryUpdateCodeBlockInPlace(_contentHost.Children[i], newBlocks[i].Content))
+            // Single-block non-mergeable: use existing in-place update fast paths
+            if (newGroup.Count == 1 && oldGroup.Count == 1)
+            {
+                var oldBlock = oldBlocks[oldGroup.StartIndex];
+                var newBlock = newBlocks[newGroup.StartIndex];
+
+                // Code block in-place update
+                if (oldBlock.Kind == MdBlockKind.CodeBlock &&
+                    newBlock.Kind == MdBlockKind.CodeBlock &&
+                    string.Equals(oldBlock.Language, newBlock.Language, StringComparison.Ordinal) &&
+                    g < _contentHost.Children.Count &&
+                    TryUpdateCodeBlockInPlace(_contentHost.Children[g], newBlock.Content))
+                {
+                    continue;
+                }
+
+                // Text block in-place update (headings, blockquotes, single paragraphs, etc.)
+                if (oldBlock.Kind == newBlock.Kind &&
+                    oldBlock.Level == newBlock.Level &&
+                    IsTextBlockKind(newBlock.Kind) &&
+                    g < _contentHost.Children.Count &&
+                    TryUpdateTextBlockInPlace(_contentHost.Children[g], newBlock.Content))
+                {
+                    continue;
+                }
+            }
+
+            // Merged group in-place update: re-render inlines into existing SelectableTextBlock.
+            // Works for any mergeable group regardless of kind mix (heterogeneous groups).
+            if (newGroup.Count >= 1 && IsMergeableKind(newGroup.Kind) &&
+                g < _contentHost.Children.Count &&
+                TryUpdateMergedGroupInPlace(_contentHost.Children[g], newBlocks, newGroup))
             {
                 continue;
             }
 
-            // Fast path: text-bearing blocks (paragraph, heading, bullet, numbered)
-            // — update the SelectableTextBlock’s inlines in-place instead of recreating
-            // the entire control subtree (Grid/Border/SelectableTextBlock).
-            if (oldBlocks[i].Kind == newBlocks[i].Kind &&
-                oldBlocks[i].Level == newBlocks[i].Level &&
-                IsTextBlockKind(newBlocks[i].Kind) &&
-                i < _contentHost.Children.Count &&
-                TryUpdateTextBlockInPlace(_contentHost.Children[i], newBlocks[i].Content))
-            {
-                continue;
-            }
+            // Full replacement
+            var replacement = newGroup.Count > 1
+                ? CreateMergedTextControl(newBlocks, newGroup)
+                : CreateControlForBlock(newBlocks[newGroup.StartIndex]);
 
-            var replacement = CreateControlForBlock(newBlocks[i]);
-
-            // Some cached controls are stateful and can be attached elsewhere.
-            // If creating a replacement mutated the host's child collection, fall back
-            // to a full rebuild to avoid out-of-range indexed assignments.
-            if (_contentHost.Children.Count != oldCount || i >= _contentHost.Children.Count)
+            if (_contentHost.Children.Count != oldGroupCount || g >= _contentHost.Children.Count)
             {
-                RebuildChildrenFromBlocks(newBlocks);
+                RebuildChildrenFromGroups(newBlocks, newGroups);
                 return;
             }
 
-            // Clean up link tracking for the old control being replaced
-            RemoveLinkRunsForControl(_contentHost.Children[i]);
+            RemoveLinkRunsForControl(_contentHost.Children[g]);
 
-            // If the replacement is already a child of _contentHost (cached control
-            // reused at a different index), a direct indexed set would crash because
-            // Avalonia forbids adding a control that already has a visual parent.
-            // Fall back to a full rebuild which clears children first.
             if (ReferenceEquals(replacement.Parent, _contentHost))
             {
-                RebuildChildrenFromBlocks(newBlocks);
+                RebuildChildrenFromGroups(newBlocks, newGroups);
                 return;
             }
 
-            _contentHost.Children[i] = replacement;
+            _contentHost.Children[g] = replacement;
         }
 
-        if (_contentHost.Children.Count < minCount)
+        if (_contentHost.Children.Count < minGroupCount)
         {
-            RebuildChildrenFromBlocks(newBlocks);
+            RebuildChildrenFromGroups(newBlocks, newGroups);
             return;
         }
 
-        // Append new blocks
-        for (int i = minCount; i < newCount; i++)
+        // Append new groups
+        for (int g = minGroupCount; g < newGroupCount; g++)
         {
-            var control = CreateControlForBlock(newBlocks[i]);
+            var grp = newGroups[g];
+            var control = grp.Count > 1
+                ? CreateMergedTextControl(newBlocks, grp)
+                : CreateControlForBlock(newBlocks[grp.StartIndex]);
             if (ReferenceEquals(control.Parent, _contentHost))
             {
-                RebuildChildrenFromBlocks(newBlocks);
+                RebuildChildrenFromGroups(newBlocks, newGroups);
                 return;
             }
             _contentHost.Children.Add(control);
         }
 
-        // Remove trailing stale blocks (iterate from end to avoid index shift)
-        for (int i = _contentHost.Children.Count - 1; i >= newCount; i--)
+        // Remove trailing stale groups
+        for (int g = _contentHost.Children.Count - 1; g >= newGroupCount; g--)
         {
-            RemoveLinkRunsForControl(_contentHost.Children[i]);
-            _contentHost.Children.RemoveAt(i);
+            RemoveLinkRunsForControl(_contentHost.Children[g]);
+            _contentHost.Children.RemoveAt(g);
         }
     }
 
-    private void RebuildChildrenFromBlocks(IReadOnlyList<MdBlock> blocks)
+    private void RebuildChildrenFromGroups(IReadOnlyList<MdBlock> blocks, IReadOnlyList<MdBlockGroup> groups)
     {
         _contentHost.Children.Clear();
         _linkRuns.Clear();
-        foreach (var block in blocks)
+        foreach (var group in groups)
         {
-            var control = CreateControlForBlock(block);
-            // A cached control may still be parented — either added earlier in this
-            // loop (duplicate cache key) or attached to another panel. Detach it
-            // before adding to avoid "already has a visual parent" crashes.
+            var control = group.Count > 1
+                ? CreateMergedTextControl(blocks, group)
+                : CreateControlForBlock(blocks[group.StartIndex]);
             if (control.Parent is Panel parent)
                 parent.Children.Remove(control);
             _contentHost.Children.Add(control);
@@ -962,11 +1018,14 @@ public class StrataMarkdown : ContentControl
     /// Inspired by FastAvaloniaMarkdown's zero-allocation inline parser.
     /// Returns true if any link inlines were added.
     /// </summary>
-    private bool AppendFormattedInlines(SelectableTextBlock target, string text, string? prefix = null)
+    private bool AppendFormattedInlines(SelectableTextBlock target, string text, string? prefix = null, bool forceInlines = false)
     {
         if (!string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(text))
         {
-            target.Text = prefix;
+            if (forceInlines)
+                target.Inlines?.Add(new Run(prefix));
+            else
+                target.Text = prefix;
             return false;
         }
 
@@ -976,7 +1035,9 @@ public class StrataMarkdown : ContentControl
         var span = text.AsSpan();
 
         // Fast path: no special characters — set Text directly (no Inlines list)
-        if (span.IndexOfAny('`', '*', '[') < 0 && span.IndexOfAny('~', '_', '!') < 0)
+        // Skip when forceInlines is set (merged groups need Run objects to preserve
+        // previously added LineBreak/Run inlines from earlier items in the group).
+        if (!forceInlines && span.IndexOfAny('`', '*', '[') < 0 && span.IndexOfAny('~', '_', '!') < 0)
         {
             target.Text = string.IsNullOrEmpty(prefix) ? text : prefix + text;
             return false;
@@ -1191,10 +1252,12 @@ public class StrataMarkdown : ContentControl
         if (textStart == 0 && pos == span.Length)
         {
             // No formatting found — set Text directly (avoids creating Inlines)
-            if (target.Inlines == null || target.Inlines.Count == 0)
+            // When forceInlines is active, always use a Run to avoid clearing
+            // inlines that were already appended for prior items in a merged group.
+            if (!forceInlines && (target.Inlines == null || target.Inlines.Count == 0))
                 target.Text = text;
             else
-                target.Inlines.Add(new Run(text));
+                target.Inlines?.Add(new Run(text));
         }
         else if (textStart < span.Length)
         {
@@ -1445,6 +1508,62 @@ public class StrataMarkdown : ContentControl
     /// <summary>Returns true for block kinds whose control contains an updatable SelectableTextBlock.</summary>
     private static bool IsTextBlockKind(MdBlockKind kind) =>
         kind is MdBlockKind.Paragraph or MdBlockKind.Heading or MdBlockKind.Bullet or MdBlockKind.NumberedItem or MdBlockKind.Blockquote or MdBlockKind.TaskItem;
+
+    /// <summary>Returns true for block kinds that can be merged into a single SelectableTextBlock when consecutive.</summary>
+    private static bool IsMergeableKind(MdBlockKind kind) =>
+        kind is MdBlockKind.Paragraph or MdBlockKind.Heading or MdBlockKind.Bullet or MdBlockKind.NumberedItem;
+
+    /// <summary>
+    /// Scans blocks and produces groups of consecutive mergeable blocks.
+    /// Consecutive mergeable blocks (Paragraph, Heading, Bullet, NumberedItem)
+    /// are grouped heterogeneously into a single group regardless of kind.
+    /// Indented bullets (Level &gt; 0) are grouped separately with same-level peers.
+    /// Everything else becomes a single-block group.
+    /// </summary>
+    private static void ComputeGroups(IReadOnlyList<MdBlock> blocks, List<MdBlockGroup> groups)
+    {
+        groups.Clear();
+        if (blocks.Count == 0) return;
+
+        int i = 0;
+        while (i < blocks.Count)
+        {
+            var block = blocks[i];
+            if (!IsMergeableKind(block.Kind))
+            {
+                groups.Add(new MdBlockGroup(i, 1, block.Kind, block.Level));
+                i++;
+                continue;
+            }
+
+            // Indented bullets: group same-level together but don't mix with other kinds
+            if (block.Kind == MdBlockKind.Bullet && block.Level > 0)
+            {
+                int start = i;
+                i++;
+                while (i < blocks.Count &&
+                       blocks[i].Kind == MdBlockKind.Bullet &&
+                       blocks[i].Level == block.Level)
+                {
+                    i++;
+                }
+                groups.Add(new MdBlockGroup(start, i - start, block.Kind, block.Level));
+                continue;
+            }
+
+            // Heterogeneous mergeable group: headings, paragraphs, bullets (L0), numbered items
+            int groupStart = i;
+            i++;
+            while (i < blocks.Count && IsMergeableKind(blocks[i].Kind))
+            {
+                // Indented bullets break the heterogeneous group
+                if (blocks[i].Kind == MdBlockKind.Bullet && blocks[i].Level > 0)
+                    break;
+                i++;
+            }
+            groups.Add(new MdBlockGroup(groupStart, i - groupStart, blocks[groupStart].Kind, blocks[groupStart].Level));
+        }
+    }
 
     /// <summary>
     /// Updates the SelectableTextBlock inside an existing paragraph/heading/bullet/numbered
@@ -2491,6 +2610,133 @@ public class StrataMarkdown : ContentControl
         var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap, $"{number}. ");
         textBlock.Classes.Add("strata-md-bullet-text");
         return textBlock;
+    }
+
+    /// <summary>
+    /// Creates a single SelectableTextBlock for a group of consecutive mergeable
+    /// text blocks (headings, paragraphs, bullets, numbered items), using LineBreak
+    /// inlines to separate items and per-Run FontSize/FontWeight for headings.
+    /// For single-block groups, delegates to the existing per-block methods.
+    /// </summary>
+    private Control CreateMergedTextControl(IReadOnlyList<MdBlock> blocks, MdBlockGroup group)
+    {
+        if (group.Count == 1)
+            return CreateControlForBlock(blocks[group.StartIndex]);
+
+        var isRtl = FlowDirection == FlowDirection.RightToLeft;
+        var tb = new SelectableTextBlock
+        {
+            FontSize = _bodyFontSize,
+            LineHeight = _bodyFontSize * 1.52,
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = isRtl ? TextAlignment.Right : TextAlignment.Left,
+            ClipToBounds = false,
+            Padding = isRtl ? RtlTextPadding : ZeroThickness,
+            Margin = ZeroThickness,
+        };
+        tb.Classes.Add("strata-md-paragraph");
+
+        var hasLinks = PopulateMergedInlines(tb, blocks, group);
+        if (hasLinks)
+        {
+            tb.Tapped += OnLinkTapped;
+            tb.PointerMoved += OnTextBlockPointerMoved;
+        }
+
+        return tb;
+    }
+
+    /// <summary>
+    /// Updates a merged-group SelectableTextBlock in-place by clearing and re-appending
+    /// all inlines. Returns false if the control isn't a compatible SelectableTextBlock.
+    /// </summary>
+    private bool TryUpdateMergedGroupInPlace(Control existing, IReadOnlyList<MdBlock> blocks, MdBlockGroup group)
+    {
+        var tb = FindSelectableTextBlock(existing);
+        if (tb is null)
+            return false;
+
+        RemoveLinkRunsForTextBlock(tb);
+        tb.Text = null;
+        tb.Inlines?.Clear();
+
+        var hasLinks = PopulateMergedInlines(tb, blocks, group);
+
+        tb.Tapped -= OnLinkTapped;
+        tb.PointerMoved -= OnTextBlockPointerMoved;
+        if (hasLinks)
+        {
+            tb.Tapped += OnLinkTapped;
+            tb.PointerMoved += OnTextBlockPointerMoved;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Appends inline content for every block in a merged group into a single
+    /// SelectableTextBlock. Headings get per-Run FontSize/FontWeight post-processing.
+    /// Returns true if any link inlines were added.
+    /// </summary>
+    private bool PopulateMergedInlines(SelectableTextBlock tb, IReadOnlyList<MdBlock> blocks, MdBlockGroup group)
+    {
+        var fontSize = _bodyFontSize;
+        bool hasLinks = false;
+
+        for (int i = 0; i < group.Count; i++)
+        {
+            var block = blocks[group.StartIndex + i];
+
+            // Add spacing between items
+            if (i > 0)
+            {
+                tb.Inlines?.Add(new LineBreak());
+                // Extra spacing before headings only (section break).
+                // After a heading the content belongs to it — keep tight.
+                if (block.Kind == MdBlockKind.Heading)
+                    tb.Inlines?.Add(new LineBreak());
+            }
+
+            if (block.Kind == MdBlockKind.Heading)
+            {
+                double headingFontSize = block.Level switch
+                {
+                    1 => fontSize * 1.28,
+                    2 => fontSize * 1.12,
+                    _ => fontSize * 1.04,
+                };
+
+                int inlinesBefore = tb.Inlines?.Count ?? 0;
+                hasLinks |= AppendFormattedInlines(tb, block.Content, null, forceInlines: true);
+
+                // Post-process: apply heading font size and weight to newly added inlines
+                if (tb.Inlines != null)
+                {
+                    for (int j = inlinesBefore; j < tb.Inlines.Count; j++)
+                    {
+                        if (tb.Inlines[j] is Run run)
+                        {
+                            run.FontSize = headingFontSize;
+                            if (run.FontWeight == FontWeight.Normal || run.FontWeight == default)
+                                run.FontWeight = FontWeight.SemiBold;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                string? prefix = block.Kind switch
+                {
+                    MdBlockKind.Bullet => "• ",
+                    MdBlockKind.NumberedItem => $"{block.Level}. ",
+                    _ => null,
+                };
+
+                hasLinks |= AppendFormattedInlines(tb, block.Content, prefix, forceInlines: true);
+            }
+        }
+
+        return hasLinks;
     }
 
     private static Control CreateHorizontalRuleControl()
