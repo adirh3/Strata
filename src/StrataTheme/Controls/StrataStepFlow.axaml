@@ -8,14 +8,14 @@
         <Setter Property="Template">
           <ControlTemplate>
             <StackPanel Spacing="10">
-              <Grid ColumnDefinitions="*,6,*,6,*,6,*,6,*,6,*">
-                <Button Name="PART_Step0" Grid.Column="0" Classes="subtle" Content="{TemplateBinding Step0Title}" Padding="10,4" MinHeight="0" />
-                <Button Name="PART_Step1" Grid.Column="2" Classes="subtle" Content="{TemplateBinding Step1Title}" Padding="10,4" MinHeight="0" />
-                <Button Name="PART_Step2" Grid.Column="4" Classes="subtle" Content="{TemplateBinding Step2Title}" Padding="10,4" MinHeight="0" />
-                <Button Name="PART_Step3" Grid.Column="6" Classes="subtle" Content="{TemplateBinding Step3Title}" Padding="10,4" MinHeight="0" />
-                <Button Name="PART_Step4" Grid.Column="8" Classes="subtle" Content="{TemplateBinding Step4Title}" Padding="10,4" MinHeight="0" />
-                <Button Name="PART_Step5" Grid.Column="10" Classes="subtle" Content="{TemplateBinding Step5Title}" Padding="10,4" MinHeight="0" />
-              </Grid>
+              <StackPanel Name="PART_StepButtonPanel" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                <Button Name="PART_Step0" Classes="subtle" Content="{TemplateBinding Step0Title}" Padding="10,4" MinHeight="0" />
+                <Button Name="PART_Step1" Classes="subtle" Content="{TemplateBinding Step1Title}" Padding="10,4" MinHeight="0" />
+                <Button Name="PART_Step2" Classes="subtle" Content="{TemplateBinding Step2Title}" Padding="10,4" MinHeight="0" />
+                <Button Name="PART_Step3" Classes="subtle" Content="{TemplateBinding Step3Title}" Padding="10,4" MinHeight="0" />
+                <Button Name="PART_Step4" Classes="subtle" Content="{TemplateBinding Step4Title}" Padding="10,4" MinHeight="0" />
+                <Button Name="PART_Step5" Classes="subtle" Content="{TemplateBinding Step5Title}" Padding="10,4" MinHeight="0" />
+              </StackPanel>
 
               <Border Name="PART_Track"
                       Height="6"
@@ -48,9 +48,11 @@
                 </Grid>
               </Border>
 
-              <Border Background="{DynamicResource Brush.Surface1}"
+              <Border Name="PART_ContentBorder"
+                      Background="{DynamicResource Brush.Surface1}"
                       BorderBrush="{DynamicResource Brush.BorderSubtle}"
                       BorderThickness="{DynamicResource Stroke.Thin}"
+                      ClipToBounds="True"
                       CornerRadius="{DynamicResource Radius.Base}"
                       Padding="14,12"
                       RenderTransformOrigin="0.5,0.5"
@@ -60,14 +62,18 @@
                     <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut" />
                   </Transitions>
                 </Border.Transitions>
-                <Grid>
-                  <ContentPresenter Name="PART_Content0" Content="{TemplateBinding Step0Content}" />
-                  <ContentPresenter Name="PART_Content1" Content="{TemplateBinding Step1Content}" IsVisible="False" />
-                  <ContentPresenter Name="PART_Content2" Content="{TemplateBinding Step2Content}" IsVisible="False" />
-                  <ContentPresenter Name="PART_Content3" Content="{TemplateBinding Step3Content}" IsVisible="False" />
-                  <ContentPresenter Name="PART_Content4" Content="{TemplateBinding Step4Content}" IsVisible="False" />
-                  <ContentPresenter Name="PART_Content5" Content="{TemplateBinding Step5Content}" IsVisible="False" />
-                </Grid>
+                <Border Name="PART_ContentHost"
+                        Background="Transparent"
+                        ClipToBounds="True">
+                  <Grid>
+                    <ContentPresenter Name="PART_Content0" Content="{TemplateBinding Step0Content}" />
+                    <ContentPresenter Name="PART_Content1" Content="{TemplateBinding Step1Content}" IsVisible="False" />
+                    <ContentPresenter Name="PART_Content2" Content="{TemplateBinding Step2Content}" IsVisible="False" />
+                    <ContentPresenter Name="PART_Content3" Content="{TemplateBinding Step3Content}" IsVisible="False" />
+                    <ContentPresenter Name="PART_Content4" Content="{TemplateBinding Step4Content}" IsVisible="False" />
+                    <ContentPresenter Name="PART_Content5" Content="{TemplateBinding Step5Content}" IsVisible="False" />
+                  </Grid>
+                </Border>
               </Border>
             </StackPanel>
           </ControlTemplate>

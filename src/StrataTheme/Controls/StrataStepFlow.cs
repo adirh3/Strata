@@ -26,16 +26,19 @@ namespace StrataTheme.Controls;
 /// &lt;/controls:StrataStepFlow&gt;
 /// </code>
 /// <para><b>Template parts:</b> PART_Track (Border), PART_Fill (Border), PART_Head (Border),
-/// PART_Content0–PART_Content4 (ContentPresenter), PART_Step0–PART_Step4 (Button).</para>
-/// <para><b>Pseudo-classes:</b> :s0, :s1, :s2, :s3, :s4.</para>
+/// PART_ContentBorder (Border), PART_ContentHost (Border), PART_Content0–PART_Content5 (ContentPresenter),
+/// PART_Step0–PART_Step5 (Button).</para>
+/// <para><b>Pseudo-classes:</b> :s0, :s1, :s2, :s3, :s4, :s5.</para>
 /// </remarks>
 public class StrataStepFlow : TemplatedControl
 {
     private const int MaxSteps = 6;
+    private static readonly TimeSpan ContentSizeAnimationDuration = TimeSpan.FromMilliseconds(460);
 
     private Border? _track;
     private Border? _fill;
     private Border? _head;
+    private Border? _contentBorder;
     private Button? _stepBtn0;
     private Button? _stepBtn1;
     private Button? _stepBtn2;
@@ -211,6 +214,7 @@ public class StrataStepFlow : TemplatedControl
         _track = e.NameScope.Find<Border>("PART_Track");
         _fill = e.NameScope.Find<Border>("PART_Fill");
         _head = e.NameScope.Find<Border>("PART_Head");
+        _contentBorder = e.NameScope.Find<Border>("PART_ContentBorder");
 
         _content0 = e.NameScope.Find<ContentPresenter>("PART_Content0");
         _content1 = e.NameScope.Find<ContentPresenter>("PART_Content1");
@@ -393,6 +397,12 @@ public class StrataStepFlow : TemplatedControl
 
     private void ApplyContentInstant()
     {
+        if (_contentBorder is not null)
+        {
+            _contentBorder.Width = double.NaN;
+            _contentBorder.Height = double.NaN;
+        }
+
         for (var i = 0; i < MaxSteps; i++)
         {
             var p = GetPresenter(i);
@@ -411,8 +421,12 @@ public class StrataStepFlow : TemplatedControl
         var token = _transitionCts.Token;
 
         var incoming = GetPresenter(CurrentStep);
-        if (incoming is null)
+        var contentBorder = _contentBorder;
+        if (incoming is null || contentBorder is null)
+        {
+            ApplyContentInstant();
             return;
+        }
 
         ContentPresenter? outgoing = null;
         for (var i = 0; i < MaxSteps; i++)
@@ -421,18 +435,48 @@ public class StrataStepFlow : TemplatedControl
             if (p is null || p == incoming) continue;
             if (p.IsVisible)
             {
-                outgoing = p;
-                break;
+                if (outgoing is null)
+                {
+                    outgoing = p;
+                    continue;
+                }
+
+                p.IsVisible = false;
+                p.Opacity = 1;
+                continue;
             }
+
+            p.IsVisible = false;
+            p.Opacity = 1;
         }
 
+        var oldHeight = contentBorder.Bounds.Height > 1
+            ? contentBorder.Bounds.Height
+            : outgoing is not null
+                ? MeasureContentBorderSize(outgoing).Height
+                : MeasureContentBorderSize(incoming).Height;
+        var oldWidth = contentBorder.Bounds.Width > 1
+            ? contentBorder.Bounds.Width
+            : GetMinimumFlowWidth();
+
+        contentBorder.Width = Math.Max(1, oldWidth);
+        contentBorder.Height = Math.Max(1, oldHeight);
         incoming.IsVisible = true;
         incoming.Opacity = 1;
+        var targetSize = MeasureContentBorderSize(incoming);
+        var newWidth = targetSize.Width;
+        var newHeight = targetSize.Height;
+
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render);
+
+        if (token.IsCancellationRequested)
+            return;
 
         var inVisual = ElementComposition.GetElementVisual(incoming);
         if (inVisual is not null)
         {
             var comp = inVisual.Compositor;
+            inVisual.Opacity = 0;
             var fadeIn = comp.CreateScalarKeyFrameAnimation();
             fadeIn.Target = "Opacity";
             fadeIn.InsertKeyFrame(0f, 0f);
@@ -461,7 +505,11 @@ public class StrataStepFlow : TemplatedControl
 
         try
         {
-            await Task.Delay(200, token);
+            await AnimateCardBoundsAsync(
+                contentBorder,
+                new Size(Math.Max(1, oldWidth), Math.Max(1, oldHeight)),
+                new Size(Math.Max(1, newWidth), Math.Max(1, newHeight)),
+                token);
         }
         catch (TaskCanceledException)
         {
@@ -471,6 +519,8 @@ public class StrataStepFlow : TemplatedControl
         if (token.IsCancellationRequested)
             return;
 
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render);
+
         for (var i = 0; i < MaxSteps; i++)
         {
             var p = GetPresenter(i);
@@ -479,5 +529,95 @@ public class StrataStepFlow : TemplatedControl
             p.IsVisible = visible;
             p.Opacity = 1;
         }
+
+        contentBorder.Width = double.NaN;
+        contentBorder.Height = double.NaN;
+    }
+
+    private async Task AnimateCardBoundsAsync(Border contentBorder, Size from, Size to, CancellationToken token)
+    {
+        var deltaWidth = Math.Abs(to.Width - from.Width);
+        var deltaHeight = Math.Abs(to.Height - from.Height);
+
+        if (deltaWidth <= 0.5 && deltaHeight <= 0.5)
+        {
+            contentBorder.Width = to.Width;
+            contentBorder.Height = to.Height;
+            return;
+        }
+
+        var frameCount = Math.Max(1, (int)Math.Ceiling(ContentSizeAnimationDuration.TotalMilliseconds / 16d));
+        var frameDelay = TimeSpan.FromMilliseconds(ContentSizeAnimationDuration.TotalMilliseconds / frameCount);
+
+        for (var frame = 1; frame <= frameCount; frame++)
+        {
+            token.ThrowIfCancellationRequested();
+
+            var progress = EaseOutGentleBack((double)frame / frameCount);
+            contentBorder.Width = Lerp(from.Width, to.Width, progress);
+            contentBorder.Height = Lerp(from.Height, to.Height, progress);
+            await Task.Delay(frameDelay, token);
+        }
+    }
+
+    private Size MeasureContentBorderSize(ContentPresenter presenter)
+    {
+        var horizontalPadding = _contentBorder is not null
+            ? _contentBorder.Padding.Left + _contentBorder.Padding.Right
+            : 0;
+        var verticalPadding = _contentBorder is not null
+            ? _contentBorder.Padding.Top + _contentBorder.Padding.Bottom
+            : 0;
+        var measuredWidth = Math.Max(GetMinimumFlowWidth(), MeasurePresenterWidth(presenter) + horizontalPadding);
+        var contentWidth = Math.Max(1, measuredWidth - horizontalPadding);
+        presenter.Measure(new Size(contentWidth, double.PositiveInfinity));
+        var measuredHeight = Math.Max(1, presenter.DesiredSize.Height + verticalPadding);
+        return new Size(measuredWidth, measuredHeight);
+    }
+
+    private double MeasurePresenterWidth(ContentPresenter presenter)
+    {
+        presenter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return Math.Max(1, presenter.DesiredSize.Width);
+    }
+
+    private double GetMinimumFlowWidth()
+    {
+        if (_track is { Bounds.Width: > 1 } track)
+            return track.Bounds.Width;
+
+        if (Bounds.Width > 1)
+            return Bounds.Width;
+
+        return 1;
+    }
+
+    private static double Lerp(double from, double to, double progress) => from + ((to - from) * progress);
+
+    private static double EaseInOutCubic(double progress)
+    {
+        if (progress < 0.5)
+            return 4 * progress * progress * progress;
+
+        var inverse = -2 * progress + 2;
+        return 1 - ((inverse * inverse * inverse) / 2);
+    }
+
+    private static double EaseOutCubic(double progress)
+    {
+        var inverse = 1 - progress;
+        return 1 - (inverse * inverse * inverse);
+    }
+
+    private static double EaseOutGentleBack(double progress)
+    {
+        const double overshootScale = 1.035;
+        const double settleStart = 0.82;
+
+        if (progress <= settleStart)
+            return Lerp(0, overshootScale, EaseOutCubic(progress / settleStart));
+
+        var settleProgress = (progress - settleStart) / (1 - settleStart);
+        return Lerp(overshootScale, 1, EaseInOutCubic(settleProgress));
     }
 }
