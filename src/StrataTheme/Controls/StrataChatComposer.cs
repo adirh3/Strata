@@ -537,6 +537,29 @@ public class StrataChatComposer : TemplatedControl
     public ICommand? ClipboardPasteCommand { get => GetValue(ClipboardPasteCommandProperty); set => SetValue(ClipboardPasteCommandProperty, value); }
     public object? ClipboardPasteCommandParameter { get => GetValue(ClipboardPasteCommandParameterProperty); set => SetValue(ClipboardPasteCommandParameterProperty, value); }
 
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_subscribedSkillCollection is not null)
+        {
+            _subscribedSkillCollection.CollectionChanged -= OnSkillCollectionChanged;
+            _subscribedSkillCollection = null;
+        }
+
+        if (_subscribedMcpCollection is not null)
+        {
+            _subscribedMcpCollection.CollectionChanged -= OnMcpCollectionChanged;
+            _subscribedMcpCollection = null;
+        }
+
+        if (_subscribedAvailableMcpCollection is not null)
+        {
+            _subscribedAvailableMcpCollection.CollectionChanged -= OnAvailableMcpCollectionChanged;
+            _subscribedAvailableMcpCollection = null;
+        }
+
+        base.OnDetachedFromVisualTree(e);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);

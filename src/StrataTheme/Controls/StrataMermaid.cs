@@ -315,6 +315,12 @@ public class StrataMermaid : TemplatedControl
             ClipToBounds = true;
         }
 
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            _animTimer?.Stop();
+            base.OnDetachedFromVisualTree(e);
+        }
+
         internal double UserZoom => _userZoom;
         internal double EffectiveScale => _baseScale * _userZoom;
         internal bool HasPan => Math.Abs(_panX) > 1 || Math.Abs(_panY) > 1;
