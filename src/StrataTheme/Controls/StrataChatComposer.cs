@@ -9,6 +9,7 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -124,6 +125,10 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Currently selected model from <see cref="Models"/>.</summary>
     public static readonly StyledProperty<object?> SelectedModelProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SelectedModel));
+
+    /// <summary>Optional item template for the model selector ComboBox.</summary>
+    public static readonly StyledProperty<IDataTemplate?> ModelItemTemplateProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IDataTemplate?>(nameof(ModelItemTemplate));
 
     /// <summary>Items source for the quality/effort selector ComboBox.</summary>
     public static readonly StyledProperty<IEnumerable?> QualityLevelsProperty =
@@ -476,7 +481,8 @@ public class StrataChatComposer : TemplatedControl
     public string Placeholder { get => GetValue(PlaceholderProperty); set => SetValue(PlaceholderProperty, value); }
     public IEnumerable? Models { get => GetValue(ModelsProperty); set => SetValue(ModelsProperty, value); }
     public object? SelectedModel { get => GetValue(SelectedModelProperty); set => SetValue(SelectedModelProperty, value); }
-    public IEnumerable? QualityLevels { get => GetValue(QualityLevelsProperty); set => SetValue(QualityLevelsProperty, value); }
+    public IDataTemplate? ModelItemTemplate { get => GetValue(ModelItemTemplateProperty); set => SetValue(ModelItemTemplateProperty, value); }
+    public IEnumerable? QualityLevels{ get => GetValue(QualityLevelsProperty); set => SetValue(QualityLevelsProperty, value); }
     public object? SelectedQuality { get => GetValue(SelectedQualityProperty); set => SetValue(SelectedQualityProperty, value); }
     public IEnumerable? Modes { get => GetValue(ModesProperty); set => SetValue(ModesProperty, value); }
     public object? SelectedMode { get => GetValue(SelectedModeProperty); set => SetValue(SelectedModeProperty, value); }

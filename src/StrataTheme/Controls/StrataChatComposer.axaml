@@ -200,6 +200,7 @@
                     <ComboBox Name="PART_ModelCombo"
                               Classes="composer-select"
                               ItemsSource="{TemplateBinding Models}"
+                              ItemTemplate="{TemplateBinding ModelItemTemplate}"
                               SelectedItem="{Binding SelectedModel, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                               MinWidth="100"
                               Height="28" MinHeight="0" Padding="8,4,6,4"
