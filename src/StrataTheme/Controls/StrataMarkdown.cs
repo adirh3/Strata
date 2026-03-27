@@ -297,12 +297,17 @@ public class StrataMarkdown : ContentControl
     {
         foreach (var child in panel.Children)
         {
-            if (child is SelectableTextBlock tb)
+            if (child is not Control control)
+                continue;
+
+            var tb = FindSelectableTextBlock(control);
+            if (tb is not null)
             {
                 tb.Tapped -= OnLinkTapped;
                 tb.PointerMoved -= OnTextBlockPointerMoved;
             }
-            else if (child is Panel nested)
+
+            if (child is Panel nested)
             {
                 DetachLinkHandlersFromChildren(nested);
             }
@@ -612,7 +617,7 @@ public class StrataMarkdown : ContentControl
 
         var textBlock = CreateRichText(normalized, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
         textBlock.Classes.Add("strata-md-paragraph");
-        _contentHost.Children.Add(textBlock);
+        _contentHost.Children.Add(WrapWithCodeLayer(textBlock));
 
         _previousBlocks.Clear();
         _previousGroups.Clear();
@@ -932,7 +937,7 @@ public class StrataMarkdown : ContentControl
     {
         var paragraph = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
         paragraph.Classes.Add("strata-md-paragraph");
-        return paragraph;
+        return WrapWithCodeLayer(paragraph);
     }
 
     private Control CreateHeadingControl(string text, int level)
@@ -950,7 +955,7 @@ public class StrataMarkdown : ContentControl
         heading.FontWeight = FontWeight.SemiBold;
         heading.Margin = new Thickness(0, level switch { 1 => 14, 2 => 10, _ => 6 }, 0, 2);
         heading.Classes.Add("strata-md-heading");
-        return heading;
+        return WrapWithCodeLayer(heading);
     }
 
     private Control CreateBulletControl(string text, int indentLevel = 0)
@@ -958,14 +963,14 @@ public class StrataMarkdown : ContentControl
         var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap, "• ");
         textBlock.Classes.Add("strata-md-bullet-text");
         textBlock.Margin = indentLevel == 0 ? ZeroThickness : new Thickness(indentLevel * 16, 0, 0, 0);
-        return textBlock;
+        return WrapWithCodeLayer(textBlock);
     }
 
     private Control CreateBlockquoteControl(string text)
     {
         var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
         textBlock.Classes.Add("strata-md-paragraph");
-        var border = new Border { Child = textBlock };
+        var border = new Border { Child = WrapWithCodeLayer(textBlock) };
         border.Classes.Add("strata-md-blockquote");
         return border;
     }
@@ -980,7 +985,7 @@ public class StrataMarkdown : ContentControl
             textBlock.Opacity = 0.6;
             textBlock.TextDecorations = TextDecorations.Strikethrough;
         }
-        return textBlock;
+        return WrapWithCodeLayer(textBlock);
     }
 
     private static readonly Thickness RtlTextPadding = new(0, 0, 4, 0);
@@ -1616,17 +1621,17 @@ public class StrataMarkdown : ContentControl
         if (control is SelectableTextBlock stb)
             return stb;
 
-        // Blockquote: Border with SelectableTextBlock child
-        if (control is Border border && border.Child is SelectableTextBlock borderChild)
-            return borderChild;
+        // InlineCodeLayer, Border (blockquote), or other Decorator wrapping a TextBlock
+        if (control is Decorator { Child: Control decoratorChild })
+            return FindSelectableTextBlock(decoratorChild);
 
-        // Bullet/NumberedItem: Grid with SelectableTextBlock at column 2
+        // Bullet/NumberedItem: Grid with content at column 2
         if (control is Grid grid)
         {
             for (int i = 0; i < grid.Children.Count; i++)
             {
-                if (grid.Children[i] is SelectableTextBlock child && Grid.GetColumn(child) == 2)
-                    return child;
+                if (grid.Children[i] is Control child && Grid.GetColumn(child) == 2)
+                    return FindSelectableTextBlock(child);
             }
         }
 
@@ -2571,12 +2576,16 @@ public class StrataMarkdown : ContentControl
         // surrounding text.  InlineUIContainer+Border cannot achieve this
         // because the layout engine treats the Border as an opaque box and
         // has no access to the inner TextBlock's baseline.
-        return new Run($"\u2005{codeText}\u2005")
+        //
+        // Rounded corners are achieved by InlineCodeLayer.Render which draws
+        // rounded rectangles behind InlineCodeRun spans using TextLayout.HitTestTextRange,
+        // keeping Background null here to prevent the default flat-rect rendering.
+        return new InlineCodeRun($"\u2005{codeText}\u2005")
         {
             FontSize = fontSize,
             FontWeight = weight == default ? FontWeight.Normal : weight,
             FontStyle = style,
-            Background = _inlineCodeBrush ??= ResolveInlineCodeBrush(),
+            CodeBackground = _inlineCodeBrush ??= ResolveInlineCodeBrush(),
         };
     }
 
@@ -2609,7 +2618,7 @@ public class StrataMarkdown : ContentControl
     {
         var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap, $"{number}. ");
         textBlock.Classes.Add("strata-md-bullet-text");
-        return textBlock;
+        return WrapWithCodeLayer(textBlock);
     }
 
     /// <summary>
@@ -2920,7 +2929,7 @@ public class StrataMarkdown : ContentControl
 
             var border = new Border
             {
-                Child = content,
+                Child = WrapWithCodeLayer(content),
                 BorderThickness = borderThickness,
                 CornerRadius = cornerRadius,
                 ClipToBounds = cornerRadius != default,
@@ -2951,6 +2960,88 @@ public class StrataMarkdown : ContentControl
             var bottomLeft = (noDataRows && isHeader && isFirstColumn) || (!isHeader && isLastDataRow && isFirstColumn) ? 7d : 0d;
             var bottomRight = (noDataRows && isHeader && isLastColumn) || (!isHeader && isLastDataRow && isLastColumn) ? 7d : 0d;
             return new CornerRadius(topLeft, topRight, bottomRight, bottomLeft);
+        }
+    }
+
+    /// <summary>
+    /// A <see cref="Run"/> subclass that carries its own background brush without
+    /// setting <see cref="Inline.Background"/>. This prevents the default text
+    /// renderer from painting a flat rectangle; instead,
+    /// <see cref="InlineCodeLayer"/> draws a rounded rectangle during
+    /// <see cref="InlineCodeLayer.Render"/>.
+    /// </summary>
+    private sealed class InlineCodeRun : Run
+    {
+        public InlineCodeRun(string text) : base(text) { }
+
+        /// <summary>Brush used by <see cref="InlineCodeLayer"/> to draw the rounded background.</summary>
+        public IBrush? CodeBackground { get; init; }
+    }
+
+    /// <summary>
+    /// Wraps a <see cref="SelectableTextBlock"/> in an <see cref="InlineCodeLayer"/>
+    /// unconditionally. The layer's <see cref="InlineCodeLayer.Render"/> is a no-op
+    /// when no <see cref="InlineCodeRun"/> inlines are present, so the cost for
+    /// plain-text paragraphs is negligible (one Decorator node, one null-check
+    /// on <see cref="SelectableTextBlock.Inlines"/>).
+    /// <para>
+    /// Always wrapping is necessary because during streaming a paragraph may
+    /// initially contain no inline code, then gain backtick spans via
+    /// <see cref="TryUpdateTextBlockInPlace"/>. Without the layer already in
+    /// place, the rounded backgrounds would not render.
+    /// </para>
+    /// </summary>
+    private static Control WrapWithCodeLayer(SelectableTextBlock textBlock)
+    {
+        return new InlineCodeLayer { Child = textBlock };
+    }
+
+    /// <summary>
+    /// A <see cref="Decorator"/> that renders rounded-corner backgrounds behind
+    /// <see cref="InlineCodeRun"/> spans in its child <see cref="SelectableTextBlock"/>.
+    /// <para>
+    /// The rounded rectangles are drawn using
+    /// <see cref="Avalonia.Media.TextFormatting.TextLayout.HitTestTextRange"/>
+    /// geometry during <see cref="Render"/>, which fires before the child
+    /// paints its text. This preserves the baseline alignment that would be
+    /// lost with an InlineUIContainer+Border approach.
+    /// </para>
+    /// </summary>
+    private sealed class InlineCodeLayer : Decorator
+    {
+        private const double CodeCornerRadius = 4d;
+
+        public override void Render(DrawingContext context)
+        {
+            if (Child is SelectableTextBlock tb && tb.Inlines is { Count: > 0 })
+            {
+                var layout = tb.TextLayout;
+                // HitTestTextRange returns rects in the TextBlock's text layout
+                // coordinate space. Since we're drawing in the Decorator's space,
+                // offset by the child's position (accounts for Margin on headings etc.)
+                var origin = tb.Bounds.Position;
+                int charOffset = 0;
+
+                foreach (var inline in tb.Inlines)
+                {
+                    if (inline is InlineCodeRun { CodeBackground: { } bg } codeRun)
+                    {
+                        var length = codeRun.Text?.Length ?? 0;
+                        foreach (var rect in layout.HitTestTextRange(charOffset, length))
+                        {
+                            context.DrawRectangle(bg, null,
+                                rect.Translate(origin),
+                                CodeCornerRadius, CodeCornerRadius);
+                        }
+                    }
+
+                    charOffset += inline switch
+                    {
+                        Run run => run.Text?.Length ?? 0,
+                        _ => 1, // InlineUIContainer replacement character
+                    };
+                }
+            }
         }
     }
 }
