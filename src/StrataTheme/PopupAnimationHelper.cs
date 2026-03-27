@@ -58,7 +58,7 @@ public static class PopupAnimationHelper
 
     private static void OnPopupOpened(object? sender, EventArgs e)
     {
-        if (sender is not Popup { Child: Control popupChild })
+        if (sender is not Popup { Child: Control popupChild } popup)
             return;
 
         var visual = ElementComposition.GetElementVisual(popupChild);
@@ -71,8 +71,30 @@ public static class PopupAnimationHelper
         var w = bounds.Width > 0 ? bounds.Width : popupChild.DesiredSize.Width;
         var h = bounds.Height > 0 ? bounds.Height : popupChild.DesiredSize.Height;
 
-        // Scale from center — looks like the combobox itself is expanding
-        visual.CenterPoint = new Vector3((float)(w / 2f), (float)(h / 2f), 0f);
+        // Anchor the scale origin at the placement target (e.g. the ComboBox)
+        // so the popup appears to expand directly from the control that opened it.
+        float centerX = (float)(w / 2f);
+        float centerY = (float)(h / 2f);
+
+        if (popup.PlacementTarget is Visual target)
+        {
+            try
+            {
+                var targetCenter = new Point(target.Bounds.Width / 2, target.Bounds.Height / 2);
+                var targetScreen = target.PointToScreen(targetCenter);
+                var childScreen = popupChild.PointToScreen(new Point(0, 0));
+                var scaling = TopLevel.GetTopLevel(popupChild)?.RenderScaling ?? 1.0;
+
+                centerX = (float)((targetScreen.X - childScreen.X) / scaling);
+                centerY = (float)((targetScreen.Y - childScreen.Y) / scaling);
+            }
+            catch
+            {
+                // Fallback to geometric center
+            }
+        }
+
+        visual.CenterPoint = new Vector3(centerX, centerY, 0f);
 
         var scaleAnim = compositor.CreateVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
