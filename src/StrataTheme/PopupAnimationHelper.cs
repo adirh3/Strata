@@ -42,18 +42,20 @@ public static class PopupAnimationHelper
 
     private static void OnEnableOpenAnimationChanged(Popup popup, AvaloniaPropertyChangedEventArgs e)
     {
+        // Always unsubscribe first to prevent accumulating duplicate handlers
+        // when the property is set to true multiple times (e.g. style re-evaluation).
+        popup.Opened -= OnPopupOpened;
+
         if (e.NewValue is true)
             popup.Opened += OnPopupOpened;
-        else
-            popup.Opened -= OnPopupOpened;
     }
 
     private static void OnEnableOverlayAnimationChanged(Popup popup, AvaloniaPropertyChangedEventArgs e)
     {
+        popup.Opened -= OnPopupOpenedOverlay;
+
         if (e.NewValue is true)
             popup.Opened += OnPopupOpenedOverlay;
-        else
-            popup.Opened -= OnPopupOpenedOverlay;
     }
 
     private static void OnPopupOpened(object? sender, EventArgs e)
@@ -137,17 +139,17 @@ public static class PopupAnimationHelper
 
         var scaleAnim = compositor.CreateVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
-        scaleAnim.InsertKeyFrame(0f, new Vector3(0.92f, 0.92f, 1f));
-        scaleAnim.InsertKeyFrame(0.6f, new Vector3(1.005f, 1.005f, 1f));
+        scaleAnim.InsertKeyFrame(0f, new Vector3(0.88f, 0.88f, 1f));
+        scaleAnim.InsertKeyFrame(0.55f, new Vector3(1.006f, 1.006f, 1f));
         scaleAnim.InsertKeyFrame(1f, new Vector3(1f));
-        scaleAnim.Duration = TimeSpan.FromMilliseconds(200);
+        scaleAnim.Duration = TimeSpan.FromMilliseconds(300);
 
         var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
         opacityAnim.Target = "Opacity";
         opacityAnim.InsertKeyFrame(0f, 0f);
-        opacityAnim.InsertKeyFrame(0.45f, 1f);
+        opacityAnim.InsertKeyFrame(0.4f, 1f);
         opacityAnim.InsertKeyFrame(1f, 1f);
-        opacityAnim.Duration = TimeSpan.FromMilliseconds(200);
+        opacityAnim.Duration = TimeSpan.FromMilliseconds(300);
 
         var group = compositor.CreateAnimationGroup();
         group.Add(scaleAnim);

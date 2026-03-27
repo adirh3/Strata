@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -20,6 +21,15 @@ public static class OverlayAnimationHelper
         AvaloniaProperty.RegisterAttached<Control, bool>(
             "AnimateOpen", typeof(OverlayAnimationHelper));
 
+    /// <summary>
+    /// Tracks controls that already have an animation queued via Dispatcher.Post
+    /// to prevent the same entrance animation from being scheduled twice.
+    /// Both <see cref="OnChanged"/> and <see cref="OnAttached"/> can trigger an
+    /// animation (depending on whether styles resolve before or after visual-tree
+    /// attachment), so the table ensures only the first caller wins.
+    /// </summary>
+    private static readonly ConditionalWeakTable<Control, object> _pendingAnimation = new();
+
     static OverlayAnimationHelper()
     {
         AnimateOpenProperty.Changed.AddClassHandler<Control>(OnChanged);
@@ -33,10 +43,19 @@ public static class OverlayAnimationHelper
 
     private static void OnChanged(Control control, AvaloniaPropertyChangedEventArgs e)
     {
+        // Always unsubscribe first to prevent accumulating duplicate handlers
+        // when the property is set to true multiple times (e.g. style re-evaluation).
+        control.AttachedToVisualTree -= OnAttached;
+
         if (e.NewValue is true)
+        {
             control.AttachedToVisualTree += OnAttached;
-        else
-            control.AttachedToVisualTree -= OnAttached;
+
+            // If the property is set while the control is already inside a popup
+            // (style evaluation can happen after visual-tree attachment), play now.
+            if (IsInsidePopup(control))
+                SchedulePlayEntrance(control);
+        }
     }
 
     private static void OnAttached(object? sender, VisualTreeAttachmentEventArgs e)
@@ -45,22 +64,55 @@ public static class OverlayAnimationHelper
             return;
 
         // Only animate when appearing inside a popup (native or overlay)
-        if (e.RootVisual is not PopupRoot && !IsInsideOverlayPopup(control))
+        if (e.RootVisual is not PopupRoot && !IsInsidePopup(control))
             return;
 
-        Dispatcher.UIThread.Post(() => PlayEntrance(control), DispatcherPriority.Loaded);
+        SchedulePlayEntrance(control);
     }
 
-    private static bool IsInsideOverlayPopup(Control control)
+    /// <summary>
+    /// Returns <see langword="true"/> if the control is currently inside a
+    /// PopupRoot (native popup) or an OverlayPopupHost (overlay popup).
+    /// </summary>
+    private static bool IsInsidePopup(Control control)
     {
         Visual? v = control.GetVisualParent();
         while (v is not null)
         {
-            if (v is OverlayPopupHost)
+            if (v is PopupRoot or OverlayPopupHost)
                 return true;
             v = v.GetVisualParent();
         }
         return false;
+    }
+
+    /// <summary>
+    /// Posts a single <see cref="PlayEntrance"/> call for <paramref name="control"/>,
+    /// de-duplicating when both <see cref="OnChanged"/> and <see cref="OnAttached"/>
+    /// fire during the same popup-open cycle.  The guard entry stays in the table
+    /// until the control detaches (popup closes) so any late re-fires are also blocked.
+    /// </summary>
+    private static void SchedulePlayEntrance(Control control)
+    {
+        if (_pendingAnimation.TryGetValue(control, out _))
+            return;
+
+        _pendingAnimation.Add(control, new object());
+
+        // Clear the guard when the popup closes (control detaches from visual tree)
+        // so the next open cycle can animate again.
+        control.DetachedFromVisualTree += OnDetachedClearGuard;
+
+        Dispatcher.UIThread.Post(() => PlayEntrance(control), DispatcherPriority.Loaded);
+    }
+
+    private static void OnDetachedClearGuard(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is not Control control)
+            return;
+
+        control.DetachedFromVisualTree -= OnDetachedClearGuard;
+        _pendingAnimation.Remove(control);
     }
 
     private static void PlayEntrance(Control control)
@@ -80,17 +132,17 @@ public static class OverlayAnimationHelper
 
         var scaleAnim = compositor.CreateVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
-        scaleAnim.InsertKeyFrame(0f, new Vector3(0.92f, 0.92f, 1f));
-        scaleAnim.InsertKeyFrame(0.6f, new Vector3(1.005f, 1.005f, 1f));
+        scaleAnim.InsertKeyFrame(0f, new Vector3(0.88f, 0.88f, 1f));
+        scaleAnim.InsertKeyFrame(0.55f, new Vector3(1.006f, 1.006f, 1f));
         scaleAnim.InsertKeyFrame(1f, new Vector3(1f));
-        scaleAnim.Duration = TimeSpan.FromMilliseconds(200);
+        scaleAnim.Duration = TimeSpan.FromMilliseconds(300);
 
         var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
         opacityAnim.Target = "Opacity";
         opacityAnim.InsertKeyFrame(0f, 0f);
-        opacityAnim.InsertKeyFrame(0.45f, 1f);
+        opacityAnim.InsertKeyFrame(0.4f, 1f);
         opacityAnim.InsertKeyFrame(1f, 1f);
-        opacityAnim.Duration = TimeSpan.FromMilliseconds(200);
+        opacityAnim.Duration = TimeSpan.FromMilliseconds(300);
 
         var group = compositor.CreateAnimationGroup();
         group.Add(scaleAnim);

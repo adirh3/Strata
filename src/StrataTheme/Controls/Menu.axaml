@@ -31,10 +31,7 @@
                     CornerRadius="{TemplateBinding CornerRadius}"
                     Padding="{TemplateBinding Padding}"
                     Margin="16"
-                    BoxShadow="0 16 48 -8 #30000000, 0 6 16 0 #18000000, 0 0 0 1 #0C000000"
-                    RenderTransformOrigin="0.5,0"
-                    RenderTransform="scale(1)"
-                    Opacity="1">
+                    BoxShadow="0 16 48 -8 #30000000, 0 6 16 0 #18000000, 0 0 0 1 #0C000000">
               <Border.Transitions>
                 <Transitions>
                   <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
