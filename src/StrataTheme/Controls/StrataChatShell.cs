@@ -54,12 +54,6 @@ public class StrataChatShell : TemplatedControl
     private const double UserScrollDeltaThreshold = 0.05;
     private const double LayoutShiftDeltaTolerance = 0.2;
 
-    /// <summary>
-    /// When the total scrollable distance is this small, suppress auto-scroll
-    /// so the user's first message stays visible in short conversations.
-    /// </summary>
-    private const double ShortTranscriptMaxScroll = 300d;
-
     private Border? _presenceDot;
     private ScrollViewer? _scrollViewer;
     private Panel? _transcriptPanel;
@@ -547,10 +541,6 @@ public class StrataChatShell : TemplatedControl
         if (_scrollViewer is null || _userScrolledAway)
             return;
 
-        // Don't push the first message out of view in short conversations.
-        if (_scrollViewer.Extent.Height - _scrollViewer.Viewport.Height <= ShortTranscriptMaxScroll)
-            return;
-
         if (_scrollQueued) return;
         _scrollQueued = true;
         Dispatcher.UIThread.Post(() =>
@@ -561,6 +551,8 @@ public class StrataChatShell : TemplatedControl
             _isProgrammaticScroll = true;
             _scrollViewer.ScrollToEnd();
 
+            // Second scroll after layout settles — content added during
+            // streaming may not be measured until the Loaded pass.
             Dispatcher.UIThread.Post(() =>
             {
                 if (_scrollViewer is not null && !_userScrolledAway)
