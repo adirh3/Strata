@@ -757,9 +757,10 @@ public class StrataMarkdown : ContentControl
                 }
             }
 
-            // Merged group in-place update: re-render inlines into existing SelectableTextBlock.
-            // Works for any mergeable group regardless of kind mix (heterogeneous groups).
+            // Merged list-group update: reuse the existing wrapped SelectableTextBlock
+            // when both sides are list/text mergeable and only the grouped content changed.
             if (newGroup.Count >= 1 && IsMergeableKind(newGroup.Kind) &&
+                IsMergeableKind(oldGroup.Kind) &&
                 g < _contentHost.Children.Count &&
                 TryUpdateMergedGroupInPlace(_contentHost.Children[g], newBlocks, newGroup))
             {
@@ -1516,14 +1517,12 @@ public class StrataMarkdown : ContentControl
 
     /// <summary>Returns true for block kinds that can be merged into a single SelectableTextBlock when consecutive.</summary>
     private static bool IsMergeableKind(MdBlockKind kind) =>
-        kind is MdBlockKind.Paragraph or MdBlockKind.Heading or MdBlockKind.Bullet or MdBlockKind.NumberedItem;
+        kind is MdBlockKind.Bullet or MdBlockKind.NumberedItem;
 
     /// <summary>
     /// Scans blocks and produces groups of consecutive mergeable blocks.
-    /// Consecutive mergeable blocks (Paragraph, Heading, Bullet, NumberedItem)
-    /// are grouped heterogeneously into a single group regardless of kind.
-    /// Indented bullets (Level &gt; 0) are grouped separately with same-level peers.
-    /// Everything else becomes a single-block group.
+    /// Only homogeneous list runs are merged so headings and paragraphs always keep
+    /// their dedicated controls and styling during incremental streaming updates.
     /// </summary>
     private static void ComputeGroups(IReadOnlyList<MdBlock> blocks, List<MdBlockGroup> groups)
     {
@@ -1541,32 +1540,15 @@ public class StrataMarkdown : ContentControl
                 continue;
             }
 
-            // Indented bullets: group same-level together but don't mix with other kinds
-            if (block.Kind == MdBlockKind.Bullet && block.Level > 0)
-            {
-                int start = i;
-                i++;
-                while (i < blocks.Count &&
-                       blocks[i].Kind == MdBlockKind.Bullet &&
-                       blocks[i].Level == block.Level)
-                {
-                    i++;
-                }
-                groups.Add(new MdBlockGroup(start, i - start, block.Kind, block.Level));
-                continue;
-            }
-
-            // Heterogeneous mergeable group: headings, paragraphs, bullets (L0), numbered items
             int groupStart = i;
             i++;
-            while (i < blocks.Count && IsMergeableKind(blocks[i].Kind))
+            while (i < blocks.Count &&
+                   blocks[i].Kind == block.Kind &&
+                   (block.Kind != MdBlockKind.Bullet || blocks[i].Level == block.Level))
             {
-                // Indented bullets break the heterogeneous group
-                if (blocks[i].Kind == MdBlockKind.Bullet && blocks[i].Level > 0)
-                    break;
                 i++;
             }
-            groups.Add(new MdBlockGroup(groupStart, i - groupStart, blocks[groupStart].Kind, blocks[groupStart].Level));
+            groups.Add(new MdBlockGroup(groupStart, i - groupStart, block.Kind, block.Level));
         }
     }
 
@@ -2621,29 +2603,38 @@ public class StrataMarkdown : ContentControl
         return WrapWithCodeLayer(textBlock);
     }
 
+    private void ConfigureMergedTextBlock(SelectableTextBlock tb, MdBlockGroup group)
+    {
+        var isRtl = FlowDirection == FlowDirection.RightToLeft;
+        tb.FontSize = _bodyFontSize;
+        tb.LineHeight = _bodyFontSize * 1.52;
+        tb.TextWrapping = TextWrapping.Wrap;
+        tb.TextAlignment = isRtl ? TextAlignment.Right : TextAlignment.Left;
+        tb.ClipToBounds = false;
+        tb.Padding = isRtl ? RtlTextPadding : ZeroThickness;
+        tb.Margin = group.Kind == MdBlockKind.Bullet && group.Level > 0
+            ? new Thickness(group.Level * 16, 0, 0, 0)
+            : ZeroThickness;
+
+        tb.Classes.Remove("strata-md-paragraph");
+        tb.Classes.Remove("strata-md-bullet-text");
+        tb.Classes.Add(group.Kind is MdBlockKind.Bullet or MdBlockKind.NumberedItem
+            ? "strata-md-bullet-text"
+            : "strata-md-paragraph");
+    }
+
     /// <summary>
-    /// Creates a single SelectableTextBlock for a group of consecutive mergeable
-    /// text blocks (headings, paragraphs, bullets, numbered items), using LineBreak
-    /// inlines to separate items and per-Run FontSize/FontWeight for headings.
-    /// For single-block groups, delegates to the existing per-block methods.
+    /// Creates a single SelectableTextBlock for a consecutive list/text group using
+    /// LineBreak inlines to separate items. For single-block groups, delegates to
+    /// the existing per-block methods.
     /// </summary>
     private Control CreateMergedTextControl(IReadOnlyList<MdBlock> blocks, MdBlockGroup group)
     {
         if (group.Count == 1)
             return CreateControlForBlock(blocks[group.StartIndex]);
 
-        var isRtl = FlowDirection == FlowDirection.RightToLeft;
-        var tb = new SelectableTextBlock
-        {
-            FontSize = _bodyFontSize,
-            LineHeight = _bodyFontSize * 1.52,
-            TextWrapping = TextWrapping.Wrap,
-            TextAlignment = isRtl ? TextAlignment.Right : TextAlignment.Left,
-            ClipToBounds = false,
-            Padding = isRtl ? RtlTextPadding : ZeroThickness,
-            Margin = ZeroThickness,
-        };
-        tb.Classes.Add("strata-md-paragraph");
+        var tb = new SelectableTextBlock();
+        ConfigureMergedTextBlock(tb, group);
 
         var hasLinks = PopulateMergedInlines(tb, blocks, group);
         if (hasLinks)
@@ -2652,7 +2643,7 @@ public class StrataMarkdown : ContentControl
             tb.PointerMoved += OnTextBlockPointerMoved;
         }
 
-        return tb;
+        return WrapWithCodeLayer(tb);
     }
 
     /// <summary>
@@ -2665,6 +2656,7 @@ public class StrataMarkdown : ContentControl
         if (tb is null)
             return false;
 
+        ConfigureMergedTextBlock(tb, group);
         RemoveLinkRunsForTextBlock(tb);
         tb.Text = null;
         tb.Inlines?.Clear();
@@ -2684,12 +2676,10 @@ public class StrataMarkdown : ContentControl
 
     /// <summary>
     /// Appends inline content for every block in a merged group into a single
-    /// SelectableTextBlock. Headings get per-Run FontSize/FontWeight post-processing.
-    /// Returns true if any link inlines were added.
+    /// SelectableTextBlock. Returns true if any link inlines were added.
     /// </summary>
     private bool PopulateMergedInlines(SelectableTextBlock tb, IReadOnlyList<MdBlock> blocks, MdBlockGroup group)
     {
-        var fontSize = _bodyFontSize;
         bool hasLinks = false;
 
         for (int i = 0; i < group.Count; i++)
@@ -2700,49 +2690,16 @@ public class StrataMarkdown : ContentControl
             if (i > 0)
             {
                 tb.Inlines?.Add(new LineBreak());
-                // Extra spacing before headings only (section break).
-                // After a heading the content belongs to it — keep tight.
-                if (block.Kind == MdBlockKind.Heading)
-                    tb.Inlines?.Add(new LineBreak());
             }
 
-            if (block.Kind == MdBlockKind.Heading)
+            string? prefix = block.Kind switch
             {
-                double headingFontSize = block.Level switch
-                {
-                    1 => fontSize * 1.28,
-                    2 => fontSize * 1.12,
-                    _ => fontSize * 1.04,
-                };
+                MdBlockKind.Bullet => "• ",
+                MdBlockKind.NumberedItem => $"{block.Level}. ",
+                _ => null,
+            };
 
-                int inlinesBefore = tb.Inlines?.Count ?? 0;
-                hasLinks |= AppendFormattedInlines(tb, block.Content, null, forceInlines: true);
-
-                // Post-process: apply heading font size and weight to newly added inlines
-                if (tb.Inlines != null)
-                {
-                    for (int j = inlinesBefore; j < tb.Inlines.Count; j++)
-                    {
-                        if (tb.Inlines[j] is Run run)
-                        {
-                            run.FontSize = headingFontSize;
-                            if (run.FontWeight == FontWeight.Normal || run.FontWeight == default)
-                                run.FontWeight = FontWeight.SemiBold;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                string? prefix = block.Kind switch
-                {
-                    MdBlockKind.Bullet => "• ",
-                    MdBlockKind.NumberedItem => $"{block.Level}. ",
-                    _ => null,
-                };
-
-                hasLinks |= AppendFormattedInlines(tb, block.Content, prefix, forceInlines: true);
-            }
+            hasLinks |= AppendFormattedInlines(tb, block.Content, prefix, forceInlines: true);
         }
 
         return hasLinks;

@@ -16,6 +16,29 @@ using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
+public sealed class StrataTranscriptViewportChangedEventArgs : EventArgs
+{
+    public StrataTranscriptViewportChangedEventArgs(
+        double verticalOffset,
+        double viewportHeight,
+        double extentHeight,
+        bool isPinnedToBottom,
+        double distanceFromBottom)
+    {
+        VerticalOffset = verticalOffset;
+        ViewportHeight = viewportHeight;
+        ExtentHeight = extentHeight;
+        IsPinnedToBottom = isPinnedToBottom;
+        DistanceFromBottom = distanceFromBottom;
+    }
+
+    public double VerticalOffset { get; }
+    public double ViewportHeight { get; }
+    public double ExtentHeight { get; }
+    public bool IsPinnedToBottom { get; }
+    public double DistanceFromBottom { get; }
+}
+
 /// <summary>
 /// Full chat shell: a scrollable transcript area stacked above a docked composer,
 /// with an optional header row and presence indicator. Provides smart auto-scroll
@@ -141,6 +164,7 @@ public class StrataChatShell : TemplatedControl
     public bool IsOnline { get => GetValue(IsOnlineProperty); set => SetValue(IsOnlineProperty, value); }
     public string PresenceText { get => GetValue(PresenceTextProperty); set => SetValue(PresenceTextProperty, value); }
     public bool IsStreaming { get => GetValue(IsStreamingProperty); set => SetValue(IsStreamingProperty, value); }
+    public event EventHandler<StrataTranscriptViewportChangedEventArgs>? TranscriptViewportChanged;
 
     /// <summary>
     /// True when the user is scrolled away and new content exists below (streaming or new messages).
@@ -605,6 +629,8 @@ public class StrataChatShell : TemplatedControl
             SetUserScrolledAway(true);
         else if (distanceFromBottom <= 8 && e.OffsetDelta.Y > 0)
             SetUserScrolledAway(false);
+
+        RaiseTranscriptViewportChanged();
     }
 
     private void OnUserWheelScroll(object? sender, PointerWheelEventArgs e)
@@ -840,6 +866,21 @@ public class StrataChatShell : TemplatedControl
     private static double DistanceFromBottom(ScrollViewer scrollViewer)
     {
         return Math.Max(0d, scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y);
+    }
+
+    private void RaiseTranscriptViewportChanged()
+    {
+        if (_scrollViewer is null)
+            return;
+
+        TranscriptViewportChanged?.Invoke(
+            this,
+            new StrataTranscriptViewportChangedEventArgs(
+                _scrollViewer.Offset.Y,
+                _scrollViewer.Viewport.Height,
+                _scrollViewer.Extent.Height,
+                IsPinnedToBottom,
+                DistanceFromBottom(_scrollViewer)));
     }
 
     private static bool IsScrollbarInteraction(object? source)
