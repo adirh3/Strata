@@ -2764,7 +2764,11 @@ public class StrataMarkdown : ContentControl
         _tableKeysUsed.Add(cacheKey);
 
         // Reuse cached DataGrid when headers match — during streaming only rows change.
-        if (_tableCache.TryGetValue(cacheKey, out var cached))
+        // Skip reuse when the cached control is already a child of _contentHost:
+        // this means another table with the same header exists in the same document,
+        // and returning the same control would steal it from the earlier position.
+        if (_tableCache.TryGetValue(cacheKey, out var cached)
+            && !ReferenceEquals(cached.Parent, _contentHost))
         {
             DetachFromForeignParent(cached);
             cached.Update(this, headers, rows);
