@@ -125,7 +125,7 @@ public class StrataMarkdown : ContentControl
     private Border? _blockPlaceholder;
 
     // ── Cached shared objects ──
-    private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
+    private static readonly Lazy<Cursor> HandCursorLazy = new(() => new Cursor(StandardCursorType.Hand));
 
     // ── Block group merging ──
     // Consecutive same-kind text blocks are merged into a single SelectableTextBlock
@@ -1024,7 +1024,7 @@ public class StrataMarkdown : ContentControl
     /// Inspired by FastAvaloniaMarkdown's zero-allocation inline parser.
     /// Returns true if any link inlines were added.
     /// </summary>
-    private bool AppendFormattedInlines(SelectableTextBlock target, string text, string? prefix = null, bool forceInlines = false)
+    internal bool AppendFormattedInlines(SelectableTextBlock target, string text, string? prefix = null, bool forceInlines = false)
     {
         if (!string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(text))
         {
@@ -1277,7 +1277,7 @@ public class StrataMarkdown : ContentControl
     /// Span-based nested inline scanner for bold/italic content. Handles inline code
     /// and links within styled text. Returns true if any link inlines were added.
     /// </summary>
-    private bool AppendNestedCodeInlines(SelectableTextBlock target, string text,
+    internal bool AppendNestedCodeInlines(SelectableTextBlock target, string text,
         FontWeight weight, FontStyle style)
     {
         var span = text.AsSpan();
@@ -1593,6 +1593,11 @@ public class StrataMarkdown : ContentControl
             }
         }
 
+        // The InlineCodeLayer draws rounded backgrounds behind InlineCodeRun spans.
+        // Its Render is not automatically re-called when the child TextBlock's
+        // inlines change, so we must explicitly invalidate it.
+        (tb.Parent as Visual)?.InvalidateVisual();
+
         return true;
     }
 
@@ -1696,7 +1701,7 @@ public class StrataMarkdown : ContentControl
             MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
-            Cursor = HandCursor
+            Cursor = HandCursorLazy.Value
         };
         copyBtn.Classes.Add("subtle");
         DockPanel.SetDock(copyBtn, Dock.Right);
@@ -2535,7 +2540,7 @@ public class StrataMarkdown : ContentControl
         var point = e.GetPosition(tb);
         var hit = tb.TextLayout.HitTestPoint(point);
         var isLink = hit.IsInside && GetLinkAtCharIndex(tb, hit.CharacterHit.FirstCharacterIndex) != null;
-        tb.Cursor = isLink ? HandCursor : Cursor.Default;
+        tb.Cursor = isLink ? HandCursorLazy.Value : Cursor.Default;
     }
 
     private static IBrush ResolveLinkBrush()
@@ -2670,6 +2675,11 @@ public class StrataMarkdown : ContentControl
             tb.Tapped += OnLinkTapped;
             tb.PointerMoved += OnTextBlockPointerMoved;
         }
+
+        // The InlineCodeLayer draws rounded backgrounds behind InlineCodeRun spans.
+        // Its Render is not automatically re-called when the child TextBlock's
+        // inlines change, so we must explicitly invalidate it.
+        (tb.Parent as Visual)?.InvalidateVisual();
 
         return true;
     }
@@ -2931,7 +2941,7 @@ public class StrataMarkdown : ContentControl
     /// <see cref="InlineCodeLayer"/> draws a rounded rectangle during
     /// <see cref="InlineCodeLayer.Render"/>.
     /// </summary>
-    private sealed class InlineCodeRun : Run
+    internal sealed class InlineCodeRun : Run
     {
         public InlineCodeRun(string text) : base(text) { }
 
@@ -2952,7 +2962,7 @@ public class StrataMarkdown : ContentControl
     /// place, the rounded backgrounds would not render.
     /// </para>
     /// </summary>
-    private static Control WrapWithCodeLayer(SelectableTextBlock textBlock)
+    internal static Control WrapWithCodeLayer(SelectableTextBlock textBlock)
     {
         return new InlineCodeLayer { Child = textBlock };
     }
@@ -2968,7 +2978,7 @@ public class StrataMarkdown : ContentControl
     /// lost with an InlineUIContainer+Border approach.
     /// </para>
     /// </summary>
-    private sealed class InlineCodeLayer : Decorator
+    internal sealed class InlineCodeLayer : Decorator
     {
         private const double CodeCornerRadius = 4d;
 
@@ -2978,9 +2988,10 @@ public class StrataMarkdown : ContentControl
             {
                 var layout = tb.TextLayout;
                 // HitTestTextRange returns rects in the TextBlock's text layout
-                // coordinate space. Since we're drawing in the Decorator's space,
-                // offset by the child's position (accounts for Margin on headings etc.)
-                var origin = tb.Bounds.Position;
+                // coordinate space (relative to the content area, after padding).
+                // Since we're drawing in the Decorator's space, offset by
+                // the child's position + padding to map correctly.
+                var origin = tb.Bounds.Position + new Vector(tb.Padding.Left, tb.Padding.Top);
                 int charOffset = 0;
 
                 foreach (var inline in tb.Inlines)
