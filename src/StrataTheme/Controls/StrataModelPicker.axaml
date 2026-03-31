@@ -1,0 +1,236 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls"
+        xmlns:strata="using:StrataTheme">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataModelPicker}" TargetType="controls:StrataModelPicker">
+        <Setter Property="Width" Value="160" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel Name="PART_ModelPickerWrap">
+              <Button Name="PART_ModelPickerButton"
+                      Classes="subtle"
+                      HorizontalAlignment="Stretch"
+                      Height="28"
+                      MinHeight="0"
+                      Padding="7,4,6,4"
+                      CornerRadius="14"
+                      Background="{DynamicResource Brush.Surface2}"
+                      BorderThickness="0"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      Cursor="Hand">
+                <Button.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.1" />
+                  </Transitions>
+                </Button.Transitions>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="5">
+                  <Viewbox Width="12" Height="12" VerticalAlignment="Center">
+                    <Path Fill="{DynamicResource Brush.AccentDefault}"
+                          Data="M8,1 L10,6 L15,8 L10,10 L8,15 L6,10 L1,8 L6,6 Z" />
+                  </Viewbox>
+                  <ContentPresenter Name="PART_ModelPickerDisplayText"
+                                    Grid.Column="1"
+                                    Content="{Binding SelectedModel, RelativeSource={RelativeSource TemplatedParent}}"
+                                    ContentTemplate="{TemplateBinding ModelItemTemplate}"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center" />
+                  <Border Grid.Column="2"
+                          Name="PART_ModelPickerChevronWrap"
+                          Width="10"
+                          Height="10"
+                          Margin="0,1,0,0"
+                          VerticalAlignment="Center"
+                          RenderTransformOrigin="0.5,0.5">
+                    <Path Name="PART_ModelPickerChevron"
+                          Fill="{DynamicResource Brush.TextTertiary}"
+                          Data="M3,5 L8,10 L13,5"
+                          Width="8"
+                          Height="5"
+                          Stretch="Uniform"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center" />
+                  </Border>
+                </Grid>
+              </Button>
+
+               <Popup Name="PART_ModelPickerPopup"
+                      IsLightDismissEnabled="True"
+                      ShouldUseOverlayLayer="True"
+                      Placement="AnchorAndGravity"
+                      PlacementAnchor="Bottom"
+                      PlacementGravity="Top"
+                      PlacementConstraintAdjustment="FlipY,ResizeY"
+                      VerticalOffset="4"
+                      PlacementTarget="{Binding #PART_ModelPickerButton}"
+                      WindowManagerAddShadowHint="False"
+                      strata:PopupAnimationHelper.EnableOpenAnimation="True">
+                <Border Name="PART_ModelPickerPanel"
+                        Width="300"
+                        Margin="8"
+                        Background="{DynamicResource Brush.Surface1Translucent}"
+                        BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        BoxShadow="0 12 40 0 #30000000, 0 2 10 0 #10000000"
+                        ClipToBounds="False">
+                  <DockPanel>
+                    <StackPanel Name="PART_EffortSection"
+                                DockPanel.Dock="Bottom"
+                                Spacing="0" />
+                    <ScrollViewer MaxHeight="320"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Margin="4,6,4,4">
+                      <StackPanel Name="PART_ModelPickerList"
+                                  Spacing="1"
+                                  Margin="0,0,0,2" />
+                    </ScrollViewer>
+                  </DockPanel>
+                </Border>
+              </Popup>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:not(:has-models) /template/ Panel#PART_ModelPickerWrap">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <Style Selector="controls|StrataModelPicker /template/ Button#PART_ModelPickerButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+  </Style>
+
+  <Style Selector="controls|StrataModelPicker /template/ Button#PART_ModelPickerButton TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+
+  <Style Selector="TextBlock.model-picker-group-header">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+
+  <Style Selector="Border.model-picker-row">
+    <Setter Property="Background" Value="#00000000" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.1" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.model-picker-row:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+  </Style>
+  <Style Selector="Border.model-picker-row.selected">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+  <Style Selector="Border.model-picker-row.selected:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtleHover}" />
+  </Style>
+
+  <Style Selector="Border.model-picker-row TextBlock">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.model-picker-row TextBlock.model-name">
+    <Setter Property="FontWeight" Value="Normal" />
+  </Style>
+  <Style Selector="Border.model-picker-row.selected TextBlock">
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+
+  <Style Selector="Border.model-picker-dot">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+
+  <Style Selector="Border.model-picker-separator">
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
+  </Style>
+
+  <Style Selector="Border.model-tier-badge">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="Opacity" Value="0.85" />
+  </Style>
+  <Style Selector="Border.model-tier-badge TextBlock">
+    <Setter Property="FontSize" Value="9.5" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="Border.model-tier-badge.tier-premium">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+  <Style Selector="Border.model-tier-badge.tier-premium TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="Border.model-tier-badge.tier-fast TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="Border.model-tier-badge.tier-reasoning">
+    <Setter Property="Background" Value="#1A34D399" />
+  </Style>
+  <Style Selector="Border.model-tier-badge.tier-reasoning TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+  </Style>
+
+  <Style Selector="Border.model-effort-toggle">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+  </Style>
+
+  <Style Selector="Border.model-effort-toggle Button.effort-seg">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="12,2" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.12" />
+        <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.model-effort-toggle Button.effort-seg:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="Border.model-effort-toggle Button.effort-seg.active">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Border.model-effort-toggle Button.effort-seg.active:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentHover}" />
+  </Style>
+  <Style Selector="Border.model-effort-toggle Button.effort-seg:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+  </Style>
+  <Style Selector="Border.model-effort-toggle Button.effort-seg.active /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Border.model-effort-toggle Button.effort-seg.active:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtleHover}" />
+  </Style>
+
+  <Style Selector="TextBlock.effort-label">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+</Styles>

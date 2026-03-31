@@ -196,34 +196,15 @@
                       </Viewbox>
                     </Button>
 
-                    <!-- Model ComboBox -->
-                    <ComboBox Name="PART_ModelCombo"
-                              Classes="composer-select"
-                              ItemsSource="{TemplateBinding Models}"
-                              ItemTemplate="{TemplateBinding ModelItemTemplate}"
-                              SelectedItem="{Binding SelectedModel, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
-                              MinWidth="100"
-                              Height="28" MinHeight="0" Padding="8,4,6,4"
-                              FontSize="12"
-                              CornerRadius="6"
-                              Background="{DynamicResource Brush.Surface2}"
-                              BorderThickness="0"
-                              VerticalAlignment="Center"
-                              Margin="0,0,6,6" />
-
-                    <!-- Quality ComboBox -->
-                    <ComboBox Name="PART_QualityCombo"
-                              Classes="composer-select"
-                              ItemsSource="{TemplateBinding QualityLevels}"
-                              SelectedItem="{Binding SelectedQuality, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
-                              MinWidth="82"
-                              Height="28" MinHeight="0" Padding="8,4,6,4"
-                              FontSize="12"
-                              CornerRadius="6"
-                              Background="{DynamicResource Brush.Surface2}"
-                              BorderThickness="0"
-                              VerticalAlignment="Center"
-                              Margin="0,0,6,6" />
+                    <Panel Name="PART_ModelPickerWrap" Margin="0,0,6,6">
+                      <controls:StrataModelPicker Width="160"
+                                                  VerticalAlignment="Center"
+                                                  Models="{TemplateBinding Models}"
+                                                  SelectedModel="{Binding SelectedModel, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                                  ModelItemTemplate="{TemplateBinding ModelItemTemplate}"
+                                                  QualityLevels="{TemplateBinding QualityLevels}"
+                                                  SelectedQuality="{Binding SelectedQuality, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
+                    </Panel>
 
                     <!-- Modes ComboBox (Ask / Plan / Agent) -->
                     <ComboBox Name="PART_ModesCombo"
@@ -499,11 +480,8 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
-        <!-- Hide selectors if no sources are provided -->
-        <Style Selector="^:not(:has-models) /template/ ComboBox#PART_ModelCombo">
-          <Setter Property="IsVisible" Value="False" />
-        </Style>
-        <Style Selector="^:not(:has-quality) /template/ ComboBox#PART_QualityCombo">
+        <!-- Hide model picker when no models -->
+        <Style Selector="^:not(:has-models) /template/ Panel#PART_ModelPickerWrap">
           <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:not(:has-modes) /template/ ComboBox#PART_ModesCombo">
@@ -771,5 +749,4 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
     <Setter Property="MinWidth" Value="24" />
   </Style>
-
 </Styles>

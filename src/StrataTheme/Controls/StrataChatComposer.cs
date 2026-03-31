@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Animation;
@@ -75,14 +76,15 @@ public class FileSelectedEventArgs : EventArgs
 /// </code>
 /// <para><b>Template parts:</b> PART_Input (TextBox), PART_SendButton (Button),
 /// PART_AttachButton (Button), PART_MentionButton (Button), PART_VoiceButton (Button),
-/// PART_ModelCombo (ComboBox), PART_QualityCombo (ComboBox),
+/// PART_ModelPickerButton (Button), PART_ModelPickerPopup (Popup),
+/// PART_ModelPickerList (StackPanel),
 /// PART_ActionA (Button), PART_ActionB (Button), PART_ActionC (Button),
 /// PART_ChipsRow (WrapPanel), PART_AgentChip (Border),
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :stop-send, :can-attach,
-/// :a-empty, :b-empty, :c-empty, :has-models, :has-quality,
+/// :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
 /// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
 /// </remarks>
 public class StrataChatComposer : TemplatedControl
@@ -95,6 +97,12 @@ public class StrataChatComposer : TemplatedControl
     private StackPanel? _mcpPopupPanel;
     private TextBlock? _mcpCountText;
     private Button? _mcpButton;
+    private Popup? _modelPickerPopup;
+    private StackPanel? _modelPickerList;
+    private Avalonia.Controls.Shapes.Path? _modelPickerChevron;
+    private Border? _modelPickerChevronWrap;
+    private StackPanel? _effortSection;
+    private bool _suppressPickerRebuild;
     private Button? _actionA;
     private Button? _actionB;
     private Button? _actionC;
@@ -440,8 +448,10 @@ public class StrataChatComposer : TemplatedControl
                 }
             }
         });
-        ModelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
-        QualityLevelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
+        ModelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => { c.EnsureSelectedValues(); c.RefreshModelPickerIfOpen(); });
+        QualityLevelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => { c.EnsureSelectedValues(); c.RefreshModelPickerEffortIfOpen(); });
+        SelectedModelProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.RefreshModelPickerSelectionIfOpen());
+        SelectedQualityProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.RefreshModelPickerQualityIfOpen());
         ModesProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
     }
 
@@ -618,6 +628,21 @@ public class StrataChatComposer : TemplatedControl
         _mcpCountText = e.NameScope.Find<TextBlock>("PART_McpCount");
         _mcpButton = e.NameScope.Find<Button>("PART_McpButton");
         Wire(e, "PART_McpButton", () => ShowMcpPopup());
+        _modelPickerPopup = e.NameScope.Find<Popup>("PART_ModelPickerPopup");
+        _modelPickerList = e.NameScope.Find<StackPanel>("PART_ModelPickerList");
+        _modelPickerChevron = e.NameScope.Find<Avalonia.Controls.Shapes.Path>("PART_ModelPickerChevron");
+        _modelPickerChevronWrap = e.NameScope.Find<Border>("PART_ModelPickerChevronWrap");
+        _effortSection = e.NameScope.Find<StackPanel>("PART_EffortSection");
+        Wire(e, "PART_ModelPickerButton", () => ToggleModelPickerPopup());
+        if (_modelPickerPopup is not null)
+        {
+            _modelPickerPopup.Opened += (_, _) => ConfigurePopupTranslucency(_modelPickerPopup);
+            _modelPickerPopup.Closed += (_, _) =>
+            {
+                PseudoClasses.Set(":model-picker-open", false);
+                AnimateChevron(false);
+            };
+        }
         _autoCompletePopup = e.NameScope.Find<Popup>("PART_AutoCompletePopup");
         _autoCompletePanel = e.NameScope.Find<StackPanel>("PART_AutoCompletePanel");
         if (_autoCompletePopup is not null)
@@ -1564,6 +1589,465 @@ public class StrataChatComposer : TemplatedControl
         _mcpPopup.IsOpen = true;
     }
 
+    // ═══════════════════════════════════════════════════
+    //  Model Picker popup
+    // ═══════════════════════════════════════════════════
+
+    /// <summary>Configures the popup panel background for a subtle translucent overlay.</summary>
+    private void ConfigurePopupTranslucency(Popup popup)
+    {
+        // Keep a slight transparency effect without relying on acrylic/native blur.
+        if (popup.Child is Border panel && panel.Background is Avalonia.Media.ISolidColorBrush solid)
+        {
+            var c = solid.Color;
+            panel.Background = new Avalonia.Media.SolidColorBrush(
+                Avalonia.Media.Color.FromArgb(236, c.R, c.G, c.B));
+        }
+    }
+
+    private void AnimateChevron(bool open)
+    {
+        if (_modelPickerChevronWrap is null) return;
+        _modelPickerChevronWrap.RenderTransformOrigin = RelativePoint.Center;
+        _modelPickerChevronWrap.RenderTransform = new RotateTransform(open ? 180 : 0);
+    }
+
+    private void ToggleModelPickerPopup()
+    {
+        if (_modelPickerPopup is null) return;
+
+        if (_modelPickerPopup.IsOpen)
+        {
+            _modelPickerPopup.IsOpen = false;
+            PseudoClasses.Set(":model-picker-open", false);
+            AnimateChevron(false);
+            return;
+        }
+
+        BuildModelPickerRows();
+        _modelPickerPopup.IsOpen = true;
+        PseudoClasses.Set(":model-picker-open", true);
+        AnimateChevron(true);
+
+        // Auto-scroll to selected model after layout
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_modelPickerList is null) return;
+            foreach (var child in _modelPickerList.Children)
+            {
+                if (child is Border b && b.Classes.Contains("selected"))
+                {
+                    b.BringIntoView();
+                    break;
+                }
+            }
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void RefreshModelPickerIfOpen()
+    {
+        if (_suppressPickerRebuild) return;
+        if (_modelPickerPopup is { IsOpen: true })
+            BuildModelPickerRows();
+    }
+
+    private void RefreshModelPickerSelectionIfOpen()
+    {
+        if (_modelPickerPopup is not { IsOpen: true } || _suppressPickerRebuild)
+            return;
+
+        UpdateModelPickerSelectionVisuals(SelectedModel);
+        RebuildEffortSection();
+    }
+
+    private void RefreshModelPickerEffortIfOpen()
+    {
+        if (_modelPickerPopup is not { IsOpen: true })
+            return;
+
+        if (_suppressPickerRebuild)
+        {
+            Dispatcher.UIThread.Post(RefreshModelPickerEffortIfOpen, DispatcherPriority.Background);
+            return;
+        }
+
+        RebuildEffortSection();
+    }
+
+    private void RefreshModelPickerQualityIfOpen()
+    {
+        if (_modelPickerPopup is not { IsOpen: true })
+            return;
+
+        if (_suppressPickerRebuild)
+        {
+            Dispatcher.UIThread.Post(RefreshModelPickerQualityIfOpen, DispatcherPriority.Background);
+            return;
+        }
+
+        UpdateEffortActiveState();
+    }
+
+    private void BuildModelPickerRows()
+    {
+        if (_modelPickerList is null) return;
+        _modelPickerList.Children.Clear();
+
+        if (Models is null) return;
+
+        // Collect models and group them
+        string? lastGroup = null;
+
+        foreach (var model in Models)
+        {
+            var modelStr = model?.ToString() ?? "";
+            var group = GetModelGroup(modelStr);
+
+            // Group header when provider changes
+            if (group != lastGroup)
+            {
+                if (lastGroup is not null)
+                {
+                    var sep = new Border { Height = 1, Margin = new Thickness(10, 5) };
+                    sep.Classes.Add("model-picker-separator");
+                    _modelPickerList.Children.Add(sep);
+                }
+
+                var header = new TextBlock
+                {
+                    Text = GetModelGroupLabel(group),
+                    FontSize = 10,
+                    FontWeight = FontWeight.SemiBold,
+                    LetterSpacing = 0.8,
+                    Margin = new Thickness(12, group == lastGroup ? 4 : 6, 12, 3)
+                };
+                header.Classes.Add("model-picker-group-header");
+                _modelPickerList.Children.Add(header);
+
+                lastGroup = group;
+            }
+
+            var isSelected = Equals(model, SelectedModel);
+            _modelPickerList.Children.Add(CreateModelRow(model, modelStr, isSelected));
+        }
+
+        // Build the fixed effort section at the bottom
+        RebuildEffortSection();
+    }
+
+    private void RebuildEffortSection()
+    {
+        if (_effortSection is null) return;
+        _effortSection.Children.Clear();
+
+        if (QualityLevels is null || SelectedModel is null)
+            return;
+
+        // Separator
+        var sep = new Border { Height = 1, Margin = new Thickness(10, 4) };
+        sep.Classes.Add("model-picker-separator");
+        _effortSection.Children.Add(sep);
+
+        // Label
+        var label = new TextBlock
+        {
+            Text = "REASONING EFFORT",
+            FontSize = 9.5,
+            FontWeight = FontWeight.SemiBold,
+            LetterSpacing = 0.6,
+            Margin = new Thickness(14, 4, 10, 4)
+        };
+        label.Classes.Add("effort-label");
+        _effortSection.Children.Add(label);
+
+        // Toggle bar
+        var toggleBorder = new Border
+        {
+            Margin = new Thickness(8, 0, 8, 4),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(3)
+        };
+        toggleBorder.Classes.Add("model-effort-toggle");
+
+        var colCount = 0;
+        foreach (var _ in QualityLevels) colCount++;
+
+        var colDefs = string.Join(",", Enumerable.Range(0, colCount).Select(_ => "*"));
+        var grid = new Grid { ColumnDefinitions = ColumnDefinitions.Parse(colDefs) };
+
+        var col = 0;
+        foreach (var level in QualityLevels)
+        {
+            var isActive = Equals(level, SelectedQuality);
+            var btn = new Button
+            {
+                Content = level?.ToString() ?? "",
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            btn.Classes.Add("effort-seg");
+            if (isActive) btn.Classes.Add("active");
+
+            var capturedLevel = level;
+            btn.Click += (_, _) =>
+            {
+                _suppressPickerRebuild = true;
+                SelectedQuality = capturedLevel;
+                // Update active state in-place — just toggle CSS classes
+                foreach (var child in grid.Children)
+                {
+                    if (child is Button b)
+                    {
+                        if (Equals(b.Content, capturedLevel?.ToString()))
+                        {
+                            if (!b.Classes.Contains("active")) b.Classes.Add("active");
+                        }
+                        else
+                        {
+                            b.Classes.Remove("active");
+                        }
+                    }
+                }
+                Dispatcher.UIThread.Post(() => _suppressPickerRebuild = false, DispatcherPriority.Background);
+            };
+
+            Grid.SetColumn(btn, col++);
+            grid.Children.Add(btn);
+        }
+
+        toggleBorder.Child = grid;
+        _effortSection.Children.Add(toggleBorder);
+    }
+
+    private static string GetModelGroup(string modelId)
+    {
+        var lower = modelId.ToLowerInvariant();
+        if (lower.StartsWith("claude")) return "claude";
+        if (lower.StartsWith("gpt")) return "gpt";
+        if (lower.StartsWith("o1") || lower.StartsWith("o3") || lower.StartsWith("o4")) return "reasoning";
+        if (lower.StartsWith("gemini")) return "gemini";
+        return "other";
+    }
+
+    private static string GetModelGroupLabel(string group) => group switch
+    {
+        "claude" => "ANTHROPIC",
+        "gpt" => "OPENAI",
+        "reasoning" => "REASONING",
+        "gemini" => "GOOGLE",
+        _ => "OTHER"
+    };
+
+    private static string GetModelTier(string modelId)
+    {
+        var lower = modelId.ToLowerInvariant();
+        if (lower.Contains("opus")) return "premium";
+        if (lower.Contains("pro")) return "premium";
+        if (lower.Contains("haiku")) return "fast";
+        if (lower.Contains("mini")) return "fast";
+        if (lower.Contains("codex-max") || lower.Contains("codex max")) return "max";
+        if (lower.Contains("codex")) return "code";
+        if (lower.Contains("1m") || lower.Contains("2m")) return "extended";
+        if (IsReasoningCapable(modelId)) return "reasoning";
+        return "";
+    }
+
+    private static bool IsReasoningCapable(string modelId)
+    {
+        var lower = modelId.ToLowerInvariant();
+        return lower.StartsWith("o1") || lower.StartsWith("o3") || lower.StartsWith("o4")
+            || lower.Contains("think");
+    }
+
+    private Border CreateModelRow(object model, string modelStr, bool isSelected)
+    {
+        var grid = new Grid { ColumnDefinitions = ColumnDefinitions.Parse("20,*,Auto") };
+
+        // Column 0: selection indicator (accent dot)
+        var dot = new Border
+        {
+            Width = 6, Height = 6,
+            CornerRadius = new CornerRadius(3),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            IsVisible = isSelected
+        };
+        dot.Classes.Add("model-picker-dot");
+        Grid.SetColumn(dot, 0);
+        grid.Children.Add(dot);
+
+        // Column 1: model name via template or plain text
+        if (ModelItemTemplate is not null)
+        {
+            var presenter = new ContentPresenter
+            {
+                Content = model,
+                ContentTemplate = ModelItemTemplate,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(presenter, 1);
+            grid.Children.Add(presenter);
+        }
+        else
+        {
+            var name = new TextBlock { Text = modelStr };
+            name.Classes.Add("model-name");
+            Grid.SetColumn(name, 1);
+            grid.Children.Add(name);
+        }
+
+        // Column 2: tier badge
+        var tier = GetModelTier(modelStr);
+        if (!string.IsNullOrEmpty(tier))
+        {
+            var badge = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(5, 1),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0),
+                Child = new TextBlock
+                {
+                    Text = tier,
+                    FontSize = 9.5,
+                    FontWeight = FontWeight.Medium,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            };
+            badge.Classes.Add("model-tier-badge");
+            if (tier is "premium" or "max" or "extended")
+                badge.Classes.Add("tier-premium");
+            else if (tier is "fast")
+                badge.Classes.Add("tier-fast");
+            else if (tier is "reasoning")
+                badge.Classes.Add("tier-reasoning");
+            else
+                badge.Classes.Add("tier-default");
+            Grid.SetColumn(badge, 2);
+            grid.Children.Add(badge);
+        }
+
+        var border = new Border
+        {
+            Child = grid,
+            Padding = new Thickness(8, 7, 10, 7),
+            CornerRadius = new CornerRadius(8),
+            Cursor = new Cursor(StandardCursorType.Hand)
+        };
+        border.Classes.Add("model-picker-row");
+        if (isSelected) border.Classes.Add("selected");
+
+        var capturedModel = model;
+        border.PointerPressed += (_, pe) =>
+        {
+            if (!pe.GetCurrentPoint(border).Properties.IsLeftButtonPressed) return;
+            pe.Handled = true;
+            // Update visual selection state in-place (no full rebuild)
+            UpdateModelPickerSelection(capturedModel);
+        };
+
+        return border;
+    }
+
+    /// <summary>Updates selection dots and effort section without full list rebuild.</summary>
+    private void UpdateModelPickerSelection(object newModel)
+    {
+        _suppressPickerRebuild = true;
+        SelectedModel = newModel;
+
+        UpdateModelPickerSelectionVisuals(newModel);
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            _suppressPickerRebuild = false;
+            RefreshModelPickerEffortIfOpen();
+        }, DispatcherPriority.Background);
+    }
+
+    private void UpdateModelPickerSelectionVisuals(object? selectedModel)
+    {
+        if (_modelPickerList is null)
+            return;
+
+        foreach (var child in _modelPickerList.Children)
+        {
+            if (child is not Border b || !b.Classes.Contains("model-picker-row"))
+                continue;
+
+            if (b.Child is not Grid g || g.Children.Count == 0 || g.Children[0] is not Border dot)
+                continue;
+
+            var isNowSelected = false;
+            for (var i = 1; i < g.Children.Count; i++)
+            {
+                if (g.Children[i] is ContentPresenter cp && Equals(cp.Content, selectedModel))
+                {
+                    isNowSelected = true;
+                    break;
+                }
+
+                if (g.Children[i] is TextBlock tb
+                    && tb.Classes.Contains("model-name")
+                    && Equals(tb.Text, selectedModel?.ToString()))
+                {
+                    isNowSelected = true;
+                    break;
+                }
+            }
+
+            dot.IsVisible = isNowSelected;
+            if (isNowSelected)
+            {
+                if (!b.Classes.Contains("selected"))
+                    b.Classes.Add("selected");
+            }
+            else
+            {
+                b.Classes.Remove("selected");
+            }
+        }
+    }
+
+    /// <summary>Updates only the active class on effort toggle buttons, no child add/remove.</summary>
+    private void UpdateEffortActiveState()
+    {
+        if (_effortSection is null) return;
+
+        // If quality levels changed and effort section is stale, rebuild once
+        if (QualityLevels is not null && _effortSection.Children.Count == 0)
+        {
+            RebuildEffortSection();
+            return;
+        }
+        if (QualityLevels is null && _effortSection.Children.Count > 0)
+        {
+            _effortSection.Children.Clear();
+            return;
+        }
+
+        // Find the grid inside the effort toggle border
+        foreach (var child in _effortSection.Children)
+        {
+            if (child is Border b && b.Classes.Contains("model-effort-toggle") && b.Child is Grid effortGrid)
+            {
+                var selectedQuality = SelectedQuality?.ToString();
+                foreach (var gc in effortGrid.Children)
+                {
+                    if (gc is not Button btn) continue;
+                    if (btn.Content?.ToString() == selectedQuality)
+                    {
+                        if (!btn.Classes.Contains("active")) btn.Classes.Add("active");
+                    }
+                    else
+                    {
+                        btn.Classes.Remove("active");
+                    }
+                }
+                break;
+            }
+        }
+    }
+
     private void OnSkillItemsChanged()
     {
         if (_subscribedSkillCollection is not null)
@@ -1707,15 +2191,6 @@ public class StrataChatComposer : TemplatedControl
             foreach (var item in Models)
             {
                 SelectedModel = item;
-                break;
-            }
-        }
-
-        if (QualityLevels is not null && SelectedQuality is null)
-        {
-            foreach (var item in QualityLevels)
-            {
-                SelectedQuality = item;
                 break;
             }
         }

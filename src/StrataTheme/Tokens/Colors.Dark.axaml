@@ -99,6 +99,7 @@
   <SolidColorBrush x:Key="Brush.Background" Color="{DynamicResource Color.Background}" />
   <SolidColorBrush x:Key="Brush.Surface0" Color="{DynamicResource Color.Surface0}" />
   <SolidColorBrush x:Key="Brush.Surface1" Color="{DynamicResource Color.Surface1}" />
+  <SolidColorBrush x:Key="Brush.Surface1Translucent" Color="{DynamicResource Color.Surface1}" Opacity="0.78" />
   <SolidColorBrush x:Key="Brush.Surface2" Color="{DynamicResource Color.Surface2}" />
   <SolidColorBrush x:Key="Brush.SurfaceOverlay" Color="{DynamicResource Color.SurfaceOverlay}" />
 
