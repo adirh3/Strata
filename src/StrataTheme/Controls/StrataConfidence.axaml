@@ -61,6 +61,7 @@
                 <Border Name="PART_Fill"
                         Height="8"
                         Width="0"
+                        HorizontalAlignment="Left"
                         CornerRadius="999"
                         Background="{DynamicResource Brush.SelectionGradient}">
                   <Border.Transitions>
