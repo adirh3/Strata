@@ -25,7 +25,12 @@ namespace StrataTheme.Controls;
 /// <summary>Lightweight chip data for agent, skill, or MCP display in the composer.</summary>
 /// <param name="Name">Display label.</param>
 /// <param name="Glyph">Single-character icon (default "✦").</param>
-public record StrataComposerChip(string Name, string Glyph = "✦");
+/// <param name="ErrorMessage">If set, the chip displays in an error state with this tooltip.</param>
+public record StrataComposerChip(string Name, string Glyph = "✦", string? ErrorMessage = null)
+{
+    /// <summary>True when the chip has an error (e.g., MCP server failed to connect).</summary>
+    public bool HasError => ErrorMessage is not null;
+}
 
 /// <summary>The kind of autocomplete entry or chip.</summary>
 public enum ChipKind { Agent, Skill, Mcp, Project, File }
@@ -1231,6 +1236,16 @@ public class StrataChatComposer : TemplatedControl
         return false;
     }
 
+    private StrataComposerChip? FindActiveMcpChip(string name)
+    {
+        if (McpItems is null) return null;
+        foreach (var item in McpItems)
+        {
+            if (item is StrataComposerChip sc && sc.Name == name) return sc;
+        }
+        return null;
+    }
+
     private static Control CreateSectionHeader(string label)
     {
         var tb = new TextBlock { Text = label };
@@ -1452,11 +1467,20 @@ public class StrataChatComposer : TemplatedControl
     {
         if (_mcpCountText is null) return;
         if (total == 0)
+        {
             _mcpCountText.Text = "";
-        else if (active == total)
-            _mcpCountText.Text = $"All ({total})";
+        }
         else
-            _mcpCountText.Text = $"{active}/{total}";
+        {
+            // Check if any active MCP has an error
+            var hasErrors = McpItems is not null && McpItems.OfType<StrataComposerChip>().Any(c => c.HasError);
+            if (hasErrors)
+                _mcpCountText.Text = active == total ? $"⚠ ({total})" : $"⚠ {active}/{total}";
+            else if (active == total)
+                _mcpCountText.Text = $"All ({total})";
+            else
+                _mcpCountText.Text = $"{active}/{total}";
+        }
     }
 
     // ── MCP button popup ───────────────────────────────────────────
@@ -1474,6 +1498,10 @@ public class StrataChatComposer : TemplatedControl
         {
             var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
             var isActive = IsAlreadyActiveMcp(chip);
+
+            // Check if the active chip has an error (e.g., MCP server failed to connect)
+            var activeChip = isActive ? FindActiveMcpChip(chip.Name) : null;
+            var hasError = activeChip?.HasError == true;
 
             var cb = new CheckBox
             {
@@ -1498,11 +1526,44 @@ public class StrataChatComposer : TemplatedControl
             dp.Children.Add(cb);
             DockPanel.SetDock(cb, Dock.Left);
             nameText.Margin = new Thickness(10, 0, 0, 0);
+
+            if (hasError)
+            {
+                nameText.Opacity = 0.6;
+                var statusDot = new Border
+                {
+                    Width = 6, Height = 6,
+                    CornerRadius = new CornerRadius(3),
+                    Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E05252")),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 6, 0)
+                };
+                dp.Children.Add(statusDot);
+                DockPanel.SetDock(statusDot, Dock.Right);
+            }
+
             dp.Children.Add(nameText);
+
+            var outerPanel = new StackPanel { Spacing = 2 };
+            outerPanel.Children.Add(dp);
+
+            if (hasError && activeChip?.ErrorMessage is { } errMsg)
+            {
+                var errorText = new TextBlock
+                {
+                    Text = errMsg,
+                    FontSize = 10,
+                    Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E05252")),
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                    Margin = new Thickness(26, 0, 0, 0),
+                    Opacity = 0.9
+                };
+                outerPanel.Children.Add(errorText);
+            }
 
             var border = new Border
             {
-                Child = dp,
+                Child = outerPanel,
                 Padding = new Thickness(10, 7),
                 CornerRadius = new CornerRadius(6),
                 Cursor = new Cursor(StandardCursorType.Hand)
@@ -2135,12 +2196,16 @@ public class StrataChatComposer : TemplatedControl
     {
         var name = item is StrataComposerChip c ? c.Name : item?.ToString() ?? "";
         var glyph = item is StrataComposerChip sc ? sc.Glyph : "✦";
+        var hasError = item is StrataComposerChip ec && ec.HasError;
+        var errorMessage = item is StrataComposerChip emc ? emc.ErrorMessage : null;
 
-        var glyphText = new TextBlock { Text = glyph };
+        var glyphText = new TextBlock { Text = hasError ? "⚠" : glyph };
         glyphText.Classes.Add("chip-glyph");
+        if (hasError) glyphText.Classes.Add("chip-error");
 
         var nameText = new TextBlock { Text = name };
         nameText.Classes.Add("chip-name");
+        if (hasError) nameText.Classes.Add("chip-error");
 
         var removeIcon = new TextBlock { Text = "×" };
         removeIcon.Classes.Add("chip-remove-icon");
@@ -2181,6 +2246,12 @@ public class StrataChatComposer : TemplatedControl
 
         var border = new Border { Child = panel };
         border.Classes.Add(cssClass);
+        if (hasError)
+        {
+            border.Classes.Add("chip-error-state");
+            if (!string.IsNullOrWhiteSpace(errorMessage))
+                ToolTip.SetTip(border, errorMessage);
+        }
         return border;
     }
 

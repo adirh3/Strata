@@ -685,6 +685,15 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
+  <!-- Error state for chips (e.g., MCP server failed to connect) -->
+  <Style Selector="Border.chip-error-state">
+    <Setter Property="BorderBrush" Value="#CC4444" />
+    <Setter Property="Opacity" Value="0.85" />
+  </Style>
+  <Style Selector="TextBlock.chip-error">
+    <Setter Property="Foreground" Value="#CC4444" />
+  </Style>
+
   <!-- MCP popup item styles -->
   <Style Selector="Border.mcp-popup-item">
     <Setter Property="Background" Value="#00000000" />
