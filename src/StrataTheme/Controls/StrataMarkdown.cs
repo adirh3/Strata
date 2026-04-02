@@ -1517,12 +1517,14 @@ public class StrataMarkdown : ContentControl
 
     /// <summary>Returns true for block kinds that can be merged into a single SelectableTextBlock when consecutive.</summary>
     private static bool IsMergeableKind(MdBlockKind kind) =>
-        kind is MdBlockKind.Bullet or MdBlockKind.NumberedItem;
+        kind is MdBlockKind.Paragraph or MdBlockKind.Heading or MdBlockKind.Bullet
+            or MdBlockKind.NumberedItem or MdBlockKind.TaskItem;
 
     /// <summary>
     /// Scans blocks and produces groups of consecutive mergeable blocks.
-    /// Only homogeneous list runs are merged so headings and paragraphs always keep
-    /// their dedicated controls and styling during incremental streaming updates.
+    /// All text-based block kinds (paragraphs, headings, bullets, numbered items,
+    /// task items) merge into a single group. Per-block formatting is applied
+    /// via Run-level styling in <see cref="PopulateMergedInlines"/>.
     /// </summary>
     private static void ComputeGroups(IReadOnlyList<MdBlock> blocks, List<MdBlockGroup> groups)
     {
@@ -1542,13 +1544,9 @@ public class StrataMarkdown : ContentControl
 
             int groupStart = i;
             i++;
-            while (i < blocks.Count &&
-                   blocks[i].Kind == block.Kind &&
-                   (block.Kind != MdBlockKind.Bullet || blocks[i].Level == block.Level))
-            {
+            while (i < blocks.Count && IsMergeableKind(blocks[i].Kind))
                 i++;
-            }
-            groups.Add(new MdBlockGroup(groupStart, i - groupStart, block.Kind, block.Level));
+            groups.Add(new MdBlockGroup(groupStart, i - groupStart, MdBlockKind.Paragraph, 0));
         }
     }
 
@@ -2608,24 +2606,39 @@ public class StrataMarkdown : ContentControl
         return WrapWithCodeLayer(textBlock);
     }
 
-    private void ConfigureMergedTextBlock(SelectableTextBlock tb, MdBlockGroup group)
+    private void ConfigureMergedTextBlock(SelectableTextBlock tb, MdBlockGroup group, IReadOnlyList<MdBlock>? blocks = null)
     {
         var isRtl = FlowDirection == FlowDirection.RightToLeft;
         tb.FontSize = _bodyFontSize;
+        tb.FontWeight = FontWeight.Normal;
         tb.LineHeight = _bodyFontSize * 1.52;
         tb.TextWrapping = TextWrapping.Wrap;
         tb.TextAlignment = isRtl ? TextAlignment.Right : TextAlignment.Left;
         tb.ClipToBounds = false;
         tb.Padding = isRtl ? RtlTextPadding : ZeroThickness;
-        tb.Margin = group.Kind == MdBlockKind.Bullet && group.Level > 0
-            ? new Thickness(group.Level * 16, 0, 0, 0)
-            : ZeroThickness;
+        tb.Opacity = 1d;
+        tb.TextDecorations = null;
+
+        // Margin: bullet indent, or heading top-margin when prose group starts with heading
+        if (group.Kind == MdBlockKind.Bullet && group.Level > 0)
+            tb.Margin = new Thickness(group.Level * 16, 0, 0, 0);
+        else if (blocks != null && blocks[group.StartIndex].Kind == MdBlockKind.Heading)
+        {
+            var level = blocks[group.StartIndex].Level;
+            tb.Margin = new Thickness(0, level switch { 1 => 14, 2 => 10, _ => 6 }, 0, 2);
+        }
+        else
+            tb.Margin = ZeroThickness;
 
         tb.Classes.Remove("strata-md-paragraph");
         tb.Classes.Remove("strata-md-bullet-text");
-        tb.Classes.Add(group.Kind is MdBlockKind.Bullet or MdBlockKind.NumberedItem
-            ? "strata-md-bullet-text"
-            : "strata-md-paragraph");
+        tb.Classes.Remove("strata-md-task-text");
+        tb.Classes.Add(group.Kind switch
+        {
+            MdBlockKind.Bullet or MdBlockKind.NumberedItem => "strata-md-bullet-text",
+            MdBlockKind.TaskItem => "strata-md-task-text",
+            _ => "strata-md-paragraph",
+        });
     }
 
     /// <summary>
@@ -2639,7 +2652,7 @@ public class StrataMarkdown : ContentControl
             return CreateControlForBlock(blocks[group.StartIndex]);
 
         var tb = new SelectableTextBlock();
-        ConfigureMergedTextBlock(tb, group);
+        ConfigureMergedTextBlock(tb, group, blocks);
 
         var hasLinks = PopulateMergedInlines(tb, blocks, group);
         if (hasLinks)
@@ -2661,7 +2674,7 @@ public class StrataMarkdown : ContentControl
         if (tb is null)
             return false;
 
-        ConfigureMergedTextBlock(tb, group);
+        ConfigureMergedTextBlock(tb, group, blocks);
         RemoveLinkRunsForTextBlock(tb);
         tb.Text = null;
         tb.Inlines?.Clear();
@@ -2696,20 +2709,59 @@ public class StrataMarkdown : ContentControl
         {
             var block = blocks[group.StartIndex + i];
 
-            // Add spacing between items
+            // Spacing between items: single LineBreak for consecutive same-kind list items,
+            // double LineBreak for everything else (paragraph separation, kind transitions).
             if (i > 0)
             {
+                var prev = blocks[group.StartIndex + i - 1];
+                bool sameKindList = block.Kind == prev.Kind &&
+                    block.Kind is MdBlockKind.Bullet or MdBlockKind.NumberedItem or MdBlockKind.TaskItem;
                 tb.Inlines?.Add(new LineBreak());
+                if (!sameKindList)
+                    tb.Inlines?.Add(new LineBreak());
             }
 
             string? prefix = block.Kind switch
             {
+                MdBlockKind.Bullet when block.Level > 0 => $"{new string(' ', block.Level * 4)}• ",
                 MdBlockKind.Bullet => "• ",
                 MdBlockKind.NumberedItem => $"{block.Level}. ",
+                MdBlockKind.TaskItem => block.Level == 1 ? "☑ " : "☐ ",
                 _ => null,
             };
 
+            int inlinesBefore = tb.Inlines?.Count ?? 0;
             hasLinks |= AppendFormattedInlines(tb, block.Content, prefix, forceInlines: true);
+
+            // Apply heading formatting to newly added inlines (skip InlineCodeRun
+            // to preserve its own FontSize and avoid shifting HitTestTextRange metrics)
+            if (block.Kind == MdBlockKind.Heading && tb.Inlines != null)
+            {
+                var fontSize = block.Level switch
+                {
+                    1 => _bodyFontSize * 1.28,
+                    2 => _bodyFontSize * 1.12,
+                    _ => _bodyFontSize * 1.04
+                };
+                for (int j = inlinesBefore; j < tb.Inlines.Count; j++)
+                {
+                    if (tb.Inlines[j] is Run run and not InlineCodeRun)
+                    {
+                        run.FontSize = fontSize;
+                        run.FontWeight = FontWeight.SemiBold;
+                    }
+                }
+            }
+
+            // Apply strikethrough for checked task items
+            if (block.Kind == MdBlockKind.TaskItem && block.Level == 1 && tb.Inlines != null)
+            {
+                for (int j = inlinesBefore; j < tb.Inlines.Count; j++)
+                {
+                    if (tb.Inlines[j] is Run run and not InlineCodeRun)
+                        run.TextDecorations = TextDecorations.Strikethrough;
+                }
+            }
         }
 
         return hasLinks;
@@ -3010,6 +3062,7 @@ public class StrataMarkdown : ContentControl
                     charOffset += inline switch
                     {
                         Run run => run.Text?.Length ?? 0,
+                        LineBreak => Environment.NewLine.Length,
                         _ => 1, // InlineUIContainer replacement character
                     };
                 }
