@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -39,6 +40,9 @@ public class StrataQuestionCard : TemplatedControl
     public static readonly StyledProperty<string?> OptionsProperty =
         AvaloniaProperty.Register<StrataQuestionCard, string?>(nameof(Options));
 
+    public static readonly StyledProperty<IList<string>?> OptionsListProperty =
+        AvaloniaProperty.Register<StrataQuestionCard, IList<string>?>(nameof(OptionsList));
+
     public static readonly StyledProperty<bool> AllowFreeTextProperty =
         AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(AllowFreeText), true);
 
@@ -60,6 +64,7 @@ public class StrataQuestionCard : TemplatedControl
     static StrataQuestionCard()
     {
         OptionsProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.RebuildOptions());
+        OptionsListProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.RebuildOptions());
         IsAnsweredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         IsExpiredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnIsExpiredChanged());
         AllowFreeTextProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
@@ -69,8 +74,11 @@ public class StrataQuestionCard : TemplatedControl
     /// <summary>The question text displayed as the card header.</summary>
     public string? Question { get => GetValue(QuestionProperty); set => SetValue(QuestionProperty, value); }
 
-    /// <summary>Comma-separated list of option labels.</summary>
+    /// <summary>Comma-separated list of option labels. Prefer <see cref="OptionsList"/> for options that may contain commas.</summary>
     public string? Options { get => GetValue(OptionsProperty); set => SetValue(OptionsProperty, value); }
+
+    /// <summary>List of option labels. Takes precedence over <see cref="Options"/> when set.</summary>
+    public IList<string>? OptionsList { get => GetValue(OptionsListProperty); set => SetValue(OptionsListProperty, value); }
 
     /// <summary>Whether to show a free-text input below the options.</summary>
     public bool AllowFreeText { get => GetValue(AllowFreeTextProperty); set => SetValue(AllowFreeTextProperty, value); }
@@ -176,12 +184,17 @@ public class StrataQuestionCard : TemplatedControl
         }
         _optionsPanel.Children.Clear();
 
-        var options = Options;
-        if (string.IsNullOrWhiteSpace(options)) return;
-
-        foreach (var raw in options.Split(','))
+        // Prefer OptionsList (proper list) over Options (comma-separated string)
+        IEnumerable<string>? items = OptionsList;
+        if (items is null)
         {
-            var opt = raw.Trim();
+            var options = Options;
+            if (string.IsNullOrWhiteSpace(options)) return;
+            items = options.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0);
+        }
+
+        foreach (var opt in items)
+        {
             if (string.IsNullOrEmpty(opt)) continue;
 
             var btn = new Button
