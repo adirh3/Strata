@@ -974,6 +974,8 @@ public class StrataChatShell : TemplatedControl
     /// <summary>
     /// Re-evaluates whether the scroll-to-bottom badge should be visible.
     /// True when the user is scrolled away AND either streaming or unseen messages exist.
+    /// The badge pulses only while actively streaming; it shows as a static dot
+    /// for unseen content when streaming has ended.
     /// </summary>
     private void UpdateHasNewContent()
     {
@@ -981,12 +983,13 @@ public class StrataChatShell : TemplatedControl
 
         PseudoClasses.Set(":has-new-content", hasNew);
 
-        var prev = _hasNewContent;
         HasNewContent = hasNew;
 
-        if (hasNew && !prev)
+        var shouldPulse = hasNew && IsStreaming;
+
+        if (shouldPulse && !_isNewContentPulseRunning)
             StartNewContentPulse();
-        else if (!hasNew && prev)
+        else if (!shouldPulse && _isNewContentPulseRunning)
             StopNewContentPulse();
     }
 
