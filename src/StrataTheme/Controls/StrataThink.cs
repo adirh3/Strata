@@ -302,17 +302,34 @@ public class StrataThink : TemplatedControl
         if (_pill is null)
             return;
 
+        var width = GetAvailableWidth();
+        width = Math.Min(width, GetExpandedMaxWidth());
+
+        _pill.Width = width;
+    }
+
+    private double GetAvailableWidth()
+    {
         var width = Bounds.Width;
-        if (width < 1 && Parent is Control parent)
-            width = parent.Bounds.Width;
+        for (var ancestor = Parent as Control; ancestor is not null; ancestor = ancestor.Parent as Control)
+        {
+            if (ancestor.Bounds.Width > width)
+                width = ancestor.Bounds.Width;
+        }
 
         if (width < 1)
             width = 420;
 
-        // Cap expanded width so the pill doesn't stretch across the full chat area.
-        width = Math.Min(width, 480);
+        return width;
+    }
 
-        _pill.Width = width;
+    private double GetExpandedMaxWidth()
+    {
+        var maxWidth = MaxWidth;
+        if (!double.IsNaN(maxWidth) && !double.IsInfinity(maxWidth) && maxWidth > 0)
+            return maxWidth;
+
+        return 480;
     }
 
     private void ScheduleExpandedReveal()

@@ -97,9 +97,6 @@ public class StrataTerminalPreview : TemplatedControl
     public string StatusText => Status switch
     {
         StrataAiToolCallStatus.InProgress => "Running",
-        StrataAiToolCallStatus.Completed when DurationMs > 0 => DurationMs >= 1000
-            ? $"{DurationMs / 1000d:F1}s"
-            : $"{DurationMs:F0}ms",
         StrataAiToolCallStatus.Completed => "Completed",
         StrataAiToolCallStatus.Failed => "Failed",
         _ => ""

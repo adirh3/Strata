@@ -8,7 +8,7 @@
         <Setter Property="Template">
           <ControlTemplate>
             <!-- Single rounded container — fixed radius, just grows in height -->
-            <Border Name="PART_Pill"
+             <Border Name="PART_Pill"
                     Background="{DynamicResource Brush.ControlDefault}"
                     BorderBrush="{DynamicResource Brush.ControlElevationBorder}"
                     BorderThickness="{DynamicResource Stroke.Thin}"
@@ -97,7 +97,7 @@
                     <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,6,0,6" />
                     <Border Padding="0,0,2,0">
                       <ContentPresenter Content="{TemplateBinding DisplayedContent}"
-                                        HorizontalAlignment="Left" />
+                                        HorizontalAlignment="Stretch" />
                     </Border>
                   </StackPanel>
                 </Border>
