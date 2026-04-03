@@ -656,6 +656,17 @@ public class StrataChatShell : TemplatedControl
         if (IsLikelyLayoutDrivenOffsetChange(e, offsetDeltaY))
             return;
 
+        // When following the tail, any offset change accompanied by an extent
+        // change is a layout shift (tool expand/collapse, content streaming).
+        // Don't break follow mode — re-pin to bottom instead.
+        // User scroll-away intent is captured by dedicated wheel/pointer handlers.
+        if (!_userScrolledAway && Math.Abs(e.ExtentDelta.Y) > UserScrollDeltaThreshold)
+        {
+            QueueScrollToEnd(force: false);
+            RaiseTranscriptViewportChanged();
+            return;
+        }
+
         MarkTranscriptScrollingActive();
 
         var distanceFromBottom = DistanceFromBottom(_scrollViewer);
