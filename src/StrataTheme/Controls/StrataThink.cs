@@ -157,6 +157,8 @@ public class StrataThink : TemplatedControl
         if (Parent is Control parent)
             parent.SizeChanged += OnParentSizeChanged;
 
+        LayoutUpdated += OnLayoutUpdated;
+
         if (IsActive)
             Dispatcher.UIThread.Post(() => { if (IsActive) StartPulse(); }, DispatcherPriority.Loaded);
     }
@@ -170,6 +172,8 @@ public class StrataThink : TemplatedControl
 
         if (Parent is Control parent)
             parent.SizeChanged -= OnParentSizeChanged;
+
+        LayoutUpdated -= OnLayoutUpdated;
 
         CancelExpandedReveal();
         StopPulse();
@@ -257,6 +261,7 @@ public class StrataThink : TemplatedControl
             ScheduleExpandedReveal();
         }
 
+        ScheduleExpandedWidthRefresh();
         ScheduleMaxHeightUncap();
     }
 
@@ -266,6 +271,12 @@ public class StrataThink : TemplatedControl
             ApplyExpandedWidth();
         else
             ApplyCollapsedWidth();
+    }
+
+    private void OnLayoutUpdated(object? sender, EventArgs e)
+    {
+        if (IsExpanded)
+            ApplyExpandedWidth();
     }
 
     private void ApplyWidthForState()
@@ -305,22 +316,23 @@ public class StrataThink : TemplatedControl
         var width = GetAvailableWidth();
         width = Math.Min(width, GetExpandedMaxWidth());
 
-        _pill.Width = width;
+        if (width > 1 && (double.IsNaN(_pill.Width) || Math.Abs(_pill.Width - width) > 0.5))
+            _pill.Width = width;
     }
 
     private double GetAvailableWidth()
     {
-        var width = Bounds.Width;
         for (var ancestor = Parent as Control; ancestor is not null; ancestor = ancestor.Parent as Control)
         {
-            if (ancestor.Bounds.Width > width)
-                width = ancestor.Bounds.Width;
+            var ancestorWidth = ancestor.Bounds.Width;
+            if (ancestorWidth > 1)
+                return ancestorWidth;
         }
 
-        if (width < 1)
-            width = 420;
+        if (Bounds.Width > 1)
+            return Bounds.Width;
 
-        return width;
+        return 420;
     }
 
     private double GetExpandedMaxWidth()
@@ -382,6 +394,13 @@ public class StrataThink : TemplatedControl
             return;
 
         _contentHost.MaxHeight = double.PositiveInfinity;
+    }
+
+    private void ScheduleExpandedWidthRefresh()
+    {
+        Dispatcher.UIThread.Post(ApplyExpandedWidth, DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(ApplyExpandedWidth, DispatcherPriority.Render);
+        Dispatcher.UIThread.Post(ApplyExpandedWidth, DispatcherPriority.Background);
     }
 
     private void RequestExpandedReveal()
