@@ -70,11 +70,12 @@ public sealed class StrataTranscriptViewportChangedEventArgs : EventArgs
 /// PART_ScrollToBottomButton (Button – scroll-to-bottom action),
 /// PART_NewContentDot (Border – pulsing badge on the scroll-to-bottom button).</para>
 /// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence, :scrolling,
-/// :scrolled-away, :has-new-content.</para>
+/// :scrolled-away, :show-scroll-to-bottom, :has-new-content.</para>
 /// </remarks>
 public class StrataChatShell : TemplatedControl
 {
     private const int ScrollingVisualCooldownMs = 140;
+    private const double BottomSnapThreshold = 8d;
     private const double UserScrollDeltaThreshold = 0.05;
     private const double LayoutShiftDeltaTolerance = 0.2;
     private const double ManualReturnArmDistance = 40d;
@@ -99,7 +100,6 @@ public class StrataChatShell : TemplatedControl
     private bool _hasUnseenContent;
     private bool _isNewContentPulseRunning;
     private bool _hasNewContent;
-    private bool _scrollbarReturnToBottomArmed;
     private double _maxDistanceFromBottomWhileScrolledAway;
 
 
@@ -187,7 +187,7 @@ public class StrataChatShell : TemplatedControl
     public double ViewportHeight => _scrollViewer?.Viewport.Height ?? 0d;
     public double ExtentHeight => _scrollViewer?.Extent.Height ?? 0d;
     public double CurrentDistanceFromBottom => _scrollViewer is null ? 0d : DistanceFromBottom(_scrollViewer);
-    public bool IsPinnedToBottom => !_userScrolledAway && CurrentDistanceFromBottom <= 8d;
+    public bool IsPinnedToBottom => !_userScrolledAway && CurrentDistanceFromBottom <= BottomSnapThreshold;
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -198,7 +198,6 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.ScrollChanged -= OnScrollChanged;
             _scrollViewer.RemoveHandler(InputElement.PointerWheelChangedEvent, OnUserWheelScroll);
             _scrollViewer.RemoveHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed);
-            _scrollViewer.RemoveHandler(InputElement.PointerReleasedEvent, OnTranscriptPointerReleased);
         }
 
         if (_scrollToBottomButton is not null)
@@ -214,7 +213,6 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.ScrollChanged += OnScrollChanged;
             _scrollViewer.AddHandler(InputElement.PointerWheelChangedEvent, OnUserWheelScroll, RoutingStrategies.Bubble, handledEventsToo: true);
             _scrollViewer.AddHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
-            _scrollViewer.AddHandler(InputElement.PointerReleasedEvent, OnTranscriptPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         }
 
         if (_scrollToBottomButton is not null)
@@ -232,6 +230,7 @@ public class StrataChatShell : TemplatedControl
         PseudoClasses.Set(":has-header", Header is not null);
         PseudoClasses.Set(":has-presence", !string.IsNullOrWhiteSpace(PresenceText));
         PseudoClasses.Set(":scrolled-away", _userScrolledAway);
+        UpdateScrollToBottomButtonVisibility();
 
         _isPulseRunning = false;
         _isNewContentPulseRunning = false;
@@ -251,6 +250,7 @@ public class StrataChatShell : TemplatedControl
         Dispatcher.UIThread.Post(() =>
         {
             UpdatePresencePulse();
+            UpdateScrollToBottomButtonVisibility();
             UpdateHasNewContent();
             ApplyTranscriptAlignment(forceFull: true);
         }, DispatcherPriority.Loaded);
@@ -263,7 +263,6 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.ScrollChanged -= OnScrollChanged;
             _scrollViewer.RemoveHandler(InputElement.PointerWheelChangedEvent, OnUserWheelScroll);
             _scrollViewer.RemoveHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed);
-            _scrollViewer.RemoveHandler(InputElement.PointerReleasedEvent, OnTranscriptPointerReleased);
         }
 
         if (_scrollToBottomButton is not null)
@@ -364,6 +363,8 @@ public class StrataChatShell : TemplatedControl
             _hasUnseenContent = true;
             UpdateHasNewContent();
         }
+
+        Dispatcher.UIThread.Post(UpdateScrollToBottomButtonVisibility, DispatcherPriority.Loaded);
     }
 
     private void ScheduleApplyTranscriptAlignment(bool forceFull = false)
@@ -588,7 +589,6 @@ public class StrataChatShell : TemplatedControl
     /// </summary>
     public void EnterFollowTailMode()
     {
-        _scrollbarReturnToBottomArmed = false;
         _maxDistanceFromBottomWhileScrolledAway = 0;
         _hasUnseenContent = false;
         SetUserScrolledAway(false);
@@ -611,6 +611,7 @@ public class StrataChatShell : TemplatedControl
 
             _isProgrammaticScroll = true;
             _scrollViewer.ScrollToEnd();
+            UpdateScrollToBottomButtonVisibility();
 
             // Second scroll after layout settles — content added during
             // streaming may not be measured until the Loaded pass.
@@ -619,6 +620,7 @@ public class StrataChatShell : TemplatedControl
                 if (_scrollViewer is not null && (force || !_userScrolledAway))
                     _scrollViewer.ScrollToEnd();
 
+                UpdateScrollToBottomButtonVisibility();
                 _isProgrammaticScroll = false;
             }, DispatcherPriority.Loaded);
         }, DispatcherPriority.Render);
@@ -640,13 +642,20 @@ public class StrataChatShell : TemplatedControl
 
         _isProgrammaticScroll = true;
         _scrollViewer.Offset = _scrollViewer.Offset.WithY(clampedOffset);
-        Dispatcher.UIThread.Post(() => _isProgrammaticScroll = false, DispatcherPriority.Loaded);
+        UpdateScrollToBottomButtonVisibility();
+        Dispatcher.UIThread.Post(() =>
+        {
+            UpdateScrollToBottomButtonVisibility();
+            _isProgrammaticScroll = false;
+        }, DispatcherPriority.Loaded);
     }
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         if (_scrollViewer is null || _isProgrammaticScroll)
             return;
+
+        UpdateScrollToBottomButtonVisibility();
 
         var offsetDeltaY = Math.Abs(e.OffsetDelta.Y);
         if (offsetDeltaY < UserScrollDeltaThreshold)
@@ -685,10 +694,8 @@ public class StrataChatShell : TemplatedControl
             SetUserScrolledAway(true);
             _maxDistanceFromBottomWhileScrolledAway = Math.Max(_maxDistanceFromBottomWhileScrolledAway, distanceFromBottom);
         }
-        else if (distanceFromBottom <= 8
-                 && e.OffsetDelta.Y > 0
-                 && (_scrollbarReturnToBottomArmed
-                     || _maxDistanceFromBottomWhileScrolledAway >= ManualReturnArmDistance))
+        else if (distanceFromBottom <= BottomSnapThreshold
+                 && e.OffsetDelta.Y > 0)
         {
             SetUserScrolledAway(false);
         }
@@ -699,10 +706,10 @@ public class StrataChatShell : TemplatedControl
     private void OnUserWheelScroll(object? sender, PointerWheelEventArgs e)
     {
         MarkTranscriptScrollingActive();
-        // Only upward wheel input changes intent directly. Downward return-to-bottom
-        // is handled in OnScrollChanged after the user has clearly entered reader mode,
-        // which avoids precision-touchpad jitter re-enabling follow mode while the
-        // user is still trying to scroll away.
+        // Only upward wheel input changes intent directly. Returning to the tail
+        // is handled once the user actually lands back at the bottom in
+        // OnScrollChanged, which avoids touchpad jitter toggling follow mode
+        // while the user is still mid-scroll.
         if (e.Delta.Y > 0)
             SetUserScrolledAway(true);
     }
@@ -713,13 +720,7 @@ public class StrataChatShell : TemplatedControl
             return;
 
         MarkTranscriptScrollingActive();
-        _scrollbarReturnToBottomArmed = true;
         SetUserScrolledAway(true);
-    }
-
-    private void OnTranscriptPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        _scrollbarReturnToBottomArmed = false;
     }
 
     private void MarkTranscriptScrollingActive()
@@ -934,6 +935,14 @@ public class StrataChatShell : TemplatedControl
         return Math.Max(0d, scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y);
     }
 
+    private void UpdateScrollToBottomButtonVisibility()
+    {
+        var shouldShow = _scrollViewer is not null
+            && DistanceFromBottom(_scrollViewer) > BottomSnapThreshold;
+
+        PseudoClasses.Set(":show-scroll-to-bottom", shouldShow);
+    }
+
     private void RaiseTranscriptViewportChanged()
     {
         if (_scrollViewer is null)
@@ -974,7 +983,6 @@ public class StrataChatShell : TemplatedControl
 
         if (!value)
         {
-            _scrollbarReturnToBottomArmed = false;
             _maxDistanceFromBottomWhileScrolledAway = 0;
             _hasUnseenContent = false;
         }

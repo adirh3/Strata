@@ -229,28 +229,28 @@
         </Style>
 
         <!-- ── Scroll-to-bottom button ── -->
-        <Style Selector="^:scrolled-away /template/ Panel#PART_ScrollToBottomHost">
+        <Style Selector="^:show-scroll-to-bottom /template/ Panel#PART_ScrollToBottomHost">
           <Setter Property="Opacity" Value="1" />
           <Setter Property="IsHitTestVisible" Value="True" />
         </Style>
 
-        <Style Selector="^:scrolled-away /template/ Button#PART_ScrollToBottomButton:pointerover Border#PART_ScrollToBottomChrome">
+        <Style Selector="^:show-scroll-to-bottom /template/ Button#PART_ScrollToBottomButton:pointerover Border#PART_ScrollToBottomChrome">
           <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
           <Setter Property="BoxShadow" Value="0 4 12 0 #30000000" />
         </Style>
 
-        <Style Selector="^:scrolled-away /template/ Button#PART_ScrollToBottomButton:pointerover Path#PART_ScrollToBottomIcon">
+        <Style Selector="^:show-scroll-to-bottom /template/ Button#PART_ScrollToBottomButton:pointerover Path#PART_ScrollToBottomIcon">
           <Setter Property="Stroke" Value="{DynamicResource Brush.TextPrimary}" />
         </Style>
 
-        <Style Selector="^:scrolled-away /template/ Button#PART_ScrollToBottomButton:pressed Border#PART_ScrollToBottomChrome">
+        <Style Selector="^:show-scroll-to-bottom /template/ Button#PART_ScrollToBottomButton:pressed Border#PART_ScrollToBottomChrome">
           <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
           <Setter Property="BoxShadow" Value="0 1 4 0 #22000000" />
         </Style>
 
-        <Style Selector="^:scrolled-away /template/ Button#PART_ScrollToBottomButton:focus-visible Border#PART_ScrollToBottomChrome">
+        <Style Selector="^:show-scroll-to-bottom /template/ Button#PART_ScrollToBottomButton:focus-visible Border#PART_ScrollToBottomChrome">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
           <Setter Property="BoxShadow" Value="0 0 0 2 #304F46E5, 0 2 8 0 #20000000" />
         </Style>
