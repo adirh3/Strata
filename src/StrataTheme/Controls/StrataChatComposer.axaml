@@ -133,12 +133,13 @@
                     <Border Background="{DynamicResource Brush.Surface1}"
                             BorderBrush="{DynamicResource Brush.BorderDefault}"
                             BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="4"
-                            MinWidth="220"
-                            MaxWidth="500"
-                            BoxShadow="0 4 16 0 #1A000000">
-                      <ScrollViewer MaxHeight="260"
+                            CornerRadius="10"
+                            Padding="6"
+                            MinWidth="260"
+                            MaxWidth="560"
+                            BoxShadow="0 18 40 0 #1F000000">
+                      <ScrollViewer Name="PART_AutoCompleteScrollViewer"
+                                    MaxHeight="320"
                                     HorizontalScrollBarVisibility="Disabled"
                                     VerticalScrollBarVisibility="Auto">
                         <StackPanel Name="PART_AutoCompletePanel" Spacing="1" />
@@ -716,46 +717,75 @@
   <!-- Autocomplete popup item styles -->
   <Style Selector="Border.autocomplete-item">
     <Setter Property="Background" Value="#00000000" />
-    <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="Margin" Value="2,1" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Transitions">
       <Transitions>
         <BrushTransition Property="Background" Duration="0:0:0.1" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.1" />
       </Transitions>
     </Setter>
   </Style>
   <Style Selector="Border.autocomplete-item:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
   </Style>
   <Style Selector="Border.autocomplete-item.selected">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
   </Style>
   <Style Selector="TextBlock.autocomplete-header">
-    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontSize" Value="10.5" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-    <Setter Property="Margin" Value="8,6,8,2" />
+    <Setter Property="Margin" Value="10,8,10,4" />
+  </Style>
+  <Style Selector="Border.autocomplete-item Border.autocomplete-glyph-wrap">
+    <Setter Property="Width" Value="26" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.autocomplete-item.selected Border.autocomplete-glyph-wrap">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
   </Style>
   <Style Selector="Border.autocomplete-item TextBlock.autocomplete-glyph">
     <Setter Property="FontSize" Value="13" />
-    <Setter Property="Width" Value="18" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Center" />
-    <Setter Property="Margin" Value="0,0,6,0" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
   <Style Selector="Border.autocomplete-item TextBlock.autocomplete-name">
-    <Setter Property="FontSize" Value="12" />
-    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
-  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-kind">
-    <Setter Property="FontSize" Value="10" />
+  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-secondary">
+    <Setter Property="FontSize" Value="10.5" />
     <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="Margin" Value="12,0,0,0" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-    <Setter Property="MinWidth" Value="24" />
+  </Style>
+  <Style Selector="Border.autocomplete-item Border.autocomplete-trailing-badge">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="Margin" Value="10,0,0,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+  </Style>
+  <Style Selector="Border.autocomplete-item.selected Border.autocomplete-trailing-badge">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+  </Style>
+  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-trailing-text">
+    <Setter Property="FontSize" Value="9.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
   </Style>
 </Styles>

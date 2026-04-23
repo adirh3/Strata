@@ -23,10 +23,17 @@ using Avalonia.VisualTree;
 namespace StrataTheme.Controls;
 
 /// <summary>Lightweight chip data for agent, skill, or MCP display in the composer.</summary>
-/// <param name="Name">Display label.</param>
-/// <param name="Glyph">Single-character icon (default "✦").</param>
+/// <param name="Name">Primary display label.</param>
+/// <param name="Glyph">Single-character icon or fallback marker (default "✦").</param>
 /// <param name="ErrorMessage">If set, the chip displays in an error state with this tooltip.</param>
-public record StrataComposerChip(string Name, string Glyph = "✦", string? ErrorMessage = null)
+/// <param name="SecondaryText">Optional supporting text shown in richer autocomplete rows.</param>
+/// <param name="Value">Optional backing value used when the display label differs from the payload.</param>
+public record StrataComposerChip(
+    string Name,
+    string Glyph = "✦",
+    string? ErrorMessage = null,
+    string? SecondaryText = null,
+    string? Value = null)
 {
     /// <summary>True when the chip has an error (e.g., MCP server failed to connect).</summary>
     public bool HasError => ErrorMessage is not null;
@@ -98,6 +105,7 @@ public class StrataChatComposer : TemplatedControl
     private WrapPanel? _chipsRow;
     private Popup? _autoCompletePopup;
     private StackPanel? _autoCompletePanel;
+    private ScrollViewer? _autoCompleteScrollViewer;
     private Popup? _mcpPopup;
     private StackPanel? _mcpPopupPanel;
     private TextBlock? _mcpCountText;
@@ -650,6 +658,7 @@ public class StrataChatComposer : TemplatedControl
         }
         _autoCompletePopup = e.NameScope.Find<Popup>("PART_AutoCompletePopup");
         _autoCompletePanel = e.NameScope.Find<StackPanel>("PART_AutoCompletePanel");
+        _autoCompleteScrollViewer = e.NameScope.Find<ScrollViewer>("PART_AutoCompleteScrollViewer");
         if (_autoCompletePopup is not null)
         {
             _autoCompletePopup.PlacementTarget = _input;
@@ -989,93 +998,20 @@ public class StrataChatComposer : TemplatedControl
         _autoCompleteEntries.Clear();
         _autoCompleteSelectedIndex = -1;
 
-        var hasAgentSection = false;
-        var hasSkillSection = false;
-
-        if (_triggerChar == '@' && AvailableAgents is not null)
+        switch (_triggerChar)
         {
-            foreach (var item in AvailableAgents)
-            {
-                var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
-                if (!string.IsNullOrEmpty(query) &&
-                    !chip.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (chip.Name == AgentName) continue;
-
-                if (!hasAgentSection)
-                {
-                    _autoCompletePanel.Children.Add(CreateSectionHeader("Agents"));
-                    hasAgentSection = true;
-                }
-
-                var border = CreateAutoCompleteEntry(chip, ChipKind.Agent);
-                _autoCompletePanel.Children.Add(border);
-                _autoCompleteEntries.Add((border, chip, ChipKind.Agent));
-            }
-        }
-
-        if (_triggerChar == '/' && AvailableSkills is not null)
-        {
-            foreach (var item in AvailableSkills)
-            {
-                var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
-                if (!string.IsNullOrEmpty(query) &&
-                    !chip.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (IsAlreadyActiveSkill(chip)) continue;
-
-                if (!hasSkillSection)
-                {
-                    _autoCompletePanel.Children.Add(CreateSectionHeader("Skills"));
-                    hasSkillSection = true;
-                }
-
-                var border = CreateAutoCompleteEntry(chip, ChipKind.Skill);
-                _autoCompletePanel.Children.Add(border);
-                _autoCompleteEntries.Add((border, chip, ChipKind.Skill));
-            }
-        }
-
-        if (_triggerChar == '$' && AvailableProjects is not null)
-        {
-            var hasProjectSection = false;
-            foreach (var item in AvailableProjects)
-            {
-                var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
-                if (!string.IsNullOrEmpty(query) &&
-                    !chip.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (chip.Name == ProjectName) continue;
-
-                if (!hasProjectSection)
-                {
-                    _autoCompletePanel.Children.Add(CreateSectionHeader("Projects"));
-                    hasProjectSection = true;
-                }
-
-                var border = CreateAutoCompleteEntry(chip, ChipKind.Project);
-                _autoCompletePanel.Children.Add(border);
-                _autoCompleteEntries.Add((border, chip, ChipKind.Project));
-            }
-        }
-
-        if (_triggerChar == '#' && AvailableFiles is not null)
-        {
-            var hasFileSection = false;
-            foreach (var item in AvailableFiles)
-            {
-                var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "", "📄");
-
-                if (!hasFileSection)
-                {
-                    _autoCompletePanel.Children.Add(CreateSectionHeader("Files"));
-                    hasFileSection = true;
-                }
-
-                var border = CreateAutoCompleteEntry(chip, ChipKind.File);
-                _autoCompletePanel.Children.Add(border);
-                _autoCompleteEntries.Add((border, chip, ChipKind.File));
-            }
+            case '@':
+                AddAutoCompleteEntries(AvailableAgents, ChipKind.Agent, query, chip => chip.Name != AgentName);
+                break;
+            case '/':
+                AddAutoCompleteEntries(AvailableSkills, ChipKind.Skill, query, chip => !IsAlreadyActiveSkill(chip));
+                break;
+            case '$':
+                AddAutoCompleteEntries(AvailableProjects, ChipKind.Project, query, chip => chip.Name != ProjectName);
+                break;
+            case '#':
+                AddAutoCompleteEntries(AvailableFiles, ChipKind.File, query, _ => true);
+                break;
         }
 
         if (_autoCompleteEntries.Count == 0)
@@ -1089,6 +1025,54 @@ public class StrataChatComposer : TemplatedControl
         PositionPopupAtTrigger();
         _autoCompletePopup.IsOpen = true;
     }
+
+    private void AddAutoCompleteEntries(
+        IEnumerable? items,
+        ChipKind kind,
+        string query,
+        Func<StrataComposerChip, bool> includePredicate)
+    {
+        if (_autoCompletePanel is null || items is null)
+            return;
+
+        var headerAdded = false;
+        foreach (var item in items)
+        {
+            var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
+            if (!MatchesAutoCompleteQuery(chip, query) || !includePredicate(chip))
+                continue;
+
+            if (!headerAdded)
+            {
+                _autoCompletePanel.Children.Add(CreateSectionHeader(GetAutoCompleteHeader(kind)));
+                headerAdded = true;
+            }
+
+            var border = CreateAutoCompleteEntry(chip, kind);
+            _autoCompletePanel.Children.Add(border);
+            _autoCompleteEntries.Add((border, chip, kind));
+        }
+    }
+
+    private static bool MatchesAutoCompleteQuery(StrataComposerChip chip, string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return true;
+
+        return chip.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(chip.SecondaryText)
+                && chip.SecondaryText.Contains(query, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string GetAutoCompleteHeader(ChipKind kind) => kind switch
+    {
+        ChipKind.Agent => "Agents · Enter to select",
+        ChipKind.Skill => "Skills · Enter to add",
+        ChipKind.Project => "Projects · Enter to switch",
+        ChipKind.File => "Files · Enter to attach",
+        ChipKind.Mcp => "MCPs",
+        _ => "Suggestions",
+    };
 
     private void PositionPopupAtTrigger()
     {
@@ -1139,6 +1123,8 @@ public class StrataChatComposer : TemplatedControl
         {
             // Replace #query with #filename inline so the user sees the reference in context
             var fileName = System.IO.Path.GetFileName(chip.Name);
+            if (string.IsNullOrWhiteSpace(fileName))
+                fileName = chip.Name;
             var inlineRef = $"#{fileName} ";
             if (_triggerIndex >= 0 && _triggerIndex < text.Length && caret <= text.Length)
             {
@@ -1151,8 +1137,9 @@ public class StrataChatComposer : TemplatedControl
                 _suppressAutoComplete = false;
             }
 
-            FileSelected?.Invoke(this, new FileSelectedEventArgs(chip.Glyph));
-            CommandHelper.Execute(FileSelectedCommand, FileSelectedCommandParameter ?? chip.Glyph);
+            var filePath = !string.IsNullOrWhiteSpace(chip.Value) ? chip.Value : chip.Glyph;
+            FileSelected?.Invoke(this, new FileSelectedEventArgs(filePath));
+            CommandHelper.Execute(FileSelectedCommand, FileSelectedCommandParameter ?? filePath);
         }
         else
         {
@@ -1199,6 +1186,7 @@ public class StrataChatComposer : TemplatedControl
 
     private void UpdateAutoCompleteHighlight()
     {
+        Border? selectedBorder = null;
         for (var i = 0; i < _autoCompleteEntries.Count; i++)
         {
             var border = _autoCompleteEntries[i].Control;
@@ -1206,12 +1194,16 @@ public class StrataChatComposer : TemplatedControl
             {
                 if (!border.Classes.Contains("selected"))
                     border.Classes.Add("selected");
+                selectedBorder = border;
             }
             else
             {
                 border.Classes.Remove("selected");
             }
         }
+
+        if (selectedBorder is not null && _autoCompleteScrollViewer is not null)
+            Dispatcher.UIThread.Post(() => selectedBorder.BringIntoView(), DispatcherPriority.Loaded);
     }
 
     private bool IsAlreadyActiveSkill(StrataComposerChip chip)
@@ -1259,40 +1251,84 @@ public class StrataChatComposer : TemplatedControl
         var glyph = new TextBlock { Text = glyphDisplay };
         glyph.Classes.Add("autocomplete-glyph");
 
+        var glyphWrap = new Border
+        {
+            Child = glyph,
+        };
+        glyphWrap.Classes.Add("autocomplete-glyph-wrap");
+
+        var primaryText = GetAutoCompletePrimaryText(chip, kind);
+        var secondaryText = GetAutoCompleteSecondaryText(chip, kind);
+        var trailingText = GetAutoCompleteTrailingText(chip, kind);
+
         var name = new TextBlock
         {
-            Text = chip.Name,
+            Text = primaryText,
             TextTrimming = TextTrimming.CharacterEllipsis,
+            MaxLines = 1,
         };
         name.Classes.Add("autocomplete-name");
-        if (kind == ChipKind.File)
-            ToolTip.SetTip(name, chip.Name);
 
-        var kindLabel = kind switch
+        var copy = new StackPanel
         {
-            ChipKind.Agent => "Agent",
-            ChipKind.Skill => "Skill",
-            ChipKind.Mcp => "MCP",
-            ChipKind.Project => "Project",
-            ChipKind.File => "File",
-            _ => ""
+            Spacing = 2,
+            VerticalAlignment = VerticalAlignment.Center,
         };
-        var kindText = new TextBlock { Text = kindLabel };
-        kindText.Classes.Add("autocomplete-kind");
+        copy.Children.Add(name);
 
-        var panel = new DockPanel();
-        DockPanel.SetDock(kindText, Dock.Right);
-        DockPanel.SetDock(glyph, Dock.Left);
-        panel.Children.Add(kindText);
-        panel.Children.Add(glyph);
-        panel.Children.Add(name);
+        if (!string.IsNullOrWhiteSpace(secondaryText))
+        {
+            var secondary = new TextBlock
+            {
+                Text = secondaryText,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxLines = 1,
+            };
+            secondary.Classes.Add("autocomplete-secondary");
+            copy.Children.Add(secondary);
+        }
+
+        var layout = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+            ColumnSpacing = 10,
+        };
+
+        Grid.SetColumn(glyphWrap, 0);
+        layout.Children.Add(glyphWrap);
+
+        Grid.SetColumn(copy, 1);
+        layout.Children.Add(copy);
+
+        if (!string.IsNullOrWhiteSpace(trailingText))
+        {
+            var trailing = new TextBlock { Text = trailingText };
+            trailing.Classes.Add("autocomplete-trailing-text");
+
+            var trailingBadge = new Border
+            {
+                Child = trailing,
+            };
+            trailingBadge.Classes.Add("autocomplete-trailing-badge");
+            Grid.SetColumn(trailingBadge, 2);
+            layout.Children.Add(trailingBadge);
+        }
 
         var border = new Border
         {
-            Child = panel,
+            Child = layout,
             Cursor = new Cursor(StandardCursorType.Hand)
         };
         border.Classes.Add("autocomplete-item");
+
+        var tooltip = kind switch
+        {
+            ChipKind.File => chip.Value ?? secondaryText ?? chip.Name,
+            _ => chip.SecondaryText,
+        };
+
+        if (!string.IsNullOrWhiteSpace(tooltip))
+            ToolTip.SetTip(border, tooltip);
 
         border.PointerPressed += (_, pe) =>
         {
@@ -1323,6 +1359,42 @@ public class StrataChatComposer : TemplatedControl
         };
 
         return border;
+    }
+
+    private static string GetAutoCompletePrimaryText(StrataComposerChip chip, ChipKind kind)
+    {
+        if (kind != ChipKind.File)
+            return chip.Name;
+
+        var fileName = System.IO.Path.GetFileName(chip.Name);
+        return string.IsNullOrWhiteSpace(fileName) ? chip.Name : fileName;
+    }
+
+    private static string? GetAutoCompleteSecondaryText(StrataComposerChip chip, ChipKind kind)
+    {
+        if (!string.IsNullOrWhiteSpace(chip.SecondaryText))
+            return chip.SecondaryText;
+
+        if (kind != ChipKind.File)
+            return null;
+
+        var directory = System.IO.Path.GetDirectoryName(chip.Name);
+        if (string.IsNullOrWhiteSpace(directory))
+            return null;
+
+        return directory.Replace('\\', '/');
+    }
+
+    private static string? GetAutoCompleteTrailingText(StrataComposerChip chip, ChipKind kind)
+    {
+        if (kind != ChipKind.File)
+            return null;
+
+        var extension = System.IO.Path.GetExtension(chip.Name).TrimStart('.');
+        if (string.IsNullOrWhiteSpace(extension))
+            return null;
+
+        return extension.Length <= 6 ? extension.ToUpperInvariant() : null;
     }
 
     private void Sync()
