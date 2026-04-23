@@ -263,6 +263,32 @@ public sealed class Strings
             ["MermaidDiagrams.Subtitle"] = "Flowcharts, sequences, state machines, class diagrams, timelines, and quadrant charts rendered from standard Mermaid syntax via StrataMarkdown.",
             ["MermaidDiagrams.Footer"] = "Use ```mermaid fenced blocks with graph/flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, timeline, or quadrantChart syntax. Pie and xychart-beta also supported.",
 
+            // Hebrew RTL markdown samples
+            ["MarkdownHebrewSamples"] = "Hebrew RTL Markdown Samples",
+            ["MarkdownHebrewSamples.Subtitle"] = "Dedicated Hebrew samples for validating RTL selection, caret placement, inline code, mixed-direction text, and wrapped lines.",
+            ["MarkdownHebrewSamples.SelectionTitle"] = "בדיקת בחירת טקסט",
+            ["MarkdownHebrewSamples.SelectionContent"] =
+                """
+                ### פסקת בדיקה
+                זהו טקסט בעברית שמיועד לבדוק בחירה מדויקת של טקסט כאשר השורה נשברת, ויש באמצע מילים כמו latency, rollback ו-incident IR-4471.
+
+                > נסו ללחוץ בתחילת שורה, באמצע מילה, ובסוף פסקה כדי לוודא שהסימון מתחיל בדיוק במקום שנבחר.
+
+                1. בחרו מילה קצרה כמו `מדד`
+                2. בחרו רצף מעורב עם docs/guide.md ו-09:57
+                3. בדקו גם קישור כמו [מסמך רלוונטי](https://example.com/runbook)
+                """,
+            ["MarkdownHebrewSamples.MixedTitle"] = "דוגמת כיוון מעורב",
+            ["MarkdownHebrewSamples.MixedContent"] =
+                """
+                זהו בלוק נוסף בסגנון צ׳אט כדי לבדוק פסקאות ארוכות יותר עם מזהים באנגלית כמו build-2481, הנתיב api/orders, והגדרה `MaxBatchBytes = 262144`.
+
+                בשורה הבאה יש **טקסט מודגש**, _טקסט נטוי_, ו-~~טקסט מחוק~~ כדי לוודא שגם עם עיצוב inline הסימון נשאר צמוד לאות שנלחצה.
+
+                ולבסוף נוסיף משפט עם כתובת support@example.com ועם הערך `RightToLeft` כדי לבדוק רצפים לועזיים בתוך טקסט עברי רציף.
+                """,
+            ["MarkdownHebrewSamples.Footer"] = "These samples stay in Hebrew even when the demo UI is English so RTL selection issues are easy to reproduce.",
+
             // Charts
             ["Chart.Revenue"] = "Revenue Trend",
             ["Chart.Revenue.Subtitle"] = "Monthly revenue with actual vs. forecast comparison.",
@@ -542,6 +568,32 @@ public sealed class Strings
             ["MermaidDiagrams"] = "תרשימי Mermaid",
             ["MermaidDiagrams.Subtitle"] = "תרשימי זרימה, רצפים, מכונות מצב, תרשימי מחלקות, צירי זמן ותרשימי רבעים מתחביר Mermaid סטנדרטי באמצעות StrataMarkdown.",
             ["MermaidDiagrams.Footer"] = "השתמשו בבלוקי ```mermaid עם graph/flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, timeline או quadrantChart. תמיכה גם ב-pie ו-xychart-beta.",
+
+            // Hebrew RTL markdown samples
+            ["MarkdownHebrewSamples"] = "דוגמאות Markdown בעברית",
+            ["MarkdownHebrewSamples.Subtitle"] = "דוגמאות ייעודיות בעברית לבדיקת בחירת RTL, מיקום סמן, קוד inline, טקסט מעורב ועטיפת שורות.",
+            ["MarkdownHebrewSamples.SelectionTitle"] = "בדיקת בחירת טקסט",
+            ["MarkdownHebrewSamples.SelectionContent"] =
+                """
+                ### פסקת בדיקה
+                זהו טקסט בעברית שמיועד לבדוק בחירה מדויקת של טקסט כאשר השורה נשברת, ויש באמצע מילים כמו latency, rollback ו-incident IR-4471.
+
+                > נסו ללחוץ בתחילת שורה, באמצע מילה, ובסוף פסקה כדי לוודא שהסימון מתחיל בדיוק במקום שנבחר.
+
+                1. בחרו מילה קצרה כמו `מדד`
+                2. בחרו רצף מעורב עם docs/guide.md ו-09:57
+                3. בדקו גם קישור כמו [מסמך רלוונטי](https://example.com/runbook)
+                """,
+            ["MarkdownHebrewSamples.MixedTitle"] = "דוגמת כיוון מעורב",
+            ["MarkdownHebrewSamples.MixedContent"] =
+                """
+                זהו בלוק נוסף בסגנון צ׳אט כדי לבדוק פסקאות ארוכות יותר עם מזהים באנגלית כמו build-2481, הנתיב api/orders, והגדרה `MaxBatchBytes = 262144`.
+
+                בשורה הבאה יש **טקסט מודגש**, _טקסט נטוי_, ו-~~טקסט מחוק~~ כדי לוודא שגם עם עיצוב inline הסימון נשאר צמוד לאות שנלחצה.
+
+                ולבסוף נוסיף משפט עם כתובת support@example.com ועם הערך `RightToLeft` כדי לבדוק רצפים לועזיים בתוך טקסט עברי רציף.
+                """,
+            ["MarkdownHebrewSamples.Footer"] = "הדוגמאות נשארות בעברית גם כאשר ממשק הדמו באנגלית, כדי שיהיה קל לשחזר בעיות בחירה ב-RTL.",
 
             // Charts
             ["Chart.Revenue"] = "מגמת הכנסות",

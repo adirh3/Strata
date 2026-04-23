@@ -554,6 +554,8 @@ public class StrataMarkdown : ContentControl
             if (normalized.Length == _previousMarkdownLength &&
                 string.Equals(normalized, _previousMarkdownNormalized, StringComparison.Ordinal))
             {
+                RefreshDirectionalLayoutForExistingTextControls();
+
                 // Re-mark all cache keys as used so eviction doesn't clear them
                 foreach (var block in _previousBlocks)
                     TrackCacheKeysForBlock(block);
@@ -725,6 +727,14 @@ public class StrataMarkdown : ContentControl
             // Identical groups - skip
             if (GroupsEqual(oldBlocks, oldGroup, newBlocks, newGroup))
             {
+                if (g < _contentHost.Children.Count &&
+                    (newGroup.Count > 1
+                        ? IsMergeableKind(newGroup.Kind)
+                        : IsTextBlockKind(newBlocks[newGroup.StartIndex].Kind)))
+                {
+                    ApplyDirectionalTextLayout(_contentHost.Children[g], FlowDirection);
+                }
+
                 for (int i = 0; i < newGroup.Count; i++)
                     TrackCacheKeysForBlock(newBlocks[newGroup.StartIndex + i]);
                 continue;
@@ -991,21 +1001,52 @@ public class StrataMarkdown : ContentControl
 
     private static readonly Thickness RtlTextPadding = new(0, 0, 4, 0);
 
+    internal static void ApplyDirectionalTextLayout(SelectableTextBlock textBlock, FlowDirection flowDirection)
+    {
+        var isRtl = flowDirection == FlowDirection.RightToLeft;
+
+        textBlock.FlowDirection = flowDirection;
+        textBlock.TextAlignment = isRtl ? TextAlignment.Right : TextAlignment.Left;
+        textBlock.Padding = isRtl ? RtlTextPadding : ZeroThickness;
+    }
+
+    internal static void ApplyDirectionalTextLayout(Control control, FlowDirection flowDirection)
+    {
+        var textBlock = FindSelectableTextBlock(control);
+        if (textBlock is not null)
+            ApplyDirectionalTextLayout(textBlock, flowDirection);
+    }
+
+    private void RefreshDirectionalLayoutForExistingTextControls()
+    {
+        var groupCount = Math.Min(_previousGroups.Count, _contentHost.Children.Count);
+        for (var groupIndex = 0; groupIndex < groupCount; groupIndex++)
+        {
+            var group = _previousGroups[groupIndex];
+            if (group.Count > 1)
+            {
+                if (IsMergeableKind(group.Kind))
+                    ApplyDirectionalTextLayout(_contentHost.Children[groupIndex], FlowDirection);
+                continue;
+            }
+
+            var block = _previousBlocks[group.StartIndex];
+            if (IsTextBlockKind(block.Kind))
+                ApplyDirectionalTextLayout(_contentHost.Children[groupIndex], FlowDirection);
+        }
+    }
+
     private SelectableTextBlock CreateRichText(string text, double fontSize, double lineHeight, TextWrapping wrapping, string? prefix = null)
     {
-        var isRtl = FlowDirection == FlowDirection.RightToLeft;
         var textBlock = new SelectableTextBlock
         {
             FontSize = fontSize,
             LineHeight = lineHeight,
             TextWrapping = wrapping,
-            TextAlignment = isRtl
-                ? TextAlignment.Right
-                : TextAlignment.Left,
             ClipToBounds = false,
-            Padding = isRtl ? RtlTextPadding : ZeroThickness,
             Margin = ZeroThickness
         };
+        ApplyDirectionalTextLayout(textBlock, FlowDirection);
 
         var hadLinks = AppendFormattedInlines(textBlock, text, prefix);
 
@@ -1560,6 +1601,8 @@ public class StrataMarkdown : ContentControl
         var tb = FindSelectableTextBlock(existing);
         if (tb is null)
             return false;
+
+        ApplyDirectionalTextLayout(tb, FlowDirection);
 
         // Remove old link runs for this text block before clearing inlines
         RemoveLinkRunsForTextBlock(tb);
@@ -2608,16 +2651,14 @@ public class StrataMarkdown : ContentControl
 
     private void ConfigureMergedTextBlock(SelectableTextBlock tb, MdBlockGroup group, IReadOnlyList<MdBlock>? blocks = null)
     {
-        var isRtl = FlowDirection == FlowDirection.RightToLeft;
         tb.FontSize = _bodyFontSize;
         tb.FontWeight = FontWeight.Normal;
         tb.LineHeight = _bodyFontSize * 1.52;
         tb.TextWrapping = TextWrapping.Wrap;
-        tb.TextAlignment = isRtl ? TextAlignment.Right : TextAlignment.Left;
         tb.ClipToBounds = false;
-        tb.Padding = isRtl ? RtlTextPadding : ZeroThickness;
         tb.Opacity = 1d;
         tb.TextDecorations = null;
+        ApplyDirectionalTextLayout(tb, FlowDirection);
 
         // Margin: bullet indent, or heading top-margin when prose group starts with heading
         if (group.Kind == MdBlockKind.Bullet && group.Level > 0)

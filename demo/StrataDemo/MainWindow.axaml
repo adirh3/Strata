@@ -989,6 +989,33 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Hebrew RTL markdown samples ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="{Binding Strings[MarkdownHebrewSamples]}" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="{Binding Strings[MarkdownHebrewSamples.Subtitle]}" />
+              </StackPanel>
+
+              <sc:StrataMarkdown x:Name="HebrewMarkdownSelectionSample"
+                                 ShowTitle="True"
+                                 Title="{Binding Strings[MarkdownHebrewSamples.SelectionTitle]}"
+                                 FlowDirection="RightToLeft"
+                                 Markdown="{Binding Strings[MarkdownHebrewSamples.SelectionContent]}" />
+
+              <sc:StrataMarkdown x:Name="HebrewMarkdownMixedSample"
+                                 ShowTitle="True"
+                                 Title="{Binding Strings[MarkdownHebrewSamples.MixedTitle]}"
+                                 FlowDirection="RightToLeft"
+                                 Markdown="{Binding Strings[MarkdownHebrewSamples.MixedContent]}" />
+
+              <TextBlock Classes="caption tertiary"
+                         TextWrapping="Wrap"
+                         Text="{Binding Strings[MarkdownHebrewSamples.Footer]}" />
+            </StackPanel>
+          </Border>
+
           <!-- ── FizzBuzz Polyglot (code block showcase) ── -->
           <Border Classes="strata-card" Padding="24,20">
             <StackPanel Spacing="14">
