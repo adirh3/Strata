@@ -26,7 +26,7 @@ namespace StrataTheme.Controls;
 /// <param name="Name">Primary display label.</param>
 /// <param name="Glyph">Single-character icon or fallback marker (default "✦").</param>
 /// <param name="ErrorMessage">If set, the chip displays in an error state with this tooltip.</param>
-/// <param name="SecondaryText">Optional supporting text shown in richer autocomplete rows.</param>
+/// <param name="SecondaryText">Optional supporting text shown in richer autocomplete rows and used as a secondary search field.</param>
 /// <param name="Value">Optional backing value used when the display label differs from the payload.</param>
 public record StrataComposerChip(
     string Name,
@@ -1001,16 +1001,37 @@ public class StrataChatComposer : TemplatedControl
         switch (_triggerChar)
         {
             case '@':
-                AddAutoCompleteEntries(AvailableAgents, ChipKind.Agent, query, chip => chip.Name != AgentName);
+                AddAutoCompleteEntries(
+                    AvailableAgents,
+                    ChipKind.Agent,
+                    query,
+                    chip => chip.Name != AgentName,
+                    rankResults: true);
                 break;
             case '/':
-                AddAutoCompleteEntries(AvailableSkills, ChipKind.Skill, query, chip => !IsAlreadyActiveSkill(chip));
+                AddAutoCompleteEntries(
+                    AvailableSkills,
+                    ChipKind.Skill,
+                    query,
+                    chip => !IsAlreadyActiveSkill(chip),
+                    rankResults: true);
                 break;
             case '$':
-                AddAutoCompleteEntries(AvailableProjects, ChipKind.Project, query, chip => chip.Name != ProjectName);
+                AddAutoCompleteEntries(
+                    AvailableProjects,
+                    ChipKind.Project,
+                    query,
+                    chip => chip.Name != ProjectName,
+                    rankResults: true);
                 break;
             case '#':
-                AddAutoCompleteEntries(AvailableFiles, ChipKind.File, query, _ => true);
+                // File results are already ranked by the host app, so preserve that order here.
+                AddAutoCompleteEntries(
+                    AvailableFiles,
+                    ChipKind.File,
+                    query,
+                    _ => true,
+                    rankResults: false);
                 break;
         }
 
@@ -1030,18 +1051,22 @@ public class StrataChatComposer : TemplatedControl
         IEnumerable? items,
         ChipKind kind,
         string query,
-        Func<StrataComposerChip, bool> includePredicate)
+        Func<StrataComposerChip, bool> includePredicate,
+        bool rankResults)
     {
         if (_autoCompletePanel is null || items is null)
             return;
 
         var headerAdded = false;
-        foreach (var item in items)
-        {
-            var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
-            if (!MatchesAutoCompleteQuery(chip, query) || !includePredicate(chip))
-                continue;
+        var chips = rankResults
+            ? StrataChatComposerSearch.Rank(items, query, chip => !includePredicate(chip))
+            : EnumerateAutoCompleteChips(items)
+                .Where(includePredicate)
+                .Where(chip => MatchesAutoCompleteQuery(chip, query))
+                .ToList();
 
+        foreach (var chip in chips)
+        {
             if (!headerAdded)
             {
                 _autoCompletePanel.Children.Add(CreateSectionHeader(GetAutoCompleteHeader(kind)));
@@ -1052,6 +1077,12 @@ public class StrataChatComposer : TemplatedControl
             _autoCompletePanel.Children.Add(border);
             _autoCompleteEntries.Add((border, chip, kind));
         }
+    }
+
+    private static IEnumerable<StrataComposerChip> EnumerateAutoCompleteChips(IEnumerable items)
+    {
+        foreach (var item in items)
+            yield return item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
     }
 
     private static bool MatchesAutoCompleteQuery(StrataComposerChip chip, string query)
