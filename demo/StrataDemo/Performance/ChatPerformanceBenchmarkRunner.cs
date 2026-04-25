@@ -63,7 +63,7 @@ internal sealed class ChatPerformanceBenchmarkRunner
                 Timestamp = stamp,
                 StatusText = status,
                 IsEditable = false,
-                Content = new TextBlock
+                Content = new SelectableTextBlock
                 {
                     Text = text,
                     TextWrapping = TextWrapping.Wrap

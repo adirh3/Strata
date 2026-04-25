@@ -48,7 +48,7 @@ public class StrataEditConfirmedEventArgs : RoutedEventArgs
 /// <para><b>XAML usage:</b></para>
 /// <code>
 /// &lt;controls:StrataChatMessage Role="User"&gt;
-///     &lt;TextBlock Text="Hello, world!" TextWrapping="Wrap" /&gt;
+///     &lt;SelectableTextBlock Text="Hello, world!" TextWrapping="Wrap" /&gt;
 /// &lt;/controls:StrataChatMessage&gt;
 ///
 /// &lt;controls:StrataChatMessage Role="Assistant" IsStreaming="True"&gt;
@@ -107,7 +107,7 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<string> StatusTextProperty =
         AvaloniaProperty.Register<StrataChatMessage, string>(nameof(StatusText), string.Empty);
 
-    /// <summary>Message content. Can be any control, TextBlock, or StrataMarkdown.</summary>
+    /// <summary>Message content. Can be any control, SelectableTextBlock, or StrataMarkdown.</summary>
     public static readonly StyledProperty<object?> ContentProperty =
         AvaloniaProperty.Register<StrataChatMessage, object?>(nameof(Content));
 
@@ -527,9 +527,13 @@ public class StrataChatMessage : TemplatedControl
             {
                 existingMarkdown.Markdown = newText;
             }
+            else if (Content is SelectableTextBlock existingSelectableTextBlock)
+            {
+                existingSelectableTextBlock.Text = newText;
+            }
             else if (Content is TextBlock existingTextBlock)
             {
-                existingTextBlock.Text = newText;
+                Content = CreateSelectableTextBlock(newText, existingTextBlock);
             }
             else if (_originalContentWasMarkdown)
             {
@@ -541,11 +545,7 @@ public class StrataChatMessage : TemplatedControl
             }
             else
             {
-                Content = new TextBlock
-                {
-                    Text = newText,
-                    TextWrapping = TextWrapping.Wrap
-                };
+                Content = CreateSelectableTextBlock(newText);
             }
         }
 
@@ -557,6 +557,38 @@ public class StrataChatMessage : TemplatedControl
     private void CancelEdit()
     {
         IsEditing = false;
+    }
+
+    private static SelectableTextBlock CreateSelectableTextBlock(string text, TextBlock? source = null)
+    {
+        var textBlock = new SelectableTextBlock
+        {
+            Text = text,
+            TextWrapping = source?.TextWrapping ?? TextWrapping.Wrap
+        };
+
+        if (source is null)
+            return textBlock;
+
+        textBlock.FontSize = source.FontSize;
+        textBlock.FontFamily = source.FontFamily;
+        textBlock.FontStyle = source.FontStyle;
+        textBlock.FontWeight = source.FontWeight;
+        textBlock.FontStretch = source.FontStretch;
+        textBlock.Foreground = source.Foreground;
+        textBlock.TextAlignment = source.TextAlignment;
+        textBlock.LineHeight = source.LineHeight;
+        textBlock.Margin = source.Margin;
+        textBlock.FlowDirection = source.FlowDirection;
+        textBlock.HorizontalAlignment = source.HorizontalAlignment;
+        textBlock.VerticalAlignment = source.VerticalAlignment;
+        textBlock.MinWidth = source.MinWidth;
+        textBlock.MaxWidth = source.MaxWidth;
+
+        foreach (var className in source.Classes)
+            textBlock.Classes.Add(className);
+
+        return textBlock;
     }
 
     private void OnEditBoxKeyDown(object? sender, KeyEventArgs e)
