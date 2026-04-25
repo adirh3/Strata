@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -273,11 +274,28 @@ public class StrataModelPicker : TemplatedControl
         if (Models is null)
             return;
 
-        string? lastGroup = null;
-        foreach (var model in Models)
+        var rows = Models.Cast<object?>()
+            .Select((model, index) =>
+            {
+                var modelName = model?.ToString() ?? string.Empty;
+                return new ModelPickerRowData(model, modelName, GetModelGroup(modelName), index);
+            })
+            .ToList();
+
+        var groupOrder = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var row in rows)
         {
-            var modelName = model?.ToString() ?? string.Empty;
-            var group = GetModelGroup(modelName);
+            if (!groupOrder.ContainsKey(row.Group))
+                groupOrder[row.Group] = groupOrder.Count;
+        }
+
+        string? lastGroup = null;
+        foreach (var row in rows
+            .OrderBy(row => groupOrder[row.Group])
+            .ThenByDescending(row => GetModelVersionRank(row.ModelName))
+            .ThenBy(row => row.OriginalIndex))
+        {
+            var group = row.Group;
             if (group != lastGroup)
             {
                 if (lastGroup is not null)
@@ -300,11 +318,13 @@ public class StrataModelPicker : TemplatedControl
                 lastGroup = group;
             }
 
-            _modelPickerList.Children.Add(CreateModelRow(model, modelName, Equals(model, SelectedModel)));
+            _modelPickerList.Children.Add(CreateModelRow(row.Model, row.ModelName, Equals(row.Model, SelectedModel)));
         }
 
         RebuildEffortSection();
     }
+
+    private sealed record ModelPickerRowData(object? Model, string ModelName, string Group, int OriginalIndex);
 
     private void RebuildEffortSection()
     {
@@ -411,6 +431,49 @@ public class StrataModelPicker : TemplatedControl
         "gemini" => "GOOGLE",
         _ => "OTHER"
     };
+
+    private static int GetModelVersionRank(string modelId)
+    {
+        foreach (var segment in modelId.ToLowerInvariant().Split(['-', ' '], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (TryParseVersionSegment(segment, out var rank))
+                return rank;
+        }
+
+        return -1;
+    }
+
+    private static bool TryParseVersionSegment(string segment, out int rank)
+    {
+        rank = -1;
+        var index = segment.StartsWith("o", StringComparison.Ordinal) ? 1 : 0;
+        if (index >= segment.Length || !char.IsDigit(segment[index]))
+            return false;
+
+        var major = 0;
+        while (index < segment.Length && char.IsDigit(segment[index]))
+        {
+            major = major * 10 + segment[index] - '0';
+            index++;
+        }
+
+        var minor = 0;
+        if (index < segment.Length && segment[index] == '.')
+        {
+            index++;
+            while (index < segment.Length && char.IsDigit(segment[index]))
+            {
+                minor = minor * 10 + segment[index] - '0';
+                index++;
+            }
+        }
+
+        if (index < segment.Length && segment[index] == 'm')
+            return false;
+
+        rank = major * 1000 + minor;
+        return true;
+    }
 
     private static string GetModelTier(string modelId)
     {

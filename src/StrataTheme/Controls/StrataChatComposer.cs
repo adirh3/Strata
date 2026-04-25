@@ -1859,13 +1859,28 @@ public class StrataChatComposer : TemplatedControl
 
         if (Models is null) return;
 
-        // Collect models and group them
-        string? lastGroup = null;
+        var rows = Models.Cast<object?>()
+            .Select((model, index) =>
+            {
+                var modelStr = model?.ToString() ?? "";
+                return new ModelPickerRowData(model, modelStr, GetModelGroup(modelStr), index);
+            })
+            .ToList();
 
-        foreach (var model in Models)
+        var groupOrder = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var row in rows)
         {
-            var modelStr = model?.ToString() ?? "";
-            var group = GetModelGroup(modelStr);
+            if (!groupOrder.ContainsKey(row.Group))
+                groupOrder[row.Group] = groupOrder.Count;
+        }
+
+        string? lastGroup = null;
+        foreach (var row in rows
+            .OrderBy(row => groupOrder[row.Group])
+            .ThenByDescending(row => GetModelVersionRank(row.ModelName))
+            .ThenBy(row => row.OriginalIndex))
+        {
+            var group = row.Group;
 
             // Group header when provider changes
             if (group != lastGroup)
@@ -1891,13 +1906,15 @@ public class StrataChatComposer : TemplatedControl
                 lastGroup = group;
             }
 
-            var isSelected = Equals(model, SelectedModel);
-            _modelPickerList.Children.Add(CreateModelRow(model, modelStr, isSelected));
+            var isSelected = Equals(row.Model, SelectedModel);
+            _modelPickerList.Children.Add(CreateModelRow(row.Model, row.ModelName, isSelected));
         }
 
         // Build the fixed effort section at the bottom
         RebuildEffortSection();
     }
+
+    private sealed record ModelPickerRowData(object? Model, string ModelName, string Group, int OriginalIndex);
 
     private void RebuildEffortSection()
     {
@@ -2002,6 +2019,49 @@ public class StrataChatComposer : TemplatedControl
         _ => "OTHER"
     };
 
+    private static int GetModelVersionRank(string modelId)
+    {
+        foreach (var segment in modelId.ToLowerInvariant().Split(['-', ' '], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (TryParseVersionSegment(segment, out var rank))
+                return rank;
+        }
+
+        return -1;
+    }
+
+    private static bool TryParseVersionSegment(string segment, out int rank)
+    {
+        rank = -1;
+        var index = segment.StartsWith("o", StringComparison.Ordinal) ? 1 : 0;
+        if (index >= segment.Length || !char.IsDigit(segment[index]))
+            return false;
+
+        var major = 0;
+        while (index < segment.Length && char.IsDigit(segment[index]))
+        {
+            major = major * 10 + segment[index] - '0';
+            index++;
+        }
+
+        var minor = 0;
+        if (index < segment.Length && segment[index] == '.')
+        {
+            index++;
+            while (index < segment.Length && char.IsDigit(segment[index]))
+            {
+                minor = minor * 10 + segment[index] - '0';
+                index++;
+            }
+        }
+
+        if (index < segment.Length && segment[index] == 'm')
+            return false;
+
+        rank = major * 1000 + minor;
+        return true;
+    }
+
     private static string GetModelTier(string modelId)
     {
         var lower = modelId.ToLowerInvariant();
@@ -2023,7 +2083,7 @@ public class StrataChatComposer : TemplatedControl
             || lower.Contains("think");
     }
 
-    private Border CreateModelRow(object model, string modelStr, bool isSelected)
+    private Border CreateModelRow(object? model, string modelStr, bool isSelected)
     {
         var grid = new Grid { ColumnDefinitions = ColumnDefinitions.Parse("20,*,Auto") };
 
@@ -2114,7 +2174,7 @@ public class StrataChatComposer : TemplatedControl
     }
 
     /// <summary>Updates selection dots and effort section without full list rebuild.</summary>
-    private void UpdateModelPickerSelection(object newModel)
+    private void UpdateModelPickerSelection(object? newModel)
     {
         _suppressPickerRebuild = true;
         SelectedModel = newModel;
