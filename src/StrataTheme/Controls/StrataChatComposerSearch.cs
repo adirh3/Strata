@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -71,18 +72,82 @@ internal static class StrataChatComposerSearch
             return 1;
 
         var title = PreparedSearchText.Create(chip.Name);
-        var score = ScorePrepared(title, query, primary: true);
+        var fields = new List<(PreparedSearchText Text, bool Primary)>(2)
+        {
+            (title, true)
+        };
 
         if (!string.IsNullOrWhiteSpace(chip.SecondaryText))
         {
             var secondary = PreparedSearchText.Create(chip.SecondaryText);
-            score = Math.Max(score, ScorePrepared(secondary, query, primary: false));
+            fields.Add((secondary, false));
         }
 
+        var score = ScoreFields(fields, query);
         if (score <= 0)
             return 0;
 
         return score + GetLengthBonus(title.Compact.Length, query.Compact.Length);
+    }
+
+    private static double ScoreFields(
+        IReadOnlyList<(PreparedSearchText Text, bool Primary)> fields,
+        PreparedSearchText query)
+    {
+        var score = 0d;
+        foreach (var (field, primary) in fields)
+            score = Math.Max(score, ScorePrepared(field, query, primary));
+
+        if (query.Tokens.Length <= 1)
+            return score;
+
+        return Math.Max(score, ScoreTermsAcrossFields(fields, query));
+    }
+
+    private static double ScoreTermsAcrossFields(
+        IReadOnlyList<(PreparedSearchText Text, bool Primary)> fields,
+        PreparedSearchText query)
+    {
+        var terms = query.Tokens
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (terms.Length <= 1)
+            return 0;
+
+        var total = 0d;
+        var primaryMatches = 0;
+
+        foreach (var term in terms)
+        {
+            var termQuery = PreparedSearchText.Create(term);
+            var bestScore = 0d;
+            var bestWasPrimary = false;
+
+            foreach (var (field, primary) in fields)
+            {
+                var score = ScorePrepared(field, termQuery, primary);
+                if (score <= bestScore)
+                    continue;
+
+                bestScore = score;
+                bestWasPrimary = primary;
+            }
+
+            if (bestScore <= 0)
+                return 0;
+
+            total += bestScore;
+            if (bestWasPrimary)
+                primaryMatches++;
+        }
+
+        total += terms.Length * 110;
+        if (primaryMatches == terms.Length)
+            total += 180;
+        else if (primaryMatches > 0)
+            total += primaryMatches * 70;
+
+        return total;
     }
 
     private static double ScorePrepared(PreparedSearchText candidate, PreparedSearchText query, bool primary)
@@ -316,8 +381,11 @@ internal static class StrataChatComposerSearch
                 currentToken.Clear();
             }
 
-            foreach (var character in text)
+            foreach (var character in text.Normalize(NormalizationForm.FormD))
             {
+                if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+                    continue;
+
                 if (!char.IsLetterOrDigit(character))
                 {
                     FlushToken();
