@@ -169,21 +169,16 @@ internal static class StrataChatComposerSearch
         {
             score = Math.Max(score, ScorePrefix(candidate.Compact, query.Compact, 1_520));
             score = Math.Max(score, ScoreContains(candidate.Compact, query.Compact, 1_260));
-            score = Math.Max(score, ScoreTokens(candidate.Tokens, query.Compact));
 
-            if (candidate.Initials.Length > 0)
+            if (query.Tokens.Length <= 1)
             {
-                if (string.Equals(candidate.Initials, query.Compact, StringComparison.Ordinal))
-                    score = Math.Max(score, 1_340);
-                else
-                {
-                    score = Math.Max(score, ScorePrefix(candidate.Initials, query.Compact, 1_280));
-                    score = Math.Max(score, ScoreSubsequence(candidate.Initials, query.Compact, 1_120));
-                }
-            }
+                score = Math.Max(score, ScoreApproximateContains(candidate.Compact, query.Compact, 1_120));
+                score = Math.Max(score, ScoreTokens(candidate.Tokens, query.Compact));
+                score = Math.Max(score, ScoreInitials(candidate.Initials, query.Compact, 1_410, 1_330, 1_180));
 
-            score = Math.Max(score, ScoreSubsequence(candidate.Compact, query.Compact, 1_020));
-            score = Math.Max(score, ScoreEditDistance(candidate.Compact, query.Compact, 980));
+                score = Math.Max(score, ScoreSubsequence(candidate.Compact, query.Compact, 1_020));
+                score = Math.Max(score, ScoreEditDistance(candidate.Compact, query.Compact, 980));
+            }
         }
 
         return primary ? score : score * 0.58;
@@ -208,6 +203,7 @@ internal static class StrataChatComposerSearch
 
             best = Math.Max(best, ScorePrefix(token, query, 1_460 - positionPenalty));
             best = Math.Max(best, ScoreContains(token, query, 1_200 - positionPenalty));
+            best = Math.Max(best, ScoreApproximateContains(token, query, 1_080 - positionPenalty));
             best = Math.Max(best, ScoreSubsequence(token, query, 980 - positionPenalty));
             best = Math.Max(best, ScoreEditDistance(token, query, 940 - positionPenalty));
         }
@@ -240,6 +236,58 @@ internal static class StrataChatComposerSearch
         var positionPenalty = index * 22;
         var lengthPenalty = Math.Max(0, candidate.Length - query.Length) * 4;
         return baseScore - positionPenalty - lengthPenalty;
+    }
+
+    private static double ScoreInitials(
+        string initials,
+        string query,
+        double exactScore,
+        double prefixScore,
+        double subsequenceScore)
+    {
+        if (string.IsNullOrEmpty(initials) || string.IsNullOrEmpty(query))
+            return 0;
+
+        if (string.Equals(initials, query, StringComparison.Ordinal))
+            return exactScore;
+
+        return Math.Max(
+            ScorePrefix(initials, query, prefixScore),
+            ScoreSubsequence(initials, query, subsequenceScore));
+    }
+
+    private static double ScoreApproximateContains(string candidate, string query, double baseScore)
+    {
+        if (string.IsNullOrEmpty(candidate) || query.Length < 5 || candidate.Length < 3)
+            return 0;
+
+        var maxDistance = GetApproximateMaxDistance(query.Length);
+        var minWindowLength = Math.Max(3, query.Length - Math.Min(maxDistance, 1));
+        var maxWindowLength = Math.Min(candidate.Length, query.Length + maxDistance);
+        if (minWindowLength > maxWindowLength)
+            return 0;
+
+        var bestScore = 0d;
+        for (var windowLength = minWindowLength; windowLength <= maxWindowLength; windowLength++)
+        {
+            for (var start = 0; start <= candidate.Length - windowLength; start++)
+            {
+                var window = candidate.Substring(start, windowLength);
+                var distance = DamerauLevenshteinDistance(window, query, maxDistance);
+                if (distance <= 0 || distance > maxDistance)
+                    continue;
+
+                var score = baseScore
+                            - (distance * 120)
+                            - (Math.Abs(windowLength - query.Length) * 36)
+                            - (start * 18)
+                            + (Math.Min(1d, (double)query.Length / candidate.Length) * 90);
+                if (score > bestScore)
+                    bestScore = score;
+            }
+        }
+
+        return bestScore;
     }
 
     private static double ScoreSubsequence(string candidate, string query, double baseScore)
@@ -288,7 +336,7 @@ internal static class StrataChatComposerSearch
             return 0;
         }
 
-        var maxDistance = query.Length <= 4 ? 1 : 2;
+        var maxDistance = GetApproximateMaxDistance(query.Length);
         var distance = DamerauLevenshteinDistance(candidate, query, maxDistance);
         if (distance > maxDistance)
             return 0;
@@ -296,6 +344,17 @@ internal static class StrataChatComposerSearch
         var distancePenalty = distance * 130;
         var lengthPenalty = Math.Abs(candidate.Length - query.Length) * 40;
         return baseScore - distancePenalty - lengthPenalty;
+    }
+
+    private static int GetApproximateMaxDistance(int queryLength)
+    {
+        return queryLength switch
+        {
+            <= 4 => 1,
+            <= 8 => 2,
+            <= 14 => 3,
+            _ => 4
+        };
     }
 
     private static int DamerauLevenshteinDistance(string source, string target, int maxDistance)

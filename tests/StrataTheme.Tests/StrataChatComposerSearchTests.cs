@@ -67,6 +67,114 @@ public class StrataChatComposerSearchTests
     }
 
     [Fact]
+    public void Rank_TypoInsideLongCompactNameStillFindsBestCandidate()
+    {
+        var chips = new[]
+        {
+            new StrataComposerChip("File Search Service"),
+            new StrataComposerChip("File Storage Service"),
+            new StrataComposerChip("Search Settings")
+        };
+
+        var ranked = StrataChatComposerSearch.Rank(chips, "fileserach");
+
+        Assert.NotEmpty(ranked);
+        Assert.Equal("File Search Service", ranked[0].Name);
+    }
+
+    [Fact]
+    public void Rank_TypoInsideCamelCaseSegmentStillFindsBestCandidate()
+    {
+        var chips = new[]
+        {
+            new StrataComposerChip("ChatViewModel"),
+            new StrataComposerChip("ChatVirtualMachine"),
+            new StrataComposerChip("ConversationViewModel")
+        };
+
+        var ranked = StrataChatComposerSearch.Rank(chips, "viewmodle");
+
+        Assert.NotEmpty(ranked);
+        Assert.Equal("ChatViewModel", ranked[0].Name);
+    }
+
+    [Fact]
+    public void Rank_AcronymInitialsFindLogAnalyticsWorkspace()
+    {
+        var chips = new[]
+        {
+            new StrataComposerChip("LaunchWindow"),
+            new StrataComposerChip("LogAnalyticsWorkspace"),
+            new StrataComposerChip("LegalAdvice")
+        };
+
+        var ranked = StrataChatComposerSearch.Rank(chips, "law");
+
+        Assert.NotEmpty(ranked);
+        Assert.Equal("LogAnalyticsWorkspace", ranked[0].Name);
+    }
+
+    [Fact]
+    public void Rank_ExactShortNameBeatsAcronymExpansion()
+    {
+        var chips = new[]
+        {
+            new StrataComposerChip("LogAnalyticsWorkspace"),
+            new StrataComposerChip("Law")
+        };
+
+        var ranked = StrataChatComposerSearch.Rank(chips, "law");
+
+        Assert.Equal("Law", ranked[0].Name);
+    }
+
+    [Fact]
+    public void Rank_SeparatorInitialsFindAcronymCandidate()
+    {
+        var chips = new[]
+        {
+            new StrataComposerChip("LaunchWindow"),
+            new StrataComposerChip("Log Analytics Workspace")
+        };
+
+        var ranked = StrataChatComposerSearch.Rank(chips, "law");
+
+        Assert.NotEmpty(ranked);
+        Assert.Equal("Log Analytics Workspace", ranked[0].Name);
+    }
+
+    [Fact]
+    public void Rank_MultiTermPrefixAndTypoFindsBestCandidate()
+    {
+        var chips = new[]
+        {
+            new StrataComposerChip("LogAnalyticsWriter"),
+            new StrataComposerChip("LogAnalyticsWorkspace")
+        };
+
+        var ranked = StrataChatComposerSearch.Rank(chips, "log workspce");
+
+        Assert.NotEmpty(ranked);
+        Assert.Equal("LogAnalyticsWorkspace", ranked[0].Name);
+    }
+
+    [Fact]
+    public void Rank_AcronymMatchesAcrossNameAndSecondaryText()
+    {
+        var chips = new[]
+        {
+            new StrataComposerChip("Azure Resource", SecondaryText: "Log Analytics Workspace"),
+            new StrataComposerChip("Azure Database", SecondaryText: "storage account"),
+            new StrataComposerChip("Logs", SecondaryText: "application window")
+        };
+
+        var ranked = StrataChatComposerSearch.Rank(chips, "azure law");
+
+        Assert.Single(ranked);
+        Assert.Equal("Azure Resource", ranked[0].Name);
+    }
+
+    [Fact]
     public void Rank_MultiTermQueryMatchesAcrossNameAndSecondaryText()
     {
         var chips = new[]
@@ -97,6 +205,22 @@ public class StrataChatComposerSearchTests
 
         Assert.Equal("Code Reviewer", forward[0].Name);
         Assert.Equal("Code Reviewer", reversed[0].Name);
+    }
+
+    [Fact]
+    public void Rank_MultiTermTypoMatchesAcrossNameAndSecondaryText()
+    {
+        var chips = new[]
+        {
+            new StrataComposerChip("Code Reviewer", SecondaryText: "finds security vulnerabilities and correctness bugs"),
+            new StrataComposerChip("Security Scanner", SecondaryText: "dependency vulnerability checks"),
+            new StrataComposerChip("Code Formatter", SecondaryText: "formats whitespace and imports")
+        };
+
+        var ranked = StrataChatComposerSearch.Rank(chips, "code secuirty");
+
+        Assert.Single(ranked);
+        Assert.Equal("Code Reviewer", ranked[0].Name);
     }
 
     [Fact]
