@@ -211,6 +211,23 @@
           <Setter Property="Opacity" Value="0.85" />
         </Style>
 
+        <Style Selector="^:stopped /template/ Border#PART_StateDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+
+        <Style Selector="^:stopped /template/ Border#PART_StatusPill">
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+        </Style>
+
+        <Style Selector="^:stopped /template/ TextBlock#PART_StatusText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+
+        <Style Selector="^:stopped /template/ Border#PART_Stratum">
+          <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
+          <Setter Property="Opacity" Value="0.85" />
+        </Style>
+
         <Style Selector="^:pointerover /template/ Border#PART_Root">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
           <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />

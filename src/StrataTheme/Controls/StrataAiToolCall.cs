@@ -20,7 +20,9 @@ public enum StrataAiToolCallStatus
     /// <summary>Tool finished successfully.</summary>
     Completed,
     /// <summary>Tool encountered an error.</summary>
-    Failed
+    Failed,
+    /// <summary>Tool was stopped before it completed.</summary>
+    Stopped
 }
 
 /// <summary>
@@ -139,6 +141,7 @@ public class StrataAiToolCall : TemplatedControl
         StrataAiToolCallStatus.InProgress => "Running",
         StrataAiToolCallStatus.Completed => "Completed",
         StrataAiToolCallStatus.Failed => "Failed",
+        StrataAiToolCallStatus.Stopped => "Stopped",
         _ => "Unknown"
     };
 
@@ -219,6 +222,7 @@ public class StrataAiToolCall : TemplatedControl
         PseudoClasses.Set(":inprogress", Status == StrataAiToolCallStatus.InProgress);
         PseudoClasses.Set(":completed", Status == StrataAiToolCallStatus.Completed);
         PseudoClasses.Set(":failed", Status == StrataAiToolCallStatus.Failed);
+        PseudoClasses.Set(":stopped", Status == StrataAiToolCallStatus.Stopped);
 
         PseudoClasses.Set(":expanded", IsExpanded);
         PseudoClasses.Set(":has-params", !string.IsNullOrWhiteSpace(InputParameters));

@@ -896,17 +896,12 @@ public class StrataChatComposer : TemplatedControl
         {
             if (!string.IsNullOrWhiteSpace(PromptText))
             {
-                // Stop current generation and send the new message
-                RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
-                CommandHelper.Execute(StopCommand, StopCommandParameter);
                 RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
                 CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
             }
-            else
-            {
-                RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
-                CommandHelper.Execute(StopCommand, StopCommandParameter);
-            }
+
+            RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
+            CommandHelper.Execute(StopCommand, StopCommandParameter);
             return;
         }
         if (string.IsNullOrWhiteSpace(PromptText)) return;

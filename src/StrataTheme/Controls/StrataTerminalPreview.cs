@@ -99,6 +99,7 @@ public class StrataTerminalPreview : TemplatedControl
         StrataAiToolCallStatus.InProgress => "Running",
         StrataAiToolCallStatus.Completed => "Completed",
         StrataAiToolCallStatus.Failed => "Failed",
+        StrataAiToolCallStatus.Stopped => "Stopped",
         _ => ""
     };
 
@@ -156,6 +157,7 @@ public class StrataTerminalPreview : TemplatedControl
         PseudoClasses.Set(":inprogress", Status == StrataAiToolCallStatus.InProgress);
         PseudoClasses.Set(":completed", Status == StrataAiToolCallStatus.Completed);
         PseudoClasses.Set(":failed", Status == StrataAiToolCallStatus.Failed);
+        PseudoClasses.Set(":stopped", Status == StrataAiToolCallStatus.Stopped);
         PseudoClasses.Set(":expanded", IsExpanded);
         PseudoClasses.Set(":has-output", !string.IsNullOrEmpty(Output));
 
