@@ -250,6 +250,13 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<object?> AttachmentContentProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(AttachmentContent));
 
+    /// <summary>
+    /// Additional clipboard data formats the host wants to handle itself before
+    /// the composer falls back to inserting plain text.
+    /// </summary>
+    public static readonly StyledProperty<IEnumerable?> ClipboardPasteInterceptFormatsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(ClipboardPasteInterceptFormats));
+
     /// <summary>Raised when the user sends a prompt (Enter key or send button click).</summary>
     public static readonly RoutedEvent<RoutedEventArgs> SendRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(SendRequested), RoutingStrategies.Bubble);
@@ -287,8 +294,9 @@ public class StrataChatComposer : TemplatedControl
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(VoiceRequested), RoutingStrategies.Bubble);
 
     /// <summary>
-    /// Raised when the user pastes (Ctrl+V) and the clipboard contains an image.
-    /// Hosts can handle this to attach the clipboard image to the current message.
+    /// Raised when the user pastes (Ctrl+V) and the clipboard contains an image,
+    /// files, or a host-configured data format. Hosts can handle this to attach
+    /// clipboard content to the current message.
     /// </summary>
     public static readonly RoutedEvent<RoutedEventArgs> ClipboardImagePasteRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(ClipboardImagePasteRequested), RoutingStrategies.Bubble);
@@ -528,6 +536,7 @@ public class StrataChatComposer : TemplatedControl
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
     public object? StatusContent { get => GetValue(StatusContentProperty); set => SetValue(StatusContentProperty, value); }
     public object? AttachmentContent { get => GetValue(AttachmentContentProperty); set => SetValue(AttachmentContentProperty, value); }
+    public IEnumerable? ClipboardPasteInterceptFormats { get => GetValue(ClipboardPasteInterceptFormatsProperty); set => SetValue(ClipboardPasteInterceptFormatsProperty, value); }
 
     /// <summary>
     /// Raised when the # file autocomplete query changes. The consumer should
@@ -700,7 +709,22 @@ public class StrataChatComposer : TemplatedControl
             _input.TextAlignment = targetAlignment;
     }
 
-    private static ContextMenu BuildInputContextMenu(TextBox textBox)
+    /// <summary>Inserts text at the current input selection, or appends if the input is not mounted.</summary>
+    public void InsertTextAtSelection(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        if (_input is null)
+        {
+            PromptText = (PromptText ?? string.Empty) + text;
+            return;
+        }
+
+        InsertTextAtSelection(_input, text);
+    }
+
+    private ContextMenu BuildInputContextMenu(TextBox textBox)
     {
         var cut = new MenuItem { Header = "Cut", InputGesture = new KeyGesture(Key.X, KeyModifiers.Control) };
         var copy = new MenuItem { Header = "Copy", InputGesture = new KeyGesture(Key.C, KeyModifiers.Control) };
@@ -727,15 +751,6 @@ public class StrataChatComposer : TemplatedControl
             await clip.SetTextAsync(textBox.SelectedText);
         }
 
-        async void DoPaste()
-        {
-            var clip = TopLevel.GetTopLevel(textBox)?.Clipboard;
-            if (clip is null) return;
-            var text = await ClipboardExtensions.TryGetTextAsync(clip);
-            if (string.IsNullOrEmpty(text)) return;
-            InsertTextAtSelection(textBox, text);
-        }
-
         void DoSelectAll()
         {
             textBox.SelectionStart = 0;
@@ -744,7 +759,7 @@ public class StrataChatComposer : TemplatedControl
 
         cut.Click += (_, _) => DoCut();
         copy.Click += (_, _) => DoCopy();
-        paste.Click += (_, _) => DoPaste();
+        paste.Click += async (_, _) => await HandlePasteFromKeyboardAsync();
         selectAll.Click += (_, _) => DoSelectAll();
 
         var menu = new ContextMenu
@@ -848,8 +863,12 @@ public class StrataChatComposer : TemplatedControl
 
         try
         {
-            if (await TryRaiseClipboardImagePasteRequestedAsync(clipboard).ConfigureAwait(true))
-                return;
+            var dataTransfer = await clipboard.TryGetDataAsync().ConfigureAwait(true);
+            if (dataTransfer is not null)
+            {
+                if (await TryRaiseClipboardPasteRequestedAsync(dataTransfer).ConfigureAwait(true))
+                    return;
+            }
 
             var text = await ClipboardExtensions.TryGetTextAsync(clipboard).ConfigureAwait(true);
             if (string.IsNullOrEmpty(text))
@@ -863,20 +882,43 @@ public class StrataChatComposer : TemplatedControl
         }
     }
 
-    private async Task<bool> TryRaiseClipboardImagePasteRequestedAsync(IClipboard clipboard)
+    private async Task<bool> TryRaiseClipboardPasteRequestedAsync(IAsyncDataTransfer dataTransfer)
     {
-        var dataTransfer = await clipboard.TryGetDataAsync().ConfigureAwait(true);
-        if (dataTransfer is null)
-            return false;
+        var shouldRaise = dataTransfer.Formats.Contains(DataFormat.File)
+            || ContainsInterceptedClipboardFormat(dataTransfer);
 
-        var bitmap = await dataTransfer.TryGetBitmapAsync().ConfigureAwait(true);
-        if (bitmap is null)
-            return false;
+        if (!shouldRaise)
+        {
+            var bitmap = await dataTransfer.TryGetBitmapAsync().ConfigureAwait(true);
+            if (bitmap is null)
+                return false;
 
-        bitmap.Dispose();
+            bitmap.Dispose();
+        }
+
         RaiseEvent(new RoutedEventArgs(ClipboardImagePasteRequestedEvent));
         CommandHelper.Execute(ClipboardPasteCommand, ClipboardPasteCommandParameter);
         return true;
+    }
+
+    private bool ContainsInterceptedClipboardFormat(IAsyncDataTransfer dataTransfer)
+    {
+        if (ClipboardPasteInterceptFormats is null)
+            return false;
+
+        foreach (var configured in ClipboardPasteInterceptFormats)
+        {
+            if (configured is not DataFormat configuredFormat)
+                continue;
+
+            foreach (var availableFormat in dataTransfer.Formats)
+            {
+                if (availableFormat.Equals(configuredFormat))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static void InsertTextAtSelection(TextBox textBox, string text)

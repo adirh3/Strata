@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Text;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
@@ -17,7 +19,7 @@ public static class ChatContentExtractor
     /// Handles <see cref="string"/>, <see cref="TextBlock"/>, <see cref="StrataMarkdown"/>,
     /// <see cref="StrataAiToolCall"/>, <see cref="StrataAiSkill"/>, <see cref="StrataAiAgent"/>,
     /// <see cref="ContentControl"/>, <see cref="Decorator"/>, and <see cref="Panel"/>.
-    /// Falls back to <c>ToString()</c> for unknown types.
+    /// Unknown controls are searched visually before being skipped.
     /// </summary>
     public static string ExtractText(object? content)
     {
@@ -30,8 +32,19 @@ public static class ChatContentExtractor
         if (content is TextBlock textBlock)
             return textBlock.Text ?? string.Empty;
 
+        if (content is SelectableTextBlock selectableTextBlock)
+            return selectableTextBlock.Text ?? string.Empty;
+
         if (content is StrataMarkdown markdown)
             return markdown.Markdown ?? string.Empty;
+
+        if (content is StrataFileAttachment fileAttachment)
+        {
+            if (string.IsNullOrWhiteSpace(fileAttachment.FileSize))
+                return fileAttachment.FileName;
+
+            return $"{fileAttachment.FileName} ({fileAttachment.FileSize})";
+        }
 
         if (content is StrataAiToolCall toolCall)
             return $"{toolCall.ToolName} | {toolCall.StatusText} | {toolCall.MoreInfo}";
@@ -43,7 +56,13 @@ public static class ChatContentExtractor
             return $"{agent.AgentName}\n{agent.Description}\n{agent.DetailMarkdown}";
 
         if (content is ContentControl contentControl)
-            return ExtractText(contentControl.Content);
+        {
+            var directText = ExtractText(contentControl.Content);
+            if (!string.IsNullOrWhiteSpace(directText))
+                return directText;
+
+            return ExtractTextFromVisualChildren(contentControl);
+        }
 
         if (content is Decorator decorator)
             return ExtractText(decorator.Child);
@@ -67,8 +86,14 @@ public static class ChatContentExtractor
             return sb.ToString();
         }
 
-        // Unrecognized controls — skip silently (avoid "Avalonia.Controls.X" in clipboard).
-        if (content is Control)
+        if (content is IEnumerable enumerable)
+            return ExtractTextFromEnumerable(enumerable);
+
+        if (content is Control control)
+            return ExtractTextFromVisualChildren(control);
+
+        var toString = content.GetType().GetMethod(nameof(ToString), Type.EmptyTypes);
+        if (toString?.DeclaringType == typeof(object))
             return string.Empty;
 
         return content.ToString() ?? string.Empty;
@@ -91,7 +116,13 @@ public static class ChatContentExtractor
             return CollectSelectedTextFromVisual(markdown);
 
         if (content is ContentControl cc)
-            return ExtractSelectedText(cc.Content);
+        {
+            var directSelection = ExtractSelectedText(cc.Content);
+            if (!string.IsNullOrEmpty(directSelection))
+                return directSelection;
+
+            return CollectSelectedTextFromVisual(cc);
+        }
 
         if (content is Decorator dec)
             return ExtractSelectedText(dec.Child);
@@ -110,7 +141,53 @@ public static class ChatContentExtractor
             return sb?.ToString();
         }
 
+        if (content is Control control)
+            return CollectSelectedTextFromVisual(control);
+
         return null;
+    }
+
+    private static string ExtractTextFromEnumerable(IEnumerable enumerable)
+    {
+        StringBuilder? sb = null;
+        foreach (var item in enumerable)
+        {
+            var line = ExtractText(item);
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            sb ??= new StringBuilder();
+            if (sb.Length > 0)
+                sb.Append(Environment.NewLine);
+            sb.Append(line);
+        }
+
+        return sb?.ToString() ?? string.Empty;
+    }
+
+    private static string ExtractTextFromVisualChildren(Control root)
+    {
+        StringBuilder? sb = null;
+        CollectVisualText(root, ref sb);
+        return sb?.ToString() ?? string.Empty;
+    }
+
+    private static void CollectVisualText(Control control, ref StringBuilder? sb)
+    {
+        foreach (var child in control.GetVisualChildren())
+        {
+            if (child is not Control childControl)
+                continue;
+
+            var text = ExtractText(childControl);
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            sb ??= new StringBuilder();
+            if (sb.Length > 0)
+                sb.Append(Environment.NewLine);
+            sb.Append(text);
+        }
     }
 
     private static string? CollectSelectedTextFromVisual(Control root)

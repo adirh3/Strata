@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -12,6 +14,7 @@ using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
@@ -37,6 +40,22 @@ public class StrataEditConfirmedEventArgs : RoutedEventArgs
     public StrataEditConfirmedEventArgs(RoutedEvent routedEvent, string newText) : base(routedEvent)
     {
         NewText = newText;
+    }
+}
+
+/// <summary>Event arguments for <see cref="StrataChatMessage.CopyRequested"/> carrying the exact copied text.</summary>
+public class StrataCopyRequestedEventArgs : RoutedEventArgs
+{
+    /// <summary>The text Strata copied to the clipboard before raising the event.</summary>
+    public string Text { get; }
+
+    /// <summary>True when the copy action targeted selected text instead of the whole message.</summary>
+    public bool IsSelection { get; }
+
+    public StrataCopyRequestedEventArgs(RoutedEvent routedEvent, string text, bool isSelection) : base(routedEvent)
+    {
+        Text = text;
+        IsSelection = isSelection;
     }
 }
 
@@ -80,6 +99,7 @@ public class StrataChatMessage : TemplatedControl
     private Control? _editAreaChild;
     private readonly HashSet<TextBlock> _observedTextBlocks = new();
     private readonly HashSet<StrataMarkdown> _observedMarkdownControls = new();
+    private readonly HashSet<Control> _contextMenuTargets = new();
     private bool _originalContentWasMarkdown;
 
     // ── Cached state to skip redundant updates ──
@@ -90,6 +110,11 @@ public class StrataChatMessage : TemplatedControl
     private bool _lastMenuIsEditing;
     private bool _lastMenuIsEditable;
     private bool _lastMenuIsStreaming;
+    private bool _lastMenuHasSelection;
+    private SelectableTextBlock? _contextMenuSelectionSource;
+    private int _contextMenuSelectionStart;
+    private int _contextMenuSelectionEnd;
+    private string? _contextMenuSelectionText;
 
     /// <summary>Message role. Controls alignment, colour, and available actions.</summary>
     public static readonly StyledProperty<StrataChatRole> RoleProperty =
@@ -138,8 +163,8 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<bool> IsHostScrollingProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsHostScrolling));
 
-    public static readonly RoutedEvent<RoutedEventArgs> CopyRequestedEvent =
-        RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(CopyRequested), RoutingStrategies.Bubble);
+    public static readonly RoutedEvent<StrataCopyRequestedEventArgs> CopyRequestedEvent =
+        RoutedEvent.Register<StrataChatMessage, StrataCopyRequestedEventArgs>(nameof(CopyRequested), RoutingStrategies.Bubble);
 
     public static readonly RoutedEvent<RoutedEventArgs> CopyTurnRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(CopyTurnRequested), RoutingStrategies.Bubble);
@@ -198,7 +223,7 @@ public class StrataChatMessage : TemplatedControl
         StatusTextProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStatusChanged());
     }
 
-    public event EventHandler<RoutedEventArgs>? CopyRequested
+    public event EventHandler<StrataCopyRequestedEventArgs>? CopyRequested
     { add => AddHandler(CopyRequestedEvent, value); remove => RemoveHandler(CopyRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? CopyTurnRequested
     { add => AddHandler(CopyTurnRequestedEvent, value); remove => RemoveHandler(CopyTurnRequestedEvent, value); }
@@ -304,8 +329,15 @@ public class StrataChatMessage : TemplatedControl
         if (_saveButton is not null) _saveButton.Click -= OnSaveButtonClick;
         if (_cancelButton is not null) _cancelButton.Click -= OnCancelButtonClick;
         if (_editBox is not null) _editBox.RemoveHandler(KeyDownEvent, OnEditBoxKeyDown);
-        if (_contextMenu is not null) _contextMenu.Opening -= OnContextMenuOpening;
-        if (_bubble is not null) _bubble.RemoveHandler(PointerReleasedEvent, InterceptRightClick);
+        if (_contextMenu is not null)
+        {
+            _contextMenu.Opening -= OnContextMenuOpening;
+            _contextMenu.Closing -= OnContextMenuClosing;
+        }
+        if (_bubble is not null)
+        {
+            _bubble.RemoveHandler(PointerPressedEvent, InterceptRightClickPress);
+        }
         DetachContentObservers();
         base.OnDetachedFromVisualTree(e);
     }
@@ -317,18 +349,18 @@ public class StrataChatMessage : TemplatedControl
         if (e.Key == Key.C && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             e.Handled = true;
-            var text = await CopyMessageTextAsync();
-            RaiseEvent(new RoutedEventArgs(CopyRequestedEvent));
-            CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? text);
+            var copy = await CopyMessageTextAsync();
+            RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection));
+            CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
         }
     }
 
     private async void OnCopyButtonClick(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        var text = await CopyMessageTextAsync();
-        RaiseEvent(new RoutedEventArgs(CopyRequestedEvent));
-        CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? text);
+        var copy = await CopyMessageTextAsync();
+        RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection));
+        CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
     }
 
     private void OnRegenerateButtonClick(object? sender, RoutedEventArgs e)
@@ -350,64 +382,169 @@ public class StrataChatMessage : TemplatedControl
         _contextMenu ??= new ContextMenu();
         _contextMenu.Opening -= OnContextMenuOpening;
         _contextMenu.Opening += OnContextMenuOpening;
+        _contextMenu.Closing -= OnContextMenuClosing;
+        _contextMenu.Closing += OnContextMenuClosing;
 
         _bubble.ContextMenu = _contextMenu;
         ContextMenu = _contextMenu;
+        ApplyMessageContextMenu(Content);
 
-        // Intercept right-clicks in tunnel phase so child controls (e.g. SelectableTextBlock
-        // inside StrataMarkdown) don't show their own default context menu.
-        _bubble.RemoveHandler(PointerReleasedEvent, InterceptRightClick);
-        _bubble.AddHandler(PointerReleasedEvent, InterceptRightClick, RoutingStrategies.Tunnel);
+        // Snapshot selected text before child controls can react to the right-click.
+        // Avalonia still opens the normal context menu; we only preserve intent.
+        _bubble.RemoveHandler(PointerPressedEvent, InterceptRightClickPress);
+        _bubble.AddHandler(PointerPressedEvent, InterceptRightClickPress, RoutingStrategies.Tunnel);
     }
 
-    private void InterceptRightClick(object? sender, PointerReleasedEventArgs e)
+    private void InterceptRightClickPress(object? sender, PointerPressedEventArgs e)
     {
-        if (e.InitialPressMouseButton == MouseButton.Right && _contextMenu is not null)
-        {
-            e.Handled = true;
-            RebuildContextMenuItems();
-            _contextMenu.Open(_bubble);
-        }
+        if (_contextMenu is null || _bubble is null)
+            return;
+
+        if (!e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+            return;
+
+        CaptureContextMenuSelection();
     }
 
     private void OnContextMenuOpening(object? sender, EventArgs e)
     {
+        RestoreContextMenuSelection();
         RebuildContextMenuItems();
     }
+
+    private void OnContextMenuClosing(object? sender, CancelEventArgs e)
+    {
+        _contextMenuSelectionSource = null;
+        _contextMenuSelectionText = null;
+        InvalidateContextMenu();
+    }
+
+    private void CaptureContextMenuSelection()
+    {
+        _contextMenuSelectionSource = null;
+        _contextMenuSelectionText = null;
+
+        var selectedBlock = FindSelectedTextBlock(Content);
+        if (selectedBlock is null)
+            return;
+
+        _contextMenuSelectionSource = selectedBlock;
+        _contextMenuSelectionStart = selectedBlock.SelectionStart;
+        _contextMenuSelectionEnd = selectedBlock.SelectionEnd;
+        _contextMenuSelectionText = selectedBlock.SelectedText;
+    }
+
+    private void RestoreContextMenuSelection()
+    {
+        if (_contextMenuSelectionSource is null || string.IsNullOrEmpty(_contextMenuSelectionText))
+            return;
+
+        if (!string.IsNullOrEmpty(_contextMenuSelectionSource.SelectedText))
+            return;
+
+        _contextMenuSelectionSource.SelectionStart = _contextMenuSelectionStart;
+        _contextMenuSelectionSource.SelectionEnd = _contextMenuSelectionEnd;
+    }
+
+    private static SelectableTextBlock? FindSelectedTextBlock(object? content)
+    {
+        if (content is null)
+            return null;
+
+        if (content is SelectableTextBlock stb)
+            return HasTextSelection(stb) ? stb : null;
+
+        if (content is ContentControl contentControl)
+        {
+            var fromContent = FindSelectedTextBlock(contentControl.Content);
+            if (fromContent is not null)
+                return fromContent;
+        }
+
+        if (content is Decorator decorator)
+        {
+            var fromChild = FindSelectedTextBlock(decorator.Child);
+            if (fromChild is not null)
+                return fromChild;
+        }
+
+        if (content is Panel panel)
+        {
+            foreach (var child in panel.Children)
+            {
+                var fromChild = FindSelectedTextBlock(child);
+                if (fromChild is not null)
+                    return fromChild;
+            }
+        }
+
+        if (content is IEnumerable enumerable)
+        {
+            foreach (var item in enumerable)
+            {
+                var fromItem = FindSelectedTextBlock(item);
+                if (fromItem is not null)
+                    return fromItem;
+            }
+        }
+
+        if (content is Control control)
+        {
+            foreach (var child in control.GetVisualChildren())
+            {
+                var fromVisual = FindSelectedTextBlock(child);
+                if (fromVisual is not null)
+                    return fromVisual;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool HasTextSelection(SelectableTextBlock stb)
+        => stb.SelectionStart != stb.SelectionEnd && !string.IsNullOrEmpty(stb.SelectedText);
 
     private void RebuildContextMenuItems()
     {
         if (_contextMenu is null)
             return;
 
-        // Skip rebuild if state hasn't changed since last build
+        var hasSelection = HasSelectedText();
+
+        // Skip rebuild if state hasn't changed since last build.
         if (_contextMenuBuilt &&
             _lastMenuRole == Role &&
             _lastMenuIsEditing == IsEditing &&
             _lastMenuIsEditable == IsEditable &&
-            _lastMenuIsStreaming == IsStreaming)
+            _lastMenuIsStreaming == IsStreaming &&
+            _lastMenuHasSelection == hasSelection)
             return;
 
         _lastMenuRole = Role;
         _lastMenuIsEditing = IsEditing;
         _lastMenuIsEditable = IsEditable;
         _lastMenuIsStreaming = IsStreaming;
+        _lastMenuHasSelection = hasSelection;
         _contextMenuBuilt = true;
 
         var items = new List<object>();
 
-        var copyItem = new MenuItem { Header = "Copy", Icon = CreateMenuIcon("\uE8C8") };
+        var copyItem = new MenuItem
+        {
+            Header = hasSelection ? "Copy selected text" : "Copy message",
+            Icon = CreateMenuIcon("\uE8C8")
+        };
         copyItem.Click += async (_, _) =>
         {
-            var text = await CopyMessageTextAsync();
-            RaiseEvent(new RoutedEventArgs(CopyRequestedEvent));
-            CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? text);
+            var copy = await CopyMessageTextAsync();
+            RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection));
+            CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
         };
         items.Add(copyItem);
 
         if (!IsEditing && Role is StrataChatRole.Assistant or StrataChatRole.Tool)
         {
-            var copyTurnItem = new MenuItem { Header = "Copy turn", Icon = CreateMenuIcon("\uE8C8") };
+            var copyTurnItem = new MenuItem { Header = "Copy assistant turn", Icon = CreateMenuIcon("\uE8C8") };
             copyTurnItem.Click += (_, _) =>
             {
                 RaiseEvent(new RoutedEventArgs(CopyTurnRequestedEvent));
@@ -452,11 +589,14 @@ public class StrataChatMessage : TemplatedControl
         };
     }
 
-    private async Task<string> CopyMessageTextAsync()
+    private readonly record struct MessageCopyResult(string Text, bool IsSelection);
+
+    private async Task<MessageCopyResult> CopyMessageTextAsync()
     {
-        var text = ExtractCopyText();
+        var copy = ExtractCopyText();
+        var text = copy.Text;
         if (string.IsNullOrWhiteSpace(text))
-            return text;
+            return copy;
 
         var topLevel = TopLevel.GetTopLevel(this);
         if (topLevel?.Clipboard is not null)
@@ -466,20 +606,26 @@ public class StrataChatMessage : TemplatedControl
             await topLevel.Clipboard.SetDataAsync(data);
         }
 
-        return text;
+        return copy;
     }
 
-    private string ExtractCopyText()
+    private MessageCopyResult ExtractCopyText()
     {
         if (IsEditing && !string.IsNullOrWhiteSpace(EditText))
-            return EditText!;
+            return new MessageCopyResult(EditText!, false);
 
-        var selected = ChatContentExtractor.ExtractSelectedText(Content);
+        var selected = _contextMenuSelectionText;
+        if (string.IsNullOrEmpty(selected))
+            selected = ChatContentExtractor.ExtractSelectedText(Content);
         if (!string.IsNullOrEmpty(selected))
-            return selected;
+            return new MessageCopyResult(selected, true);
 
-        return ChatContentExtractor.ExtractText(Content).Trim();
+        return new MessageCopyResult(ChatContentExtractor.ExtractText(Content).Trim(), false);
     }
+
+    private bool HasSelectedText()
+        => !string.IsNullOrEmpty(_contextMenuSelectionText)
+           || !string.IsNullOrEmpty(ChatContentExtractor.ExtractSelectedText(Content));
 
     private void BeginEdit()
     {
@@ -690,12 +836,21 @@ public class StrataChatMessage : TemplatedControl
         foreach (var markdown in _observedMarkdownControls)
             markdown.PropertyChanged -= OnObservedMarkdownPropertyChanged;
         _observedMarkdownControls.Clear();
+
+        foreach (var target in _contextMenuTargets)
+        {
+            if (ReferenceEquals(target.ContextMenu, _contextMenu))
+                target.ContextMenu = null;
+        }
+        _contextMenuTargets.Clear();
     }
 
     private void AttachContentObserversAndApply(object? content)
     {
         if (content is null)
             return;
+
+        ApplyMessageContextMenu(content);
 
         if (content is TextBlock textBlock)
         {
@@ -735,6 +890,18 @@ public class StrataChatMessage : TemplatedControl
         // Known content types (TextBlock, StrataMarkdown, Panel, Decorator,
         // ContentControl) are handled above. Unknown controls don't need
         // directional-text observation.
+    }
+
+    private void ApplyMessageContextMenu(object? content)
+    {
+        if (_contextMenu is null || content is not Control control)
+            return;
+
+        if (control.ContextMenu is not null && !ReferenceEquals(control.ContextMenu, _contextMenu))
+            return;
+
+        control.ContextMenu = _contextMenu;
+        _contextMenuTargets.Add(control);
     }
 
     private void OnObservedTextBlockPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)

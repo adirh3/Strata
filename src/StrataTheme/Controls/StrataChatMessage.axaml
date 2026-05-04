@@ -75,7 +75,7 @@
                       <StackPanel Orientation="Horizontal" Spacing="0">
                         <Button Name="PART_CopyButton" Classes="subtle"
                                 Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                          <TextBlock Text="Copy" FontSize="11"
+                          <TextBlock Text="Copy message" FontSize="11"
                                      Foreground="{DynamicResource Brush.TextTertiary}" />
                         </Button>
                         <Border Name="PART_EditSep" Width="1" Margin="2,3"
