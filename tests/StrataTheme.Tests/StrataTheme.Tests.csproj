@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\StrataSearch\StrataSearch.csproj" />
     <ProjectReference Include="..\..\src\StrataTheme\StrataTheme.csproj" />
   </ItemGroup>
 

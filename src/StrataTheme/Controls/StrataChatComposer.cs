@@ -1085,14 +1085,12 @@ public class StrataChatComposer : TemplatedControl
             yield return item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
     }
 
-    private static bool MatchesAutoCompleteQuery(StrataComposerChip chip, string query)
+    internal static bool MatchesAutoCompleteQuery(StrataComposerChip chip, string query)
     {
         if (string.IsNullOrWhiteSpace(query))
             return true;
 
-        return chip.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
-            || (!string.IsNullOrWhiteSpace(chip.SecondaryText)
-                && chip.SecondaryText.Contains(query, StringComparison.OrdinalIgnoreCase));
+        return StrataChatComposerSearch.ScoreChip(chip, query) > 0;
     }
 
     private static string GetAutoCompleteHeader(ChipKind kind) => kind switch

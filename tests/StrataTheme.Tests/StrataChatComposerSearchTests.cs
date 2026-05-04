@@ -159,6 +159,33 @@ public class StrataChatComposerSearchTests
     }
 
     [Fact]
+    public void Rank_MidTermTypoBetweenSeparatorTokensFindsBestCandidate()
+    {
+        var chips = new[]
+        {
+            new StrataComposerChip("Log Analytics Workspace"),
+            new StrataComposerChip("Log Archive Writer")
+        };
+
+        var ranked = StrataChatComposerSearch.Rank(chips, "analyticworkspce");
+
+        Assert.NotEmpty(ranked);
+        Assert.Equal("Log Analytics Workspace", ranked[0].Name);
+    }
+
+    [Fact]
+    public void MatchesAutoCompleteQuery_UsesFuzzyMatchingForHostRankedFileResults()
+    {
+        var chip = new StrataComposerChip(
+            "FileSearchService.cs",
+            "📄",
+            SecondaryText: "src/Services",
+            Value: @"C:\repo\src\Services\FileSearchService.cs");
+
+        Assert.True(StrataChatComposer.MatchesAutoCompleteQuery(chip, "fileserach"));
+    }
+
+    [Fact]
     public void Rank_AcronymMatchesAcrossNameAndSecondaryText()
     {
         var chips = new[]
