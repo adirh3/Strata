@@ -95,7 +95,7 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
-/// <para><b>Pseudo-classes:</b> :busy, :empty, :stop-send, :can-attach,
+/// <para><b>Pseudo-classes:</b> :busy, :empty, :stop-send, :can-attach, :can-send-without-prompt,
 /// :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
 /// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
 /// </remarks>
@@ -178,6 +178,10 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Whether to show the attach (+) button.</summary>
     public static readonly StyledProperty<bool> CanAttachProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanAttach), true);
+
+    /// <summary>When true, the send command can execute even if <see cref="PromptText"/> is empty.</summary>
+    public static readonly StyledProperty<bool> CanSendWithoutPromptProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanSendWithoutPrompt));
 
     /// <summary>Text for the first quick-suggestion chip. Empty hides the chip.</summary>
     public static readonly StyledProperty<string> SuggestionAProperty =
@@ -427,6 +431,7 @@ public class StrataChatComposer : TemplatedControl
         IsBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SendWithEnterProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanAttachProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        CanSendWithoutPromptProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsRecordingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsSuggestionsGeneratingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
         {
@@ -520,6 +525,7 @@ public class StrataChatComposer : TemplatedControl
     public bool IsBusy { get => GetValue(IsBusyProperty); set => SetValue(IsBusyProperty, value); }
     public bool SendWithEnter { get => GetValue(SendWithEnterProperty); set => SetValue(SendWithEnterProperty, value); }
     public bool CanAttach { get => GetValue(CanAttachProperty); set => SetValue(CanAttachProperty, value); }
+    public bool CanSendWithoutPrompt { get => GetValue(CanSendWithoutPromptProperty); set => SetValue(CanSendWithoutPromptProperty, value); }
     public string SuggestionA { get => GetValue(SuggestionAProperty); set => SetValue(SuggestionAProperty, value); }
     public string SuggestionB { get => GetValue(SuggestionBProperty); set => SetValue(SuggestionBProperty, value); }
     public string SuggestionC { get => GetValue(SuggestionCProperty); set => SetValue(SuggestionCProperty, value); }
@@ -955,10 +961,11 @@ public class StrataChatComposer : TemplatedControl
     private void HandleSendAction()
     {
         var promptText = CommitInputText();
+        var hasPromptText = !string.IsNullOrWhiteSpace(promptText);
 
         if (IsBusy)
         {
-            if (!string.IsNullOrWhiteSpace(promptText))
+            if (hasPromptText || CanSendWithoutPrompt)
             {
                 RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
                 CommandHelper.Execute(SendCommand, SendCommandParameter ?? promptText);
@@ -968,7 +975,8 @@ public class StrataChatComposer : TemplatedControl
             CommandHelper.Execute(StopCommand, StopCommandParameter);
             return;
         }
-        if (string.IsNullOrWhiteSpace(promptText)) return;
+
+        if (!hasPromptText && !CanSendWithoutPrompt) return;
         RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
         CommandHelper.Execute(SendCommand, SendCommandParameter ?? promptText);
     }
@@ -1487,10 +1495,13 @@ public class StrataChatComposer : TemplatedControl
 
     private void Sync()
     {
+        var hasPromptText = !string.IsNullOrWhiteSpace(PromptText);
+
         PseudoClasses.Set(":busy", IsBusy);
-        PseudoClasses.Set(":empty", string.IsNullOrWhiteSpace(PromptText));
-        PseudoClasses.Set(":stop-send", IsBusy && !string.IsNullOrWhiteSpace(PromptText));
+        PseudoClasses.Set(":empty", !hasPromptText);
+        PseudoClasses.Set(":stop-send", IsBusy && (hasPromptText || CanSendWithoutPrompt));
         PseudoClasses.Set(":can-attach", CanAttach);
+        PseudoClasses.Set(":can-send-without-prompt", CanSendWithoutPrompt);
         PseudoClasses.Set(":a-empty", string.IsNullOrWhiteSpace(SuggestionA));
         PseudoClasses.Set(":b-empty", string.IsNullOrWhiteSpace(SuggestionB));
         PseudoClasses.Set(":c-empty", string.IsNullOrWhiteSpace(SuggestionC));
