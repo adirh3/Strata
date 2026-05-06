@@ -122,6 +122,49 @@ public class StrataChatMessageTests : IClassFixture<AvaloniaFixture>
         });
     }
 
+    [Fact]
+    public void ExtractCopyText_NoSelectionUsesWholeMessageText()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var message = new StrataChatMessage
+            {
+                Content = new SelectableTextBlock { Text = "Whole message text" }
+            };
+
+            var copy = ExtractCopyText(message);
+
+            Assert.Equal("Whole message text", copy.Text);
+            Assert.False(copy.IsSelection);
+        });
+    }
+
+    [Fact]
+    public void RebuildContextMenuItems_NoSelectionShowsWholeMessageActions()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var menu = new ContextMenu();
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.Assistant,
+                Content = new SelectableTextBlock { Text = "Whole message text" }
+            };
+            SetPrivateField(message, "_contextMenu", menu);
+
+            InvokePrivate(message, "RebuildContextMenuItems");
+
+            var headers = Assert
+                .IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource)
+                .OfType<MenuItem>()
+                .Select(static item => item.Header?.ToString())
+                .ToArray();
+            Assert.Contains("Copy message", headers);
+            Assert.Contains("Copy assistant turn", headers);
+            Assert.DoesNotContain("Copy selected text", headers);
+        });
+    }
+
     private static void ConfirmEdit(StrataChatMessage message)
     {
         var method = typeof(StrataChatMessage).GetMethod("ConfirmEdit", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -143,6 +186,14 @@ public class StrataChatMessageTests : IClassFixture<AvaloniaFixture>
         var isSelection = Assert.IsType<bool>(resultType.GetProperty("IsSelection")?.GetValue(result));
 
         return (text, isSelection);
+    }
+
+    private static void InvokePrivate(StrataChatMessage message, string name)
+    {
+        var method = typeof(StrataChatMessage).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        method!.Invoke(message, null);
     }
 
     private static void SetPrivateField<T>(StrataChatMessage message, string name, T value)

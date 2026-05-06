@@ -337,6 +337,7 @@ public class StrataChatMessage : TemplatedControl
         if (_bubble is not null)
         {
             _bubble.RemoveHandler(PointerPressedEvent, InterceptRightClickPress);
+            _bubble.RemoveHandler(PointerReleasedEvent, InterceptRightClickRelease);
         }
         DetachContentObservers();
         base.OnDetachedFromVisualTree(e);
@@ -389,10 +390,12 @@ public class StrataChatMessage : TemplatedControl
         ContextMenu = _contextMenu;
         ApplyMessageContextMenu(Content);
 
-        // Snapshot selected text before child controls can react to the right-click.
-        // Avalonia still opens the normal context menu; we only preserve intent.
+        // Snapshot selected text before child controls can react to the right-click,
+        // then open the message-owned menu on release so whole-message actions remain available.
         _bubble.RemoveHandler(PointerPressedEvent, InterceptRightClickPress);
         _bubble.AddHandler(PointerPressedEvent, InterceptRightClickPress, RoutingStrategies.Tunnel);
+        _bubble.RemoveHandler(PointerReleasedEvent, InterceptRightClickRelease);
+        _bubble.AddHandler(PointerReleasedEvent, InterceptRightClickRelease, RoutingStrategies.Tunnel);
     }
 
     private void InterceptRightClickPress(object? sender, PointerPressedEventArgs e)
@@ -404,6 +407,20 @@ public class StrataChatMessage : TemplatedControl
             return;
 
         CaptureContextMenuSelection();
+    }
+
+    private void InterceptRightClickRelease(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_contextMenu is null || _bubble is null)
+            return;
+
+        if (e.InitialPressMouseButton != MouseButton.Right)
+            return;
+
+        e.Handled = true;
+        RestoreContextMenuSelection();
+        RebuildContextMenuItems();
+        _contextMenu.Open(_bubble);
     }
 
     private void OnContextMenuOpening(object? sender, EventArgs e)
