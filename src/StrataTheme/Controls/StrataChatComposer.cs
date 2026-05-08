@@ -578,7 +578,10 @@ public class StrataChatComposer : TemplatedControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         if (_input is not null)
+        {
             _input.RemoveHandler(KeyDownEvent, OnInputKeyDown);
+            _input.TextChanged -= OnInputTextChanged;
+        }
         if (_autoCompletePopup is not null)
             _autoCompletePopup.Closed -= OnAutoCompletePopupClosed;
 
@@ -606,7 +609,10 @@ public class StrataChatComposer : TemplatedControl
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         if (_input is not null)
+        {
             _input.RemoveHandler(KeyDownEvent, OnInputKeyDown);
+            _input.TextChanged -= OnInputTextChanged;
+        }
         if (_autoCompletePopup is not null)
             _autoCompletePopup.Closed -= OnAutoCompletePopupClosed;
 
@@ -615,6 +621,7 @@ public class StrataChatComposer : TemplatedControl
         if (_input is not null)
         {
             _input.AddHandler(KeyDownEvent, OnInputKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            _input.TextChanged += OnInputTextChanged;
             _input.ContextMenu = BuildInputContextMenu(_input);
         }
 
@@ -783,6 +790,19 @@ public class StrataChatComposer : TemplatedControl
         if (btn is not null) btn.Click += (_, _) => action();
     }
 
+    private void OnInputTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        CommitInputText();
+    }
+
+    private string? CommitInputText()
+    {
+        var text = _input?.Text ?? PromptText;
+        if (!string.Equals(PromptText, text, StringComparison.Ordinal))
+            PromptText = text;
+        return text;
+    }
+
     private void OnAutoCompletePopupClosed(object? sender, EventArgs e)
     {
         _triggerIndex = -1;
@@ -934,21 +954,23 @@ public class StrataChatComposer : TemplatedControl
 
     private void HandleSendAction()
     {
+        var promptText = CommitInputText();
+
         if (IsBusy)
         {
-            if (!string.IsNullOrWhiteSpace(PromptText))
+            if (!string.IsNullOrWhiteSpace(promptText))
             {
                 RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
-                CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
+                CommandHelper.Execute(SendCommand, SendCommandParameter ?? promptText);
             }
 
             RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
             CommandHelper.Execute(StopCommand, StopCommandParameter);
             return;
         }
-        if (string.IsNullOrWhiteSpace(PromptText)) return;
+        if (string.IsNullOrWhiteSpace(promptText)) return;
         RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
-        CommandHelper.Execute(SendCommand, SendCommandParameter ?? PromptText);
+        CommandHelper.Execute(SendCommand, SendCommandParameter ?? promptText);
     }
 
     // ── Inline autocomplete ────────────────────────────────────────
