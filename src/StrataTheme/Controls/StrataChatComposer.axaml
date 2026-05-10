@@ -449,6 +449,9 @@
         <Style Selector="^:empty:not(:busy) /template/ Button#PART_SendButton">
           <Setter Property="Opacity" Value="0.35" />
         </Style>
+        <Style Selector="^:can-send-without-prompt:not(:busy) /template/ Button#PART_SendButton">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
 
         <!-- Suggestion loading state -->
         <Style Selector="^:suggestions-generating /template/ StackPanel#PART_SuggestionLoading">
