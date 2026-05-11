@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -104,6 +105,29 @@ public class StrataChatMessageTests : IClassFixture<AvaloniaFixture>
     }
 
     [Fact]
+    public void BeginEdit_WhenInlineEditDisabled_InvokesHostEditCommandOnly()
+    {
+        var commandExecuted = false;
+        var eventRaised = false;
+        var message = new StrataChatMessage
+        {
+            UseInlineEdit = false,
+            Content = new TextBlock { Text = "Original message" },
+            EditCommand = new TestCommand(() => commandExecuted = true)
+        };
+        message.EditRequested += (_, _) => eventRaised = true;
+
+        InvokePrivate(message, "BeginEdit");
+
+        Assert.True(commandExecuted);
+        Assert.True(eventRaised);
+        Assert.False(message.IsEditing);
+        Assert.Null(message.EditText);
+        var content = Assert.IsType<TextBlock>(message.Content);
+        Assert.Equal("Original message", content.Text);
+    }
+
+    [Fact]
     public void ExtractCopyText_PrefersCachedContextMenuSelection()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -202,5 +226,18 @@ public class StrataChatMessageTests : IClassFixture<AvaloniaFixture>
 
         Assert.NotNull(field);
         field!.SetValue(message, value);
+    }
+
+    private sealed class TestCommand(Action execute) : ICommand
+    {
+        public event EventHandler? CanExecuteChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public bool CanExecute(object? parameter) => true;
+
+        public void Execute(object? parameter) => execute();
     }
 }
