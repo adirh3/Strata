@@ -155,6 +155,10 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<bool> IsEditingProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsEditing));
 
+    /// <summary>When false, Edit invokes the host command without opening the inline editor.</summary>
+    public static readonly StyledProperty<bool> UseInlineEditProperty =
+        AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(UseInlineEdit), true);
+
     /// <summary>Text value of the edit box when editing.</summary>
     public static readonly StyledProperty<string?> EditTextProperty =
         AvaloniaProperty.Register<StrataChatMessage, string?>(nameof(EditText));
@@ -258,6 +262,7 @@ public class StrataChatMessage : TemplatedControl
     public bool IsStreaming { get => GetValue(IsStreamingProperty); set => SetValue(IsStreamingProperty, value); }
     public bool IsEditable { get => GetValue(IsEditableProperty); set => SetValue(IsEditableProperty, value); }
     public bool IsEditing { get => GetValue(IsEditingProperty); set => SetValue(IsEditingProperty, value); }
+    public bool UseInlineEdit { get => GetValue(UseInlineEditProperty); set => SetValue(UseInlineEditProperty, value); }
     public string? EditText { get => GetValue(EditTextProperty); set => SetValue(EditTextProperty, value); }
     public bool ApplyEditToContent { get => GetValue(ApplyEditToContentProperty); set => SetValue(ApplyEditToContentProperty, value); }
 
@@ -747,6 +752,13 @@ public class StrataChatMessage : TemplatedControl
 
     private void BeginEdit()
     {
+        if (!UseInlineEdit)
+        {
+            RaiseEvent(new RoutedEventArgs(EditRequestedEvent));
+            CommandHelper.Execute(EditCommand, EditCommandParameter);
+            return;
+        }
+
         // If EditText is already populated (e.g. via MVVM binding), use it as-is.
         // Only fall back to extracting from visual content when no binding provides the text.
         if (string.IsNullOrEmpty(EditText))

@@ -160,6 +160,29 @@ public class StrataChatMessageTests
     }
 
     [Fact]
+    public void BeginEdit_WhenInlineEditDisabled_InvokesHostEditCommandOnly()
+    {
+        var command = new RecordingCommand();
+        var eventRaised = false;
+        var message = new StrataChatMessage
+        {
+            UseInlineEdit = false,
+            Content = new TextBlock { Text = "Original message" },
+            EditCommand = command
+        };
+        message.EditRequested += (_, _) => eventRaised = true;
+
+        InvokePrivate(message, "BeginEdit");
+
+        Assert.Equal(1, command.ExecuteCount);
+        Assert.True(eventRaised);
+        Assert.False(message.IsEditing);
+        Assert.Null(message.EditText);
+        var content = Assert.IsType<TextBlock>(message.Content);
+        Assert.Equal("Original message", content.Text);
+    }
+
+    [Fact]
     public async Task ExtractCopyText_PrefersCachedContextMenuSelection()
     {
         await _fixture.Dispatch(() =>
