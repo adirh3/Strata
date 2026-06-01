@@ -1,17 +1,21 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Documents;
 using Avalonia.Controls.Templates;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Text;
@@ -2903,8 +2907,18 @@ public class StrataMarkdown : ContentControl
 
     private sealed class MarkdownTableView : Border
     {
+        private static readonly DataFormat<string> MarkdownClipboardFormat =
+            DataFormat.CreateStringPlatformFormat("text/markdown");
+        private static readonly DataFormat<string> HtmlClipboardFormat =
+            DataFormat.CreateStringPlatformFormat("text/html");
+
         private readonly Grid _grid;
         private readonly ScrollViewer _scrollViewer;
+        private readonly TextBlock _copyLabel;
+        private readonly Button _copyButton;
+        private string[] _headers = [];
+        private IReadOnlyList<string[]> _rows = [];
+        private int _copyStatusVersion;
 
         public MarkdownTableView()
         {
@@ -2922,15 +2936,55 @@ public class StrataMarkdown : ContentControl
             };
             _scrollViewer.Classes.Add("strata-md-table-scroll");
 
-            Child = _scrollViewer;
+            _copyLabel = new TextBlock
+            {
+                Text = "\uE8C8",
+                FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+                FontSize = 12,
+                Width = 14,
+                TextAlignment = TextAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+
+            _copyButton = new Button
+            {
+                Name = "PART_CopyTableButton",
+                Content = _copyLabel,
+                Padding = new Thickness(5, 3),
+                MinHeight = 0,
+                MinWidth = 0,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 6, 6, 0),
+                Cursor = HandCursorLazy.Value,
+            };
+            _copyButton.Classes.Add("subtle");
+            _copyButton.Classes.Add("strata-md-table-copy-button");
+            ToolTip.SetTip(_copyButton, "Copy this table.");
+            AutomationProperties.SetName(_copyButton, "Copy table");
+            AutomationProperties.SetHelpText(_copyButton, "Choose whether to copy this table as markdown or HTML.");
+            _copyButton.ContextMenu = CreateCopyFormatMenu();
+            _copyButton.Click += OnCopyButtonClick;
+
+            var layout = new Grid();
+            layout.Children.Add(_scrollViewer);
+            layout.Children.Add(_copyButton);
+
+            ContextMenu = CreateCopyFormatMenu();
+
+            KeyDown += OnKeyDown;
+            Child = layout;
             HorizontalAlignment = HorizontalAlignment.Stretch;
             MaxHeight = 400;
             Margin = new Thickness(0, 4, 0, 4);
+            Focusable = true;
             Classes.Add("strata-md-table");
         }
 
         public void Update(StrataMarkdown owner, string[] headers, List<string[]> rows)
         {
+            _headers = headers;
+            _rows = rows;
             _grid.Children.Clear();
             _grid.RowDefinitions.Clear();
             _grid.ColumnDefinitions.Clear();
@@ -2977,6 +3031,195 @@ public class StrataMarkdown : ContentControl
                     _grid.Children.Add(cell);
                 }
             }
+        }
+
+        private async void OnKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.C || !e.KeyModifiers.HasFlag(KeyModifiers.Control))
+                return;
+
+            e.Handled = true;
+            await CopyTableAsync(TableCopyFormat.Markdown);
+        }
+
+        private void OnCopyButtonClick(object? sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            _copyButton.ContextMenu?.Open(_copyButton);
+        }
+
+        private ContextMenu CreateCopyFormatMenu()
+        {
+            var markdownItem = new MenuItem { Header = "Copy as Markdown" };
+            markdownItem.Click += async (_, _) => await CopyTableAsync(TableCopyFormat.Markdown);
+
+            var htmlItem = new MenuItem { Header = "Copy as HTML" };
+            htmlItem.Click += async (_, _) => await CopyTableAsync(TableCopyFormat.Html);
+
+            return new ContextMenu
+            {
+                Items =
+                {
+                    markdownItem,
+                    htmlItem,
+                },
+            };
+        }
+
+        private async Task CopyTableAsync(TableCopyFormat format)
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.Clipboard is null)
+            {
+                await ShowCopyStatusAsync("Clipboard unavailable");
+                return;
+            }
+
+            try
+            {
+                var text = format == TableCopyFormat.Html
+                    ? HtmlText
+                    : MarkdownText;
+                var data = new DataTransfer();
+                data.Add(DataTransferItem.CreateText(text));
+                data.Add(DataTransferItem.Create(
+                    format == TableCopyFormat.Html ? HtmlClipboardFormat : MarkdownClipboardFormat,
+                    text));
+                await topLevel.Clipboard.SetDataAsync(data);
+
+                await ShowCopyStatusAsync("\uE73E");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to copy markdown table to clipboard: {ex}");
+                await ShowCopyStatusAsync("Copy failed");
+            }
+        }
+
+        private async Task ShowCopyStatusAsync(string text)
+        {
+            var version = ++_copyStatusVersion;
+            _copyLabel.Text = text;
+            _copyLabel.Width = text.Length == 1 ? 14 : double.NaN;
+            await Task.Delay(1200);
+            if (version == _copyStatusVersion)
+            {
+                _copyLabel.Text = "\uE8C8";
+                _copyLabel.Width = 14;
+            }
+        }
+
+        public string MarkdownText => BuildTableMarkdownForClipboard(_headers, _rows);
+
+        private string HtmlText => BuildTableHtmlForClipboard(_headers, _rows);
+
+        private static string BuildTableMarkdownForClipboard(string[] headers, IReadOnlyList<string[]> rows)
+        {
+            var builder = new StringBuilder();
+            AppendMarkdownRow(builder, headers, headers.Length);
+            builder.AppendLine();
+            AppendMarkdownSeparatorRow(builder, headers.Length);
+
+            foreach (var row in rows)
+            {
+                builder.AppendLine();
+                AppendMarkdownRow(builder, row, headers.Length);
+            }
+
+            return builder.ToString();
+        }
+
+        private static string BuildTableHtmlForClipboard(string[] headers, IReadOnlyList<string[]> rows)
+        {
+            var builder = new StringBuilder("<table><thead><tr>");
+            foreach (var header in headers)
+            {
+                builder.Append("<th>");
+                builder.Append(WebUtility.HtmlEncode(NormalizeCellForClipboard(header)));
+                builder.Append("</th>");
+            }
+
+            builder.Append("</tr></thead><tbody>");
+            foreach (var row in rows)
+            {
+                builder.Append("<tr>");
+                for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
+                {
+                    builder.Append("<td>");
+                    builder.Append(WebUtility.HtmlEncode(NormalizeCellForClipboard(columnIndex < row.Length ? row[columnIndex] : string.Empty)));
+                    builder.Append("</td>");
+                }
+                builder.Append("</tr>");
+            }
+
+            builder.Append("</tbody></table>");
+            return builder.ToString();
+        }
+
+        private enum TableCopyFormat
+        {
+            Markdown,
+            Html,
+        }
+
+        private static void AppendMarkdownRow(StringBuilder builder, IReadOnlyList<string> cells, int columnCount)
+        {
+            builder.Append("| ");
+            for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
+            {
+                if (columnIndex > 0)
+                    builder.Append(" | ");
+
+                builder.Append(EscapeMarkdownTableCell(columnIndex < cells.Count ? cells[columnIndex] : string.Empty));
+            }
+
+            builder.Append(" |");
+        }
+
+        private static void AppendMarkdownSeparatorRow(StringBuilder builder, int columnCount)
+        {
+            builder.Append("| ");
+            for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
+            {
+                if (columnIndex > 0)
+                    builder.Append(" | ");
+
+                builder.Append("---");
+            }
+
+            builder.Append(" |");
+        }
+
+        private static string EscapeMarkdownTableCell(string text)
+        {
+            return NormalizeCellForClipboard(text)
+                .Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("|", "\\|", StringComparison.Ordinal);
+        }
+
+        private static string NormalizeCellForClipboard(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
+
+            var builder = new StringBuilder(text.Length);
+            var previousWasSpace = true;
+            foreach (var character in text)
+            {
+                var normalized = character is '\r' or '\n' or '\t' ? ' ' : character;
+                if (char.IsWhiteSpace(normalized))
+                {
+                    if (!previousWasSpace)
+                        builder.Append(' ');
+                    previousWasSpace = true;
+                    continue;
+                }
+
+                builder.Append(normalized);
+                previousWasSpace = false;
+            }
+
+            return builder.ToString().TrimEnd();
         }
 
         private static Border CreateCell(

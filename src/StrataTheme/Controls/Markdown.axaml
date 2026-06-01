@@ -117,6 +117,26 @@
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
 
+  <Style Selector="Button.strata-md-table-copy-button">
+    <Setter Property="Opacity" Value="0.68" />
+  </Style>
+
+  <Style Selector="Button.strata-md-table-copy-button TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+
+  <Style Selector="Border.strata-md-table:pointerover Button.strata-md-table-copy-button">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <Style Selector="Button.strata-md-table-copy-button:focus-visible">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <Style Selector="Border.strata-md-table:pointerover Button.strata-md-table-copy-button TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+
   <Style Selector="Border.strata-md-table-header-cell">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
