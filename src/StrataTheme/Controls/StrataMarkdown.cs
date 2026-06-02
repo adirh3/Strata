@@ -1772,7 +1772,7 @@ public class StrataMarkdown : ContentControl
         {
             Content = codeBlock,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             MaxHeight = 400,
             Padding = new Thickness(0, 4, 0, 8),
         };

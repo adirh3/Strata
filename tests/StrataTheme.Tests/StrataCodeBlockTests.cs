@@ -1,5 +1,7 @@
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Primitives;
 using StrataTheme.Controls;
 using TextMateSharp.Grammars;
 using TextMateSharp.Registry;
@@ -349,5 +351,28 @@ public class StrataCodeBlockTests
             if (inline is Run run)
                 Assert.DoesNotContain("\r", run.Text);
         }
+    }
+
+    [Fact]
+    public void MarkdownCodeBlock_AllowsVerticalScrollingWhenContentExceedsMaxHeight()
+    {
+        using var fixture = new AvaloniaFixture();
+        var lines = Enumerable.Range(1, 80).Select(i => $"line {i}");
+        var code = string.Join('\n', lines);
+        var renderer = new StrataMarkdown();
+        var method = typeof(StrataMarkdown).GetMethod(
+            "CreateCodeBlockControl",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        var shell = Assert.IsType<Border>(method!.Invoke(renderer, new object[] { code, "text" }));
+        var stack = Assert.IsType<StackPanel>(shell.Child);
+        var codeScroller = Assert.IsType<ScrollViewer>(stack.Children[1]);
+        var codeBlock = Assert.IsType<StrataCodeBlock>(codeScroller.Content);
+
+        Assert.True(codeBlock.MinHeight > codeScroller.MaxHeight);
+        Assert.Equal(ScrollBarVisibility.Auto, codeScroller.VerticalScrollBarVisibility);
+        Assert.Equal(400, codeScroller.MaxHeight);
     }
 }
