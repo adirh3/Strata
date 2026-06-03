@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
-using Avalonia.Headless;
 using Avalonia.Media;
 using StrataTheme.Controls;
 
@@ -13,7 +12,8 @@ namespace StrataTheme.Tests;
 /// the <see cref="StrataMarkdown.InlineCodeRun"/> structure, and the character-offset counting
 /// used by <see cref="StrataMarkdown.InlineCodeLayer"/>.
 /// </summary>
-public class InlineCodeRenderingTests : IClassFixture<AvaloniaFixture>
+[Collection("Avalonia UI")]
+public class InlineCodeRenderingTests
 {
     // ─── InlineCodeRun creation ─────────────────────────────────
 
@@ -513,30 +513,4 @@ public class InlineCodeRenderingTests : IClassFixture<AvaloniaFixture>
         for (int i = 0; i < expectedStarts.Length; i++)
             Assert.Equal(expectedStarts[i], actualStarts[i]);
     }
-}
-
-/// <summary>
-/// Provides a one-time headless Avalonia app initialization for tests that
-/// need to instantiate Avalonia controls (e.g. <see cref="StrataMarkdown"/>).
-/// </summary>
-public class AvaloniaFixture : IDisposable
-{
-    private static readonly object Lock = new();
-    private static bool _initialized;
-
-    public AvaloniaFixture()
-    {
-        lock (Lock)
-        {
-            if (!_initialized)
-            {
-                AppBuilder.Configure<Application>()
-                    .UseHeadless(new AvaloniaHeadlessPlatformOptions())
-                    .SetupWithoutStarting();
-                _initialized = true;
-            }
-        }
-    }
-
-    public void Dispose() { }
 }

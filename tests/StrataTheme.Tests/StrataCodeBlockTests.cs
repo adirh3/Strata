@@ -12,8 +12,16 @@ namespace StrataTheme.Tests;
 /// Tests for <see cref="StrataCodeBlock"/> covering language resolution,
 /// plain-text line break handling, and tokenization correctness.
 /// </summary>
+[Collection("Avalonia UI")]
 public class StrataCodeBlockTests
 {
+    private readonly AvaloniaFixture _fixture;
+
+    public StrataCodeBlockTests(AvaloniaFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
     // ─── MapLanguageAlias ───────────────────────────────────────
 
     [Theory]
@@ -354,25 +362,27 @@ public class StrataCodeBlockTests
     }
 
     [Fact]
-    public void MarkdownCodeBlock_AllowsVerticalScrollingWhenContentExceedsMaxHeight()
+    public async Task MarkdownCodeBlock_AllowsVerticalScrollingWhenContentExceedsMaxHeight()
     {
-        using var fixture = new AvaloniaFixture();
-        var lines = Enumerable.Range(1, 80).Select(i => $"line {i}");
-        var code = string.Join('\n', lines);
-        var renderer = new StrataMarkdown();
-        var method = typeof(StrataMarkdown).GetMethod(
-            "CreateCodeBlockControl",
-            BindingFlags.Instance | BindingFlags.NonPublic);
+        await _fixture.Dispatch(() =>
+        {
+            var lines = Enumerable.Range(1, 80).Select(i => $"line {i}");
+            var code = string.Join('\n', lines);
+            var renderer = new StrataMarkdown();
+            var method = typeof(StrataMarkdown).GetMethod(
+                "CreateCodeBlockControl",
+                BindingFlags.Instance | BindingFlags.NonPublic);
 
-        Assert.NotNull(method);
+            Assert.NotNull(method);
 
-        var shell = Assert.IsType<Border>(method!.Invoke(renderer, new object[] { code, "text" }));
-        var stack = Assert.IsType<StackPanel>(shell.Child);
-        var codeScroller = Assert.IsType<ScrollViewer>(stack.Children[1]);
-        var codeBlock = Assert.IsType<StrataCodeBlock>(codeScroller.Content);
+            var shell = Assert.IsType<Border>(method!.Invoke(renderer, new object[] { code, "text" }));
+            var stack = Assert.IsType<StackPanel>(shell.Child);
+            var codeScroller = Assert.IsType<ScrollViewer>(stack.Children[1]);
+            var codeBlock = Assert.IsType<StrataCodeBlock>(codeScroller.Content);
 
-        Assert.True(codeBlock.MinHeight > codeScroller.MaxHeight);
-        Assert.Equal(ScrollBarVisibility.Auto, codeScroller.VerticalScrollBarVisibility);
-        Assert.Equal(400, codeScroller.MaxHeight);
+            Assert.True(codeBlock.MinHeight > codeScroller.MaxHeight);
+            Assert.Equal(ScrollBarVisibility.Auto, codeScroller.VerticalScrollBarVisibility);
+            Assert.Equal(400, codeScroller.MaxHeight);
+        });
     }
 }

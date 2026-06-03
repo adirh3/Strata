@@ -444,7 +444,7 @@ public class StrataMarkdown : ContentControl
         Content = _root;
         _previousBlocks = _blockListA;
         _previousGroups = _groupListA;
-        _lastThemeVariant = (Application.Current?.ActualThemeVariant ?? ThemeVariant.Light).ToString();
+        _lastThemeVariant = GetCurrentThemeVariantName();
         // Skip Rebuild() — Markdown is null at construction time, so Rebuild()
         // just hits the IsNullOrWhiteSpace fast path.  The property-changed handler
         // will trigger a rebuild when Markdown is actually set.
@@ -469,7 +469,7 @@ public class StrataMarkdown : ContentControl
         if (!string.Equals(change.Property.Name, "ActualThemeVariant", StringComparison.Ordinal))
             return;
 
-        var currentVariant = (Application.Current?.ActualThemeVariant ?? ThemeVariant.Light).ToString();
+        var currentVariant = GetCurrentThemeVariantName();
         if (string.Equals(currentVariant, _lastThemeVariant, StringComparison.Ordinal))
             return;
 
@@ -2590,8 +2590,7 @@ public class StrataMarkdown : ContentControl
 
     private static IBrush ResolveLinkBrush()
     {
-        if (Application.Current is not null &&
-            Application.Current.TryGetResource("Brush.AccentDefault", Application.Current.ActualThemeVariant, out var res) &&
+        if (TryGetApplicationResource("Brush.AccentDefault", out var res) &&
             res is IBrush brush)
         {
             return brush;
@@ -2636,14 +2635,45 @@ public class StrataMarkdown : ContentControl
 
     private static IBrush ResolveInlineCodeBrush()
     {
-        if (Application.Current is not null &&
-            Application.Current.TryGetResource("Brush.Surface2", Application.Current.ActualThemeVariant, out var res) &&
+        if (TryGetApplicationResource("Brush.Surface2", out var res) &&
             res is IBrush brush)
         {
             return brush;
         }
 
         return new SolidColorBrush(Color.FromArgb(25, 128, 128, 128));
+    }
+
+    private static string GetCurrentThemeVariantName()
+    {
+        return TryGetApplicationThemeVariant(out var themeVariant)
+            ? themeVariant.ToString()
+            : ThemeVariant.Light.ToString();
+    }
+
+    private static bool TryGetApplicationResource(string key, out object? resource)
+    {
+        if (Dispatcher.UIThread.CheckAccess() &&
+            Application.Current is { } application &&
+            application.TryGetResource(key, application.ActualThemeVariant, out resource))
+        {
+            return true;
+        }
+
+        resource = null;
+        return false;
+    }
+
+    private static bool TryGetApplicationThemeVariant(out ThemeVariant themeVariant)
+    {
+        if (Dispatcher.UIThread.CheckAccess() && Application.Current is { } application)
+        {
+            themeVariant = application.ActualThemeVariant;
+            return true;
+        }
+
+        themeVariant = ThemeVariant.Light;
+        return false;
     }
 
     private Control CreateNumberedItemControl(string text, int number)

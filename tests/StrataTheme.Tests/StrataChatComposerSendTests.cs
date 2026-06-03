@@ -1,16 +1,23 @@
 using System.Reflection;
 using System.Windows.Input;
-using Avalonia.Threading;
 using StrataTheme.Controls;
 
 namespace StrataTheme.Tests;
 
-public class StrataChatComposerSendTests : IClassFixture<AvaloniaFixture>
+[Collection("Avalonia UI")]
+public class StrataChatComposerSendTests
 {
-    [Fact]
-    public void HandleSendAction_WhenPromptIsEmptyAndEmptySendIsAllowed_ExecutesSendCommand()
+    private readonly AvaloniaFixture _fixture;
+
+    public StrataChatComposerSendTests(AvaloniaFixture fixture)
     {
-        Dispatcher.UIThread.Invoke(() =>
+        _fixture = fixture;
+    }
+
+    [Fact]
+    public async Task HandleSendAction_WhenPromptIsEmptyAndEmptySendIsAllowed_ExecutesSendCommand()
+    {
+        await _fixture.Dispatch(() =>
         {
             var command = new RecordingCommand();
             var composer = new StrataChatComposer
@@ -31,9 +38,9 @@ public class StrataChatComposerSendTests : IClassFixture<AvaloniaFixture>
     }
 
     [Fact]
-    public void HandleSendAction_WhenPromptIsEmptyAndEmptySendIsNotAllowed_DoesNotExecuteSendCommand()
+    public async Task HandleSendAction_WhenPromptIsEmptyAndEmptySendIsNotAllowed_DoesNotExecuteSendCommand()
     {
-        Dispatcher.UIThread.Invoke(() =>
+        await _fixture.Dispatch(() =>
         {
             var command = new RecordingCommand();
             var composer = new StrataChatComposer

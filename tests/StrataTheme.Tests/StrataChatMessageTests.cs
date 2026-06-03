@@ -1,13 +1,20 @@
 using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Media;
-using Avalonia.Threading;
 using StrataTheme.Controls;
 
 namespace StrataTheme.Tests;
 
-public class StrataChatMessageTests : IClassFixture<AvaloniaFixture>
+[Collection("Avalonia UI")]
+public class StrataChatMessageTests
 {
+    private readonly AvaloniaFixture _fixture;
+
+    public StrataChatMessageTests(AvaloniaFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
     private sealed class PlainPayload
     {
     }
@@ -30,9 +37,9 @@ public class StrataChatMessageTests : IClassFixture<AvaloniaFixture>
     }
 
     [Fact]
-    public void ExtractSelectedText_FindsNestedSelectableTextBlock()
+    public async Task ExtractSelectedText_FindsNestedSelectableTextBlock()
     {
-        Dispatcher.UIThread.Invoke(() =>
+        await _fixture.Dispatch(() =>
         {
             var panel = new StackPanel();
             panel.Children.Add(new ContentControl
@@ -104,9 +111,9 @@ public class StrataChatMessageTests : IClassFixture<AvaloniaFixture>
     }
 
     [Fact]
-    public void ExtractCopyText_PrefersCachedContextMenuSelection()
+    public async Task ExtractCopyText_PrefersCachedContextMenuSelection()
     {
-        Dispatcher.UIThread.Invoke(() =>
+        await _fixture.Dispatch(() =>
         {
             var message = new StrataChatMessage
             {
@@ -123,9 +130,9 @@ public class StrataChatMessageTests : IClassFixture<AvaloniaFixture>
     }
 
     [Fact]
-    public void ExtractCopyText_NoSelectionUsesWholeMessageText()
+    public async Task ExtractCopyText_NoSelectionUsesWholeMessageText()
     {
-        Dispatcher.UIThread.Invoke(() =>
+        await _fixture.Dispatch(() =>
         {
             var message = new StrataChatMessage
             {
@@ -140,9 +147,9 @@ public class StrataChatMessageTests : IClassFixture<AvaloniaFixture>
     }
 
     [Fact]
-    public void RebuildContextMenuItems_NoSelectionShowsWholeMessageActions()
+    public async Task RebuildContextMenuItems_NoSelectionShowsWholeMessageActions()
     {
-        Dispatcher.UIThread.Invoke(() =>
+        await _fixture.Dispatch(() =>
         {
             var menu = new ContextMenu();
             var message = new StrataChatMessage
