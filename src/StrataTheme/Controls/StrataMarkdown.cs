@@ -3365,11 +3365,14 @@ public class StrataMarkdown : ContentControl
                     if (inline is InlineCodeRun { CodeBackground: { } bg } codeRun)
                     {
                         var length = codeRun.Text?.Length ?? 0;
-                        foreach (var rect in layout.HitTestTextRange(charOffset, length))
+                        if (length > 0)
                         {
-                            context.DrawRectangle(bg, null,
-                                rect.Translate(origin),
-                                CodeCornerRadius, CodeCornerRadius);
+                            foreach (var rect in layout.HitTestTextRange(charOffset, length))
+                            {
+                                context.DrawRectangle(bg, null,
+                                    rect.Translate(origin),
+                                    CodeCornerRadius, CodeCornerRadius);
+                            }
                         }
                     }
 

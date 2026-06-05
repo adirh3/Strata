@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using StrataTheme.Controls;
 
 namespace StrataTheme.Tests;
@@ -15,6 +16,13 @@ namespace StrataTheme.Tests;
 [Collection("Avalonia UI")]
 public class InlineCodeRenderingTests
 {
+    private readonly AvaloniaFixture _fixture;
+
+    public InlineCodeRenderingTests(AvaloniaFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
     // ─── InlineCodeRun creation ─────────────────────────────────
 
     [Fact]
@@ -233,6 +241,31 @@ public class InlineCodeRenderingTests
 
         var decorator = (Decorator)wrapped;
         Assert.Same(tb, decorator.Child);
+    }
+
+    [Fact]
+    public Task InlineCodeLayer_Render_SkipsZeroLengthCodeRun()
+    {
+        return _fixture.Dispatch(() =>
+        {
+            var tb = new SelectableTextBlock { FontSize = 14 };
+            tb.Inlines = new InlineCollection();
+            tb.Inlines.Add(new StrataMarkdown.InlineCodeRun(string.Empty)
+            {
+                CodeBackground = Brushes.Red
+            });
+
+            var layer = (StrataMarkdown.InlineCodeLayer)StrataMarkdown.WrapWithCodeLayer(tb);
+            layer.Measure(new Size(100, 40));
+            layer.Arrange(new Rect(0, 0, 100, 40));
+
+            using var bitmap = new RenderTargetBitmap(new PixelSize(100, 40), new Vector(96, 96));
+            using var context = bitmap.CreateDrawingContext();
+
+            var exception = Record.Exception(() => layer.Render(context));
+
+            Assert.Null(exception);
+        });
     }
 
     // ─── ForceInlines mode (merged groups) ──────────────────────
