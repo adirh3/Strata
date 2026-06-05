@@ -2571,14 +2571,22 @@ public class StrataMarkdown : ContentControl
         {
             if (inline is Run run)
             {
-                var len = run.Text?.Length ?? 0;
+                var len = GetInlineTextLength(inline);
                 if (charIndex >= pos && charIndex < pos + len && _linkRuns.TryGetValue(run, out var url))
                     return url;
-                pos += len;
             }
+
+            pos += GetInlineTextLength(inline);
         }
         return null;
     }
+
+    private static int GetInlineTextLength(Inline inline) => inline switch
+    {
+        Run run => run.Text?.Length ?? 0,
+        LineBreak => Environment.NewLine.Length,
+        _ => 1,
+    };
 
     internal string? GetLinkAtPoint(SelectableTextBlock tb, Point point)
     {
@@ -3393,12 +3401,7 @@ public class StrataMarkdown : ContentControl
                         }
                     }
 
-                    charOffset += inline switch
-                    {
-                        Run run => run.Text?.Length ?? 0,
-                        LineBreak => Environment.NewLine.Length,
-                        _ => 1, // InlineUIContainer replacement character
-                    };
+                    charOffset += GetInlineTextLength(inline);
                 }
             }
         }

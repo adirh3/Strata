@@ -55,4 +55,45 @@ public class StrataMarkdownLinkTests
             window.Close();
         });
     }
+
+    [Fact]
+    public async Task GetLinkAtPoint_AccountsForLineBreaksBeforeLinkRun()
+    {
+        await _fixture.Dispatch(async () =>
+        {
+            var markdown = new StrataMarkdown();
+            var textBlock = new SelectableTextBlock
+            {
+                FontSize = 14,
+                TextWrapping = TextWrapping.NoWrap,
+                Width = 500
+            };
+            textBlock.Inlines = new InlineCollection();
+
+            markdown.AppendFormattedInlines(textBlock, "1. First link: [OneDrive](https://onedrive.live.com)", forceInlines: true);
+            textBlock.Inlines.Add(new LineBreak());
+            markdown.AppendFormattedInlines(textBlock, "2. Second link: [Google Takeout](https://takeout.google.com)", forceInlines: true);
+
+            var window = new Window
+            {
+                Width = 500,
+                Height = 120,
+                Content = textBlock
+            };
+            window.Show();
+
+            await Task.Delay(50);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+
+            var secondLinkOffset = "1. First link: ".Length
+                + "OneDrive".Length
+                + Environment.NewLine.Length
+                + "2. Second link: ".Length;
+            var secondLinkBounds = Assert.Single(textBlock.TextLayout.HitTestTextRange(secondLinkOffset, "Google Takeout".Length));
+
+            Assert.Equal("https://takeout.google.com", markdown.GetLinkAtPoint(textBlock, secondLinkBounds.Center));
+
+            window.Close();
+        });
+    }
 }
