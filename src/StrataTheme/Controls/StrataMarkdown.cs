@@ -307,8 +307,7 @@ public class StrataMarkdown : ContentControl
             var tb = FindSelectableTextBlock(control);
             if (tb is not null)
             {
-                tb.Tapped -= OnLinkTapped;
-                tb.PointerMoved -= OnTextBlockPointerMoved;
+                DetachLinkHandlers(tb);
             }
 
             if (child is Panel nested)
@@ -320,6 +319,19 @@ public class StrataMarkdown : ContentControl
                 DetachLinkHandlersFromChildren(decoratorPanel);
             }
         }
+    }
+
+    private void AttachLinkHandlers(SelectableTextBlock textBlock)
+    {
+        DetachLinkHandlers(textBlock);
+        textBlock.AddHandler(InputElement.TappedEvent, OnLinkTapped, RoutingStrategies.Bubble, handledEventsToo: true);
+        textBlock.PointerMoved += OnTextBlockPointerMoved;
+    }
+
+    private void DetachLinkHandlers(SelectableTextBlock textBlock)
+    {
+        textBlock.RemoveHandler(InputElement.TappedEvent, OnLinkTapped);
+        textBlock.PointerMoved -= OnTextBlockPointerMoved;
     }
 
     /// <summary>
@@ -1056,8 +1068,7 @@ public class StrataMarkdown : ContentControl
 
         if (hadLinks)
         {
-            textBlock.Tapped += OnLinkTapped;
-            textBlock.PointerMoved += OnTextBlockPointerMoved;
+            AttachLinkHandlers(textBlock);
         }
 
         return textBlock;
@@ -1629,12 +1640,10 @@ public class StrataMarkdown : ContentControl
             }
 
             // Detach/attach handlers as needed
-            tb.Tapped -= OnLinkTapped;
-            tb.PointerMoved -= OnTextBlockPointerMoved;
+            DetachLinkHandlers(tb);
             if (hasLinks)
             {
-                tb.Tapped += OnLinkTapped;
-                tb.PointerMoved += OnTextBlockPointerMoved;
+                AttachLinkHandlers(tb);
             }
         }
 
@@ -2571,20 +2580,31 @@ public class StrataMarkdown : ContentControl
         return null;
     }
 
-    private void OnLinkTapped(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    internal string? GetLinkAtPoint(SelectableTextBlock tb, Point point)
+    {
+        var hit = tb.TextLayout.HitTestPoint(point);
+        return hit.IsInside
+            ? GetLinkAtCharIndex(tb, hit.CharacterHit.FirstCharacterIndex)
+            : null;
+    }
+
+    private void OnLinkTapped(object? sender, TappedEventArgs e)
     {
         if (sender is not SelectableTextBlock tb) return;
-        var url = GetLinkAtCharIndex(tb, tb.SelectionStart);
-        if (url != null) OpenLink(url);
+
+        var url = GetLinkAtPoint(tb, e.GetPosition(tb));
+        if (url == null)
+            return;
+
+        e.Handled = true;
+        OpenLink(url);
     }
 
     private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
     {
         if (sender is not SelectableTextBlock tb) return;
 
-        var point = e.GetPosition(tb);
-        var hit = tb.TextLayout.HitTestPoint(point);
-        var isLink = hit.IsInside && GetLinkAtCharIndex(tb, hit.CharacterHit.FirstCharacterIndex) != null;
+        var isLink = GetLinkAtPoint(tb, e.GetPosition(tb)) != null;
         tb.Cursor = isLink ? HandCursorLazy.Value : Cursor.Default;
     }
 
@@ -2732,8 +2752,7 @@ public class StrataMarkdown : ContentControl
         var hasLinks = PopulateMergedInlines(tb, blocks, group);
         if (hasLinks)
         {
-            tb.Tapped += OnLinkTapped;
-            tb.PointerMoved += OnTextBlockPointerMoved;
+            AttachLinkHandlers(tb);
         }
 
         return WrapWithCodeLayer(tb);
@@ -2756,12 +2775,10 @@ public class StrataMarkdown : ContentControl
 
         var hasLinks = PopulateMergedInlines(tb, blocks, group);
 
-        tb.Tapped -= OnLinkTapped;
-        tb.PointerMoved -= OnTextBlockPointerMoved;
+        DetachLinkHandlers(tb);
         if (hasLinks)
         {
-            tb.Tapped += OnLinkTapped;
-            tb.PointerMoved += OnTextBlockPointerMoved;
+            AttachLinkHandlers(tb);
         }
 
         // The InlineCodeLayer draws rounded backgrounds behind InlineCodeRun spans.
