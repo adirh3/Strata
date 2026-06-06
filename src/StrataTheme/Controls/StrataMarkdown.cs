@@ -1209,7 +1209,7 @@ public class StrataMarkdown : ContentControl
                             target.Inlines?.Add(new Run(text[textStart..pos]));
 
                         var linkLabel = text[(pos + 1)..bracketClose];
-                        var linkTarget = text[(bracketClose + 2)..parenClose].Trim();
+                        var linkTarget = NormalizeLinkTarget(text[(bracketClose + 2)..parenClose]);
 
                         var linkRun = new Run(linkLabel)
                         {
@@ -1380,7 +1380,7 @@ public class StrataMarkdown : ContentControl
                             target.Inlines?.Add(new Run(text[textStart..pos]) { FontWeight = weight, FontStyle = style });
 
                         var linkLabel = text[(pos + 1)..bracketClose];
-                        var linkTarget = text[(bracketClose + 2)..parenClose].Trim();
+                        var linkTarget = NormalizeLinkTarget(text[(bracketClose + 2)..parenClose]);
 
                         var linkRun = new Run(linkLabel)
                         {
@@ -1487,6 +1487,8 @@ public class StrataMarkdown : ContentControl
 
     private static void OpenLink(string linkTarget)
     {
+        linkTarget = NormalizeLinkTarget(linkTarget);
+
         if (string.IsNullOrWhiteSpace(linkTarget))
             return;
 
@@ -1512,6 +1514,8 @@ public class StrataMarkdown : ContentControl
 
     private static string BuildLinkTooltip(string linkTarget)
     {
+        linkTarget = NormalizeLinkTarget(linkTarget);
+
         if (Uri.TryCreate(linkTarget, UriKind.Absolute, out var absoluteUri))
             return $"Open {absoluteUri}";
 
@@ -1524,6 +1528,8 @@ public class StrataMarkdown : ContentControl
 
     private static string? ResolveLocalPath(string linkTarget)
     {
+        linkTarget = NormalizeLinkTarget(linkTarget);
+
         if (Path.IsPathRooted(linkTarget))
             return File.Exists(linkTarget) ? linkTarget : null;
 
@@ -1543,6 +1549,32 @@ public class StrataMarkdown : ContentControl
         }
 
         return null;
+    }
+
+    internal static string NormalizeLinkTarget(string linkTarget)
+    {
+        var trimmed = linkTarget.Trim();
+        StringBuilder? cleaned = null;
+
+        for (var i = 0; i < trimmed.Length; i++)
+        {
+            var c = trimmed[i];
+            if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.Format)
+            {
+                if (cleaned is null)
+                {
+                    cleaned = new StringBuilder(trimmed.Length);
+                    if (i > 0)
+                        cleaned.Append(trimmed, 0, i);
+                }
+
+                continue;
+            }
+
+            cleaned?.Append(c);
+        }
+
+        return cleaned?.ToString() ?? trimmed;
     }
 
 
@@ -2582,6 +2614,30 @@ public class StrataMarkdown : ContentControl
         return null;
     }
 
+    private string? GetLinkAtRenderedPoint(SelectableTextBlock tb, Point point)
+    {
+        if (tb.Inlines == null || _linkRuns.Count == 0)
+            return null;
+
+        var pos = 0;
+        foreach (var inline in tb.Inlines)
+        {
+            var len = GetInlineTextLength(inline);
+            if (inline is Run run && len > 0 && _linkRuns.TryGetValue(run, out var url))
+            {
+                foreach (var rect in tb.TextLayout.HitTestTextRange(pos, len))
+                {
+                    if (rect.Contains(point))
+                        return url;
+                }
+            }
+
+            pos += len;
+        }
+
+        return null;
+    }
+
     private static int GetInlineTextLength(Inline inline) => inline switch
     {
         Run run => run.Text?.Length ?? 0,
@@ -2591,6 +2647,12 @@ public class StrataMarkdown : ContentControl
 
     internal string? GetLinkAtPoint(SelectableTextBlock tb, Point point)
     {
+        // Bidi/RTL text can map a click to an adjacent logical character, so
+        // prefer the rendered link rectangles over TextLayout.HitTestPoint.
+        var renderedLink = GetLinkAtRenderedPoint(tb, point);
+        if (renderedLink != null)
+            return renderedLink;
+
         var hit = tb.TextLayout.HitTestPoint(point);
         return hit.IsInside
             ? GetLinkAtCharIndex(tb, hit.CharacterHit.FirstCharacterIndex)

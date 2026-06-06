@@ -96,4 +96,52 @@ public class StrataMarkdownLinkTests
             window.Close();
         });
     }
+
+    [Fact]
+    public async Task GetLinkAtPoint_UsesRenderedLinkBoundsForRtlText()
+    {
+        await _fixture.Dispatch(async () =>
+        {
+            var markdown = new StrataMarkdown();
+            var textBlock = new SelectableTextBlock
+            {
+                FontSize = 14,
+                TextWrapping = TextWrapping.NoWrap,
+                Width = 500
+            };
+            StrataMarkdown.ApplyDirectionalTextLayout(textBlock, FlowDirection.RightToLeft);
+            textBlock.Inlines = new InlineCollection();
+
+            const string beforeLink = "\u05e4\u05ea\u05d7 \u05d0\u05ea ";
+            const string linkText = "OneDrive";
+            const string afterLink = " \u05d5\u05d0\u05d6 \u05d4\u05de\u05e9\u05da";
+            markdown.AppendFormattedInlines(textBlock, $"{beforeLink}[{linkText}](\u200fhttps://onedrive.live.com\u200e){afterLink}");
+
+            var window = new Window
+            {
+                Width = 500,
+                Height = 100,
+                Content = textBlock
+            };
+            window.Show();
+
+            await Task.Delay(50);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+
+            var linkBounds = Assert.Single(textBlock.TextLayout.HitTestTextRange(beforeLink.Length, linkText.Length));
+            var pointsInsideLink = new[]
+            {
+                linkBounds.Center,
+                new Point(linkBounds.Left + 1, linkBounds.Center.Y),
+                new Point(linkBounds.Right - 1, linkBounds.Center.Y)
+            };
+
+            foreach (var point in pointsInsideLink)
+            {
+                Assert.Equal("https://onedrive.live.com", markdown.GetLinkAtPoint(textBlock, point));
+            }
+
+            window.Close();
+        });
+    }
 }
