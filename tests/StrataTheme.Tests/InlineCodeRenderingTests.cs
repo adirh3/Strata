@@ -268,6 +268,99 @@ public class InlineCodeRenderingTests
         });
     }
 
+    [Fact]
+    public Task InlineCodeLayer_Render_HandlesWhitespaceOnlyCodeRun()
+    {
+        return _fixture.Dispatch(() =>
+        {
+            var tb = new SelectableTextBlock { FontSize = 14 };
+            tb.Inlines = new InlineCollection();
+            tb.Inlines.Add(new StrataMarkdown.InlineCodeRun("\u2005\u2005")
+            {
+                CodeBackground = Brushes.Red
+            });
+
+            var layer = (StrataMarkdown.InlineCodeLayer)StrataMarkdown.WrapWithCodeLayer(tb);
+            layer.Measure(new Size(100, 40));
+            layer.Arrange(new Rect(0, 0, 100, 40));
+
+            using var bitmap = new RenderTargetBitmap(new PixelSize(100, 40), new Vector(96, 96));
+            using var context = bitmap.CreateDrawingContext();
+
+            var exception = Record.Exception(() => layer.Render(context));
+
+            Assert.Null(exception);
+        });
+    }
+
+    [Theory]
+    [InlineData("\u2005\n\u2005")]
+    [InlineData("\u2005foo\nbar\u2005")]
+    [InlineData("\u2005foo\r\nbar\u2005")]
+    public Task InlineCodeLayer_Render_HandlesCodeRunLineBreakBoundsFailures(string codeRunText)
+    {
+        return _fixture.Dispatch(() =>
+        {
+            var tb = new SelectableTextBlock
+            {
+                FontSize = 14,
+                TextWrapping = TextWrapping.Wrap
+            };
+            tb.Inlines = new InlineCollection();
+            tb.Inlines.Add(new StrataMarkdown.InlineCodeRun(codeRunText)
+            {
+                CodeBackground = Brushes.Red
+            });
+
+            var layer = (StrataMarkdown.InlineCodeLayer)StrataMarkdown.WrapWithCodeLayer(tb);
+            layer.Measure(new Size(100, 120));
+            layer.Arrange(new Rect(0, 0, 100, 120));
+
+            using var bitmap = new RenderTargetBitmap(new PixelSize(100, 120), new Vector(96, 96));
+            using var context = bitmap.CreateDrawingContext();
+
+            var exception = Record.Exception(() => layer.Render(context));
+
+            Assert.Null(exception);
+        });
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(4)]
+    public Task InlineCodeLayer_Render_HandlesCodeRunsAfterLineBreaks(int lineBreakCount)
+    {
+        return _fixture.Dispatch(() =>
+        {
+            var tb = new SelectableTextBlock
+            {
+                FontSize = 14,
+                TextWrapping = TextWrapping.Wrap
+            };
+            tb.Inlines = new InlineCollection();
+
+            for (var i = 0; i < lineBreakCount; i++)
+                tb.Inlines.Add(new LineBreak());
+
+            tb.Inlines.Add(new StrataMarkdown.InlineCodeRun("\u2005x\u2005")
+            {
+                CodeBackground = Brushes.Red
+            });
+
+            var layer = (StrataMarkdown.InlineCodeLayer)StrataMarkdown.WrapWithCodeLayer(tb);
+            layer.Measure(new Size(100, 160));
+            layer.Arrange(new Rect(0, 0, 100, 160));
+
+            using var bitmap = new RenderTargetBitmap(new PixelSize(100, 160), new Vector(96, 96));
+            using var context = bitmap.CreateDrawingContext();
+
+            var exception = Record.Exception(() => layer.Render(context));
+
+            Assert.Null(exception);
+        });
+    }
+
     // ─── ForceInlines mode (merged groups) ──────────────────────
 
     [Fact]

@@ -7,6 +7,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 using Avalonia.Styling;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -3390,19 +3391,51 @@ public class StrataMarkdown : ContentControl
                     if (inline is InlineCodeRun { CodeBackground: { } bg } codeRun)
                     {
                         var length = codeRun.Text?.Length ?? 0;
-                        if (length > 0)
+                        foreach (var rect in GetCodeRangeRects(layout, charOffset, length))
                         {
-                            foreach (var rect in layout.HitTestTextRange(charOffset, length))
-                            {
-                                context.DrawRectangle(bg, null,
-                                    rect.Translate(origin),
-                                    CodeCornerRadius, CodeCornerRadius);
-                            }
+                            context.DrawRectangle(bg, null,
+                                rect.Translate(origin),
+                                CodeCornerRadius, CodeCornerRadius);
                         }
                     }
 
                     charOffset += GetInlineTextLength(inline);
                 }
+            }
+        }
+
+        private static IEnumerable<Rect> GetCodeRangeRects(TextLayout layout, int start, int length)
+        {
+            if (length <= 0)
+                yield break;
+
+            var end = start + length;
+            var lineY = 0d;
+
+            foreach (var line in layout.TextLines)
+            {
+                var lineStart = line.FirstTextSourceIndex;
+                var lineEnd = lineStart + line.Length;
+                var lineTextEnd = Math.Max(lineStart, lineEnd - line.NewLineLength);
+                var segmentStart = Math.Max(start, lineStart);
+                var segmentEnd = Math.Min(end, lineTextEnd);
+
+                if (segmentEnd > segmentStart)
+                {
+                    var x1 = line.GetDistanceFromCharacterHit(new CharacterHit(segmentStart));
+                    var x2 = line.GetDistanceFromCharacterHit(new CharacterHit(segmentEnd));
+
+                    if (double.IsFinite(x1) && double.IsFinite(x2))
+                    {
+                        var left = Math.Min(x1, x2);
+                        var width = Math.Abs(x2 - x1);
+
+                        if (width > 0)
+                            yield return new Rect(line.Start + left, lineY, width, line.Height);
+                    }
+                }
+
+                lineY += line.Height;
             }
         }
     }
