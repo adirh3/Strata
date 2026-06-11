@@ -15,7 +15,7 @@ using Avalonia.Threading;
 namespace StrataTheme.Controls;
 
 /// <summary>
-/// Compact model picker with grouped providers and per-model reasoning effort controls.
+/// Compact model picker with grouped providers and per-model reasoning effort/context controls.
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage:</b></para>
@@ -23,11 +23,13 @@ namespace StrataTheme.Controls;
 /// &lt;controls:StrataModelPicker Models="{Binding Models}"
 ///                             SelectedModel="{Binding SelectedModel, Mode=TwoWay}"
 ///                             QualityLevels="{Binding QualityLevels}"
-///                             SelectedQuality="{Binding SelectedQuality, Mode=TwoWay}" /&gt;
+///                             SelectedQuality="{Binding SelectedQuality, Mode=TwoWay}"
+///                             ContextWindowTiers="{Binding ContextWindowTiers}"
+///                             SelectedContextWindowTier="{Binding SelectedContextWindowTier, Mode=TwoWay}" /&gt;
 /// </code>
 /// <para><b>Template parts:</b> PART_ModelPickerButton (Button), PART_ModelPickerPopup (Popup),
-/// PART_ModelPickerList (StackPanel), PART_EffortSection (StackPanel).</para>
-/// <para><b>Pseudo-classes:</b> :has-models, :has-quality, :model-picker-open.</para>
+/// PART_ModelPickerList (StackPanel), PART_EffortSection (StackPanel), PART_ContextWindowSection (StackPanel).</para>
+/// <para><b>Pseudo-classes:</b> :has-models, :has-quality, :has-context-window, :model-picker-open.</para>
 /// </remarks>
 public class StrataModelPicker : TemplatedControl
 {
@@ -36,6 +38,7 @@ public class StrataModelPicker : TemplatedControl
     private StackPanel? _modelPickerList;
     private Border? _modelPickerChevronWrap;
     private StackPanel? _effortSection;
+    private StackPanel? _contextWindowSection;
     private bool _suppressPickerRebuild;
 
     public static readonly StyledProperty<IEnumerable?> ModelsProperty =
@@ -53,6 +56,12 @@ public class StrataModelPicker : TemplatedControl
     public static readonly StyledProperty<object?> SelectedQualityProperty =
         AvaloniaProperty.Register<StrataModelPicker, object?>(nameof(SelectedQuality));
 
+    public static readonly StyledProperty<IEnumerable?> ContextWindowTiersProperty =
+        AvaloniaProperty.Register<StrataModelPicker, IEnumerable?>(nameof(ContextWindowTiers));
+
+    public static readonly StyledProperty<object?> SelectedContextWindowTierProperty =
+        AvaloniaProperty.Register<StrataModelPicker, object?>(nameof(SelectedContextWindowTier));
+
     static StrataModelPicker()
     {
         ModelsProperty.Changed.AddClassHandler<StrataModelPicker>((picker, _) =>
@@ -69,6 +78,13 @@ public class StrataModelPicker : TemplatedControl
         });
         SelectedModelProperty.Changed.AddClassHandler<StrataModelPicker>((picker, _) => picker.RefreshModelPickerSelectionIfOpen());
         SelectedQualityProperty.Changed.AddClassHandler<StrataModelPicker>((picker, _) => picker.RefreshModelPickerQualityIfOpen());
+        ContextWindowTiersProperty.Changed.AddClassHandler<StrataModelPicker>((picker, _) =>
+        {
+            picker.EnsureSelectedValues();
+            picker.Sync();
+            picker.RefreshModelPickerContextIfOpen();
+        });
+        SelectedContextWindowTierProperty.Changed.AddClassHandler<StrataModelPicker>((picker, _) => picker.RefreshModelPickerContextSelectionIfOpen());
     }
 
     public IEnumerable? Models
@@ -101,6 +117,18 @@ public class StrataModelPicker : TemplatedControl
         set => SetValue(SelectedQualityProperty, value);
     }
 
+    public IEnumerable? ContextWindowTiers
+    {
+        get => GetValue(ContextWindowTiersProperty);
+        set => SetValue(ContextWindowTiersProperty, value);
+    }
+
+    public object? SelectedContextWindowTier
+    {
+        get => GetValue(SelectedContextWindowTierProperty);
+        set => SetValue(SelectedContextWindowTierProperty, value);
+    }
+
     public StrataModelPicker()
     {
         EnsureSelectedValues();
@@ -124,6 +152,7 @@ public class StrataModelPicker : TemplatedControl
         _modelPickerList = e.NameScope.Find<StackPanel>("PART_ModelPickerList");
         _modelPickerChevronWrap = e.NameScope.Find<Border>("PART_ModelPickerChevronWrap");
         _effortSection = e.NameScope.Find<StackPanel>("PART_EffortSection");
+        _contextWindowSection = e.NameScope.Find<StackPanel>("PART_ContextWindowSection");
 
         if (_modelPickerButton is not null)
             _modelPickerButton.Click += OnModelPickerButtonClick;
@@ -235,6 +264,7 @@ public class StrataModelPicker : TemplatedControl
 
         UpdateModelPickerSelectionVisuals(SelectedModel);
         RebuildEffortSection();
+        RebuildContextWindowSection();
     }
 
     private void RefreshModelPickerEffortIfOpen()
@@ -249,6 +279,7 @@ public class StrataModelPicker : TemplatedControl
         }
 
         RebuildEffortSection();
+        RebuildContextWindowSection();
     }
 
     private void RefreshModelPickerQualityIfOpen()
@@ -263,6 +294,34 @@ public class StrataModelPicker : TemplatedControl
         }
 
         UpdateEffortActiveState();
+    }
+
+    private void RefreshModelPickerContextIfOpen()
+    {
+        if (_modelPickerPopup is not { IsOpen: true })
+            return;
+
+        if (_suppressPickerRebuild)
+        {
+            Dispatcher.UIThread.Post(RefreshModelPickerContextIfOpen, DispatcherPriority.Background);
+            return;
+        }
+
+        RebuildContextWindowSection();
+    }
+
+    private void RefreshModelPickerContextSelectionIfOpen()
+    {
+        if (_modelPickerPopup is not { IsOpen: true })
+            return;
+
+        if (_suppressPickerRebuild)
+        {
+            Dispatcher.UIThread.Post(RefreshModelPickerContextSelectionIfOpen, DispatcherPriority.Background);
+            return;
+        }
+
+        UpdateContextWindowActiveState();
     }
 
     private void BuildModelPickerRows()
@@ -322,6 +381,7 @@ public class StrataModelPicker : TemplatedControl
         }
 
         RebuildEffortSection();
+        RebuildContextWindowSection();
     }
 
     private sealed record ModelPickerRowData(object? Model, string ModelName, string Group, int OriginalIndex);
@@ -405,6 +465,90 @@ public class StrataModelPicker : TemplatedControl
 
         toggleBorder.Child = grid;
         _effortSection.Children.Add(toggleBorder);
+    }
+
+    private void RebuildContextWindowSection()
+    {
+        if (_contextWindowSection is null)
+            return;
+
+        _contextWindowSection.Children.Clear();
+        if (ContextWindowTiers is null || SelectedModel is null)
+            return;
+
+        var tiers = ContextWindowTiers.Cast<object?>().ToList();
+        if (tiers.Count == 0)
+            return;
+
+        var separator = new Border { Height = 1, Margin = new Thickness(10, 4) };
+        separator.Classes.Add("model-picker-separator");
+        _contextWindowSection.Children.Add(separator);
+
+        var label = new TextBlock
+        {
+            Text = "CONTEXT WINDOW",
+            FontSize = 9.5,
+            FontWeight = FontWeight.SemiBold,
+            LetterSpacing = 0.6,
+            Margin = new Thickness(14, 4, 10, 4)
+        };
+        label.Classes.Add("effort-label");
+        _contextWindowSection.Children.Add(label);
+
+        var toggleBorder = new Border
+        {
+            Margin = new Thickness(8, 0, 8, 6),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(3)
+        };
+        toggleBorder.Classes.Add("model-effort-toggle");
+
+        var grid = new Grid
+        {
+            ColumnDefinitions = ColumnDefinitions.Parse(string.Join(",", Enumerable.Range(0, tiers.Count).Select(_ => "*")))
+        };
+
+        for (var index = 0; index < tiers.Count; index++)
+        {
+            var tier = tiers[index];
+            var button = new Button
+            {
+                Content = tier?.ToString() ?? string.Empty,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            button.Classes.Add("effort-seg");
+            if (Equals(tier, SelectedContextWindowTier))
+                button.Classes.Add("active");
+
+            var capturedTier = tier;
+            button.Click += (_, _) =>
+            {
+                _suppressPickerRebuild = true;
+                SelectedContextWindowTier = capturedTier;
+
+                foreach (var child in grid.Children.OfType<Button>())
+                {
+                    if (Equals(child.Content, capturedTier?.ToString()))
+                    {
+                        if (!child.Classes.Contains("active"))
+                            child.Classes.Add("active");
+                    }
+                    else
+                    {
+                        child.Classes.Remove("active");
+                    }
+                }
+
+                Dispatcher.UIThread.Post(() => _suppressPickerRebuild = false, DispatcherPriority.Background);
+            };
+
+            Grid.SetColumn(button, index);
+            grid.Children.Add(button);
+        }
+
+        toggleBorder.Child = grid;
+        _contextWindowSection.Children.Add(toggleBorder);
     }
 
     private static string GetModelGroup(string modelId)
@@ -605,6 +749,7 @@ public class StrataModelPicker : TemplatedControl
         {
             _suppressPickerRebuild = false;
             RefreshModelPickerEffortIfOpen();
+            RefreshModelPickerContextIfOpen();
         }, DispatcherPriority.Background);
     }
 
@@ -691,6 +836,46 @@ public class StrataModelPicker : TemplatedControl
         }
     }
 
+    private void UpdateContextWindowActiveState()
+    {
+        if (_contextWindowSection is null)
+            return;
+
+        if (ContextWindowTiers is not null && _contextWindowSection.Children.Count == 0)
+        {
+            RebuildContextWindowSection();
+            return;
+        }
+
+        if (ContextWindowTiers is null && _contextWindowSection.Children.Count > 0)
+        {
+            _contextWindowSection.Children.Clear();
+            return;
+        }
+
+        foreach (var child in _contextWindowSection.Children)
+        {
+            if (child is not Border border || !border.Classes.Contains("model-effort-toggle") || border.Child is not Grid grid)
+                continue;
+
+            var selectedTier = SelectedContextWindowTier?.ToString();
+            foreach (var button in grid.Children.OfType<Button>())
+            {
+                if (button.Content?.ToString() == selectedTier)
+                {
+                    if (!button.Classes.Contains("active"))
+                        button.Classes.Add("active");
+                }
+                else
+                {
+                    button.Classes.Remove("active");
+                }
+            }
+
+            break;
+        }
+    }
+
     private void EnsureSelectedValues()
     {
         if (Models is not null && SelectedModel is null)
@@ -709,5 +894,6 @@ public class StrataModelPicker : TemplatedControl
     {
         PseudoClasses.Set(":has-models", Models is not null);
         PseudoClasses.Set(":has-quality", QualityLevels is not null);
+        PseudoClasses.Set(":has-context-window", ContextWindowTiers is not null);
     }
 }

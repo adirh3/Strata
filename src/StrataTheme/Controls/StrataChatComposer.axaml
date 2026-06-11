@@ -204,7 +204,9 @@
                                                   SelectedModel="{Binding SelectedModel, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                                   ModelItemTemplate="{TemplateBinding ModelItemTemplate}"
                                                   QualityLevels="{TemplateBinding QualityLevels}"
-                                                  SelectedQuality="{Binding SelectedQuality, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
+                                                  SelectedQuality="{Binding SelectedQuality, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                                  ContextWindowTiers="{TemplateBinding ContextWindowTiers}"
+                                                  SelectedContextWindowTier="{Binding SelectedContextWindowTier, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
                     </Panel>
 
                     <!-- Modes ComboBox (Ask / Plan / Agent) -->

@@ -115,6 +115,7 @@ public class StrataChatComposer : TemplatedControl
     private Avalonia.Controls.Shapes.Path? _modelPickerChevron;
     private Border? _modelPickerChevronWrap;
     private StackPanel? _effortSection;
+    private StackPanel? _contextWindowSection;
     private bool _suppressPickerRebuild;
     private Button? _actionA;
     private Button? _actionB;
@@ -158,6 +159,14 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Currently selected quality level from <see cref="QualityLevels"/>.</summary>
     public static readonly StyledProperty<object?> SelectedQualityProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SelectedQuality));
+
+    /// <summary>Items source for context window size/tier selector.</summary>
+    public static readonly StyledProperty<IEnumerable?> ContextWindowTiersProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(ContextWindowTiers));
+
+    /// <summary>Currently selected context window tier from <see cref="ContextWindowTiers"/>.</summary>
+    public static readonly StyledProperty<object?> SelectedContextWindowTierProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SelectedContextWindowTier));
 
     /// <summary>Items source for the session mode selector ComboBox (e.g. Ask, Plan, Agent).</summary>
     public static readonly StyledProperty<IEnumerable?> ModesProperty =
@@ -478,6 +487,8 @@ public class StrataChatComposer : TemplatedControl
         QualityLevelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => { c.EnsureSelectedValues(); c.RefreshModelPickerEffortIfOpen(); });
         SelectedModelProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.RefreshModelPickerSelectionIfOpen());
         SelectedQualityProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.RefreshModelPickerQualityIfOpen());
+        ContextWindowTiersProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => { c.EnsureSelectedValues(); c.RefreshModelPickerContextIfOpen(); });
+        SelectedContextWindowTierProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.RefreshModelPickerContextSelectionIfOpen());
         ModesProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.EnsureSelectedValues());
     }
 
@@ -520,6 +531,8 @@ public class StrataChatComposer : TemplatedControl
     public IDataTemplate? ModelItemTemplate { get => GetValue(ModelItemTemplateProperty); set => SetValue(ModelItemTemplateProperty, value); }
     public IEnumerable? QualityLevels{ get => GetValue(QualityLevelsProperty); set => SetValue(QualityLevelsProperty, value); }
     public object? SelectedQuality { get => GetValue(SelectedQualityProperty); set => SetValue(SelectedQualityProperty, value); }
+    public IEnumerable? ContextWindowTiers { get => GetValue(ContextWindowTiersProperty); set => SetValue(ContextWindowTiersProperty, value); }
+    public object? SelectedContextWindowTier { get => GetValue(SelectedContextWindowTierProperty); set => SetValue(SelectedContextWindowTierProperty, value); }
     public IEnumerable? Modes { get => GetValue(ModesProperty); set => SetValue(ModesProperty, value); }
     public object? SelectedMode { get => GetValue(SelectedModeProperty); set => SetValue(SelectedModeProperty, value); }
     public bool IsBusy { get => GetValue(IsBusyProperty); set => SetValue(IsBusyProperty, value); }
@@ -668,6 +681,7 @@ public class StrataChatComposer : TemplatedControl
         _modelPickerChevron = e.NameScope.Find<Avalonia.Controls.Shapes.Path>("PART_ModelPickerChevron");
         _modelPickerChevronWrap = e.NameScope.Find<Border>("PART_ModelPickerChevronWrap");
         _effortSection = e.NameScope.Find<StackPanel>("PART_EffortSection");
+        _contextWindowSection = e.NameScope.Find<StackPanel>("PART_ContextWindowSection");
         Wire(e, "PART_ModelPickerButton", () => ToggleModelPickerPopup());
         if (_modelPickerPopup is not null)
         {
@@ -1890,6 +1904,7 @@ public class StrataChatComposer : TemplatedControl
 
         UpdateModelPickerSelectionVisuals(SelectedModel);
         RebuildEffortSection();
+        RebuildContextWindowSection();
     }
 
     private void RefreshModelPickerEffortIfOpen()
@@ -1904,6 +1919,7 @@ public class StrataChatComposer : TemplatedControl
         }
 
         RebuildEffortSection();
+        RebuildContextWindowSection();
     }
 
     private void RefreshModelPickerQualityIfOpen()
@@ -1918,6 +1934,34 @@ public class StrataChatComposer : TemplatedControl
         }
 
         UpdateEffortActiveState();
+    }
+
+    private void RefreshModelPickerContextIfOpen()
+    {
+        if (_modelPickerPopup is not { IsOpen: true })
+            return;
+
+        if (_suppressPickerRebuild)
+        {
+            Dispatcher.UIThread.Post(RefreshModelPickerContextIfOpen, DispatcherPriority.Background);
+            return;
+        }
+
+        RebuildContextWindowSection();
+    }
+
+    private void RefreshModelPickerContextSelectionIfOpen()
+    {
+        if (_modelPickerPopup is not { IsOpen: true })
+            return;
+
+        if (_suppressPickerRebuild)
+        {
+            Dispatcher.UIThread.Post(RefreshModelPickerContextSelectionIfOpen, DispatcherPriority.Background);
+            return;
+        }
+
+        UpdateContextWindowActiveState();
     }
 
     private void BuildModelPickerRows()
@@ -2066,6 +2110,89 @@ public class StrataChatComposer : TemplatedControl
 
         toggleBorder.Child = grid;
         _effortSection.Children.Add(toggleBorder);
+    }
+
+    private void RebuildContextWindowSection()
+    {
+        if (_contextWindowSection is null) return;
+        _contextWindowSection.Children.Clear();
+
+        if (ContextWindowTiers is null || SelectedModel is null)
+            return;
+
+        var tiers = ContextWindowTiers.Cast<object?>().ToList();
+        if (tiers.Count == 0)
+            return;
+
+        var sep = new Border { Height = 1, Margin = new Thickness(10, 4) };
+        sep.Classes.Add("model-picker-separator");
+        _contextWindowSection.Children.Add(sep);
+
+        var label = new TextBlock
+        {
+            Text = "CONTEXT WINDOW",
+            FontSize = 9.5,
+            FontWeight = FontWeight.SemiBold,
+            LetterSpacing = 0.6,
+            Margin = new Thickness(14, 4, 10, 4)
+        };
+        label.Classes.Add("effort-label");
+        _contextWindowSection.Children.Add(label);
+
+        var toggleBorder = new Border
+        {
+            Margin = new Thickness(8, 0, 8, 6),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(3)
+        };
+        toggleBorder.Classes.Add("model-effort-toggle");
+
+        var grid = new Grid
+        {
+            ColumnDefinitions = ColumnDefinitions.Parse(string.Join(",", Enumerable.Range(0, tiers.Count).Select(_ => "*")))
+        };
+
+        for (var index = 0; index < tiers.Count; index++)
+        {
+            var tier = tiers[index];
+            var button = new Button
+            {
+                Content = tier?.ToString() ?? string.Empty,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            button.Classes.Add("effort-seg");
+            if (Equals(tier, SelectedContextWindowTier))
+                button.Classes.Add("active");
+
+            var capturedTier = tier;
+            button.Click += (_, _) =>
+            {
+                _suppressPickerRebuild = true;
+                SelectedContextWindowTier = capturedTier;
+
+                foreach (var child in grid.Children.OfType<Button>())
+                {
+                    if (Equals(child.Content, capturedTier?.ToString()))
+                    {
+                        if (!child.Classes.Contains("active"))
+                            child.Classes.Add("active");
+                    }
+                    else
+                    {
+                        child.Classes.Remove("active");
+                    }
+                }
+
+                Dispatcher.UIThread.Post(() => _suppressPickerRebuild = false, DispatcherPriority.Background);
+            };
+
+            Grid.SetColumn(button, index);
+            grid.Children.Add(button);
+        }
+
+        toggleBorder.Child = grid;
+        _contextWindowSection.Children.Add(toggleBorder);
     }
 
     private static string GetModelGroup(string modelId)
@@ -2253,6 +2380,7 @@ public class StrataChatComposer : TemplatedControl
         {
             _suppressPickerRebuild = false;
             RefreshModelPickerEffortIfOpen();
+            RefreshModelPickerContextIfOpen();
         }, DispatcherPriority.Background);
     }
 
@@ -2337,6 +2465,45 @@ public class StrataChatComposer : TemplatedControl
                 }
                 break;
             }
+        }
+    }
+
+    private void UpdateContextWindowActiveState()
+    {
+        if (_contextWindowSection is null) return;
+
+        if (ContextWindowTiers is not null && _contextWindowSection.Children.Count == 0)
+        {
+            RebuildContextWindowSection();
+            return;
+        }
+
+        if (ContextWindowTiers is null && _contextWindowSection.Children.Count > 0)
+        {
+            _contextWindowSection.Children.Clear();
+            return;
+        }
+
+        foreach (var child in _contextWindowSection.Children)
+        {
+            if (child is not Border border || !border.Classes.Contains("model-effort-toggle") || border.Child is not Grid grid)
+                continue;
+
+            var selectedTier = SelectedContextWindowTier?.ToString();
+            foreach (var button in grid.Children.OfType<Button>())
+            {
+                if (button.Content?.ToString() == selectedTier)
+                {
+                    if (!button.Classes.Contains("active"))
+                        button.Classes.Add("active");
+                }
+                else
+                {
+                    button.Classes.Remove("active");
+                }
+            }
+
+            break;
         }
     }
 

@@ -78,6 +78,9 @@
                         BoxShadow="0 12 40 0 #30000000, 0 2 10 0 #10000000"
                         ClipToBounds="False">
                   <DockPanel>
+                    <StackPanel Name="PART_ContextWindowSection"
+                                DockPanel.Dock="Bottom"
+                                Spacing="0" />
                     <StackPanel Name="PART_EffortSection"
                                 DockPanel.Dock="Bottom"
                                 Spacing="0" />
