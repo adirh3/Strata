@@ -187,6 +187,17 @@ public class StrataMarkdown : ContentControl
         AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(IsInline));
 
     /// <summary>
+    /// When true, the built visual tree and parse caches are kept when the control is
+    /// detached from the visual tree, instead of being cleared. A later re-attach then
+    /// reuses them (hitting the identical-content fast path) instead of reparsing from
+    /// scratch. Used by hosts that temporarily un-parent and re-parent the control (e.g.
+    /// the chat transcript when switching between chats) so switching back is near-instant.
+    /// The retained tree is released only when the host evicts it (or the control is GC'd).
+    /// </summary>
+    public static readonly StyledProperty<bool> RetainContentOnDetachProperty =
+        AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(RetainContentOnDetach));
+
+    /// <summary>
     /// Internal performance test toggle: when true, append updates reparse only the
     /// last unstable block instead of the full document.
     /// </summary>
@@ -252,6 +263,17 @@ public class StrataMarkdown : ContentControl
         _rebuildDelayCts?.Cancel();
         _rebuildDelayCts?.Dispose();
         _rebuildDelayCts = null;
+
+        if (RetainContentOnDetach)
+        {
+            // Keep the built visual tree, parse state, caches and link handlers so a later
+            // re-attach reuses them (identical-content fast path) instead of reparsing. Only
+            // the pending delayed-rebuild timer is cancelled above to avoid a dangling async
+            // callback; a re-attach reschedules a (cheap) verifying rebuild.
+            base.OnDetachedFromVisualTree(e);
+            return;
+        }
+
         _rebuildQueued = false;
 
         // Unsubscribe link handlers from all SelectableTextBlocks in _contentHost
@@ -286,10 +308,34 @@ public class StrataMarkdown : ContentControl
     {
         base.OnAttachedToVisualTree(e);
 
+        if (Markdown is null)
+            return;
+
         // If re-attached after being detached (e.g. control recycling), rebuild
         // from the current Markdown value since OnDetachedFromVisualTree clears state.
-        if (Markdown is not null && _contentHost.Children.Count == 0)
+        if (_contentHost.Children.Count == 0)
+        {
+            // A retain-detach cancels any pending delayed rebuild but intentionally leaves
+            // _rebuildQueued set (so the else-if below can re-post it). If that cancellation
+            // happened before the rebuild ever ran while content was still empty (e.g. a
+            // just-started assistant turn was switched away-and-back mid-throttle), _rebuildQueued
+            // would still be true here and ScheduleRebuild() would early-return -- leaving the
+            // control permanently blank with the flag stuck. When empty we always want a rebuild,
+            // so clear the stale flag first.
+            _rebuildQueued = false;
             ScheduleRebuild();
+        }
+        else if (RetainContentOnDetach && _rebuildQueued)
+        {
+            // Content was retained across detach AND a rebuild was still pending when we
+            // detached (e.g. a background streaming update arrived, then its delayed rebuild
+            // timer was cancelled by OnDetached). Re-post it so the retained tree reflects the
+            // change. When nothing was pending (_rebuildQueued == false), the retained tree is
+            // already current, so we do NOTHING -- this is the hot switch-back path and must
+            // stay free of any reparse/refresh work.
+            _rebuildQueued = false;
+            ScheduleRebuild();
+        }
     }
 
     /// <summary>Detach Tapped/PointerMoved handlers from all SelectableTextBlocks in the content host.</summary>
@@ -422,6 +468,12 @@ public class StrataMarkdown : ContentControl
         set => SetValue(IsInlineProperty, value);
     }
 
+    public bool RetainContentOnDetach
+    {
+        get => GetValue(RetainContentOnDetachProperty);
+        set => SetValue(RetainContentOnDetachProperty, value);
+    }
+
     internal bool EnableAppendTailParsing
     {
         get => GetValue(EnableAppendTailParsingProperty);
@@ -471,6 +523,16 @@ public class StrataMarkdown : ContentControl
 
         if (string.Equals(change.Property.Name, nameof(FontSize), StringComparison.Ordinal))
         {
+            // FontSize is an inherited property, so it re-resolves every time this control
+            // leaves and re-enters the visual tree -- which happens on every chat switch for a
+            // mounted transcript. Discarding the parsed/rendered tree and full-reparsing on each
+            // such notification (even when the effective body size is unchanged) is what made
+            // retained markdown re-parse on every switch. Only rebuild when the effective body
+            // font size genuinely changed; otherwise the retained tree is already correct.
+            var effectiveFontSize = GetBodyFontSize();
+            if (Math.Abs(effectiveFontSize - _bodyFontSize) < 0.5)
+                return;
+
             _previousBlocks.Clear();
             _previousGroups.Clear();
             _previousMarkdownNormalized = null;
