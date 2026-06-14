@@ -92,4 +92,152 @@ public class StrataMarkdownReattachRebuildTests
             selectableTextBlocks > 0,
             "StrataMarkdown rendered blank after a retain-detach/reattach that cancelled a pending rebuild while empty (stuck _rebuildQueued regression).");
     }
+
+    // Regression guard for the chat-switch / finish-writing UI freeze.
+    //
+    // Transcript bubbles use RetainContentOnDetach = true, and ChatSessionStore keeps backgrounded
+    // chat surfaces alive. So when the user switches to another chat, the previous chat's markdown
+    // controls stay alive and bound -- just detached. If that chat keeps streaming or finishes
+    // writing, its Markdown changes and, without a guard, ScheduleRebuild()/FlushQueuedRebuild()
+    // would parse + syntax-highlight the (possibly huge) content ON THE UI THREAD while off-screen,
+    // freezing the foreground chat. The fix defers the parse while detached (RetainContentOnDetach)
+    // and re-posts one coalesced rebuild on reattach.
+    //
+    // StreamingRebuildThrottleMs = 0 forces the immediate (delayMs == 0) Loaded-post path -- the one
+    // OnDetached does NOT cancel -- so RunJobs() actually drives FlushQueuedRebuild while detached and
+    // exercises the new guard. RebuildCount (incremented in Rebuild()'s finally) is the authoritative
+    // "did it parse?" signal.
+    [Fact]
+    public async Task RetainDetached_MarkdownChange_DefersParseUntilReattach()
+    {
+        var (detachedDelta, reattachDelta) = await _fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                RetainContentOnDetach = true,
+                StreamingRebuildThrottleMs = 0,
+                FontSize = 14,
+            };
+
+            var host = new Border();
+            var window = new Window { Width = 400, Height = 300, Content = host };
+            host.Child = markdown;
+            window.Show();
+
+            // Parse initial content while attached.
+            markdown.Markdown = "**bold** OLD content marker one";
+            Dispatcher.UIThread.RunJobs();
+
+            // Detach (retained), then change content while off-screen -- as a backgrounded chat would
+            // while it keeps streaming / finishes writing. This must NOT parse on the UI thread.
+            host.Child = null;
+            var beforeDetachedChange = StrataMarkdown.CaptureDiagnostics();
+            markdown.Markdown = "**bold** NEW content marker that differs from the old one";
+            Dispatcher.UIThread.RunJobs();
+            var detachedDelta = StrataMarkdown.CaptureDiagnostics() - beforeDetachedChange;
+
+            // Reattach: the deferred change must now flush exactly once so content is not lost.
+            var beforeReattach = StrataMarkdown.CaptureDiagnostics();
+            host.Child = markdown;
+            Dispatcher.UIThread.RunJobs();
+            var reattachDelta = StrataMarkdown.CaptureDiagnostics() - beforeReattach;
+
+            window.Close();
+            return (detachedDelta, reattachDelta);
+        });
+
+        // The actual freeze: zero UI-thread parsing while detached. Airtight -- RebuildCount counts
+        // every Rebuild() entry (including fast-path/empty exits), so 0 invocations means 0 parses.
+        Assert.Equal(0, detachedDelta.RebuildCount);
+
+        // Reattach must flush EXACTLY ONE coalesced rebuild. Asserting == 1 (not > 0) proves the
+        // deferred updates coalesce -- a regression that re-posted two rebuilds on reattach would fail.
+        Assert.Equal(1, reattachDelta.RebuildCount);
+
+        // ...and that single rebuild must perform exactly one *real* parse. RebuildCount alone also
+        // counts empty/identical fast-path exits, so assert a genuine full-or-incremental parse ran,
+        // proving the retained content was actually refreshed to the latest Markdown.
+        Assert.Equal(1, reattachDelta.FullParseCount + reattachDelta.IncrementalParseCount);
+    }
+
+    // Complements the deferral guard: a control that is STILL ATTACHED must keep parsing markdown
+    // changes immediately, so the detached-defer guard cannot over-suppress the normal hot path.
+    [Fact]
+    public async Task RetainAttached_MarkdownChange_StillParsesImmediately()
+    {
+        var parsedWhileAttached = await _fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                RetainContentOnDetach = true,
+                StreamingRebuildThrottleMs = 0,
+                FontSize = 14,
+            };
+
+            var host = new Border();
+            var window = new Window { Width = 400, Height = 300, Content = host };
+            host.Child = markdown;
+            window.Show();
+
+            markdown.Markdown = "**bold** initial attached content";
+            Dispatcher.UIThread.RunJobs();
+
+            var before = StrataMarkdown.CaptureDiagnostics();
+            markdown.Markdown = "**bold** updated attached content that changed";
+            Dispatcher.UIThread.RunJobs();
+            var delta = StrataMarkdown.CaptureDiagnostics() - before;
+
+            window.Close();
+            return delta.RebuildCount;
+        });
+
+        Assert.True(
+            parsedWhileAttached > 0,
+            "An attached retain-content markdown must still parse content changes immediately.");
+    }
+
+    // Regression guard for the latent staleness edge found in code review: when a retained, detached
+    // control has its Markdown set to null while a rebuild is deferred, OnAttachedToVisualTree must
+    // still flush that deferred rebuild on reattach so the stale retained content is cleared -- rather
+    // than taking the "Markdown is null" early-out and leaving _rebuildQueued stuck true with the old
+    // tree on screen. StreamingRebuildThrottleMs = 0 drives the deferred clear through the new guard.
+    [Fact]
+    public async Task ReattachAfterRetainDetach_MarkdownSetNullWhileDetached_ClearsStaleContent()
+    {
+        var remainingTextBlocks = await _fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                RetainContentOnDetach = true,
+                StreamingRebuildThrottleMs = 0,
+                FontSize = 14,
+            };
+
+            var host = new Border();
+            var window = new Window { Width = 400, Height = 300, Content = host };
+            host.Child = markdown;
+            window.Show();
+
+            // Render real content while attached so the retained tree has children to leave stale.
+            markdown.Markdown = "**bold** content that will be cleared";
+            Dispatcher.UIThread.RunJobs();
+
+            // Detach (retained -- children kept), then clear Markdown to null while off-screen. The new
+            // FlushQueuedRebuild guard defers the clear, leaving _rebuildQueued == true and the OLD
+            // content still rendered.
+            host.Child = null;
+            markdown.Markdown = null;
+            Dispatcher.UIThread.RunJobs();
+
+            // Reattach: the deferred clear must flush even though Markdown is now null.
+            host.Child = markdown;
+            Dispatcher.UIThread.RunJobs();
+
+            var count = markdown.GetLogicalDescendants().OfType<SelectableTextBlock>().Count();
+            window.Close();
+            return count;
+        });
+
+        Assert.Equal(0, remainingTextBlocks);
+    }
 }

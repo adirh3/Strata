@@ -154,6 +154,12 @@ public class StrataMarkdown : ContentControl
     private System.Threading.CancellationTokenSource? _rebuildDelayCts;
     private DateTime _lastRebuildAtUtc;
 
+    // Tracks whether this control is currently in the visual tree. When RetainContentOnDetach is
+    // set, a detached control stays alive and bound (e.g. the transcript bubbles of a backgrounded
+    // chat), so a streaming/finishing update would otherwise parse + syntax-highlight on the UI
+    // thread while off-screen and freeze the foreground chat. Parsing is deferred until reattach.
+    private bool _isAttachedToVisualTree;
+
     // ── Reusable buffers to avoid per-rebuild allocations ──
     private readonly List<string> _evictBuffer = new();
     private readonly MarkdownParser _parser = new();
@@ -260,6 +266,8 @@ public class StrataMarkdown : ContentControl
     /// </summary>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _isAttachedToVisualTree = false;
+
         _rebuildDelayCts?.Cancel();
         _rebuildDelayCts?.Dispose();
         _rebuildDelayCts = null;
@@ -308,7 +316,15 @@ public class StrataMarkdown : ContentControl
     {
         base.OnAttachedToVisualTree(e);
 
-        if (Markdown is null)
+        _isAttachedToVisualTree = true;
+
+        // A rebuild deferred while detached (FlushQueuedRebuild's RetainContentOnDetach guard) must
+        // still be re-posted on reattach even when Markdown is now null -- otherwise the deferred
+        // change is lost: the retained tree keeps showing stale content and _rebuildQueued stays
+        // stuck true. So only take the nothing-to-render early-out when no deferred rebuild is
+        // pending. (Today no caller sets Markdown = null on a retained control, but the deferral
+        // guard makes this reachable in principle, so keep the two in sync.)
+        if (Markdown is null && !(RetainContentOnDetach && _rebuildQueued))
             return;
 
         // If re-attached after being detached (e.g. control recycling), rebuild
@@ -327,12 +343,13 @@ public class StrataMarkdown : ContentControl
         }
         else if (RetainContentOnDetach && _rebuildQueued)
         {
-            // Content was retained across detach AND a rebuild was still pending when we
-            // detached (e.g. a background streaming update arrived, then its delayed rebuild
-            // timer was cancelled by OnDetached). Re-post it so the retained tree reflects the
-            // change. When nothing was pending (_rebuildQueued == false), the retained tree is
-            // already current, so we do NOTHING -- this is the hot switch-back path and must
-            // stay free of any reparse/refresh work.
+            // Content was retained across detach AND a rebuild was still pending when we detached --
+            // either its delayed rebuild timer was cancelled by OnDetached, or a background update
+            // (e.g. the chat kept streaming / finished writing while off-screen) was deferred by
+            // FlushQueuedRebuild because we were detached. Re-post one rebuild so the retained tree
+            // reflects the latest Markdown. When nothing was pending (_rebuildQueued == false), the
+            // retained tree is already current, so we do NOTHING -- this is the hot switch-back path
+            // and must stay free of any reparse/refresh work.
             _rebuildQueued = false;
             ScheduleRebuild();
         }
@@ -435,6 +452,17 @@ public class StrataMarkdown : ContentControl
     private void FlushQueuedRebuild()
     {
         if (!_rebuildQueued)
+            return;
+
+        // Defer the actual parse/build while detached when retaining content. A retained markdown
+        // (a transcript bubble of a backgrounded chat) stays alive and bound after the user switches
+        // to another chat, so a background streaming update -- or the heavy final parse when that
+        // chat finishes writing -- would otherwise parse and syntax-highlight on the UI thread and
+        // freeze the foreground chat. Keep _rebuildQueued set (and the Markdown property holds the
+        // latest text) so OnAttachedToVisualTree re-posts a single coalesced rebuild when the control
+        // is shown again. Non-retained controls clear their content on detach and rebuild from the
+        // Children.Count == 0 path on reattach, so they are intentionally left unaffected here.
+        if (RetainContentOnDetach && !_isAttachedToVisualTree)
             return;
 
         _rebuildQueued = false;
