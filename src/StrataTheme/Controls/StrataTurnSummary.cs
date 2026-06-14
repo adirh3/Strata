@@ -43,7 +43,8 @@ public class StrataTurnSummary : TemplatedControl
         AvaloniaProperty.RegisterDirect<StrataTurnSummary, object?>(nameof(DisplayedContent), control => control.DisplayedContent);
 
     public static readonly StyledProperty<bool> IsExpandedProperty =
-        AvaloniaProperty.Register<StrataTurnSummary, bool>(nameof(IsExpanded));
+        AvaloniaProperty.Register<StrataTurnSummary, bool>(
+            nameof(IsExpanded), defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
     public static readonly StyledProperty<bool> HasFailuresProperty =
         AvaloniaProperty.Register<StrataTurnSummary, bool>(nameof(HasFailures));

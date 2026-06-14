@@ -39,7 +39,8 @@ public class StrataTerminalPreview : TemplatedControl
         AvaloniaProperty.Register<StrataTerminalPreview, StrataAiToolCallStatus>(nameof(Status), StrataAiToolCallStatus.InProgress);
 
     public static readonly StyledProperty<bool> IsExpandedProperty =
-        AvaloniaProperty.Register<StrataTerminalPreview, bool>(nameof(IsExpanded), true);
+        AvaloniaProperty.Register<StrataTerminalPreview, bool>(
+            nameof(IsExpanded), true, defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
     public static readonly StyledProperty<double> DurationMsProperty =
         AvaloniaProperty.Register<StrataTerminalPreview, double>(nameof(DurationMs), 0);

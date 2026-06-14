@@ -72,7 +72,8 @@ public class StrataThink : TemplatedControl
         AvaloniaProperty.Register<StrataThink, double>(nameof(ProgressValue), -1);
 
     public static readonly StyledProperty<bool> IsExpandedProperty =
-        AvaloniaProperty.Register<StrataThink, bool>(nameof(IsExpanded));
+        AvaloniaProperty.Register<StrataThink, bool>(
+            nameof(IsExpanded), defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
     public static readonly StyledProperty<bool> IsActiveProperty =
         AvaloniaProperty.Register<StrataThink, bool>(nameof(IsActive));

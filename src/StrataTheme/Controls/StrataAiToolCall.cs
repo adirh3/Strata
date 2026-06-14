@@ -77,7 +77,8 @@ public class StrataAiToolCall : TemplatedControl
 
     /// <summary>Whether the detail pane (parameters, info, duration) is visible.</summary>
     public static readonly StyledProperty<bool> IsExpandedProperty =
-        AvaloniaProperty.Register<StrataAiToolCall, bool>(nameof(IsExpanded), false);
+        AvaloniaProperty.Register<StrataAiToolCall, bool>(
+            nameof(IsExpanded), false, defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
     public static readonly DirectProperty<StrataAiToolCall, string> StatusTextProperty =
         AvaloniaProperty.RegisterDirect<StrataAiToolCall, string>(nameof(StatusText), control => control.StatusText);
