@@ -166,11 +166,13 @@ public class StrataThink : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (_header is not null)
-            _header.PointerPressed -= OnHeaderPointerPressed;
-        if (_pill is not null)
-            _pill.PointerPressed -= OnPillPointerPressed;
-
+        // The PART_Header / PART_Pill pointer handlers are intentionally NOT detached here.
+        // They are subscribed only in OnApplyTemplate, which does not run again when a retained
+        // transcript view is re-parented across the visual tree (chat switch, virtualization,
+        // turn host adopt/release). Detaching them on every visual-tree exit left the control
+        // permanently unclickable after the first detach/reattach. The handlers live on this
+        // control's own template parts, so keeping them subscribed for the control's lifetime is
+        // leak-safe (the cycle is self-contained) and matches the sibling collapsible controls.
         if (Parent is Control parent)
             parent.SizeChanged -= OnParentSizeChanged;
 
