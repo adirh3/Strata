@@ -61,7 +61,9 @@
               <controls:StrataMarkdown Name="PART_QuestionText"
                          Markdown="{TemplateBinding Question}"
                          IsInline="True"
-                         Margin="0,4,0,0" />
+                         Margin="0,4,0,0"
+                         ToolTip.Tip="{TemplateBinding Question}"
+                         ToolTip.ShowDelay="500" />
             </StackPanel>
 
             <!-- Separator -->

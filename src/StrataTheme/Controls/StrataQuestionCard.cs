@@ -204,6 +204,8 @@ public class StrataQuestionCard : TemplatedControl
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 Tag = opt,
             };
+            ToolTip.SetTip(btn, opt);
+            ToolTip.SetShowDelay(btn, 500);
             btn.Click += OnOptionClick;
             _optionsPanel.Children.Add(btn);
         }
