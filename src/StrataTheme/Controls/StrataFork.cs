@@ -126,15 +126,28 @@ public class StrataFork : TemplatedControl
         }, DispatcherPriority.Loaded);
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        // The same instance can be re-parented (e.g. StrataMarkdown caches the fork for a
+        // ```comparison``` block and re-adds it when the transcript re-renders). A plain
+        // re-attach does NOT re-apply the template, so the tab buttons keep the click handlers
+        // wired in OnApplyTemplate. Re-sync the visual state in case it was left mid-transition.
+        Dispatcher.UIThread.Post(() =>
+        {
+            UpdatePseudoClasses();
+            UpdateIndicatorGeometry(animated: false);
+            ApplyContentStateInstant();
+        }, DispatcherPriority.Loaded);
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (_optionAButton is not null)
-            _optionAButton.Click -= OnOptionAClicked;
-        if (_optionBButton is not null)
-            _optionBButton.Click -= OnOptionBClicked;
-        if (_tabHost is not null)
-            _tabHost.SizeChanged -= OnTabHostSizeChanged;
-
+        // Deliberately do NOT unsubscribe the button / size-changed handlers here. The buttons
+        // are template children that share this control's lifetime (so there is no leak), and
+        // OnApplyTemplate is not called again on re-attach -- unsubscribing here permanently
+        // killed the tab buttons after the first re-render, making the second option unclickable.
         _fadeCts?.Cancel();
         _fadeCts?.Dispose();
         _fadeCts = null;
