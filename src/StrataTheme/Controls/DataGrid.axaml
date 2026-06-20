@@ -1,4 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
+        xmlns:sa="using:StrataTheme.Animation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:strata="using:StrataTheme">
 
@@ -111,7 +112,7 @@
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Transitions">
       <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.15" />
+        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.15" />
       </Transitions>
     </Setter>
   </Style>
@@ -179,7 +180,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="Transitions">
       <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.15" />
+        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.15" />
         <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
       </Transitions>
     </Setter>

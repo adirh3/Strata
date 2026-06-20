@@ -1,4 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
+        xmlns:sa="using:StrataTheme.Animation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:StrataTheme.Controls"
         xmlns:strata="using:StrataTheme">
@@ -356,7 +357,7 @@
                           RenderTransform="translateY(3px)">
                       <Button.Transitions>
                         <Transitions>
-                          <BrushTransition Property="Background" Duration="0:0:0.1" />
+                          <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
                           <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.08" Easing="CubicEaseOut" />
                         </Transitions>
                       </Button.Transitions>
@@ -705,7 +706,7 @@
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Transitions">
       <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.1" />
+        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
       </Transitions>
     </Setter>
   </Style>
@@ -729,7 +730,7 @@
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Transitions">
       <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.1" />
+        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
         <BrushTransition Property="BorderBrush" Duration="0:0:0.1" />
       </Transitions>
     </Setter>

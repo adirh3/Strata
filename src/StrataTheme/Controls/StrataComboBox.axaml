@@ -1,4 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
+        xmlns:sa="using:StrataTheme.Animation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:StrataTheme.Controls"
         xmlns:strata="using:StrataTheme">
@@ -45,7 +46,7 @@
                           BorderThickness="{DynamicResource Stroke.Thin}">
                     <Border.Transitions>
                       <Transitions>
-                        <BrushTransition Property="Background" Duration="0:0:0.14" />
+                        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.14" />
                         <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
                       </Transitions>
                     </Border.Transitions>
@@ -153,7 +154,7 @@
                       MinHeight="{TemplateBinding MinHeight}">
                 <Border.Transitions>
                   <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.15" />
+                    <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.15" />
                     <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
                   </Transitions>
                 </Border.Transitions>

@@ -1,4 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
+        xmlns:sa="using:StrataTheme.Animation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:StrataTheme.Controls">
 
@@ -45,7 +46,7 @@
                           Opacity="0.7">
                     <Border.Transitions>
                       <Transitions>
-                        <BrushTransition Property="Background" Duration="0:0:0.14" />
+                        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.14" />
                       </Transitions>
                     </Border.Transitions>
                   </Border>

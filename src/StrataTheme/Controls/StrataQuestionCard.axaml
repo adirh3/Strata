@@ -1,4 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
+        xmlns:sa="using:StrataTheme.Animation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:StrataTheme.Controls">
   <Styles.Resources>
@@ -20,7 +21,7 @@
                 RenderTransform="scale(1)">
           <Border.Transitions>
             <Transitions>
-              <BrushTransition Property="Background" Duration="0:0:0.14" />
+              <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.14" />
               <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
               <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
             </Transitions>
@@ -92,7 +93,7 @@
                   <Setter Property="RenderTransform" Value="scale(1)" />
                   <Setter Property="Transitions">
                     <Transitions>
-                      <BrushTransition Property="Background" Duration="0:0:0.12" />
+                      <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.12" />
                       <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
                       <BrushTransition Property="Foreground" Duration="0:0:0.12" />
                       <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="CubicEaseOut" />
