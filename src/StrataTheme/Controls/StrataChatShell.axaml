@@ -89,10 +89,17 @@
                 <!-- Scrollable transcript fills remaining space -->
                 <Border Name="PART_TranscriptHost">
                   <Grid>
+                    <!-- BringIntoViewOnFocusChange is disabled so a left-click on a focusable
+                         transcript element (message bubble, tool card, etc.) does NOT auto-scroll
+                         its top into view. Avalonia's ScrollViewer.OnGotFocus calls BringIntoView on
+                         the focused descendant, which made the transcript jump/scroll up on click.
+                         Explicit BringIntoView() calls (search highlight, reasoning reveal) are
+                         unaffected by this flag and still scroll as intended. -->
                     <ScrollViewer Name="PART_TranscriptScroll"
                                   VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled"
-                                  IsScrollChainingEnabled="False">
+                                  IsScrollChainingEnabled="False"
+                                  BringIntoViewOnFocusChange="False">
                       <Border Name="PART_ScrollContent" Padding="16,12,16,12">
                         <ContentPresenter Content="{TemplateBinding Transcript}" />
                       </Border>
