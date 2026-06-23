@@ -18,6 +18,7 @@
     <InternalsVisibleTo Include="StrataDemo" />
     <InternalsVisibleTo Include="StrataBenchmark" />
     <InternalsVisibleTo Include="StrataTheme.Tests" />
+    <InternalsVisibleTo Include="Lumi.Tests" />
   </ItemGroup>
 
   <ItemGroup>

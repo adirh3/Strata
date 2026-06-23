@@ -100,6 +100,8 @@
   <SolidColorBrush x:Key="Brush.Surface0" Color="{DynamicResource Color.Surface0}" />
   <SolidColorBrush x:Key="Brush.Surface1" Color="{DynamicResource Color.Surface1}" />
   <SolidColorBrush x:Key="Brush.Surface1Translucent" Color="{DynamicResource Color.Surface1}" Opacity="0.82" />
+  <!-- Glassier variant of the chat surfaces so the window-level presence glow reads through them. -->
+  <SolidColorBrush x:Key="Brush.Surface1Glass" Color="{DynamicResource Color.Surface1}" Opacity="0.60" />
   <SolidColorBrush x:Key="Brush.Surface2" Color="{DynamicResource Color.Surface2}" />
   <SolidColorBrush x:Key="Brush.SurfaceOverlay" Color="{DynamicResource Color.SurfaceOverlay}" />
 
