@@ -229,10 +229,11 @@ public class StrataPresence : Panel, IDisposable
         BuildLobe(LobeRole.Pulse, "Color.AccentDefault", 0.50, 0.50, 0.58, 0.88, 0, signal: true, 178, 64);
         // A dedicated soft halo for "luminance" treatments (e.g. the welcome mark). It rides
         // the focal point closely so it pools right around whatever it's aimed at, and is
-        // revealed only while Halo is true, via a slow, gentle opacity breath. Kept compact
-        // (a fraction of the surface) so it reads as a glow hugging the focal element, not a
+        // revealed only while Halo is true, via a slow, gentle opacity breath. Generously sized
+        // (a large fraction of the short edge) so the "new chat" aura reads as a big, soft pool of
+        // light around the mark on large screens — still localized (short-edge based), never a
         // screen-wide wash.
-        BuildLobe(LobeRole.Halo, "Color.AccentDefault", 0.50, 0.50, 0.42, 0.92, 2, signal: true, 170, 62);
+        BuildLobe(LobeRole.Halo, "Color.AccentDefault", 0.50, 0.50, 0.64, 0.92, 2, signal: true, 170, 62);
         // A second, persistent pool of light that splits off the main field and parks inside an
         // opened companion island (workspace / browser / diff / plan), so the canvas reads as two
         // presences: the main one tending the chat and a companion softly illuminating the island.
@@ -493,7 +494,7 @@ public class StrataPresence : Panel, IDisposable
         // pending request read as "look here", not merely "brighter".
         LobeRole.Indigo => state switch
         {
-            PresenceState.Dormant => 0.058,
+            PresenceState.Dormant => 0.072,
             PresenceState.Idle => 0.140,
             PresenceState.Thinking => 0.180,
             PresenceState.Streaming => 0.250,
@@ -502,7 +503,7 @@ public class StrataPresence : Panel, IDisposable
         },
         LobeRole.Violet => state switch
         {
-            PresenceState.Dormant => 0.030,
+            PresenceState.Dormant => 0.038,
             PresenceState.Idle => 0.082,
             PresenceState.Thinking => 0.128,
             PresenceState.Streaming => 0.180,
@@ -520,7 +521,7 @@ public class StrataPresence : Panel, IDisposable
         },
         LobeRole.Core => state switch
         {
-            PresenceState.Dormant => 0.052,
+            PresenceState.Dormant => 0.066,
             PresenceState.Idle => 0.130,
             PresenceState.Thinking => 0.158,
             PresenceState.Streaming => 0.200,
@@ -555,7 +556,11 @@ public class StrataPresence : Panel, IDisposable
         {
             DriftAmp = 0.020, DriftPeriodMs = 32000,
             BreatheMin = 0.990, BreatheMax = 1.018, BreathePeriodMs = 12000,
-            WidthBias = 1.18,
+            // Resting wide: an idle chat settles its pool into a broad horizontal wash that lights the
+            // canvas BEHIND the composer along its width, rather than a tight centred dot. (At the
+            // welcome mark the ambient field is dim and the Halo carries the glow, so this generous
+            // bias is felt almost entirely at the composer rest — exactly where it should read.)
+            WidthBias = 1.72,
         },
         MotionLevel.Active => new MotionProfile
         {
@@ -780,17 +785,19 @@ public class StrataPresence : Panel, IDisposable
 
         if (!active)
         {
-            // Disperse the luminance gently instead of snapping to dark, so leaving the welcome
-            // canvas for a chat reads as the light dissolving rather than a hard cut. The running
-            // breath only ever set an *animated* value (the border's local Opacity is already 0),
-            // so we fade from the breath's high value; the swing is tiny, so starting from the top
-            // looks like a clean dissolve either way. FillMode.Forward holds it at 0 when done.
+            // Leaving the welcome canvas for a chat. Rather than dissolving the luminance *in place*
+            // at the hero (which reads as a cross-fade — the bright pool fades out up top while the
+            // dim ambient field fades in low), HOLD the halo bright while the focus glide carries it
+            // DOWN from the hero to the composer, THEN dissolve once it has arrived. So the eye sees a
+            // single bright body of light *pour down* into the conversation and settle, handing off to
+            // the now-brightened ambient field at the bottom. FillMode.Forward holds it at 0 when done.
             var border = lobe.Border;
             var fadeCts = new System.Threading.CancellationTokenSource();
             _haloCts = fadeCts;
+            var haloHigh = Math.Clamp(0.205 * Luminance, 0, 1);
             var fadeOut = new Avalonia.Animation.Animation
             {
-                Duration = TimeSpan.FromMilliseconds(900),
+                Duration = TimeSpan.FromMilliseconds(1300),
                 Easing = new Avalonia.Animation.Easings.SineEaseInOut(),
                 FillMode = Avalonia.Animation.FillMode.Forward,
                 Children =
@@ -798,8 +805,16 @@ public class StrataPresence : Panel, IDisposable
                     new Avalonia.Animation.KeyFrame
                     {
                         Cue = new Avalonia.Animation.Cue(0d),
-                        Setters = { new Avalonia.Styling.Setter(OpacityProperty, Math.Clamp(0.205 * Luminance, 0, 1)) },
+                        Setters = { new Avalonia.Styling.Setter(OpacityProperty, haloHigh) },
                     },
+                    // Stay lit through the descent (the focus glide settles the halo at the composer in
+                    // ~0.9 s), so the bright pool is visible the whole way down — not just at the ends.
+                    new Avalonia.Animation.KeyFrame
+                    {
+                        Cue = new Avalonia.Animation.Cue(0.56d),
+                        Setters = { new Avalonia.Styling.Setter(OpacityProperty, haloHigh) },
+                    },
+                    // Then melt into the (now Idle-bright) ambient field once it has landed low.
                     new Avalonia.Animation.KeyFrame
                     {
                         Cue = new Avalonia.Animation.Cue(1d),
@@ -1312,10 +1327,12 @@ public class StrataPresence : Panel, IDisposable
     // ── Directional travel ──────────────────────────────────────────────────
 
     /// <summary>
-    /// One-shot: the whole field lunges toward <paramref name="edge"/> and ebbs back to
+    /// One-shot: the whole field leans toward <paramref name="edge"/> and settles back to
     /// rest, with a soft accompanying breath of light. Hands presence <i>off</i> toward an
     /// adjacent surface — e.g. the chat field reaching toward a workspace opening on its
-    /// right, so the glow visibly travels before it "splits" across the seam.
+    /// right, so the glow visibly travels before it "splits" across the seam. The lean is a
+    /// gentle, decaying settle (not a big symmetric swing) so the split reads as a poised
+    /// hand-off rather than a bounce.
     /// </summary>
     public void Emit(PresenceEdge edge)
     {
@@ -1328,16 +1345,23 @@ public class StrataPresence : Panel, IDisposable
 
         var (dx, dy) = EdgeVector(edge);
         var span = edge is PresenceEdge.Left or PresenceEdge.Right ? w : h;
-        var dist = 0.20 * span;
+        // A restrained lean toward the seam (was a 0.20·span lunge that swung the whole field out and
+        // all the way back — too much travel, so it read as a bounce). The companion pool carries the
+        // rightward presence into the island; the field only needs to nod toward it, then settle.
+        var dist = 0.11 * span;
         var peak = new Vector3((float)(dx * dist), (float)(dy * dist), 0f);
 
         var comp = sv.Compositor;
         var anim = comp.CreateVector3KeyFrameAnimation();
         anim.Target = "Offset";
         anim.InsertKeyFrame(0f, Vector3.Zero);
-        anim.InsertKeyFrame(0.42f, peak, new Avalonia.Animation.Easings.CubicEaseOut());
-        anim.InsertKeyFrame(1f, Vector3.Zero, new Avalonia.Animation.Easings.CubicEaseInOut());
-        anim.Duration = TimeSpan.FromMilliseconds(1180);
+        // Lean out, then ease home in ever-shallower steps — the same decaying-settle shape as the
+        // send/finish impulse, so the field eases to rest with no perceptible snap-back.
+        anim.InsertKeyFrame(0.30f, peak, new Avalonia.Animation.Easings.CubicEaseOut());
+        anim.InsertKeyFrame(0.56f, new Vector3(peak.X * 0.44f, peak.Y * 0.44f, 0f), new Avalonia.Animation.Easings.SineEaseInOut());
+        anim.InsertKeyFrame(0.78f, new Vector3(peak.X * 0.16f, peak.Y * 0.16f, 0f), new Avalonia.Animation.Easings.SineEaseInOut());
+        anim.InsertKeyFrame(1f, Vector3.Zero, new Avalonia.Animation.Easings.SineEaseInOut());
+        anim.Duration = TimeSpan.FromMilliseconds(1280);
         anim.IterationBehavior = AnimationIterationBehavior.Count;
         sv.StartAnimation("Offset", anim);
         sv.Offset = Vector3.Zero;
@@ -1350,10 +1374,29 @@ public class StrataPresence : Panel, IDisposable
     /// (newly raised) focus baseline — the presence lifting into the conversation the moment Lumi takes
     /// a message. Paired by the controller with a focus retarget upward, so sending in an existing chat
     /// reads as the glow leaving the composer and ascending to where the answer forms, not a glow that
-    /// barely shifts in place. A deliberately larger, slower travel than <see cref="Emit"/> so the move
-    /// is unmistakably felt.
+    /// barely shifts in place.
     /// </summary>
-    public void Lift()
+    public void Lift() => ImpulseSettle(-0.15, 1300.0);
+
+    /// <summary>
+    /// One-shot mirror of <see cref="Lift"/>: the whole field <i>pours down</i> and eases home — the
+    /// presence descending into the conversation. Paired by the controller with a focus retarget
+    /// downward, so opening an existing chat from the welcome canvas (and finishing a turn) reads as the
+    /// light visibly travelling <i>down</i> from the hero/answer to settle at the composer, not an
+    /// instant swap.
+    /// </summary>
+    public void Descend() => ImpulseSettle(0.15, 1450.0);
+
+    /// <summary>
+    /// The shared "kick &amp; settle" used by <see cref="Lift"/> / <see cref="Descend"/>: a quick, smooth
+    /// surge of the whole field by <paramref name="dyFraction"/>·height, then a long, monotonically
+    /// decaying tail back to rest — the shape of a critically-damped impulse, so it reads as a confident
+    /// move that <i>settles</i> rather than a spring that bounces back (the previous up-then-snap-back
+    /// felt amateurish). The sustained new position is carried by the focus glide underneath; this is the
+    /// felt kick on top of it. Animates the control's own composition visual so it composes cleanly over
+    /// every per-lobe focus / drift / breathe / beacon animation, in any state.
+    /// </summary>
+    private void ImpulseSettle(double dyFraction, double durationMs)
     {
         if (!_ready || _selfVisual is not { } sv)
             return;
@@ -1361,16 +1404,18 @@ public class StrataPresence : Panel, IDisposable
         if (h <= 0)
             return;
 
-        var rise = (float)(0.24 * h);
+        var peak = (float)(dyFraction * h);
         var comp = sv.Compositor;
         var anim = comp.CreateVector3KeyFrameAnimation();
         anim.Target = "Offset";
         anim.InsertKeyFrame(0f, Vector3.Zero);
-        // Surge up quickly (the lift-off), then ease the field back down so its sustained rise is carried
-        // by the focus glide underneath — the kick supplies the "felt" motion, the focus the new height.
-        anim.InsertKeyFrame(0.40f, new Vector3(0f, -rise, 0f), new Avalonia.Animation.Easings.CubicEaseOut());
-        anim.InsertKeyFrame(1f, Vector3.Zero, new Avalonia.Animation.Easings.CubicEaseInOut());
-        anim.Duration = TimeSpan.FromMilliseconds(1250);
+        // Quick decelerating surge to the peak, then a gentle, ever-shallower decay home — each segment
+        // smaller and slower than the last, so the field eases to rest with no perceptible snap-back.
+        anim.InsertKeyFrame(0.28f, new Vector3(0f, peak, 0f), new Avalonia.Animation.Easings.CubicEaseOut());
+        anim.InsertKeyFrame(0.52f, new Vector3(0f, peak * 0.58f, 0f), new Avalonia.Animation.Easings.SineEaseInOut());
+        anim.InsertKeyFrame(0.76f, new Vector3(0f, peak * 0.24f, 0f), new Avalonia.Animation.Easings.SineEaseInOut());
+        anim.InsertKeyFrame(1f, Vector3.Zero, new Avalonia.Animation.Easings.SineEaseInOut());
+        anim.Duration = TimeSpan.FromMilliseconds(durationMs);
         anim.IterationBehavior = AnimationIterationBehavior.Count;
         sv.StartAnimation("Offset", anim);
         sv.Offset = Vector3.Zero;
