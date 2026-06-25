@@ -100,11 +100,12 @@ public class StrataPresence : Panel, IDisposable
     static StrataPresence()
     {
         StateProperty.Changed.AddClassHandler<StrataPresence>((p, _) => p.ApplyState());
-        FocusPointProperty.Changed.AddClassHandler<StrataPresence>((p, _) => p.ApplyFocus());
+        FocusPointProperty.Changed.AddClassHandler<StrataPresence>((p, _) => p.ApplyFocus(animate: !p._resizeSnap));
         FocusReachProperty.Changed.AddClassHandler<StrataPresence>((p, _) => p.ApplyFocus());
         CompactProperty.Changed.AddClassHandler<StrataPresence>((p, _) =>
         {
-            p.LayoutLobes();
+            p.SizeLobes(p.Bounds.Width, p.Bounds.Height);
+            p.InvalidateArrange();
             p.ApplyFocus(animate: false);
         });
         IntensityProperty.Changed.AddClassHandler<StrataPresence>((p, _) =>
@@ -183,6 +184,12 @@ public class StrataPresence : Panel, IDisposable
     private bool _attached;
     private MotionLevel _motionLevel = (MotionLevel)(-1);
     private bool _motionDirty = true;
+    // True only for the span of a resize-driven re-pin (ResyncFocus): makes ApplyFocus SNAP rather than
+    // spring, so the controller's focus refinement during a continuous drag tracks the re-laid-out canvas
+    // rigidly instead of springing (and micro-jittering) behind it. Structural placement on resize is
+    // handled by ArrangeOverride (which arranges each lobe host AT its focal target); this snap only keeps
+    // the FocusPoint refinement from adding spring jitter on top.
+    private bool _resizeSnap;
     private System.Threading.CancellationTokenSource? _beaconCts;
     private PresenceState _beaconState = (PresenceState)(-1);
     private double _beaconIntensity = -1;
@@ -243,14 +250,49 @@ public class StrataPresence : Panel, IDisposable
 
         SizeChanged += (_, _) =>
         {
+            // A resize changes the field diameter (it scales with the canvas) and every lobe's drift spread,
+            // so the render-thread motion must be rebuilt for the new size — that is all this handler does.
+            // Placement is handled STRUCTURALLY by ArrangeOverride: it arranges every lobe host AT its focal
+            // target, so the resize arrange writes the CORRECT focal Offset (never centred-home). No deferred
+            // focus re-pin is needed — the previous Background-deferred snap lost a starvation race against
+            // the OS resize-event flood during a real continuous drag, which is exactly what made the field
+            // jitter and collapse to centre. Arranging at the focal point cannot be starved.
             _motionDirty = true;
-            LayoutLobes();
             ApplyState();
-            // A real window resize moves every lobe's bounds-relative target. Let the spring glide them
-            // to the new layout instead of snapping (the old instant re-place was a visible teleport on
-            // resize/maximize). First-ever placement still snaps, because the lobes aren't yet placed.
-            ApplyFocus(animate: true);
         };
+    }
+
+    /// <summary>
+    /// Sets <see cref="FocusPoint"/> and re-pins the field to it WITHOUT a spring glide. The owning
+    /// controller calls this on a window resize, where the field must track the re-laid-out canvas
+    /// rigidly: a spring would visibly lag and jitter behind a continuous drag. The structural placement
+    /// is already handled by <see cref="ArrangeOverride"/> (which arranges each lobe host at its focal
+    /// target, so the resize arrange writes the focal Offset); this just re-pins the FocusPoint refinement
+    /// without adding spring motion on top.
+    /// </summary>
+    public void ResyncFocus(Point focus)
+    {
+        _resizeSnap = true;
+        try
+        {
+            var changed = FocusPoint != focus;
+            // SetCurrentValue (not the CLR setter) preserves any binding; the FocusPoint changed-handler
+            // reads _resizeSnap and applies without animation. If the value is unchanged the handler will
+            // not fire, so snap explicitly.
+            SetCurrentValue(FocusPointProperty, focus);
+            if (!changed && _ready)
+                ApplyFocus(animate: false);
+            // Re-arrange so each lobe host's Bounds.Position — and therefore the layout-synced Offset BASE —
+            // tracks the refined focal too. The controller refines FocusPoint on Background AFTER the resize
+            // arrange (the composer's normalized spot shifts as the fixed-width rail re-proportions), so
+            // without this the base would lag the snap by one cycle. Re-arranging keeps the structural base
+            // and the snapped Offset in exact agreement, so there is no stale-base value to ever flash.
+            InvalidateArrange();
+        }
+        finally
+        {
+            _resizeSnap = false;
+        }
     }
 
     private void BuildLobe(
@@ -290,10 +332,14 @@ public class StrataPresence : Panel, IDisposable
         // The host carries only focus-follow travel; the glow inside keeps its own
         // drift + breathe + opacity. Their composition Offsets compose, so the lobe
         // drifts around its anchor *and* glides toward the focal point at once.
+        // Stretch (not Center) so ArrangeOverride can place the host EXACTLY at its focal
+        // rect with zero alignment slack — the host's Bounds.Position then equals the focal
+        // point, which is what makes the composition Offset re-sync to the focal point (not
+        // centred-home) on every arrange, so a window resize can never collapse the field to centre.
         var host = new Border
         {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
             IsHitTestVisible = false,
             Width = 1,
             Height = 1,
@@ -414,16 +460,73 @@ public class StrataPresence : Panel, IDisposable
         _ready = _selfVisual is not null;
         _motionDirty = true;
         _motionLevel = (MotionLevel)(-1);
-        LayoutLobes();
+        SizeLobes(Bounds.Width, Bounds.Height);
         ApplyState();
         ApplyFocus(animate: false);
         UpdateHalo();
     }
 
-    private void LayoutLobes()
+    /// <summary>
+    /// A full-bleed panel: it is always stretched to fill its grid cell, so its own desired size is
+    /// irrelevant. We size the lobes from the available size here (so <see cref="ArrangeOverride"/> has a
+    /// fresh <c>lobe.Size</c> to place against) and return zero.
+    /// </summary>
+    protected override Size MeasureOverride(Size availableSize)
     {
-        var w = Bounds.Width;
-        var h = Bounds.Height;
+        var w = availableSize.Width;
+        var h = availableSize.Height;
+        if (double.IsFinite(w) && double.IsFinite(h) && w > 0 && h > 0)
+            SizeLobes(w, h);
+
+        foreach (var child in Children)
+            child.Measure(availableSize);
+
+        return default;
+    }
+
+    /// <summary>
+    /// THE structural resize fix. Instead of letting Avalonia arrange each centred lobe host at the panel
+    /// centre (which re-syncs the host's composition <c>Offset</c> base to centred-home on every arrange,
+    /// clobbering the focal travel — the field collapsed to centre / jittered on a window resize), we
+    /// arrange every host AT its focal target. The host's <c>Bounds.Position</c> then equals the focal
+    /// point, so the layout-driven Offset sync writes the CORRECT focal Offset each pass — deterministic,
+    /// at layout priority, impossible to starve (the old Background-deferred re-pin lost a race against the
+    /// OS resize-event flood during a real drag). Smooth focus travel between states still rides the Offset
+    /// spring (<see cref="ApplyFocus"/>): <see cref="FocusPoint"/> is not an arrange-affecting property, so
+    /// a normal re-aim runs NO arrange and the spring animates freely; only a real resize arranges, and it
+    /// cleanly snaps each host to the focal target for the new size.
+    /// </summary>
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        var w = finalSize.Width;
+        var h = finalSize.Height;
+        if (w <= 0 || h <= 0)
+        {
+            foreach (var child in Children)
+                child.Arrange(new Rect(finalSize));
+            return finalSize;
+        }
+
+        // Keep lobe sizing in lock-step with the final arranged size (a star-sized grid cell can hand a
+        // slightly different size to arrange than to measure). Unchanged sets are no-ops in Avalonia, so
+        // this does not churn the layout.
+        SizeLobes(w, h);
+
+        var fp = FocusPoint;
+        var reach = Math.Clamp(FocusReach, 0, 1.5);
+        foreach (var lobe in _lobes)
+        {
+            // Arrange the host at its focal top-left so Bounds.Position == focal point (ClipToBounds is
+            // false, so a lobe whose pool extends past the panel edge still renders fully).
+            var target = ComputeFocusTarget(lobe, fp, reach, w, h);
+            lobe.Host.Arrange(new Rect(target.X, target.Y, lobe.Size, lobe.Size));
+        }
+
+        return finalSize;
+    }
+
+    private void SizeLobes(double w, double h)
+    {
         if (w <= 0 || h <= 0)
             return;
 
