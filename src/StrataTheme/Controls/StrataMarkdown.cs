@@ -3127,6 +3127,14 @@ public class StrataMarkdown : ContentControl
         private string[] _headers = [];
         private IReadOnlyList<string[]> _rows = [];
         private int _copyStatusVersion;
+        private int _columnCount;
+        private bool _horizontalScrollMode;
+        private bool _modeInitialized;
+
+        // When fitting every column into the available width would shrink each
+        // column below this many pixels, the table switches to fixed-width
+        // columns with a horizontal scrollbar instead of cramped wrapping.
+        private const double MinColumnWidth = 120;
 
         public MarkdownTableView()
         {
@@ -3138,7 +3146,7 @@ public class StrataMarkdown : ContentControl
             _scrollViewer = new ScrollViewer
             {
                 Content = _grid,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 MaxHeight = 400,
             };
@@ -3181,6 +3189,7 @@ public class StrataMarkdown : ContentControl
             ContextMenu = CreateCopyFormatMenu();
 
             KeyDown += OnKeyDown;
+            SizeChanged += OnTableSizeChanged;
             Child = layout;
             HorizontalAlignment = HorizontalAlignment.Stretch;
             MaxHeight = 400;
@@ -3203,6 +3212,9 @@ public class StrataMarkdown : ContentControl
             for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
                 _grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
 
+            _columnCount = headers.Length;
+            _modeInitialized = false;
+
             _grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
             for (var headerIndex = 0; headerIndex < headers.Length; headerIndex++)
@@ -3211,7 +3223,7 @@ public class StrataMarkdown : ContentControl
                     owner,
                     headers[headerIndex],
                     isHeader: true,
-                    TextWrapping.NoWrap,
+                    TextWrapping.Wrap,
                     borderThickness: GetCellBorderThickness(headers.Length, rows.Count, headerIndex, rowIndex: -1),
                     cornerRadius: GetCellCornerRadius(headers.Length, rows.Count, headerIndex, rowIndex: -1));
                 Grid.SetRow(headerCell, 0);
@@ -3238,6 +3250,53 @@ public class StrataMarkdown : ContentControl
                     Grid.SetColumn(cell, columnIndex);
                     _grid.Children.Add(cell);
                 }
+            }
+
+            UpdateResponsiveLayout(Bounds.Width);
+        }
+
+        private void OnTableSizeChanged(object? sender, SizeChangedEventArgs e)
+        {
+            if (e.WidthChanged)
+                UpdateResponsiveLayout(e.NewSize.Width);
+        }
+
+        /// <summary>
+        /// Chooses between width-fitting star columns (wrap, no horizontal scroll)
+        /// and fixed-width columns (horizontal scroll) based on whether every
+        /// column can stay at least <see cref="MinColumnWidth"/> wide.
+        /// </summary>
+        private void UpdateResponsiveLayout(double availableWidth)
+        {
+            if (_columnCount == 0)
+                return;
+
+            // Subtract the 1px table border on each side to approximate the grid viewport.
+            var contentWidth = availableWidth - 2;
+            var needsScroll = contentWidth > 0 && contentWidth < _columnCount * MinColumnWidth;
+
+            if (_modeInitialized && needsScroll == _horizontalScrollMode)
+                return;
+
+            ApplyColumnMode(needsScroll);
+        }
+
+        private void ApplyColumnMode(bool scrollMode)
+        {
+            _horizontalScrollMode = scrollMode;
+            _modeInitialized = true;
+
+            if (scrollMode)
+            {
+                _scrollViewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
+                foreach (var column in _grid.ColumnDefinitions)
+                    column.Width = new GridLength(MinColumnWidth, GridUnitType.Pixel);
+            }
+            else
+            {
+                _scrollViewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                foreach (var column in _grid.ColumnDefinitions)
+                    column.Width = new GridLength(1, GridUnitType.Star);
             }
         }
 
