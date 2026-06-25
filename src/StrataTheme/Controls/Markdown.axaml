@@ -151,6 +151,10 @@
     <Setter Property="Padding" Value="8,6" />
   </Style>
 
+  <Style Selector="Border.strata-md-table-cell-alternate">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface0}" />
+  </Style>
+
   <Style Selector="TextBlock.strata-md-code-lang">
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
@@ -192,6 +196,25 @@
 
   <Style Selector="ScrollViewer.strata-md-code-scroll ScrollBar:horizontal:pointerover /template/ Thumb">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentHover}" />
+  </Style>
+
+  <!-- Make wide table overflow obvious and easier to grab. -->
+  <Style Selector="ScrollViewer.strata-md-table-scroll ScrollBar:horizontal">
+    <Setter Property="Margin" Value="8,6,8,4" />
+    <Setter Property="Height" Value="8" />
+  </Style>
+
+  <Style Selector="ScrollViewer.strata-md-table-scroll ScrollBar:horizontal /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderStrong}" />
+  </Style>
+
+  <Style Selector="ScrollViewer.strata-md-table-scroll ScrollBar:horizontal:pointerover /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentHover}" />
+  </Style>
+
+  <Style Selector="ScrollViewer.strata-md-table-scroll ScrollBar:vertical">
+    <Setter Property="Margin" Value="4,8,4,8" />
+    <Setter Property="Width" Value="8" />
   </Style>
 
 </Styles>
