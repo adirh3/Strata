@@ -417,10 +417,42 @@ public class StrataChatMessage : TemplatedControl
         if (e.InitialPressMouseButton != MouseButton.Right)
             return;
 
+        // Defer to a child that owns its own context menu/flyout (e.g. a file attachment chip)
+        // so its actions aren't shadowed by the whole-message menu.
+        if (TargetHasOwnContextMenu(e.Source))
+            return;
+
         e.Handled = true;
         RestoreContextMenuSelection();
         RebuildContextMenuItems();
         _contextMenu.Open(_bubble);
+    }
+
+    /// <summary>
+    /// Walks from the right-click target up to (but excluding) the message bubble, reporting whether any
+    /// embedded control on the way owns its own context flyout or a distinct context menu. Used so nested
+    /// controls with bespoke right-click menus (e.g. file attachment chips) keep them instead of always
+    /// getting the message-level menu. Text controls (<see cref="TextBlock"/>/<see cref="TextBox"/>) are
+    /// skipped so their framework-default selection flyouts don't shadow the whole-message menu.
+    /// </summary>
+    private bool TargetHasOwnContextMenu(object? source)
+    {
+        var current = source as Visual;
+        while (current is not null && !ReferenceEquals(current, _bubble) && !ReferenceEquals(current, this))
+        {
+            if (current is Control control && current is not TextBlock && current is not TextBox)
+            {
+                if (control.ContextFlyout is not null)
+                    return true;
+
+                if (control.ContextMenu is not null && !ReferenceEquals(control.ContextMenu, _contextMenu))
+                    return true;
+            }
+
+            current = current.GetVisualParent();
+        }
+
+        return false;
     }
 
     private void OnContextMenuOpening(object? sender, EventArgs e)
