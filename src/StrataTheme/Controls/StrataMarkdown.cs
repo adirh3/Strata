@@ -3115,14 +3115,6 @@ public class StrataMarkdown : ContentControl
 
     private sealed class MarkdownTableView : Border
     {
-        private const double TableOverflowEpsilon = 1.0;
-        private const double TableWheelScrollStep = 72.0;
-        private const double MinimumColumnWidth = 84.0;
-        private const double MinimumWideColumnWidth = 68.0;
-        private const double MaximumColumnWidth = 240.0;
-        private const double MaximumWideColumnWidth = 128.0;
-        private const int StretchColumnTableThreshold = 4;
-
         private static readonly DataFormat<string> MarkdownClipboardFormat =
             DataFormat.CreateStringPlatformFormat("text/markdown");
         private static readonly DataFormat<string> HtmlClipboardFormat =
@@ -3135,9 +3127,6 @@ public class StrataMarkdown : ContentControl
         private string[] _headers = [];
         private IReadOnlyList<string[]> _rows = [];
         private int _copyStatusVersion;
-        private bool _stretchColumns;
-
-        private readonly record struct TableColumnSizing(double Width, double MaxWidth);
 
         public MarkdownTableView()
         {
@@ -3152,13 +3141,8 @@ public class StrataMarkdown : ContentControl
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 MaxHeight = 400,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
             };
             _scrollViewer.Classes.Add("strata-md-table-scroll");
-            _scrollViewer.PointerWheelChanged += OnScrollViewerPointerWheelChanged;
-            _scrollViewer.SizeChanged += (_, _) => ApplyStretchColumnWidths();
-            AutomationProperties.SetName(_scrollViewer, "Scrollable markdown table");
-            AutomationProperties.SetHelpText(_scrollViewer, "Use Shift+mouse wheel or the horizontal scrollbar to read wide tables.");
 
             _copyLabel = new TextBlock
             {
@@ -3190,22 +3174,19 @@ public class StrataMarkdown : ContentControl
             _copyButton.ContextMenu = CreateCopyFormatMenu();
             _copyButton.Click += OnCopyButtonClick;
 
-            var scrollLayer = new Grid();
-            scrollLayer.Children.Add(_scrollViewer);
-            scrollLayer.Children.Add(_copyButton);
+            var layout = new Grid();
+            layout.Children.Add(_scrollViewer);
+            layout.Children.Add(_copyButton);
 
             ContextMenu = CreateCopyFormatMenu();
 
             KeyDown += OnKeyDown;
-            SizeChanged += (_, _) => ApplyStretchColumnWidths();
-            Child = scrollLayer;
+            Child = layout;
             HorizontalAlignment = HorizontalAlignment.Stretch;
             MaxHeight = 400;
             Margin = new Thickness(0, 4, 0, 4);
             Focusable = true;
             Classes.Add("strata-md-table");
-            AutomationProperties.SetName(this, "Markdown table");
-            AutomationProperties.SetHelpText(this, "Use the horizontal scrollbar or Shift+mouse wheel to inspect wide tables. Press Ctrl+C to copy as Markdown.");
         }
 
         public void Update(StrataMarkdown owner, string[] headers, List<string[]> rows)
@@ -3219,10 +3200,8 @@ public class StrataMarkdown : ContentControl
             if (headers.Length == 0)
                 return;
 
-            _stretchColumns = ShouldStretchColumns(headers.Length);
-            var columnSizing = CalculateColumnSizing(headers, rows);
             for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
-                _grid.ColumnDefinitions.Add(new ColumnDefinition(columnSizing[columnIndex].Width, GridUnitType.Pixel));
+                _grid.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
 
             _grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
@@ -3232,11 +3211,9 @@ public class StrataMarkdown : ContentControl
                     owner,
                     headers[headerIndex],
                     isHeader: true,
-                    TextWrapping.Wrap,
-                    columnSizing[headerIndex],
+                    TextWrapping.NoWrap,
                     borderThickness: GetCellBorderThickness(headers.Length, rows.Count, headerIndex, rowIndex: -1),
-                    cornerRadius: GetCellCornerRadius(headers.Length, rows.Count, headerIndex, rowIndex: -1),
-                    isAlternateRow: false);
+                    cornerRadius: GetCellCornerRadius(headers.Length, rows.Count, headerIndex, rowIndex: -1));
                 Grid.SetRow(headerCell, 0);
                 Grid.SetColumn(headerCell, headerIndex);
                 _grid.Children.Add(headerCell);
@@ -3255,142 +3232,13 @@ public class StrataMarkdown : ContentControl
                         cellText,
                         isHeader: false,
                         TextWrapping.Wrap,
-                        columnSizing[columnIndex],
                         borderThickness: GetCellBorderThickness(headers.Length, rows.Count, columnIndex, rowIndex),
-                        cornerRadius: GetCellCornerRadius(headers.Length, rows.Count, columnIndex, rowIndex),
-                        isAlternateRow: rowIndex % 2 == 1);
+                        cornerRadius: GetCellCornerRadius(headers.Length, rows.Count, columnIndex, rowIndex));
                     Grid.SetRow(cell, rowIndex + 1);
                     Grid.SetColumn(cell, columnIndex);
                     _grid.Children.Add(cell);
                 }
             }
-
-            ApplyStretchColumnWidths();
-        }
-
-        private void ApplyStretchColumnWidths()
-        {
-            if (!_stretchColumns || _grid.ColumnDefinitions.Count == 0)
-                return;
-
-            var viewportWidth = FirstPositiveFinite(_scrollViewer.Viewport.Width, _scrollViewer.Bounds.Width, Bounds.Width);
-            if (!IsPositiveFinite(viewportWidth))
-                return;
-
-            var columnWidth = Math.Max(MinimumColumnWidth, viewportWidth / _grid.ColumnDefinitions.Count);
-            foreach (var column in _grid.ColumnDefinitions)
-                column.Width = new GridLength(columnWidth, GridUnitType.Pixel);
-        }
-
-        private void OnScrollViewerPointerWheelChanged(object? sender, PointerWheelEventArgs e)
-        {
-            if (!HasHorizontalOverflow())
-                return;
-
-            var horizontalDelta = Math.Abs(e.Delta.X) > 0.01 ? e.Delta.X : 0;
-            if (Math.Abs(horizontalDelta) <= 0.01
-                && Math.Abs(e.Delta.Y) > 0.01
-                && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-            {
-                horizontalDelta = -e.Delta.Y;
-            }
-
-            if (Math.Abs(horizontalDelta) <= 0.01)
-                return;
-
-            var extentWidth = FirstPositiveFinite(_scrollViewer.Extent.Width, _grid.Bounds.Width, _grid.DesiredSize.Width);
-            var viewportWidth = FirstPositiveFinite(_scrollViewer.Viewport.Width, _scrollViewer.Bounds.Width, Bounds.Width);
-            var maxOffsetX = Math.Max(0, extentWidth - viewportWidth);
-            var nextOffsetX = Math.Clamp(
-                _scrollViewer.Offset.X + horizontalDelta * TableWheelScrollStep,
-                0,
-                maxOffsetX);
-
-            if (Math.Abs(nextOffsetX - _scrollViewer.Offset.X) <= 0.1)
-                return;
-
-            _scrollViewer.Offset = new Vector(nextOffsetX, _scrollViewer.Offset.Y);
-            e.Handled = true;
-        }
-
-        private bool HasHorizontalOverflow()
-        {
-            var extentWidth = FirstPositiveFinite(_scrollViewer.Extent.Width, _grid.Bounds.Width, _grid.DesiredSize.Width);
-            var viewportWidth = FirstPositiveFinite(_scrollViewer.Viewport.Width, _scrollViewer.Bounds.Width, Bounds.Width);
-            return IsUsableExtent(extentWidth, viewportWidth)
-                   && extentWidth - viewportWidth > TableOverflowEpsilon;
-        }
-
-        private static double FirstPositiveFinite(double first, double second, double third)
-        {
-            if (IsPositiveFinite(first))
-                return first;
-            if (IsPositiveFinite(second))
-                return second;
-            return third;
-        }
-
-        private static bool IsPositiveFinite(double value)
-            => value > 0
-               && !double.IsNaN(value)
-               && !double.IsInfinity(value);
-
-        private static bool IsUsableExtent(double extent, double viewport)
-            => IsPositiveFinite(extent)
-               && IsPositiveFinite(viewport)
-               && viewport > 0;
-
-        private static TableColumnSizing[] CalculateColumnSizing(string[] headers, IReadOnlyList<string[]> rows)
-        {
-            var sizing = new TableColumnSizing[headers.Length];
-            var wideTable = headers.Length >= 5;
-            var stretchColumns = ShouldStretchColumns(headers.Length);
-            var minimumWidth = wideTable ? MinimumWideColumnWidth : MinimumColumnWidth;
-            var maximumWidth = stretchColumns ? double.PositiveInfinity : wideTable ? MaximumWideColumnWidth : MaximumColumnWidth;
-            var contentLengthCap = headers.Length >= 7 ? 12 : wideTable ? 16 : 26;
-
-            for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
-            {
-                var longestCell = EstimateDisplayLength(headers[columnIndex]);
-                foreach (var row in rows)
-                {
-                    if (columnIndex < row.Length)
-                        longestCell = Math.Max(longestCell, EstimateDisplayLength(row[columnIndex]));
-                }
-
-                var idealWidth = 26 + Math.Min(longestCell, contentLengthCap) * 5.8;
-                var width = Math.Clamp(idealWidth, minimumWidth, maximumWidth);
-                sizing[columnIndex] = new TableColumnSizing(width, maximumWidth);
-            }
-
-            return sizing;
-        }
-
-        private static bool ShouldStretchColumns(int columnCount)
-            => columnCount <= StretchColumnTableThreshold;
-
-        private static int EstimateDisplayLength(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return 0;
-
-            var length = 0;
-            var previousWasSpace = true;
-            foreach (var character in text)
-            {
-                if (char.IsWhiteSpace(character))
-                {
-                    if (!previousWasSpace)
-                        length++;
-                    previousWasSpace = true;
-                    continue;
-                }
-
-                length++;
-                previousWasSpace = false;
-            }
-
-            return length;
         }
 
         private async void OnKeyDown(object? sender, KeyEventArgs e)
@@ -3587,10 +3435,8 @@ public class StrataMarkdown : ContentControl
             string text,
             bool isHeader,
             TextWrapping wrapping,
-            TableColumnSizing columnSizing,
             Thickness borderThickness,
-            CornerRadius cornerRadius,
-            bool isAlternateRow)
+            CornerRadius cornerRadius)
         {
             var content = owner.CreateRichText(text, owner._bodyFontSize, owner._bodyFontSize * 1.52, wrapping);
             if (isHeader)
@@ -3602,12 +3448,8 @@ public class StrataMarkdown : ContentControl
                 BorderThickness = borderThickness,
                 CornerRadius = cornerRadius,
                 ClipToBounds = cornerRadius != default,
-                MinWidth = columnSizing.Width,
-                MaxWidth = columnSizing.MaxWidth,
             };
             border.Classes.Add(isHeader ? "strata-md-table-header-cell" : "strata-md-table-cell");
-            if (isAlternateRow)
-                border.Classes.Add("strata-md-table-cell-alternate");
             return border;
         }
 
