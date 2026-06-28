@@ -1,6 +1,11 @@
 using System.Reflection;
+using System.Windows.Input;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using StrataTheme.Controls;
 
 namespace StrataTheme.Tests;
@@ -111,6 +116,50 @@ public class StrataChatMessageTests
     }
 
     [Fact]
+    public async Task EditButtons_StillWorkAfterDetachReattach()
+    {
+        var result = await _fixture.Dispatch(() =>
+        {
+            var command = new RecordingCommand();
+            var message = new StrataChatMessage
+            {
+                Template = BuildChatMessageTemplate(),
+                IsEditable = true,
+                Content = new TextBlock { Text = "Before" },
+                EditText = "Before",
+                EditConfirmedCommand = command
+            };
+
+            var host = new Border();
+            var window = new Window { Width = 420, Height = 260, Content = host };
+            host.Child = message;
+            window.Show();
+            message.ApplyTemplate();
+            Dispatcher.UIThread.RunJobs();
+
+            host.Child = null;
+            Dispatcher.UIThread.RunJobs();
+            host.Child = message;
+            Dispatcher.UIThread.RunJobs();
+
+            Click(FindButton(message, "PART_EditButton"));
+            var editOpened = message.IsEditing;
+
+            message.EditText = "After";
+            Click(FindButton(message, "PART_SaveButton"));
+            var editClosed = !message.IsEditing;
+
+            window.Close();
+            return (editOpened, editClosed, command.ExecuteCount, command.LastParameter);
+        });
+
+        Assert.True(result.editOpened);
+        Assert.True(result.editClosed);
+        Assert.Equal(1, result.ExecuteCount);
+        Assert.Equal("After", Assert.IsType<string>(result.LastParameter));
+    }
+
+    [Fact]
     public async Task ExtractCopyText_PrefersCachedContextMenuSelection()
     {
         await _fixture.Dispatch(() =>
@@ -180,6 +229,77 @@ public class StrataChatMessageTests
         method!.Invoke(message, null);
     }
 
+    private static FuncControlTemplate<StrataChatMessage> BuildChatMessageTemplate() =>
+        new((_, scope) =>
+        {
+            var streamBar = new Border { Name = "PART_StreamBar" };
+            var bubble = new Border { Name = "PART_Bubble" };
+            var actionLayer = new Border { Name = "PART_ActionLayer" };
+            var editArea = new Border { Name = "PART_EditArea" };
+            var editBox = new TextBox { Name = "PART_EditBox" };
+            var editHint = new TextBlock { Name = "PART_EditHint" };
+            var copyButton = new Button { Name = "PART_CopyButton" };
+            var editButton = new Button { Name = "PART_EditButton" };
+            var regenerateButton = new Button { Name = "PART_RegenerateButton" };
+            var saveButton = new Button { Name = "PART_SaveButton" };
+            var cancelButton = new Button { Name = "PART_CancelButton" };
+            var editSeparator = new Border { Name = "PART_EditSep" };
+            var regenerateSeparator = new Border { Name = "PART_RegenerateSep" };
+
+            actionLayer.Child = new StackPanel
+            {
+                Children =
+                {
+                    copyButton,
+                    editSeparator,
+                    editButton,
+                    regenerateSeparator,
+                    regenerateButton
+                }
+            };
+            editArea.Child = new StackPanel
+            {
+                Children =
+                {
+                    editBox,
+                    editHint,
+                    saveButton,
+                    cancelButton
+                }
+            };
+
+            scope.Register("PART_StreamBar", streamBar);
+            scope.Register("PART_Bubble", bubble);
+            scope.Register("PART_ActionLayer", actionLayer);
+            scope.Register("PART_EditArea", editArea);
+            scope.Register("PART_EditBox", editBox);
+            scope.Register("PART_EditHint", editHint);
+            scope.Register("PART_CopyButton", copyButton);
+            scope.Register("PART_EditButton", editButton);
+            scope.Register("PART_RegenerateButton", regenerateButton);
+            scope.Register("PART_SaveButton", saveButton);
+            scope.Register("PART_CancelButton", cancelButton);
+            scope.Register("PART_EditSep", editSeparator);
+            scope.Register("PART_RegenerateSep", regenerateSeparator);
+
+            return new StackPanel
+            {
+                Children =
+                {
+                    streamBar,
+                    bubble,
+                    actionLayer,
+                    editArea
+                }
+            };
+        });
+
+    private static Button FindButton(StrataChatMessage message, string name) =>
+        message.GetVisualDescendants().OfType<Button>().Single(button => button.Name == name);
+
+    private static void Click(Button button) =>
+        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
     private static (string Text, bool IsSelection) ExtractCopyText(StrataChatMessage message)
     {
         var method = typeof(StrataChatMessage).GetMethod("ExtractCopyText", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -209,5 +329,25 @@ public class StrataChatMessageTests
 
         Assert.NotNull(field);
         field!.SetValue(message, value);
+    }
+
+    private sealed class RecordingCommand : ICommand
+    {
+        public int ExecuteCount { get; private set; }
+        public object? LastParameter { get; private set; }
+
+        public event EventHandler? CanExecuteChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public bool CanExecute(object? parameter) => true;
+
+        public void Execute(object? parameter)
+        {
+            ExecuteCount++;
+            LastParameter = parameter;
+        }
     }
 }

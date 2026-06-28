@@ -261,12 +261,7 @@ public class StrataChatMessage : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
-        if (_copyButton is not null) _copyButton.Click -= OnCopyButtonClick;
-        if (_retryButton is not null) _retryButton.Click -= OnRegenerateButtonClick;
-        if (_editButton is not null) _editButton.Click -= OnEditButtonClick;
-        if (_saveButton is not null) _saveButton.Click -= OnSaveButtonClick;
-        if (_cancelButton is not null) _cancelButton.Click -= OnCancelButtonClick;
-        if (_editBox is not null) _editBox.RemoveHandler(KeyDownEvent, OnEditBoxKeyDown);
+        DetachTemplatePartHandlers();
 
         base.OnApplyTemplate(e);
         _streamBar = e.NameScope.Find<Border>("PART_StreamBar");
@@ -288,14 +283,7 @@ public class StrataChatMessage : TemplatedControl
         _editButton = editBtn;
         _retryButton = regenBtn;
 
-        if (_copyButton is not null) _copyButton.Click += OnCopyButtonClick;
-        if (_retryButton is not null) _retryButton.Click += OnRegenerateButtonClick;
-        if (_editButton is not null) _editButton.Click += OnEditButtonClick;
-        if (_saveButton is not null) _saveButton.Click += OnSaveButtonClick;
-        if (_cancelButton is not null) _cancelButton.Click += OnCancelButtonClick;
-
-        if (_editBox is not null)
-            _editBox.AddHandler(KeyDownEvent, OnEditBoxKeyDown, RoutingStrategies.Tunnel);
+        AttachTemplatePartHandlers();
 
         AttachContextMenu();
 
@@ -313,6 +301,21 @@ public class StrataChatMessage : TemplatedControl
             Dispatcher.UIThread.Post(SeedEditTextFromContent, DispatcherPriority.Loaded);
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        // Transcript virtualization can detach and reattach the same already-templated message
+        // instance. OnApplyTemplate is not called on that plain reattach, so any handlers cleaned up
+        // during detach must be restored here.
+        AttachTemplatePartHandlers();
+        AttachContextMenu();
+        AttachContentObserversAndApply(Content);
+
+        if (IsStreaming)
+            Dispatcher.UIThread.Post(StartStreamPulse, DispatcherPriority.Loaded);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -323,12 +326,7 @@ public class StrataChatMessage : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (_copyButton is not null) _copyButton.Click -= OnCopyButtonClick;
-        if (_retryButton is not null) _retryButton.Click -= OnRegenerateButtonClick;
-        if (_editButton is not null) _editButton.Click -= OnEditButtonClick;
-        if (_saveButton is not null) _saveButton.Click -= OnSaveButtonClick;
-        if (_cancelButton is not null) _cancelButton.Click -= OnCancelButtonClick;
-        if (_editBox is not null) _editBox.RemoveHandler(KeyDownEvent, OnEditBoxKeyDown);
+        DetachTemplatePartHandlers();
         if (_contextMenu is not null)
         {
             _contextMenu.Opening -= OnContextMenuOpening;
@@ -341,6 +339,55 @@ public class StrataChatMessage : TemplatedControl
         }
         DetachContentObservers();
         base.OnDetachedFromVisualTree(e);
+    }
+
+    private void AttachTemplatePartHandlers()
+    {
+        if (_copyButton is not null)
+        {
+            _copyButton.Click -= OnCopyButtonClick;
+            _copyButton.Click += OnCopyButtonClick;
+        }
+
+        if (_retryButton is not null)
+        {
+            _retryButton.Click -= OnRegenerateButtonClick;
+            _retryButton.Click += OnRegenerateButtonClick;
+        }
+
+        if (_editButton is not null)
+        {
+            _editButton.Click -= OnEditButtonClick;
+            _editButton.Click += OnEditButtonClick;
+        }
+
+        if (_saveButton is not null)
+        {
+            _saveButton.Click -= OnSaveButtonClick;
+            _saveButton.Click += OnSaveButtonClick;
+        }
+
+        if (_cancelButton is not null)
+        {
+            _cancelButton.Click -= OnCancelButtonClick;
+            _cancelButton.Click += OnCancelButtonClick;
+        }
+
+        if (_editBox is not null)
+        {
+            _editBox.RemoveHandler(KeyDownEvent, OnEditBoxKeyDown);
+            _editBox.AddHandler(KeyDownEvent, OnEditBoxKeyDown, RoutingStrategies.Tunnel);
+        }
+    }
+
+    private void DetachTemplatePartHandlers()
+    {
+        if (_copyButton is not null) _copyButton.Click -= OnCopyButtonClick;
+        if (_retryButton is not null) _retryButton.Click -= OnRegenerateButtonClick;
+        if (_editButton is not null) _editButton.Click -= OnEditButtonClick;
+        if (_saveButton is not null) _saveButton.Click -= OnSaveButtonClick;
+        if (_cancelButton is not null) _cancelButton.Click -= OnCancelButtonClick;
+        if (_editBox is not null) _editBox.RemoveHandler(KeyDownEvent, OnEditBoxKeyDown);
     }
 
     protected override async void OnKeyDown(KeyEventArgs e)
