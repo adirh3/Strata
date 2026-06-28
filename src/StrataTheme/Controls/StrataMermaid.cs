@@ -141,6 +141,7 @@ public class StrataMermaid : TemplatedControl
     private enum DiagramKind { Flowchart, Sequence, State, Er, Class, Timeline, Quadrant }
     private enum NShape { Rect, Rounded, Diamond, Circle, Stadium }
     private enum EStyle { Arrow, Line, Dotted, Thick }
+    private enum FSide { Top, Bottom, Left, Right }
 
     private sealed class FNode
     {
@@ -155,13 +156,24 @@ public class StrataMermaid : TemplatedControl
         public string From = "", To = "";
         public string? Label;
         public EStyle Style;
+
+        // Orthogonal route computed per render: ordered waypoints from source port to target port,
+        // plus the sides each end exits/enters and a label anchor on the route's longest run.
+        public Point FromPort, ToPort;
+        public FSide ExitSide, EntrySide;
+        public List<Point> Route = new();
+        public Point LabelAt;
     }
 
     private sealed class FSubgraph
     {
         public string Id = "";
+        public string Title = "";
         public List<string> NodeOrder = new();
         public HashSet<string> NodeSet = new(StringComparer.Ordinal);
+
+        // Container bounds computed during layout (includes padding + title band).
+        public Rect Box;
 
         public string? FirstNode => NodeOrder.Count > 0 ? NodeOrder[0] : null;
         public string? LastNode => NodeOrder.Count > 0 ? NodeOrder[^1] : null;
@@ -186,6 +198,8 @@ public class StrataMermaid : TemplatedControl
         public string Name = "";
         public List<ErField> Fields = new();
         public double X, Y, W, H;
+        public double ColTypeW, ColKeyW;
+        public bool HasKeyCol;
     }
 
     private sealed class ErField
@@ -255,6 +269,7 @@ public class StrataMermaid : TemplatedControl
         // Flowchart
         private readonly Dictionary<string, FNode> _fNodes = new();
         private readonly List<FEdge> _fEdges = new();
+        private readonly List<FSubgraph> _fSubgraphs = new();
 
         // Sequence
         private readonly List<SParticipant> _sParts = new();
@@ -307,6 +322,7 @@ public class StrataMermaid : TemplatedControl
         private const double NGapH = 50, NGapV = 56;
         private const double Fs = 12, FsSmall = 10;
         private const double ArrSz = 8;
+        private const double SgPad = 14, SgTitleH = 20; // subgraph container inner padding + title band
         private const double SeqBoxH = 36, SeqMsgGap = 44, SeqMinCol = 130;
 
         public MermaidCanvas(StrataMermaid owner)
@@ -428,9 +444,10 @@ public class StrataMermaid : TemplatedControl
 
         protected override Size MeasureOverride(Size available)
         {
+            var w = double.IsInfinity(available.Width) ? 600 : Math.Max(280, available.Width);
+
             if (!_parsed) DoParse();
 
-            var w = double.IsInfinity(available.Width) ? 600 : Math.Max(280, available.Width);
             ComputeLayout(w);
 
             _baseScale = 1.0;
@@ -448,7 +465,7 @@ public class StrataMermaid : TemplatedControl
 
         private void DoParse()
         {
-            _fNodes.Clear(); _fEdges.Clear();
+            _fNodes.Clear(); _fEdges.Clear(); _fSubgraphs.Clear();
             _sParts.Clear(); _sMsgs.Clear();
             _stNodes.Clear(); _stEdges.Clear();
             _erEntities.Clear(); _erRelations.Clear();
@@ -498,10 +515,6 @@ public class StrataMermaid : TemplatedControl
             (new($@"({NodeIdPattern})\s*\(([^)]+)\)", RegexOptions.Compiled), NShape.Rounded),
         };
 
-        private static readonly Regex SubgraphStartRegex = new(
-            $@"^subgraph\s+(?<id>{NodeIdPattern})",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
         private static readonly Regex EndpointRightRegex = new(
             $@"(?<id>{NodeIdPattern})\s*$",
             RegexOptions.Compiled);
@@ -515,14 +528,20 @@ public class StrataMermaid : TemplatedControl
         private void ParseFlow(string[] lines)
         {
             var subgraphs = new Dictionary<string, FSubgraph>(StringComparer.Ordinal);
+            var subgraphOrder = new List<FSubgraph>();
             var subgraphStack = new Stack<FSubgraph>();
 
-            static FSubgraph GetOrCreateSubgraph(Dictionary<string, FSubgraph> map, string id)
+            FSubgraph GetOrCreateSubgraph(string id, string title)
             {
-                if (!map.TryGetValue(id, out var subgraph))
+                if (!subgraphs.TryGetValue(id, out var subgraph))
                 {
-                    subgraph = new FSubgraph { Id = id };
-                    map[id] = subgraph;
+                    subgraph = new FSubgraph { Id = id, Title = title };
+                    subgraphs[id] = subgraph;
+                    subgraphOrder.Add(subgraph);
+                }
+                else if (!string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(subgraph.Title))
+                {
+                    subgraph.Title = title;
                 }
 
                 return subgraph;
@@ -541,19 +560,37 @@ public class StrataMermaid : TemplatedControl
                     line.StartsWith("style ", StringComparison.OrdinalIgnoreCase) ||
                     line.StartsWith("classDef", StringComparison.OrdinalIgnoreCase) ||
                     line.StartsWith("class ", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("direction ", StringComparison.OrdinalIgnoreCase) ||
                     line.StartsWith("click ", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                var subgraphMatch = SubgraphStartRegex.Match(line);
-                if (subgraphMatch.Success)
+                if (line.StartsWith("subgraph", StringComparison.OrdinalIgnoreCase) &&
+                    (line.Length == 8 || char.IsWhiteSpace(line[8])))
                 {
-                    var subgraphId = subgraphMatch.Groups["id"].Value;
-                    if (!string.IsNullOrWhiteSpace(subgraphId))
+                    var rest = line.Length > 8 ? line[8..].Trim() : "";
+                    string sgId, sgTitle;
+                    var titled = Regex.Match(rest, @"^(?<id>\S+)\s*\[(?<t>[^\]]+)\]$");
+                    if (titled.Success)
                     {
-                        var subgraph = GetOrCreateSubgraph(subgraphs, subgraphId);
-                        subgraphStack.Push(subgraph);
+                        sgId = titled.Groups["id"].Value;
+                        sgTitle = MermaidTextHelper.NormalizeLabelText(titled.Groups["t"].Value);
+                    }
+                    else if (rest.Length >= 2 && rest.StartsWith('"') && rest.EndsWith('"'))
+                    {
+                        sgTitle = MermaidTextHelper.NormalizeLabelText(rest.Trim('"'));
+                        sgId = sgTitle;
+                    }
+                    else
+                    {
+                        var sp = rest.IndexOf(' ');
+                        sgId = sp > 0 ? rest[..sp] : rest;
+                        sgTitle = MermaidTextHelper.NormalizeLabelText(rest);
                     }
 
+                    if (string.IsNullOrWhiteSpace(sgId))
+                        sgId = $"_sg{subgraphOrder.Count}";
+
+                    subgraphStack.Push(GetOrCreateSubgraph(sgId, sgTitle));
                     continue;
                 }
 
@@ -564,9 +601,7 @@ public class StrataMermaid : TemplatedControl
                     continue;
                 }
 
-                var lineNodeIds = new List<string>();
-
-                // Extract nodes
+                // Extract nodes (bracketed definitions carry shape + label)
                 foreach (var (rx, shape) in NodeRxs)
                     foreach (Match m in rx.Matches(line))
                     {
@@ -574,20 +609,25 @@ public class StrataMermaid : TemplatedControl
                             continue;
 
                         var id = m.Groups[1].Value;
-                        lineNodeIds.Add(id);
                         if (!_fNodes.ContainsKey(id))
                             _fNodes[id] = new FNode { Id = id, Text = MermaidTextHelper.NormalizeLabelText(m.Groups[2].Value), Shape = shape };
                     }
 
-                if (subgraphStack.Count > 0 && lineNodeIds.Count > 0)
-                {
-                    foreach (var subgraph in subgraphStack)
-                        foreach (var nodeId in lineNodeIds)
-                            AddNodeToSubgraph(subgraph, nodeId);
-                }
-
                 // Extract edges — strip bracket content first
                 var stripped = Regex.Replace(line, @"\(\([^)]*\)\)|\(\[[^\]]*\]\)|\{[^}]*\}|\[[^\]]*\]|\([^)]*\)", "");
+
+                // Subgraph membership: every node referenced on a line inside a subgraph belongs to it —
+                // bracketed definitions, bare id listings (e.g. a lone "GW"), and in-subgraph edge endpoints.
+                if (subgraphStack.Count > 0)
+                {
+                    foreach (var nodeId in CollectLineNodeRefs(stripped))
+                    {
+                        if (!_fNodes.ContainsKey(nodeId))
+                            _fNodes[nodeId] = new FNode { Id = nodeId, Text = nodeId, Shape = NShape.Rect };
+                        foreach (var subgraph in subgraphStack)
+                            AddNodeToSubgraph(subgraph, nodeId);
+                    }
+                }
 
                 foreach (var arrow in Arrows)
                 {
@@ -601,7 +641,6 @@ public class StrataMermaid : TemplatedControl
 
                     for (int i = 0; i < parts.Length - 1; i++)
                     {
-                        var fromId = LastWord(parts[i]);
                         var toPart = parts[i + 1].Trim();
 
                         string? label = null;
@@ -614,21 +653,25 @@ public class StrataMermaid : TemplatedControl
                                 toPart = toPart[(end + 1)..].Trim();
                             }
                         }
-                        var toId = FirstWord(toPart);
-                        if (fromId.Length == 0 || toId.Length == 0) continue;
 
-                        if (subgraphs.TryGetValue(fromId, out var fromSubgraph) && !string.IsNullOrWhiteSpace(fromSubgraph.LastNode))
-                            fromId = fromSubgraph.LastNode!;
+                        // Mermaid "&" groups multiple endpoints: A & B --> C & D
+                        var fromIds = ResolveEndpoints(parts[i], subgraphs, trailing: true);
+                        var toIds = ResolveEndpoints(toPart, subgraphs, trailing: false);
 
-                        if (subgraphs.TryGetValue(toId, out var toSubgraph) && !string.IsNullOrWhiteSpace(toSubgraph.FirstNode))
-                            toId = toSubgraph.FirstNode!;
+                        foreach (var rawFrom in fromIds)
+                        foreach (var rawTo in toIds)
+                        {
+                            var fromId = rawFrom;
+                            var toId = rawTo;
+                            if (fromId.Length == 0 || toId.Length == 0 || fromId == toId) continue;
 
-                        if (isRightToLeft)
-                            (fromId, toId) = (toId, fromId);
+                            if (isRightToLeft)
+                                (fromId, toId) = (toId, fromId);
 
-                        AddUniqueFlowEdge(fromId, toId, label, style);
-                        if (isBidirectional)
-                            AddUniqueFlowEdge(toId, fromId, label, style);
+                            AddUniqueFlowEdge(fromId, toId, label, style);
+                            if (isBidirectional)
+                                AddUniqueFlowEdge(toId, fromId, label, style);
+                        }
                     }
                     break; // One arrow type per line
                 }
@@ -643,19 +686,14 @@ public class StrataMermaid : TemplatedControl
                     _fNodes[e.To] = new FNode { Id = e.To, Text = e.To, Shape = NShape.Rect };
             }
 
-            foreach (var subgraph in subgraphs.Values)
+            // Keep subgraphs that contain laid-out nodes; rendered as visual containers.
+            // (Intentionally no synthetic sequential edges — that turned grouped
+            // architecture diagrams into a bogus linked-list chain.)
+            foreach (var subgraph in subgraphOrder)
             {
-                if (subgraph.NodeOrder.Count < 2)
-                    continue;
-
-                var hasInternalEdges = _fEdges.Any(e =>
-                    subgraph.NodeSet.Contains(e.From) && subgraph.NodeSet.Contains(e.To));
-
-                if (hasInternalEdges)
-                    continue;
-
-                for (var i = 0; i < subgraph.NodeOrder.Count - 1; i++)
-                    AddUniqueFlowEdge(subgraph.NodeOrder[i], subgraph.NodeOrder[i + 1], null, EStyle.Arrow);
+                subgraph.NodeOrder.RemoveAll(id => !_fNodes.ContainsKey(id));
+                if (subgraph.NodeOrder.Count > 0)
+                    _fSubgraphs.Add(subgraph);
             }
         }
 
@@ -778,7 +816,7 @@ public class StrataMermaid : TemplatedControl
         // ── ER parse ───────────────────────────────────────────
 
         private static readonly Regex ErRelRx = new(
-            @"^(\w+)\s+(\|[|o{}]--[|o{}]\|)\s+(\w+)\s*:\s*(.+)$", RegexOptions.Compiled);
+            @"^([A-Za-z0-9_-]+)\s+([|}o]{2}(?:--|\.\.)[|o{]{2})\s+([A-Za-z0-9_-]+)(?:\s*:\s*(.+))?$", RegexOptions.Compiled);
 
         private void ParseEr(string[] lines)
         {
@@ -800,10 +838,13 @@ public class StrataMermaid : TemplatedControl
                 if (line.EndsWith('{'))
                 {
                     var name = line[..^1].Trim();
-                    if (name.Length > 0 && !_erEntities.ContainsKey(name))
+                    if (name.Length > 0)
                     {
-                        current = new ErEntity { Name = name };
-                        _erEntities[name] = current;
+                        // Reuse an entity already created by a relationship so its attribute
+                        // block is captured instead of dropped.
+                        if (!_erEntities.TryGetValue(name, out var ent))
+                            _erEntities[name] = ent = new ErEntity { Name = name };
+                        current = ent;
                     }
                     continue;
                 }
@@ -859,6 +900,8 @@ public class StrataMermaid : TemplatedControl
             @"^(\w+)\s+(<\|--|<\|\.\.|--\*|--o|-->|\.\.>|--)\s+(\w+)(?:\s*:\s*(.+))?$", RegexOptions.Compiled);
         private static readonly Regex CdAnnotationRx = new(
             @"^\s*<<\s*(.+?)\s*>>\s*$", RegexOptions.Compiled);
+        private static readonly Regex CdInlineMemberRx = new(
+            @"^(\w+)\s*:\s*(.+)$", RegexOptions.Compiled);
 
         private void ParseClass(string[] lines)
         {
@@ -932,6 +975,20 @@ public class StrataMermaid : TemplatedControl
                     if (!_cdClasses.ContainsKey(rm.Groups[3].Value))
                         _cdClasses[rm.Groups[3].Value] = new CdClass { Name = rm.Groups[3].Value };
                     continue;
+                }
+
+                // Inline member: ClassName : +type member  /  ClassName : +method()
+                var im = CdInlineMemberRx.Match(line);
+                if (im.Success)
+                {
+                    var cname = im.Groups[1].Value;
+                    if (!_cdClasses.TryGetValue(cname, out var cls))
+                        _cdClasses[cname] = cls = new CdClass { Name = cname };
+                    var member = im.Groups[2].Value.Trim();
+                    if (member.Contains('('))
+                        cls.Methods.Add(member);
+                    else
+                        cls.Attributes.Add(member);
                 }
             }
         }
@@ -1102,6 +1159,13 @@ public class StrataMermaid : TemplatedControl
                     : Math.Max(NH, textH + NPadV * 2);
             }
 
+            // Subgraph diagrams (architecture) use a dedicated clustered layer-band layout.
+            if (_fSubgraphs.Count > 0)
+            {
+                LayoutFlowClustered(availW);
+                return;
+            }
+
             // Cycle-safe longest-path ranking (DFS finds back edges, then longest path on DAG)
             {
                 var adjF = new Dictionary<string, List<string>>();
@@ -1144,7 +1208,7 @@ public class StrataMermaid : TemplatedControl
 
             var ranks = _fNodes.Values.GroupBy(n => n.Rank).OrderBy(g => g.Key).Select(g => g.ToList()).ToList();
 
-            var horizontalGap = _fNodes.Count > 10 ? 24 : NGapH;
+            var horizontalGap = _fNodes.Count > 10 ? 24.0 : NGapH;
             var rankWrapWidth = Math.Max(220, availW - Pad * 2);
 
             if (_ltr)
@@ -1194,8 +1258,439 @@ public class StrataMermaid : TemplatedControl
                 }
             }
 
-            _layW = _fNodes.Values.Max(n => n.X + n.W);
-            _layH = _fNodes.Values.Max(n => n.Y + n.H);
+            NormalizeFlowLayout();
+        }
+
+        private sealed class Cluster
+        {
+            public FSubgraph? Subgraph;
+            public List<FNode> Nodes = new();
+            public int Rank;
+            public double X, Y, W, H; // content origin + content size (absolute after arrange)
+        }
+
+        // Architecture layout: each subgraph becomes a compact layer "band" (and each loose node
+        // its own band), ordered by inter-cluster dependency depth. Members are packed inside the
+        // band, so related nodes stay grouped and the diagram is balanced — instead of a global
+        // rank layout whose subgraph bounding boxes overlap and stretch into a tall ribbon.
+        private void LayoutFlowClustered(double availW)
+        {
+            var clusters = new List<Cluster>();
+            var nodeCluster = new Dictionary<string, int>(StringComparer.Ordinal);
+
+            for (int s = 0; s < _fSubgraphs.Count; s++)
+            {
+                var c = new Cluster { Subgraph = _fSubgraphs[s] };
+                foreach (var id in _fSubgraphs[s].NodeOrder)
+                {
+                    if (!_fNodes.TryGetValue(id, out var n) || nodeCluster.ContainsKey(id)) continue;
+                    nodeCluster[id] = clusters.Count;
+                    c.Nodes.Add(n);
+                }
+                if (c.Nodes.Count > 0) clusters.Add(c);
+            }
+
+            foreach (var n in _fNodes.Values)
+            {
+                if (nodeCluster.ContainsKey(n.Id)) continue;
+                nodeCluster[n.Id] = clusters.Count;
+                clusters.Add(new Cluster { Nodes = { n } });
+            }
+
+            if (clusters.Count == 0) { _layW = _layH = 0; return; }
+
+            RankClusters(clusters, nodeCluster);
+            MinimizeClusterCrossings(clusters);
+
+            var targetInner = Math.Clamp(availW - Pad * 2 - SgPad * 2, 200, 760);
+            foreach (var c in clusters)
+                LayoutClusterMembers(c, targetInner);
+
+            ArrangeClusterBands(clusters, availW);
+
+            foreach (var c in clusters)
+            {
+                if (c.Subgraph is null) continue;
+                c.Subgraph.Box = new Rect(c.X - SgPad, c.Y - SgPad - SgTitleH,
+                                          c.W + SgPad * 2, c.H + SgPad * 2 + SgTitleH);
+            }
+
+            NormalizeFlowLayout();
+        }
+
+        // Rank clusters by inter-cluster dependency depth (cycle-safe longest path).
+        private void RankClusters(List<Cluster> clusters, Dictionary<string, int> nodeCluster)
+        {
+            var adj = new Dictionary<int, HashSet<int>>();
+            foreach (var e in _fEdges)
+            {
+                if (!nodeCluster.TryGetValue(e.From, out var cu) || !nodeCluster.TryGetValue(e.To, out var cv)) continue;
+                if (cu == cv) continue;
+                if (!adj.TryGetValue(cu, out var set)) adj[cu] = set = new();
+                set.Add(cv);
+            }
+
+            var back = new HashSet<(int, int)>();
+            var visiting = new HashSet<int>();
+            var done = new HashSet<int>();
+            void Dfs(int u)
+            {
+                if (done.Contains(u)) return;
+                visiting.Add(u);
+                if (adj.TryGetValue(u, out var nb))
+                    foreach (var v in nb)
+                    {
+                        if (visiting.Contains(v)) back.Add((u, v));
+                        else Dfs(v);
+                    }
+                visiting.Remove(u);
+                done.Add(u);
+            }
+            for (int i = 0; i < clusters.Count; i++) Dfs(i);
+
+            for (int i = 0; i < clusters.Count; i++) clusters[i].Rank = 0;
+            bool chg = true;
+            while (chg)
+            {
+                chg = false;
+                foreach (var (u, set) in adj)
+                    foreach (var v in set)
+                    {
+                        if (back.Contains((u, v))) continue;
+                        if (clusters[v].Rank < clusters[u].Rank + 1)
+                        { clusters[v].Rank = clusters[u].Rank + 1; chg = true; }
+                    }
+            }
+        }
+
+        // Order nodes within a cluster by intra-cluster dependency (sources before targets) — used as
+        // the starting order before cross-band crossing minimisation.
+        private List<FNode> IntraOrder(Cluster c)
+        {
+            if (c.Nodes.Count < 2) return c.Nodes;
+
+            var memberSet = new HashSet<string>(c.Nodes.Select(n => n.Id), StringComparer.Ordinal);
+            var intraAdj = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var e in _fEdges)
+            {
+                if (e.From == e.To || !memberSet.Contains(e.From) || !memberSet.Contains(e.To)) continue;
+                if (!intraAdj.TryGetValue(e.From, out var l)) intraAdj[e.From] = l = new();
+                l.Add(e.To);
+            }
+
+            var mrank = c.Nodes.ToDictionary(n => n.Id, _ => 0, StringComparer.Ordinal);
+            bool chg = true; int guard = 0;
+            while (chg && guard++ <= c.Nodes.Count)
+            {
+                chg = false;
+                foreach (var (from, tos) in intraAdj)
+                    foreach (var to in tos)
+                        if (mrank[to] < mrank[from] + 1) { mrank[to] = mrank[from] + 1; chg = true; }
+            }
+
+            return c.Nodes.OrderBy(n => mrank[n.Id]).ToList();
+        }
+
+        // Reduce edge crossings with the iterative barycenter heuristic: repeatedly reorder the nodes
+        // (and clusters) within each band by the average cross-axis position of their neighbours in the
+        // other bands, so connected nodes line up and the connecting lines stop tangling.
+        private void MinimizeClusterCrossings(List<Cluster> clusters)
+        {
+            foreach (var c in clusters)
+                c.Nodes = IntraOrder(c);
+
+            var bands = clusters.GroupBy(c => c.Rank).OrderBy(g => g.Key).Select(g => g.ToList()).ToList();
+            if (bands.Count < 2) return;
+
+            var adj = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            void AddAdj(string a, string b)
+            {
+                if (!adj.TryGetValue(a, out var l)) adj[a] = l = new();
+                l.Add(b);
+            }
+            foreach (var e in _fEdges)
+            {
+                if (e.From == e.To) continue;
+                AddAdj(e.From, e.To);
+                AddAdj(e.To, e.From);
+            }
+
+            var bandOf = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int bi = 0; bi < bands.Count; bi++)
+                foreach (var c in bands[bi])
+                    foreach (var n in c.Nodes)
+                        bandOf[n.Id] = bi;
+
+            var pos = new Dictionary<string, double>(StringComparer.Ordinal);
+            void Reflow()
+            {
+                foreach (var band in bands)
+                {
+                    var flat = band.SelectMany(c => c.Nodes).ToList();
+                    var denom = Math.Max(1, flat.Count - 1);
+                    for (int i = 0; i < flat.Count; i++)
+                        pos[flat[i].Id] = (double)i / denom;
+                }
+            }
+            Reflow();
+
+            double Bary(FNode n, int selfBand)
+            {
+                double sum = 0; int cnt = 0;
+                if (adj.TryGetValue(n.Id, out var nb))
+                    foreach (var m in nb)
+                        if (bandOf.TryGetValue(m, out var mb) && mb != selfBand && pos.TryGetValue(m, out var p))
+                        { sum += p; cnt++; }
+                return cnt > 0 ? sum / cnt : pos[n.Id];
+            }
+
+            for (int iter = 0; iter < 4; iter++)
+            {
+                var seq = iter % 2 == 0
+                    ? Enumerable.Range(0, bands.Count)
+                    : Enumerable.Range(0, bands.Count).Reverse();
+
+                foreach (var bi in seq)
+                {
+                    var band = bands[bi];
+                    var bary = new Dictionary<string, double>(StringComparer.Ordinal);
+                    foreach (var c in band)
+                        foreach (var n in c.Nodes)
+                            bary[n.Id] = Bary(n, bi);
+
+                    band.Sort((a, b) => MeanBary(a, bary).CompareTo(MeanBary(b, bary)));
+                    foreach (var c in band)
+                        c.Nodes = c.Nodes.OrderBy(n => bary[n.Id]).ToList();
+
+                    Reflow();
+                }
+            }
+
+            var reordered = bands.SelectMany(b => b).ToList();
+            clusters.Clear();
+            clusters.AddRange(reordered);
+        }
+
+        private static double MeanBary(Cluster c, Dictionary<string, double> bary)
+        {
+            if (c.Nodes.Count == 0) return 0;
+            double sum = 0;
+            foreach (var n in c.Nodes) sum += bary[n.Id];
+            return sum / c.Nodes.Count;
+        }
+
+        // Intra-cluster dependency ranks (sources before targets), cycle-safe. Drives the layered
+        // placement inside a subgraph so e.g. a parent view-model sits in the row above its children.
+        private Dictionary<string, int> ComputeIntraRanks(Cluster c)
+        {
+            var memberSet = new HashSet<string>(c.Nodes.Select(n => n.Id), StringComparer.Ordinal);
+            var rank = c.Nodes.ToDictionary(n => n.Id, _ => 0, StringComparer.Ordinal);
+            if (c.Nodes.Count < 2) return rank;
+
+            var intraAdj = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var e in _fEdges)
+            {
+                if (e.From == e.To || !memberSet.Contains(e.From) || !memberSet.Contains(e.To)) continue;
+                if (!intraAdj.TryGetValue(e.From, out var l)) intraAdj[e.From] = l = new();
+                l.Add(e.To);
+            }
+
+            // Break cycles so the relaxation terminates.
+            var back = new HashSet<(string, string)>();
+            var visiting = new HashSet<string>(StringComparer.Ordinal);
+            var done = new HashSet<string>(StringComparer.Ordinal);
+            void Dfs(string u)
+            {
+                if (done.Contains(u)) return;
+                visiting.Add(u);
+                if (intraAdj.TryGetValue(u, out var nb))
+                    foreach (var v in nb)
+                    {
+                        if (visiting.Contains(v)) back.Add((u, v));
+                        else Dfs(v);
+                    }
+                visiting.Remove(u);
+                done.Add(u);
+            }
+            foreach (var n in c.Nodes) Dfs(n.Id);
+
+            bool chg = true; int guard = 0;
+            while (chg && guard++ <= c.Nodes.Count + 1)
+            {
+                chg = false;
+                foreach (var (from, tos) in intraAdj)
+                    foreach (var to in tos)
+                    {
+                        if (back.Contains((from, to))) continue;
+                        if (rank[to] < rank[from] + 1) { rank[to] = rank[from] + 1; chg = true; }
+                    }
+            }
+            return rank;
+        }
+
+        // Lay a cluster's members in a compact mini layered layout relative to (0,0): one row per
+        // intra-rank for TB (one column per rank for LR), preserving the crossing-minimised cross order
+        // within each rank and centring the rows/columns. This keeps intra-subgraph edges short and
+        // mostly straight instead of looping siblings around a single shared row.
+        private void LayoutClusterMembers(Cluster c, double targetInner)
+        {
+            const double gap = 18;
+            const double rankGap = 30;
+
+            var ranks = ComputeIntraRanks(c);
+            // c.Nodes is already in crossing-minimised cross order; group by rank preserving that order.
+            var rows = c.Nodes
+                .GroupBy(n => ranks[n.Id])
+                .OrderBy(g => g.Key)
+                .Select(g => g.ToList())
+                .ToList();
+
+            if (!_ltr)
+            {
+                var widths = rows.Select(r => r.Sum(n => n.W) + Math.Max(0, r.Count - 1) * gap).ToList();
+                var maxW = widths.Count > 0 ? widths.Max() : 0;
+                double y = 0;
+                for (int r = 0; r < rows.Count; r++)
+                {
+                    var rowH = rows[r].Max(n => n.H);
+                    double x = (maxW - widths[r]) / 2;
+                    foreach (var n in rows[r])
+                    {
+                        n.X = x; n.Y = y;
+                        x += n.W + gap;
+                    }
+                    y += rowH + rankGap;
+                }
+                c.W = maxW;
+                c.H = rows.Count > 0 ? y - rankGap : 0;
+            }
+            else
+            {
+                var heights = rows.Select(r => r.Sum(n => n.H) + Math.Max(0, r.Count - 1) * gap).ToList();
+                var maxH = heights.Count > 0 ? heights.Max() : 0;
+                double x = 0;
+                for (int col = 0; col < rows.Count; col++)
+                {
+                    var colW = rows[col].Max(n => n.W);
+                    double y = (maxH - heights[col]) / 2;
+                    foreach (var n in rows[col])
+                    {
+                        n.X = x; n.Y = y;
+                        y += n.H + gap;
+                    }
+                    x += colW + rankGap;
+                }
+                c.W = rows.Count > 0 ? x - rankGap : 0;
+                c.H = maxH;
+            }
+        }
+
+        // Place each cluster as a layer band. Within a rank, clusters are packed into rows that fit
+        // the available width, so they sit side-by-side when there's room but stack vertically when
+        // the diagram is squeezed (e.g. a chat bubble) — keeping it readable instead of shrunk.
+        private void ArrangeClusterBands(List<Cluster> clusters, double availW)
+        {
+            var byRank = clusters.GroupBy(c => c.Rank).OrderBy(g => g.Key).Select(g => g.ToList()).ToList();
+
+            double BoxPadX(Cluster c) => c.Subgraph != null ? SgPad : 0;
+            double BoxPadY(Cluster c) => c.Subgraph != null ? SgPad + SgTitleH : 0;
+            double OuterW(Cluster c) => c.W + (c.Subgraph != null ? SgPad * 2 : 0);
+            double OuterH(Cluster c) => c.H + (c.Subgraph != null ? SgPad * 2 + SgTitleH : 0);
+
+            const double bandGap = 60;
+            const double clusterGap = 30;
+
+            if (!_ltr)
+            {
+                var maxRowW = Math.Max(availW - Pad * 2, 240);
+                double y = 0;
+                foreach (var rankClusters in byRank)
+                {
+                    var i = 0;
+                    while (i < rankClusters.Count)
+                    {
+                        var row = new List<Cluster>();
+                        double rowW = 0;
+                        while (i < rankClusters.Count)
+                        {
+                            var cw = OuterW(rankClusters[i]);
+                            var next = row.Count == 0 ? cw : rowW + clusterGap + cw;
+                            if (row.Count > 0 && next > maxRowW) break;
+                            row.Add(rankClusters[i]);
+                            rowW = next;
+                            i++;
+                        }
+
+                        var rowH = row.Max(OuterH);
+                        double x = -rowW / 2;
+                        foreach (var c in row)
+                        {
+                            var ox = x + BoxPadX(c);
+                            var oy = y + (rowH - OuterH(c)) / 2 + BoxPadY(c);
+                            foreach (var n in c.Nodes) { n.X += ox; n.Y += oy; n.Rank = c.Rank; }
+                            c.X = ox; c.Y = oy;
+                            x += OuterW(c) + clusterGap;
+                        }
+                        y += rowH + bandGap;
+                    }
+                }
+            }
+            else
+            {
+                double x = 0;
+                foreach (var band in byRank)
+                {
+                    var totalH = band.Sum(OuterH) + Math.Max(0, band.Count - 1) * clusterGap;
+                    var bandW = band.Max(OuterW);
+                    double y = -totalH / 2;
+                    foreach (var c in band)
+                    {
+                        var ox = x + (bandW - OuterW(c)) / 2 + BoxPadX(c);
+                        var oy = y + BoxPadY(c);
+                        foreach (var n in c.Nodes) { n.X += ox; n.Y += oy; n.Rank = c.Rank; }
+                        c.X = ox; c.Y = oy;
+                        y += OuterH(c) + clusterGap;
+                    }
+                    x += bandW + bandGap;
+                }
+            }
+        }
+
+        // Shift the whole flow to a tight top-left origin and size the layout to the real content
+        // extent (nodes + containers). Fixes the centred render transform being biased rightwards
+        // when a rank is narrower than the wrap width, and prevents container clipping.
+        private void NormalizeFlowLayout()
+        {
+            if (_fNodes.Count == 0) { _layW = _layH = 0; return; }
+
+            double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+            foreach (var n in _fNodes.Values)
+            {
+                minX = Math.Min(minX, n.X);
+                minY = Math.Min(minY, n.Y);
+                maxX = Math.Max(maxX, n.X + n.W);
+                maxY = Math.Max(maxY, n.Y + n.H);
+            }
+            foreach (var sg in _fSubgraphs)
+            {
+                if (sg.Box.Width <= 0) continue;
+                minX = Math.Min(minX, sg.Box.X);
+                minY = Math.Min(minY, sg.Box.Y);
+                maxX = Math.Max(maxX, sg.Box.Right);
+                maxY = Math.Max(maxY, sg.Box.Bottom);
+            }
+
+            double dx = -minX, dy = -minY;
+            if (dx != 0 || dy != 0)
+            {
+                foreach (var n in _fNodes.Values) { n.X += dx; n.Y += dy; }
+                foreach (var sg in _fSubgraphs)
+                    if (sg.Box.Width > 0)
+                        sg.Box = sg.Box.Translate(new Vector(dx, dy));
+            }
+
+            _layW = maxX - minX;
+            _layH = maxY - minY;
         }
 
         private static List<List<FNode>> BuildWrappedRows(List<FNode> nodes, double maxWidth, double gap)
@@ -1307,15 +1802,15 @@ public class StrataMermaid : TemplatedControl
                 }
             }
 
-            // Cycle-safe longest-path ranking
+            // Build forward adjacency, detecting back edges so cycles stay layout-safe.
+            var adjS = new Dictionary<string, List<string>>();
+            foreach (var edge in _stEdges)
             {
-                var adjS = new Dictionary<string, List<string>>();
-                foreach (var edge in _stEdges)
-                {
-                    if (!adjS.ContainsKey(edge.From)) adjS[edge.From] = new();
-                    adjS[edge.From].Add(edge.To);
-                }
-                var backS = new HashSet<(string, string)>();
+                if (!adjS.ContainsKey(edge.From)) adjS[edge.From] = new();
+                adjS[edge.From].Add(edge.To);
+            }
+            var backS = new HashSet<(string, string)>();
+            {
                 var visitingS = new HashSet<string>();
                 var doneS = new HashSet<string>();
                 void DfsState(string id)
@@ -1332,34 +1827,88 @@ public class StrataMermaid : TemplatedControl
                     doneS.Add(id);
                 }
                 foreach (var nid in _stNodes.Keys) DfsState(nid);
-
-                foreach (var nd in _stNodes.Values) nd.Rank = 0;
-                bool chg = true;
-                while (chg)
-                {
-                    chg = false;
-                    foreach (var edge in _stEdges)
-                    {
-                        if (backS.Contains((edge.From, edge.To))) continue;
-                        if (!_stNodes.TryGetValue(edge.From, out var sf) || !_stNodes.TryGetValue(edge.To, out var st)) continue;
-                        if (st.Rank < sf.Rank + 1) { st.Rank = sf.Rank + 1; chg = true; }
-                    }
-                }
             }
 
-            var ranks = _stNodes.Values.GroupBy(n => n.Rank).OrderBy(g => g.Key).Select(g => g.ToList()).ToList();
-            var maxRankW = ranks.Max(r => r.Sum(n => n.W) + (r.Count - 1) * NGapH);
+            var fwd = _stEdges.Where(e => !backS.Contains((e.From, e.To))
+                                          && _stNodes.ContainsKey(e.From) && _stNodes.ContainsKey(e.To)
+                                          && e.From != e.To).ToList();
+
+            // Longest path from a source = critical-path length.
+            var lo = _stNodes.Keys.ToDictionary(k => k, _ => 0);
+            for (int iter = 0; iter < _stNodes.Count; iter++)
+            {
+                bool chg = false;
+                foreach (var e in fwd)
+                    if (lo[e.To] < lo[e.From] + 1) { lo[e.To] = lo[e.From] + 1; chg = true; }
+                if (!chg) break;
+            }
+            int maxRank = lo.Values.Count > 0 ? lo.Values.Max() : 0;
+
+            // Bottom-justify by longest path to a sink, so terminal states settle on the last
+            // row beside the sink instead of dangling near their parents (dagre-like look).
+            var toSink = _stNodes.Keys.ToDictionary(k => k, _ => 0);
+            for (int iter = 0; iter < _stNodes.Count; iter++)
+            {
+                bool chg = false;
+                foreach (var e in fwd)
+                    if (toSink[e.From] < toSink[e.To] + 1) { toSink[e.From] = toSink[e.To] + 1; chg = true; }
+                if (!chg) break;
+            }
+            foreach (var n in _stNodes.Values) n.Rank = maxRank - toSink[n.Id];
+
+            // Non-back parents per node (crossing reduction + skip detection).
+            var parents = _stNodes.Keys.ToDictionary(k => k, _ => new List<string>());
+            foreach (var e in fwd) parents[e.To].Add(e.From);
+
+            var rows = _stNodes.Values.GroupBy(n => n.Rank).OrderBy(g => g.Key)
+                               .Select(g => g.Select(n => n.Id).ToList()).ToList();
+
+            // Order each row: barycenter against the previous row to reduce crossings, then push
+            // skip-edge targets (a parent more than one row up) to the row's outer edges so their
+            // long connectors drop down clear outer columns instead of through central nodes.
+            var orderIdx = new Dictionary<string, int>();
+            for (int r = 0; r < rows.Count; r++)
+            {
+                if (r > 0)
+                {
+                    int rr = r;
+                    var keyed = rows[r].Select((id, i) =>
+                    {
+                        var ps = parents[id].Where(p => orderIdx.ContainsKey(p) && _stNodes[p].Rank == rr - 1)
+                                            .Select(p => (double)orderIdx[p]).ToList();
+                        double bary = ps.Count > 0 ? ps.Average() : i;
+                        bool skip = parents[id].Any(p => _stNodes[p].Rank < rr - 1);
+                        return (id, bary, skip, i);
+                    }).ToList();
+
+                    var central = keyed.Where(t => !t.skip).OrderBy(t => t.bary).ThenBy(t => t.i)
+                                       .Select(t => t.id).ToList();
+                    var skips = keyed.Where(t => t.skip).OrderBy(t => t.bary).ThenBy(t => t.i)
+                                     .Select(t => t.id).ToList();
+                    var left = new List<string>();
+                    var right = new List<string>();
+                    for (int s = 0; s < skips.Count; s++)
+                        (s % 2 == 0 ? left : right).Add(skips[s]);
+                    right.Reverse();
+                    rows[r] = left.Concat(central).Concat(right).ToList();
+                }
+                for (int i = 0; i < rows[r].Count; i++) orderIdx[rows[r][i]] = i;
+            }
+
+            // Position rows, centered.
+            var rowNodes = rows.Select(r => r.Select(id => _stNodes[id]).ToList()).ToList();
+            var maxRankW = rowNodes.Max(r => r.Sum(n => n.W) + (r.Count - 1) * NGapH);
 
             double y = 0;
-            foreach (var rank in ranks)
+            foreach (var rank in rowNodes)
             {
                 var rankW = rank.Sum(n => n.W) + (rank.Count - 1) * NGapH;
                 var sx = (maxRankW - rankW) / 2;
-                for (int i = 0; i < rank.Count; i++)
+                foreach (var n in rank)
                 {
-                    rank[i].X = sx;
-                    rank[i].Y = y;
-                    sx += rank[i].W + NGapH;
+                    n.X = sx;
+                    n.Y = y;
+                    sx += n.W + NGapH;
                 }
                 y += rank.Max(n => n.H) + NGapV;
             }
@@ -1378,103 +1927,174 @@ public class StrataMermaid : TemplatedControl
         {
             if (_erEntities.Count == 0) { _layW = _layH = 0; return; }
 
-            const double erFieldH = 22;
+            const double erCellPadH = 11;
+            const double erFieldH = 24;
             const double erHeaderH = 32;
-            const double erPadH = 16;
-            const double erGapH = 60;
-            const double erGapV = 48;
+            const double erGapH = 64;
+            const double erGapV = 76;
 
-            // Measure each entity
             foreach (var ent in _erEntities.Values)
             {
-                double maxFieldW = 0;
+                double colType = 0, colName = 0, colKey = 0;
+                bool hasKey = false;
                 foreach (var f in ent.Fields)
                 {
-                    var fieldText = $"{f.Type} {f.Name}";
-                    if (f.Constraint is not null) fieldText += $" {f.Constraint}";
-                    var ft = Txt(fieldText, FsSmall);
-                    maxFieldW = Math.Max(maxFieldW, ft.Width);
+                    colType = Math.Max(colType, Txt(f.Type, FsSmall).Width);
+                    colName = Math.Max(colName, Txt(f.Name, FsSmall).Width);
+                    if (!string.IsNullOrEmpty(f.Constraint))
+                    {
+                        hasKey = true;
+                        colKey = Math.Max(colKey, Txt(f.Constraint, FsSmall, null, FontWeight.SemiBold).Width);
+                    }
                 }
-                var headerFt = Txt(ent.Name, Fs);
-                ent.W = Math.Max(headerFt.Width + erPadH * 2, maxFieldW + erPadH * 2 + 16);
-                ent.W = Math.Max(ent.W, 120);
-                ent.H = erHeaderH + ent.Fields.Count * erFieldH + 8;
-            }
+                ent.ColTypeW = colType;
+                ent.ColKeyW = colKey;
+                ent.HasKeyCol = hasKey;
 
-            // Layout in a grid — arrange entities in rows that fit availW
-            var entities = _erEntities.Values.ToList();
-            double x = 0, y = 0, rowH = 0;
-            var maxW = availW - Pad * 2;
-            if (maxW < 200) maxW = 600;
-
-            foreach (var ent in entities)
-            {
-                if (x > 0 && x + ent.W > maxW)
+                double bodyW = 0;
+                if (ent.Fields.Count > 0)
                 {
-                    x = 0;
-                    y += rowH + erGapV;
-                    rowH = 0;
+                    bodyW = (colType + erCellPadH * 2) + (colName + erCellPadH * 2);
+                    if (hasKey) bodyW += colKey + erCellPadH * 2;
                 }
-                ent.X = x;
-                ent.Y = y;
-                x += ent.W + erGapH;
-                rowH = Math.Max(rowH, ent.H);
+                var headerFt = Txt(ent.Name, Fs, null, FontWeight.SemiBold);
+                ent.W = Math.Max(Math.Max(bodyW, headerFt.Width + erCellPadH * 2 + 8), 96);
+                ent.H = erHeaderH + ent.Fields.Count * erFieldH;
             }
 
-            _layW = entities.Max(e => e.X + e.W);
-            _layH = entities.Max(e => e.Y + e.H);
+            // Hierarchical ranking: From entity sits above its To entity.
+            var names = _erEntities.Keys.ToList();
+            var rank = names.ToDictionary(n => n, _ => 0);
+            var edges = _erRelations
+                .Where(r => _erEntities.ContainsKey(r.From) && _erEntities.ContainsKey(r.To) && r.From != r.To)
+                .ToList();
+            for (int iter = 0; iter < names.Count; iter++)
+            {
+                bool changed = false;
+                foreach (var e in edges)
+                    if (rank[e.To] < rank[e.From] + 1) { rank[e.To] = rank[e.From] + 1; changed = true; }
+                if (!changed) break;
+            }
+
+            var rows = rank.GroupBy(kv => kv.Value).OrderBy(g => g.Key)
+                           .Select(g => g.Select(kv => kv.Key).ToList()).ToList();
+            for (int r = 1; r < rows.Count; r++)
+            {
+                var prev = rows[r - 1];
+                var prevIdx = new Dictionary<string, int>();
+                for (int i = 0; i < prev.Count; i++) prevIdx[prev[i]] = i;
+                rows[r] = rows[r].Select((n, i) =>
+                {
+                    var ps = edges.Where(e => e.To == n && prevIdx.ContainsKey(e.From))
+                                  .Select(e => (double)prevIdx[e.From]).ToList();
+                    return (n, bary: ps.Count > 0 ? ps.Average() : i, i);
+                }).OrderBy(t => t.bary).ThenBy(t => t.i).Select(t => t.n).ToList();
+            }
+
+            var rowH = rows.Select(row => row.Max(n => _erEntities[n].H)).ToArray();
+            var rowW = rows.Select(row => row.Sum(n => _erEntities[n].W) + (row.Count - 1) * erGapH).ToArray();
+            double totalW = rowW.Max();
+
+            double y = 0;
+            for (int r = 0; r < rows.Count; r++)
+            {
+                double x = (totalW - rowW[r]) / 2;
+                foreach (var n in rows[r])
+                {
+                    var ent = _erEntities[n];
+                    ent.X = x;
+                    ent.Y = y;
+                    x += ent.W + erGapH;
+                }
+                y += rowH[r] + erGapV;
+            }
+
+            _layW = totalW;
+            _layH = y - erGapV;
         }
 
         private void LayoutClass(double availW)
         {
             if (_cdClasses.Count == 0) { _layW = _layH = 0; return; }
 
-            const double cdFieldH = 20;
-            const double cdHeaderH = 30;
-            const double cdPadH = 14;
-            const double cdGapH = 60;
-            const double cdGapV = 48;
+            const double cdHeaderH = 32;
+            const double cdRowH = 19;
+            const double cdSecPad = 6;
+            const double cdPadH = 13;
+            const double cdGapH = 56;
+            const double cdGapV = 58;
             const double cdDivH = 1;
 
             foreach (var cls in _cdClasses.Values)
             {
-                double maxW = Txt(cls.Name, Fs).Width + cdPadH * 2;
+                double maxW = Txt(cls.Name, Fs, null, FontWeight.SemiBold).Width + cdPadH * 2;
                 foreach (var attr in cls.Attributes)
                     maxW = Math.Max(maxW, Txt(attr, FsSmall).Width + cdPadH * 2);
                 foreach (var meth in cls.Methods)
                     maxW = Math.Max(maxW, Txt(meth, FsSmall).Width + cdPadH * 2);
-                cls.W = Math.Max(maxW, 100);
+                cls.W = Math.Max(maxW, 108);
 
-                var sections = 1; // header
-                if (cls.Attributes.Count > 0 || cls.Methods.Count > 0) sections++;
-                if (cls.Attributes.Count > 0 && cls.Methods.Count > 0) sections++;
-                cls.H = cdHeaderH
-                       + cls.Attributes.Count * cdFieldH
-                       + cls.Methods.Count * cdFieldH
-                       + (sections - 1) * cdDivH + 8;
+                double h = cdHeaderH;
+                if (cls.Attributes.Count > 0)
+                    h += cdDivH + cdSecPad * 2 + cls.Attributes.Count * cdRowH;
+                if (cls.Methods.Count > 0)
+                    h += cdDivH + cdSecPad * 2 + cls.Methods.Count * cdRowH;
+                cls.H = h;
             }
 
-            // Grid layout
-            var classes = _cdClasses.Values.ToList();
-            double x = 0, y = 0, rowH = 0;
-            var maxLayW = Math.Max(availW - Pad * 2, 400);
-
-            foreach (var cls in classes)
+            // Hierarchical ranking: parent (relation From) sits above child (To).
+            var names = _cdClasses.Keys.ToList();
+            var rank = names.ToDictionary(n => n, _ => 0);
+            var edges = _cdRelations
+                .Where(r => _cdClasses.ContainsKey(r.From) && _cdClasses.ContainsKey(r.To) && r.From != r.To)
+                .ToList();
+            for (int iter = 0; iter < names.Count; iter++)
             {
-                if (x > 0 && x + cls.W > maxLayW)
-                {
-                    x = 0;
-                    y += rowH + cdGapV;
-                    rowH = 0;
-                }
-                cls.X = x;
-                cls.Y = y;
-                x += cls.W + cdGapH;
-                rowH = Math.Max(rowH, cls.H);
+                bool changed = false;
+                foreach (var e in edges)
+                    if (rank[e.To] < rank[e.From] + 1) { rank[e.To] = rank[e.From] + 1; changed = true; }
+                if (!changed) break;
             }
 
-            _layW = classes.Max(c => c.X + c.W);
-            _layH = classes.Max(c => c.Y + c.H);
+            // Group into ordered ranks (rows), then reduce crossings via parent barycenter.
+            var rows = rank.GroupBy(kv => kv.Value).OrderBy(g => g.Key)
+                           .Select(g => g.Select(kv => kv.Key).ToList()).ToList();
+            for (int r = 1; r < rows.Count; r++)
+            {
+                var prev = rows[r - 1];
+                var prevIdx = new Dictionary<string, int>();
+                for (int i = 0; i < prev.Count; i++) prevIdx[prev[i]] = i;
+                var cur = rows[r];
+                var keyed = cur.Select((n, i) =>
+                {
+                    var ps = edges.Where(e => e.To == n && prevIdx.ContainsKey(e.From))
+                                  .Select(e => (double)prevIdx[e.From]).ToList();
+                    double bary = ps.Count > 0 ? ps.Average() : i;
+                    return (n, bary, i);
+                }).OrderBy(t => t.bary).ThenBy(t => t.i).Select(t => t.n).ToList();
+                rows[r] = keyed;
+            }
+
+            var rowH = rows.Select(row => row.Max(n => _cdClasses[n].H)).ToArray();
+            var rowW = rows.Select(row => row.Sum(n => _cdClasses[n].W) + (row.Count - 1) * cdGapH).ToArray();
+            double totalW = rowW.Max();
+
+            double y = 0;
+            for (int r = 0; r < rows.Count; r++)
+            {
+                double x = (totalW - rowW[r]) / 2;
+                foreach (var n in rows[r])
+                {
+                    var cls = _cdClasses[n];
+                    cls.X = x;
+                    cls.Y = y;
+                    x += cls.W + cdGapH;
+                }
+                y += rowH[r] + cdGapV;
+            }
+
+            _layW = totalW;
+            _layH = y - cdGapV;
         }
 
         private void LayoutTimeline(double availW)
@@ -1540,6 +2160,7 @@ public class StrataMermaid : TemplatedControl
         {
             var b = Bounds;
             if (b.Width < 20 || b.Height < 20) return;
+
             if (_layW < 1 && _layH < 1) return;
 
             // Entrance animation: opacity fade-in
@@ -1554,7 +2175,8 @@ public class StrataMermaid : TemplatedControl
 
             var effScale = _baseScale * _userZoom * animScale;
 
-            var ox = (b.Width - _layW * effScale) / 2 + _panX;
+            var contentW = _layW;
+            var ox = (b.Width - contentW * effScale) / 2 + _panX;
             var oy = Pad * effScale + _panY;
 
             // Animation: slide up slightly
@@ -1592,17 +2214,35 @@ public class StrataMermaid : TemplatedControl
 
             var borderPen = new Pen(border, 1.4);
             var accentPen = new Pen(accent, 1.6);
-            var linePen = new Pen(lineBr, 1.2);
-            var dottedPen = new Pen(lineBr, 1.2) { DashStyle = new DashStyle(new[] { 5.0, 4.0 }, 0) };
-            var thickPen = new Pen(lineBr, 2.4);
+            var linePen = new Pen(lineBr, 1.3) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+            var dottedPen = new Pen(lineBr, 1.3) { DashStyle = new DashStyle(new[] { 5.0, 4.0 }, 0), LineCap = PenLineCap.Round };
+            var thickPen = new Pen(lineBr, 2.4) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+
+            // Casing colour = the diagram backdrop, so crossing edges read as a clean weave.
+            var casingBr = _owner.ResolveBrush("Brush.Background", Color.Parse("#161616"));
+            var casingPen = new Pen(casingBr, 5.0) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+
+            // Draw subgraph containers behind everything (outermost first so nested boxes show).
+            if (_fSubgraphs.Count > 0)
+            {
+                var sgFill = _owner.ResolveBrush("Brush.Surface0", Color.Parse("#1E1E22"));
+                var sgBorder = _owner.ResolveBrush("Brush.BorderSubtle", Color.Parse("#3A3A40"));
+                var sgPen = new Pen(sgBorder, 1.0);
+
+                foreach (var sg in _fSubgraphs
+                             .Where(s => s.Box.Width > 0)
+                             .OrderByDescending(s => s.Box.Width * s.Box.Height))
+                {
+                    ctx.DrawRectangle(sgFill, sgPen, sg.Box, 8, 8);
+                }
+            }
+
+            RouteFlowEdges();
 
             // Draw edges first (behind nodes)
             foreach (var e in _fEdges)
             {
-                if (!_fNodes.TryGetValue(e.From, out var fn) || !_fNodes.TryGetValue(e.To, out var tn)) continue;
-
-                var from = NodePort(fn, true, !_ltr);
-                var to = NodePort(tn, false, !_ltr);
+                if (e.Route.Count < 2) continue;
 
                 var pen = e.Style switch
                 {
@@ -1612,27 +2252,30 @@ public class StrataMermaid : TemplatedControl
                 };
                 var hasArrow = e.Style != EStyle.Line;
 
-                DrawBezierEdge(ctx, from, to, pen, hasArrow, !_ltr, lineBr);
+                // Dotted edges keep their dashes legible without a casing.
+                var casing = e.Style == EStyle.Dotted ? null : casingPen;
+                DrawOrthEdge(ctx, e.Route, pen, casing, hasArrow, lineBr);
 
                 if (!string.IsNullOrWhiteSpace(e.Label))
                 {
-                    var midX = (from.X + to.X) / 2;
-                    var midY = (from.Y + to.Y) / 2;
+                    var mid = e.LabelAt;
                     var ft = Txt(e.Label, FsSmall, labelBr);
-                    var pillR = new Rect(midX - ft.Width / 2 - 6, midY - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
+                    var pillR = new Rect(mid.X - ft.Width / 2 - 6, mid.Y - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
                     ctx.DrawRectangle(pillBg, null, pillR, 8, 8);
-                    ctx.DrawText(ft, new Point(midX - ft.Width / 2, midY - ft.Height / 2));
+                    ctx.DrawText(ft, new Point(mid.X - ft.Width / 2, mid.Y - ft.Height / 2));
                 }
             }
 
-            // Identify root nodes for accent treatment
+            // Accent only TRUE source roots (have outgoing edges but no incoming). Edgeless/orphan
+            // nodes are NOT highlighted — they were rendering as misleading purple "entry points".
             var hasIncoming = new HashSet<string>(_fEdges.Select(e => e.To));
+            var hasOutgoing = new HashSet<string>(_fEdges.Select(e => e.From));
 
             // Draw nodes
             foreach (var n in _fNodes.Values)
             {
                 var rect = new Rect(n.X, n.Y, n.W, n.H);
-                var isRoot = !hasIncoming.Contains(n.Id);
+                var isRoot = !hasIncoming.Contains(n.Id) && hasOutgoing.Contains(n.Id);
                 var nodePen = isRoot ? accentPen : borderPen;
 
                 switch (n.Shape)
@@ -1662,6 +2305,20 @@ public class StrataMermaid : TemplatedControl
 
                 var ft = Txt(n.Text, Fs, text);
                 ctx.DrawText(ft, new Point(rect.Center.X - ft.Width / 2, rect.Center.Y - ft.Height / 2));
+            }
+
+            // Subgraph titles last, on a masking background so crossing edges never overstrike them.
+            if (_fSubgraphs.Count > 0)
+            {
+                var sgFill = _owner.ResolveBrush("Brush.Surface0", Color.Parse("#1E1E22"));
+                var sgTitleBr = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
+                foreach (var sg in _fSubgraphs.Where(s => s.Box.Width > 0 && !string.IsNullOrWhiteSpace(s.Title)))
+                {
+                    var tt = Txt(sg.Title, FsSmall, sgTitleBr, FontWeight.SemiBold);
+                    var bg = new Rect(sg.Box.X + 8, sg.Box.Y + 4, tt.Width + 12, tt.Height + 4);
+                    ctx.DrawRectangle(sgFill, null, bg, 4, 4);
+                    ctx.DrawText(tt, new Point(sg.Box.X + 14, sg.Box.Y + 6));
+                }
             }
         }
 
@@ -1761,7 +2418,12 @@ public class StrataMermaid : TemplatedControl
 
             var borderPen = new Pen(border, 1.4);
             var linePen = new Pen(lineBr, 1.2);
+            var casingPen = new Pen(pillBg, 4.5) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
             var dotPen = new Pen(fill, 2);
+
+            // Edge labels are collected and drawn in a second pass so connector lines never
+            // strike through label text.
+            var stLabels = new List<(Point At, string Text)>();
 
             // Draw edges (with back-edge loop routing for cycles)
             foreach (var e in _stEdges)
@@ -1769,7 +2431,9 @@ public class StrataMermaid : TemplatedControl
                 if (!_stNodes.TryGetValue(e.From, out var fn) || !_stNodes.TryGetValue(e.To, out var tn)) continue;
 
                 var isBack = fn.Rank >= tn.Rank;
+                var isSkip = !isBack && tn.Rank - fn.Rank > 1;
                 Point from, to;
+                Point labelAt;
 
                 if (isBack)
                 {
@@ -1777,6 +2441,28 @@ public class StrataMermaid : TemplatedControl
                     from = new Point(fn.X + fn.W, fn.Y + fn.H / 2);
                     to = new Point(tn.X + tn.W, tn.Y + tn.H / 2);
                     DrawBackEdge(ctx, from, to, linePen, lineBr, _layW);
+                    labelAt = new Point(_layW - 30, (from.Y + to.Y) / 2);
+                }
+                else if (isSkip)
+                {
+                    // Long "skip" edge spanning multiple rows: orthogonal route — drop into the
+                    // clear gap below the source, jog across, then straight down the target's
+                    // (outer) column. Keeps long connectors off the intermediate nodes.
+                    from = new Point(fn.X + fn.W / 2, fn.Y + fn.H);
+                    to = new Point(tn.X + tn.W / 2, tn.Y);
+                    double jogY = fn.Y + fn.H + NGapV * 0.5;
+                    var pts = new List<Point>
+                    {
+                        from,
+                        new(from.X, jogY),
+                        new(to.X, jogY),
+                        new(to.X, to.Y - ArrSz * 0.3),
+                    };
+                    var geo = RoundedPolyline(pts, 12);
+                    ctx.DrawGeometry(null, casingPen, geo);
+                    ctx.DrawGeometry(null, linePen, geo);
+                    DrawArrowHead(ctx, to, Math.PI / 2, lineBr);
+                    labelAt = new Point(to.X, (jogY + to.Y) / 2);
                 }
                 else
                 {
@@ -1784,26 +2470,20 @@ public class StrataMermaid : TemplatedControl
                     from = new Point(fn.X + fn.W / 2, fn.Y + fn.H);
                     to = new Point(tn.X + tn.W / 2, tn.Y);
                     DrawBezierEdge(ctx, from, to, linePen, true, true, lineBr);
+                    labelAt = new Point((from.X + to.X) / 2, (from.Y + to.Y) / 2);
                 }
 
                 if (!string.IsNullOrWhiteSpace(e.Label))
-                {
-                    double midX, midY;
-                    if (isBack)
-                    {
-                        midX = _layW - 30;
-                        midY = (from.Y + to.Y) / 2;
-                    }
-                    else
-                    {
-                        midX = (from.X + to.X) / 2;
-                        midY = (from.Y + to.Y) / 2;
-                    }
-                    var ft = Txt(e.Label, FsSmall, labelBr);
-                    var pillR = new Rect(midX - ft.Width / 2 - 6, midY - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
-                    ctx.DrawRectangle(pillBg, null, pillR, 8, 8);
-                    ctx.DrawText(ft, new Point(midX - ft.Width / 2, midY - ft.Height / 2));
-                }
+                    stLabels.Add((labelAt, e.Label!));
+            }
+
+            // Label pass — drawn over all edges for legibility.
+            foreach (var (at, text) in stLabels)
+            {
+                var ft = Txt(text, FsSmall, labelBr);
+                var pillR = new Rect(at.X - ft.Width / 2 - 6, at.Y - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
+                ctx.DrawRectangle(pillBg, null, pillR, 8, 8);
+                ctx.DrawText(ft, new Point(at.X - ft.Width / 2, at.Y - ft.Height / 2));
             }
 
             // Draw nodes
@@ -1850,53 +2530,86 @@ public class StrataMermaid : TemplatedControl
             var labelBr = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
             var pillBg = _owner.ResolveBrush("Brush.Surface0", Color.Parse("#1A1A1A"));
             var constraintBr = _owner.ResolveBrush("Brush.AccentDefault", Color.Parse("#818CF8"));
-            var divider = _owner.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
 
             var borderPen = new Pen(border, 1.4);
-            var linePen = new Pen(lineBr, 1.2);
-            var divPen = new Pen(divider, 0.8);
+            var linePen = new Pen(lineBr, 1.3) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+            var gridPen = new Pen(border, 1.0);
+            var zebraBr = new SolidColorBrush(Color.FromArgb(7, 255, 255, 255));
+            var casingPen = new Pen(pillBg, 4.5) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
-            const double erFieldH = 22;
+            const double erFieldH = 24;
             const double erHeaderH = 32;
-            const double erPadH = 12;
+            const double erCellPadH = 11;
 
-            // Draw relationships first (behind entities)
+            // Draw relationships first (behind entities), orthogonal rounded routing.
             foreach (var rel in _erRelations)
             {
                 if (!_erEntities.TryGetValue(rel.From, out var fromEnt) ||
-                    !_erEntities.TryGetValue(rel.To, out var toEnt)) continue;
+                    !_erEntities.TryGetValue(rel.To, out var toEnt) || ReferenceEquals(fromEnt, toEnt))
+                    continue;
 
-                var fromCenter = new Point(fromEnt.X + fromEnt.W / 2, fromEnt.Y + fromEnt.H / 2);
-                var toCenter = new Point(toEnt.X + toEnt.W / 2, toEnt.Y + toEnt.H / 2);
+                bool fromAbove = fromEnt.Y + fromEnt.H <= toEnt.Y + 2;
+                bool toAbove = toEnt.Y + toEnt.H <= fromEnt.Y + 2;
 
-                // Find nearest edge points
-                var fromPt = NearestEdgePoint(fromEnt, toCenter);
-                var toPt = NearestEdgePoint(toEnt, fromCenter);
+                List<Point> pts;
+                if (fromAbove || toAbove)
+                {
+                    var upper = fromAbove ? fromEnt : toEnt;
+                    var lower = fromAbove ? toEnt : fromEnt;
+                    double upX = Math.Clamp(lower.X + lower.W / 2, upper.X + 18, upper.X + upper.W - 18);
+                    double loX = Math.Clamp(upper.X + upper.W / 2, lower.X + 18, lower.X + lower.W - 18);
+                    double midY = (upper.Y + upper.H + lower.Y) / 2;
+                    pts = new List<Point>
+                    {
+                        new(upX, upper.Y + upper.H),
+                        new(upX, midY),
+                        new(loX, midY),
+                        new(loX, lower.Y)
+                    };
+                    if (!fromAbove) pts.Reverse();
+                }
+                else
+                {
+                    var left = fromEnt.X <= toEnt.X ? fromEnt : toEnt;
+                    var right = ReferenceEquals(left, fromEnt) ? toEnt : fromEnt;
+                    double ly = left.Y + left.H / 2, ry = right.Y + right.H / 2;
+                    double midX = (left.X + left.W + right.X) / 2;
+                    pts = new List<Point>
+                    {
+                        new(left.X + left.W, ly),
+                        new(midX, ly),
+                        new(midX, ry),
+                        new(right.X, ry)
+                    };
+                    if (!ReferenceEquals(left, fromEnt)) pts.Reverse();
+                }
 
-                DrawBezierEdge(ctx, fromPt, toPt, linePen, false, false, lineBr);
+                var geo = RoundedPolyline(pts, 10);
+                ctx.DrawGeometry(null, casingPen, geo);
+                ctx.DrawGeometry(null, linePen, geo);
 
-                // Draw cardinality symbols
-                DrawCardinality(ctx, fromPt, toPt, rel.LeftCard, lineBr, textSec);
-                DrawCardinality(ctx, toPt, fromPt, rel.RightCard, lineBr, textSec);
+                // Cardinality glyphs: pts[0] = From end, pts[^1] = To end. The glyph nearest
+                // each entity is the token character adjacent to that entity, so the To-end
+                // token is read in reverse.
+                DrawCardinality(ctx, pts[0], pts[1], rel.LeftCard, lineBr, textSec);
+                DrawCardinality(ctx, pts[^1], pts[^2], Reverse2(rel.RightCard), lineBr, textSec);
 
-                // Label in the middle
                 if (!string.IsNullOrWhiteSpace(rel.Label))
                 {
-                    var midX = (fromPt.X + toPt.X) / 2;
-                    var midY = (fromPt.Y + toPt.Y) / 2;
+                    var mid = pts[pts.Count / 2];
                     var ft = Txt(rel.Label, FsSmall, labelBr);
-                    var pillR = new Rect(midX - ft.Width / 2 - 6, midY - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
-                    ctx.DrawRectangle(pillBg, null, pillR, 8, 8);
-                    ctx.DrawText(ft, new Point(midX - ft.Width / 2, midY - ft.Height / 2));
+                    var pillR = new Rect(mid.X - ft.Width / 2 - 6, mid.Y - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
+                    ctx.DrawRectangle(pillBg, null, pillR, 6, 6);
+                    ctx.DrawText(ft, new Point(mid.X - ft.Width / 2, mid.Y - ft.Height / 2));
                 }
             }
 
-            // Draw entities
+            // Draw entities as proper tables: header row + (type | name | key) grid.
             foreach (var ent in _erEntities.Values)
             {
                 var rect = new Rect(ent.X, ent.Y, ent.W, ent.H);
 
-                // Body
+                // Body + outer border
                 ctx.DrawRectangle(fill, borderPen, rect, 8, 8);
 
                 // Header background
@@ -1908,103 +2621,64 @@ public class StrataMermaid : TemplatedControl
                 using (ctx.PushClip(new RoundedRect(rect, 8)))
                     ctx.DrawRectangle(accent, null, new Rect(ent.X + 1, ent.Y + 1, ent.W - 2, 2.5));
 
-                // Header text
+                // Header text (centered)
                 var headerFt = Txt(ent.Name, Fs, textBr, FontWeight.SemiBold);
-                ctx.DrawText(headerFt, new Point(ent.X + erPadH, ent.Y + erHeaderH / 2 - headerFt.Height / 2));
+                ctx.DrawText(headerFt, new Point(ent.X + (ent.W - headerFt.Width) / 2, ent.Y + erHeaderH / 2 - headerFt.Height / 2));
 
-                // Divider line
-                ctx.DrawLine(divPen, new Point(ent.X + 1, ent.Y + erHeaderH), new Point(ent.X + ent.W - 1, ent.Y + erHeaderH));
+                if (ent.Fields.Count == 0) continue;
 
-                // Fields
-                double fy = ent.Y + erHeaderH + 4;
-                foreach (var field in ent.Fields)
+                // Column geometry — the name column absorbs any slack so cells fill the width.
+                double typeColW = ent.ColTypeW + erCellPadH * 2;
+                double keyColW = ent.HasKeyCol ? ent.ColKeyW + erCellPadH * 2 : 0;
+                double xType = ent.X;
+                double xName = ent.X + typeColW;
+                double xKey = ent.X + ent.W - keyColW;
+                double bodyTop = ent.Y + erHeaderH;
+                double bodyBottom = ent.Y + ent.H;
+
+                using (ctx.PushClip(new RoundedRect(rect, 8)))
                 {
-                    // Constraint badge
-                    if (field.Constraint is not null)
+                    // Zebra striping for odd rows
+                    for (int fi = 0; fi < ent.Fields.Count; fi++)
+                        if ((fi & 1) == 1)
+                            ctx.DrawRectangle(zebraBr, null, new Rect(ent.X, bodyTop + fi * erFieldH, ent.W, erFieldH));
+
+                    // Header divider
+                    ctx.DrawLine(gridPen, new Point(ent.X, bodyTop), new Point(ent.X + ent.W, bodyTop));
+
+                    // Field rows
+                    for (int fi = 0; fi < ent.Fields.Count; fi++)
                     {
-                        var cft = Txt(field.Constraint, 9, constraintBr, FontWeight.SemiBold);
-                        ctx.DrawText(cft, new Point(ent.X + erPadH, fy + erFieldH / 2 - cft.Height / 2));
+                        var field = ent.Fields[fi];
+                        double rowTop = bodyTop + fi * erFieldH;
+                        double rowMidY = rowTop + erFieldH / 2;
+
+                        var typeFt = Txt(field.Type, FsSmall, textSec);
+                        ctx.DrawText(typeFt, new Point(xType + erCellPadH, rowMidY - typeFt.Height / 2));
+
+                        var nameFt = Txt(field.Name, FsSmall, textBr);
+                        ctx.DrawText(nameFt, new Point(xName + erCellPadH, rowMidY - nameFt.Height / 2));
+
+                        if (ent.HasKeyCol && !string.IsNullOrEmpty(field.Constraint))
+                        {
+                            var keyFt = Txt(field.Constraint, FsSmall, constraintBr, FontWeight.SemiBold);
+                            ctx.DrawText(keyFt, new Point(xKey + erCellPadH, rowMidY - keyFt.Height / 2));
+                        }
+
+                        if (fi < ent.Fields.Count - 1)
+                            ctx.DrawLine(gridPen, new Point(ent.X, rowTop + erFieldH), new Point(ent.X + ent.W, rowTop + erFieldH));
                     }
 
-                    // Type
-                    var typeOffset = field.Constraint is not null ? 30.0 : 0;
-                    var typeFt = Txt(field.Type, FsSmall, textSec);
-                    ctx.DrawText(typeFt, new Point(ent.X + erPadH + typeOffset, fy + erFieldH / 2 - typeFt.Height / 2));
-
-                    // Name
-                    var nameFt = Txt(field.Name, FsSmall, textBr);
-                    ctx.DrawText(nameFt, new Point(ent.X + erPadH + typeOffset + typeFt.Width + 6, fy + erFieldH / 2 - nameFt.Height / 2));
-
-                    fy += erFieldH;
+                    // Column dividers
+                    ctx.DrawLine(gridPen, new Point(xName, bodyTop), new Point(xName, bodyBottom));
+                    if (ent.HasKeyCol)
+                        ctx.DrawLine(gridPen, new Point(xKey, bodyTop), new Point(xKey, bodyBottom));
                 }
             }
         }
 
-        private static Point NearestEdgePoint(ErEntity ent, Point target)
-        {
-            var cx = ent.X + ent.W / 2;
-            var cy = ent.Y + ent.H / 2;
-            var dx = target.X - cx;
-            var dy = target.Y - cy;
-
-            if (Math.Abs(dx) < 0.1 && Math.Abs(dy) < 0.1)
-                return new Point(cx, ent.Y + ent.H);
-
-            // Try each edge and pick the one closest to target direction
-            var hw = ent.W / 2;
-            var hh = ent.H / 2;
-
-            // Intersect with each side
-            Point best = new(cx, ent.Y); // top
-            double bestDist = double.MaxValue;
-
-            // Top
-            if (dy < 0)
-            {
-                var ix = cx + dx * (-hh / dy);
-                if (ix >= ent.X && ix <= ent.X + ent.W)
-                {
-                    var p = new Point(ix, ent.Y);
-                    var d = Dist(p, target);
-                    if (d < bestDist) { best = p; bestDist = d; }
-                }
-            }
-            // Bottom
-            if (dy > 0)
-            {
-                var ix = cx + dx * (hh / dy);
-                if (ix >= ent.X && ix <= ent.X + ent.W)
-                {
-                    var p = new Point(ix, ent.Y + ent.H);
-                    var d = Dist(p, target);
-                    if (d < bestDist) { best = p; bestDist = d; }
-                }
-            }
-            // Left
-            if (dx < 0)
-            {
-                var iy = cy + dy * (-hw / dx);
-                if (iy >= ent.Y && iy <= ent.Y + ent.H)
-                {
-                    var p = new Point(ent.X, iy);
-                    var d = Dist(p, target);
-                    if (d < bestDist) { best = p; bestDist = d; }
-                }
-            }
-            // Right
-            if (dx > 0)
-            {
-                var iy = cy + dy * (hw / dx);
-                if (iy >= ent.Y && iy <= ent.Y + ent.H)
-                {
-                    var p = new Point(ent.X + ent.W, iy);
-                    var d = Dist(p, target);
-                    if (d < bestDist) { best = p; bestDist = d; }
-                }
-            }
-
-            return best;
-        }
+        private static string Reverse2(string s) =>
+            s.Length == 2 ? new string(new[] { s[1], s[0] }) : s;
 
         private static double Dist(Point a, Point b)
         {
@@ -2073,115 +2747,166 @@ public class StrataMermaid : TemplatedControl
             var textSec = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
             var lineBr = _owner.ResolveBrush("Brush.TextTertiary", Color.Parse("#777"));
             var accent = _owner.ResolveBrush("Brush.AccentDefault", Color.Parse("#818CF8"));
-            var divider = _owner.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
+            var divider = _owner.ResolveBrush("Brush.BorderDefault", Color.Parse("#3A3A3A"));
             var labelBr = _owner.ResolveBrush("Brush.TextSecondary", Color.Parse("#B0B0B0"));
             var pillBg = _owner.ResolveBrush("Brush.Surface0", Color.Parse("#1A1A1A"));
+            var hollow = _owner.ResolveBrush("Brush.Surface0", Color.Parse("#161618"));
 
             var borderPen = new Pen(border, 1.4);
-            var linePen = new Pen(lineBr, 1.2);
-            var dashedPen = new Pen(lineBr, 1.2) { DashStyle = new DashStyle(new[] { 5.0, 4.0 }, 0) };
-            var divPen = new Pen(divider, 0.8);
+            var linePen = new Pen(lineBr, 1.3);
+            var dashedPen = new Pen(lineBr, 1.3) { DashStyle = new DashStyle(new[] { 5.0, 4.0 }, 0) };
+            var divPen = new Pen(divider, 1.0);
+            var casingPen = new Pen(hollow, 4.5) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
 
-            const double cdFieldH = 20;
-            const double cdHeaderH = 30;
-            const double cdPadH = 10;
+            const double cdHeaderH = 32;
+            const double cdRowH = 19;
+            const double cdSecPad = 6;
+            const double cdPadH = 13;
 
-            // Draw relations first (behind classes)
+            // ── Relations: orthogonal rounded routing with correct end markers ──
             foreach (var rel in _cdRelations)
             {
                 if (!_cdClasses.TryGetValue(rel.From, out var fromCls) ||
-                    !_cdClasses.TryGetValue(rel.To, out var toCls)) continue;
+                    !_cdClasses.TryGetValue(rel.To, out var toCls) || ReferenceEquals(fromCls, toCls))
+                    continue;
 
-                var fromPt = CdEdgePoint(fromCls, new Point(toCls.X + toCls.W / 2, toCls.Y + toCls.H / 2));
-                var toPt = CdEdgePoint(toCls, new Point(fromCls.X + fromCls.W / 2, fromCls.Y + fromCls.H / 2));
+                bool fromAbove = fromCls.Y + fromCls.H <= toCls.Y + 2;
+                bool toAbove = toCls.Y + toCls.H <= fromCls.Y + 2;
 
+                // The marker (triangle/diamond/arrow) belongs at the parent for
+                // inheritance/realization, otherwise at the To end.
+                var markerNode = rel.Type is CdRelType.Inheritance or CdRelType.Realization ? fromCls : toCls;
+                double markerLen = rel.Type switch
+                {
+                    CdRelType.Inheritance or CdRelType.Realization => 11,
+                    CdRelType.Composition or CdRelType.Aggregation => 15,
+                    CdRelType.Association or CdRelType.Dependency => ArrSz * 0.9,
+                    _ => 0
+                };
                 var pen = rel.Type is CdRelType.Dependency or CdRelType.Realization ? dashedPen : linePen;
-                var hasArrow = rel.Type is CdRelType.Association or CdRelType.Dependency;
 
-                DrawBezierEdge(ctx, fromPt, toPt, pen, hasArrow, false, lineBr);
+                List<Point> pts;
+                if (fromAbove || toAbove)
+                {
+                    var upper = fromAbove ? fromCls : toCls;
+                    var lower = fromAbove ? toCls : fromCls;
+                    double childX = Math.Clamp(upper.X + upper.W / 2,
+                        lower.X + 16, lower.X + lower.W - 16);
+                    double parentX = Math.Clamp(lower.X + lower.W / 2,
+                        upper.X + 16, upper.X + upper.W - 16);
+                    double childTop = lower.Y;
+                    double parentBot = upper.Y + upper.H;
+                    double midY = (childTop + parentBot) / 2;
+                    // Ordered start(lower top) → end(upper bottom)
+                    pts = new List<Point>
+                    {
+                        new(childX, childTop),
+                        new(childX, midY),
+                        new(parentX, midY),
+                        new(parentX, parentBot)
+                    };
+                    // Orient so index 0 = From, last = To for marker logic below.
+                    if (fromAbove) pts.Reverse();
+                }
+                else
+                {
+                    var left = fromCls.X <= toCls.X ? fromCls : toCls;
+                    var right = ReferenceEquals(left, fromCls) ? toCls : fromCls;
+                    double ly = left.Y + left.H / 2, ry = right.Y + right.H / 2;
+                    double midX = (left.X + left.W + right.X) / 2;
+                    pts = new List<Point>
+                    {
+                        new(left.X + left.W, ly),
+                        new(midX, ly),
+                        new(midX, ry),
+                        new(right.X, ry)
+                    };
+                    if (!ReferenceEquals(left, fromCls)) pts.Reverse();
+                }
 
-                // Draw relationship markers
-                DrawCdRelMarker(ctx, toPt, fromPt, rel.Type, lineBr, fill);
+                // pts[0] == From end, pts[^1] == To end.
+                bool markerAtEnd = ReferenceEquals(markerNode, toCls);
+                var draw = new List<Point>(pts);
+                if (markerLen > 0)
+                {
+                    if (markerAtEnd)
+                        draw[^1] = TrimToward(pts[^1], pts[^2], markerLen);
+                    else
+                        draw[0] = TrimToward(pts[0], pts[1], markerLen);
+                }
+
+                var geo = RoundedPolyline(draw, 9);
+                ctx.DrawGeometry(null, casingPen, geo);
+                ctx.DrawGeometry(null, pen, geo);
+
+                if (markerLen > 0)
+                {
+                    var at = markerAtEnd ? pts[^1] : pts[0];
+                    var toward = markerAtEnd ? pts[^2] : pts[1];
+                    DrawCdRelMarker(ctx, at, toward, rel.Type, lineBr, hollow);
+                }
 
                 if (!string.IsNullOrWhiteSpace(rel.Label))
                 {
-                    var midX = (fromPt.X + toPt.X) / 2;
-                    var midY = (fromPt.Y + toPt.Y) / 2;
+                    var mid = draw[draw.Count / 2];
                     var ft = Txt(rel.Label, FsSmall, labelBr);
-                    var pillR = new Rect(midX - ft.Width / 2 - 6, midY - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
-                    ctx.DrawRectangle(pillBg, null, pillR, 8, 8);
-                    ctx.DrawText(ft, new Point(midX - ft.Width / 2, midY - ft.Height / 2));
+                    var pillR = new Rect(mid.X - ft.Width / 2 - 6, mid.Y - ft.Height / 2 - 2, ft.Width + 12, ft.Height + 4);
+                    ctx.DrawRectangle(pillBg, null, pillR, 6, 6);
+                    ctx.DrawText(ft, new Point(mid.X - ft.Width / 2, mid.Y - ft.Height / 2));
                 }
             }
 
-            // Draw classes
+            // ── Class boxes ──
             foreach (var cls in _cdClasses.Values)
             {
                 var rect = new Rect(cls.X, cls.Y, cls.W, cls.H);
                 ctx.DrawRectangle(fill, borderPen, rect, 6, 6);
 
-                // Header
                 var headerRect = new Rect(cls.X, cls.Y, cls.W, cdHeaderH);
                 using (ctx.PushClip(new RoundedRect(rect, 6)))
                     ctx.DrawRectangle(headerBg, null, headerRect);
-
-                // Accent top stripe
                 using (ctx.PushClip(new RoundedRect(rect, 6)))
                     ctx.DrawRectangle(accent, null, new Rect(cls.X + 1, cls.Y + 1, cls.W - 2, 2.5));
 
-                // Class name
                 var nameFt = Txt(cls.Name, Fs, textBr, FontWeight.SemiBold);
                 ctx.DrawText(nameFt, new Point(cls.X + cls.W / 2 - nameFt.Width / 2, cls.Y + cdHeaderH / 2 - nameFt.Height / 2));
 
                 double fy = cls.Y + cdHeaderH;
 
-                // Attributes section
                 if (cls.Attributes.Count > 0)
                 {
-                    ctx.DrawLine(divPen, new Point(cls.X + 1, fy), new Point(cls.X + cls.W - 1, fy));
-                    fy += 4;
+                    ctx.DrawLine(divPen, new Point(cls.X, fy), new Point(cls.X + cls.W, fy));
+                    fy += cdSecPad;
                     foreach (var attr in cls.Attributes)
                     {
                         var ft = Txt(attr, FsSmall, textSec);
-                        ctx.DrawText(ft, new Point(cls.X + cdPadH, fy + cdFieldH / 2 - ft.Height / 2));
-                        fy += cdFieldH;
+                        ctx.DrawText(ft, new Point(cls.X + cdPadH, fy + cdRowH / 2 - ft.Height / 2));
+                        fy += cdRowH;
                     }
+                    fy += cdSecPad;
                 }
 
-                // Methods section
                 if (cls.Methods.Count > 0)
                 {
-                    ctx.DrawLine(divPen, new Point(cls.X + 1, fy), new Point(cls.X + cls.W - 1, fy));
-                    fy += 4;
+                    ctx.DrawLine(divPen, new Point(cls.X, fy), new Point(cls.X + cls.W, fy));
+                    fy += cdSecPad;
                     foreach (var meth in cls.Methods)
                     {
                         var ft = Txt(meth, FsSmall, textBr);
-                        ctx.DrawText(ft, new Point(cls.X + cdPadH, fy + cdFieldH / 2 - ft.Height / 2));
-                        fy += cdFieldH;
+                        ctx.DrawText(ft, new Point(cls.X + cdPadH, fy + cdRowH / 2 - ft.Height / 2));
+                        fy += cdRowH;
                     }
+                    fy += cdSecPad;
                 }
             }
         }
 
-        private static Point CdEdgePoint(CdClass cls, Point target)
+        private static Point TrimToward(Point end, Point neighbor, double d)
         {
-            var cx = cls.X + cls.W / 2;
-            var cy = cls.Y + cls.H / 2;
-            var dx = target.X - cx;
-            var dy = target.Y - cy;
-            if (Math.Abs(dx) < 0.1 && Math.Abs(dy) < 0.1) return new Point(cx, cls.Y + cls.H);
-
-            var hw = cls.W / 2;
-            var hh = cls.H / 2;
-            Point best = new(cx, cls.Y);
-            double bestDist = double.MaxValue;
-
-            if (dy < 0) { var ix = cx + dx * (-hh / dy); if (ix >= cls.X && ix <= cls.X + cls.W) { var p = new Point(ix, cls.Y); var d = Dist(p, target); if (d < bestDist) { best = p; bestDist = d; } } }
-            if (dy > 0) { var ix = cx + dx * (hh / dy); if (ix >= cls.X && ix <= cls.X + cls.W) { var p = new Point(ix, cls.Y + cls.H); var d = Dist(p, target); if (d < bestDist) { best = p; bestDist = d; } } }
-            if (dx < 0) { var iy = cy + dy * (-hw / dx); if (iy >= cls.Y && iy <= cls.Y + cls.H) { var p = new Point(cls.X, iy); var d = Dist(p, target); if (d < bestDist) { best = p; bestDist = d; } } }
-            if (dx > 0) { var iy = cy + dy * (hw / dx); if (iy >= cls.Y && iy <= cls.Y + cls.H) { var p = new Point(cls.X + cls.W, iy); var d = Dist(p, target); if (d < bestDist) { best = p; bestDist = d; } } }
-
-            return best;
+            var len = Dist(end, neighbor);
+            if (len < 1e-3) return end;
+            return new Point(end.X + (neighbor.X - end.X) / len * d,
+                             end.Y + (neighbor.Y - end.Y) / len * d);
         }
 
         private static void DrawCdRelMarker(DrawingContext ctx, Point at, Point from, CdRelType type,
@@ -2492,21 +3217,442 @@ public class StrataMermaid : TemplatedControl
 
         // ── Drawing helpers ────────────────────────────────────
 
-        private static Point NodePort(FNode n, bool isSource, bool vertical)
+        // Distribute each node's edges across its border (fan-out / fan-in) instead of a single
+        // centre port, ordered by the opposite endpoint's position to minimise crossings.
+        // Compute orthogonal routes for every flowchart edge: classify each edge's exit/entry sides by
+        // geometry, distribute ports along each side (fan-out/fan-in), separate parallel runs into lanes,
+        // and emit rounded-polyline waypoints. This replaces the old diagonal port-to-port beziers that
+        // cut across node bands and tangled — giving clean vertical-dominant connectors like mermaid.js.
+        private void RouteFlowEdges()
         {
-            var cx = n.X + n.W / 2;
-            var cy = n.Y + n.H / 2;
-            if (vertical)
-                return isSource ? new Point(cx, n.Y + n.H) : new Point(cx, n.Y);
+            var live = new List<FEdge>();
+            foreach (var e in _fEdges)
+            {
+                e.Route.Clear();
+                if (!_fNodes.TryGetValue(e.From, out var s) || !_fNodes.TryGetValue(e.To, out var t)) continue;
+                ClassifyEdgeSides(e, s, t);
+                live.Add(e);
+            }
+
+            // Distribute ports per (node, side) so multiple edges fan out across the border, ordered by
+            // the cross-axis position of the opposite endpoint to keep their lines from crossing.
+            var exitGroups = new Dictionary<(string, FSide), List<FEdge>>();
+            var entryGroups = new Dictionary<(string, FSide), List<FEdge>>();
+            foreach (var e in live)
+            {
+                AddToGroup(exitGroups, (e.From, e.ExitSide), e);
+                AddToGroup(entryGroups, (e.To, e.EntrySide), e);
+            }
+
+            foreach (var ((id, side), list) in exitGroups)
+            {
+                if (!_fNodes.TryGetValue(id, out var n)) continue;
+                list.Sort((a, b) => OtherCross(a, true, side).CompareTo(OtherCross(b, true, side)));
+                for (int i = 0; i < list.Count; i++)
+                    list[i].FromPort = PortPoint(n, side, i, list.Count);
+            }
+            foreach (var ((id, side), list) in entryGroups)
+            {
+                if (!_fNodes.TryGetValue(id, out var n)) continue;
+                list.Sort((a, b) => OtherCross(a, false, side).CompareTo(OtherCross(b, false, side)));
+                for (int i = 0; i < list.Count; i++)
+                    list[i].ToPort = PortPoint(n, side, i, list.Count);
+            }
+
+            AssignLanesAndRoute(live);
+        }
+
+        private static void AddToGroup(Dictionary<(string, FSide), List<FEdge>> map, (string, FSide) key, FEdge e)
+        {
+            if (!map.TryGetValue(key, out var l)) map[key] = l = new();
+            l.Add(e);
+        }
+
+        // Decide which border each edge leaves and enters from the relative node positions: forward
+        // edges flow along the layout axis (bottom->top for TB), same-rank edges connect facing sides,
+        // and back edges loop out of a side.
+        private void ClassifyEdgeSides(FEdge e, FNode s, FNode t)
+        {
+            double sx = s.X + s.W / 2, sy = s.Y + s.H / 2;
+            double tx = t.X + t.W / 2, ty = t.Y + t.H / 2;
+
+            if (!_ltr)
+            {
+                if (ty >= sy + 8) { e.ExitSide = FSide.Bottom; e.EntrySide = FSide.Top; }
+                else if (ty <= sy - 8)
+                {
+                    var right = (sx + tx) / 2 >= _layW / 2;
+                    e.ExitSide = e.EntrySide = right ? FSide.Right : FSide.Left;
+                }
+                else if (tx >= sx) { e.ExitSide = FSide.Right; e.EntrySide = FSide.Left; }
+                else { e.ExitSide = FSide.Left; e.EntrySide = FSide.Right; }
+            }
             else
-                return isSource ? new Point(n.X + n.W, cy) : new Point(n.X, cy);
+            {
+                if (tx >= sx + 8) { e.ExitSide = FSide.Right; e.EntrySide = FSide.Left; }
+                else if (tx <= sx - 8)
+                {
+                    var bottom = (sy + ty) / 2 >= _layH / 2;
+                    e.ExitSide = e.EntrySide = bottom ? FSide.Bottom : FSide.Top;
+                }
+                else if (ty >= sy) { e.ExitSide = FSide.Bottom; e.EntrySide = FSide.Top; }
+                else { e.ExitSide = FSide.Top; e.EntrySide = FSide.Bottom; }
+            }
+        }
+
+        private double OtherCross(FEdge e, bool isExit, FSide side)
+        {
+            var otherId = isExit ? e.To : e.From;
+            if (!_fNodes.TryGetValue(otherId, out var n)) return 0;
+            return side is FSide.Top or FSide.Bottom ? n.X + n.W / 2 : n.Y + n.H / 2;
+        }
+
+        private static Point PortPoint(FNode n, FSide side, int index, int count)
+        {
+            var frac = (index + 1.0) / (count + 1.0);
+            switch (side)
+            {
+                case FSide.Top:
+                case FSide.Bottom:
+                {
+                    var inset = Math.Min(14, n.W * 0.30);
+                    var x = n.X + inset + (n.W - 2 * inset) * frac;
+                    return new Point(x, side == FSide.Bottom ? n.Y + n.H : n.Y);
+                }
+                default:
+                {
+                    var inset = Math.Min(12, n.H * 0.30);
+                    var y = n.Y + inset + (n.H - 2 * inset) * frac;
+                    return new Point(side == FSide.Right ? n.X + n.W : n.X, y);
+                }
+            }
+        }
+
+        // Build each edge's waypoint route, separating parallel connector runs into distinct lanes so
+        // they read as a clean bus instead of overlapping. Forward edges jog through a lane in the gap
+        // between bands; same-rank edges jog through a lane between the two nodes; back edges loop out
+        // past the content on one side.
+        private void AssignLanesAndRoute(List<FEdge> live)
+        {
+            const double laneStep = 8.0;
+
+            // Forward edges: group by the inter-band channel (rounded mid coordinate) and spread their
+            // jog lanes around the channel centre. Rank-skipping edges are handled separately below so
+            // they don't run straight down a column occupied by an intermediate-rank node.
+            var forward = live.Where(e => IsForward(e) && !IsLongForward(e)).ToList();
+            var fGroups = forward.GroupBy(e => (int)Math.Round(MidAlong(e) / 14.0));
+            foreach (var g in fGroups)
+            {
+                var items = g.OrderBy(e => CrossOf(e.FromPort)).ToList();
+                var mid = items.Average(MidAlong);
+                for (int i = 0; i < items.Count; i++)
+                {
+                    var lane = mid + (i - (items.Count - 1) / 2.0) * laneStep;
+                    BuildForwardRoute(items[i], lane);
+                }
+            }
+
+            // Rank-skipping forward edges: route each around the nodes in the intermediate rank(s)
+            // through its own clear lane. Index per side so several don't stack on the same line.
+            var longForward = live.Where(IsLongForward).ToList();
+            int longBeforeIdx = 0, longAfterIdx = 0;
+            foreach (var e in longForward.OrderBy(MidAlong))
+                BuildLongForwardRoute(e, LongTargetIsBefore(e) ? longBeforeIdx++ : longAfterIdx++);
+
+            // Same-rank edges: lane between the facing sides.
+            var side = live.Where(IsSide).ToList();
+            var sGroups = side.GroupBy(e => (int)Math.Round(MidAlong(e) / 14.0));
+            foreach (var g in sGroups)
+            {
+                var items = g.OrderBy(e => CrossOf(e.FromPort)).ToList();
+                var mid = items.Average(MidAlong);
+                for (int i = 0; i < items.Count; i++)
+                {
+                    var lane = mid + (i - (items.Count - 1) / 2.0) * laneStep;
+                    BuildForwardRoute(items[i], lane);
+                }
+            }
+
+            // Back edges: loop out past the content on the chosen side, indexed so multiple don't overlap.
+            var back = live.Where(IsBack).ToList();
+            int leftIdx = 0, rightIdx = 0, topIdx = 0, botIdx = 0;
+            foreach (var e in back)
+            {
+                int idx = e.ExitSide switch
+                {
+                    FSide.Right => rightIdx++,
+                    FSide.Left => leftIdx++,
+                    FSide.Top => topIdx++,
+                    _ => botIdx++,
+                };
+                BuildBackRoute(e, idx);
+            }
+
+            foreach (var e in live)
+                if (e.Route.Count == 0)
+                    e.Route = new List<Point> { e.FromPort, e.ToPort };
+        }
+
+        private bool IsForward(FEdge e) => !_ltr
+            ? e.ExitSide == FSide.Bottom && e.EntrySide == FSide.Top
+            : e.ExitSide == FSide.Right && e.EntrySide == FSide.Left;
+
+        private bool IsSide(FEdge e) => !_ltr
+            ? (e.ExitSide is FSide.Left or FSide.Right) && (e.EntrySide is FSide.Left or FSide.Right)
+            : (e.ExitSide is FSide.Top or FSide.Bottom) && (e.EntrySide is FSide.Top or FSide.Bottom);
+
+        private bool IsBack(FEdge e) => e.ExitSide == e.EntrySide;
+
+        // The coordinate of the lane channel an edge jogs through (Y for TB, X for LR).
+        private double MidAlong(FEdge e) => _ltr
+            ? (e.FromPort.X + e.ToPort.X) / 2
+            : (e.FromPort.Y + e.ToPort.Y) / 2;
+
+        private double CrossOf(Point p) => _ltr ? p.Y : p.X;
+
+        private void BuildForwardRoute(FEdge e, double lane)
+        {
+            var f = e.FromPort;
+            var t = e.ToPort;
+            if (!_ltr)
+            {
+                lane = Math.Clamp(lane, Math.Min(f.Y, t.Y) + 4, Math.Max(f.Y, t.Y) - 4);
+                if (Math.Abs(f.X - t.X) < 1.5)
+                    e.Route = new List<Point> { f, t };
+                else
+                    e.Route = new List<Point> { f, new(f.X, lane), new(t.X, lane), t };
+            }
+            else
+            {
+                lane = Math.Clamp(lane, Math.Min(f.X, t.X) + 4, Math.Max(f.X, t.X) - 4);
+                if (Math.Abs(f.Y - t.Y) < 1.5)
+                    e.Route = new List<Point> { f, t };
+                else
+                    e.Route = new List<Point> { f, new(lane, f.Y), new(lane, t.Y), t };
+            }
+            e.LabelAt = LongestSegMid(e.Route);
+        }
+
+        // A forward edge that skips one or more ranks (TB: source two-plus rows above target) would,
+        // with the plain forward route, run straight down the source or target column and pass *behind*
+        // whatever node occupies the intermediate rank. Treat those like dagre's virtual-node edges:
+        // detect them by rank span so they can be lifted into their own obstacle-free lane.
+        private bool IsLongForward(FEdge e)
+        {
+            if (_fSubgraphs.Count > 0) return false; // clustered (architecture) layout routes its own way
+            if (!IsForward(e)) return false;
+            if (!_fNodes.TryGetValue(e.From, out var s) || !_fNodes.TryGetValue(e.To, out var t)) return false;
+            return Math.Abs(t.Rank - s.Rank) > 1;
+        }
+
+        // True when the long edge's target sits before its source on the cross axis (left for TB, up for
+        // LR) — i.e. which side of the obstacle column the routed lane should hug.
+        private bool LongTargetIsBefore(FEdge e)
+        {
+            if (!_fNodes.TryGetValue(e.From, out var s) || !_fNodes.TryGetValue(e.To, out var t)) return true;
+            return !_ltr
+                ? (t.X + t.W / 2) <= (s.X + s.W / 2)
+                : (t.Y + t.H / 2) <= (s.Y + s.H / 2);
+        }
+
+        // Route a rank-skipping forward edge around the intermediate-rank nodes: leave the source, run
+        // down (TB) / across (LR) a lane positioned to clear every obstacle, then jog into the target.
+        // The lane prefers the target column, then the source column, else steps just outside the
+        // obstacles on the side the target is on (offset by idx so stacked long edges stay distinct).
+        private void BuildLongForwardRoute(FEdge e, int idx)
+        {
+            if (!_fNodes.TryGetValue(e.From, out var s) || !_fNodes.TryGetValue(e.To, out var t)) return;
+            var f = e.FromPort;
+            var tp = e.ToPort;
+            const double margin = 14, step = 14;
+            int loR = Math.Min(s.Rank, t.Rank), hiR = Math.Max(s.Rank, t.Rank);
+            var inter = _fNodes.Values.Where(n => n.Rank > loR && n.Rank < hiR).ToList();
+
+            if (!_ltr)
+            {
+                double sCx = s.X + s.W / 2, tCx = t.X + t.W / 2;
+                bool Clear(double x) => inter.All(n => x < n.X - margin || x > n.X + n.W + margin);
+                double laneX;
+                if (idx == 0 && Clear(tp.X)) laneX = tp.X;
+                else if (idx == 0 && Clear(f.X)) laneX = f.X;
+                else
+                {
+                    bool before = tCx <= sCx;
+                    double edge = before
+                        ? (inter.Count > 0 ? inter.Min(n => n.X) - margin : Math.Min(f.X, tp.X) - margin)
+                        : (inter.Count > 0 ? inter.Max(n => n.X + n.W) + margin : Math.Max(f.X, tp.X) + margin);
+                    laneX = edge + (before ? -1 : 1) * idx * step;
+                }
+
+                double interTop = inter.Count > 0 ? inter.Min(n => n.Y) : tp.Y;
+                double interBot = inter.Count > 0 ? inter.Max(n => n.Y + n.H) : f.Y;
+                double yA = (f.Y + interTop) / 2;
+                double yB = (interBot + tp.Y) / 2;
+                if (yB <= yA + 4) { yA = f.Y + 12; yB = Math.Max(yA + 8, tp.Y - 12); }
+
+                var pts = new List<Point> { f };
+                if (Math.Abs(laneX - f.X) > 1) pts.Add(new Point(f.X, yA));
+                pts.Add(new Point(laneX, yA));
+                pts.Add(new Point(laneX, yB));
+                if (Math.Abs(laneX - tp.X) > 1) pts.Add(new Point(tp.X, yB));
+                pts.Add(tp);
+                e.Route = pts;
+            }
+            else
+            {
+                double sCy = s.Y + s.H / 2, tCy = t.Y + t.H / 2;
+                bool Clear(double y) => inter.All(n => y < n.Y - margin || y > n.Y + n.H + margin);
+                double laneY;
+                if (idx == 0 && Clear(tp.Y)) laneY = tp.Y;
+                else if (idx == 0 && Clear(f.Y)) laneY = f.Y;
+                else
+                {
+                    bool before = tCy <= sCy;
+                    double edge = before
+                        ? (inter.Count > 0 ? inter.Min(n => n.Y) - margin : Math.Min(f.Y, tp.Y) - margin)
+                        : (inter.Count > 0 ? inter.Max(n => n.Y + n.H) + margin : Math.Max(f.Y, tp.Y) + margin);
+                    laneY = edge + (before ? -1 : 1) * idx * step;
+                }
+
+                double interLeft = inter.Count > 0 ? inter.Min(n => n.X) : tp.X;
+                double interRight = inter.Count > 0 ? inter.Max(n => n.X + n.W) : f.X;
+                double xA = (f.X + interLeft) / 2;
+                double xB = (interRight + tp.X) / 2;
+                if (xB <= xA + 4) { xA = f.X + 12; xB = Math.Max(xA + 8, tp.X - 12); }
+
+                var pts = new List<Point> { f };
+                if (Math.Abs(laneY - f.Y) > 1) pts.Add(new Point(xA, f.Y));
+                pts.Add(new Point(xA, laneY));
+                pts.Add(new Point(xB, laneY));
+                if (Math.Abs(laneY - tp.Y) > 1) pts.Add(new Point(xB, tp.Y));
+                pts.Add(tp);
+                e.Route = pts;
+            }
+            e.LabelAt = LongestSegMid(e.Route);
+        }
+
+        private void BuildBackRoute(FEdge e, int idx)
+        {
+            var f = e.FromPort;
+            var t = e.ToPort;
+            const double margin = 18;
+            if (e.ExitSide == FSide.Right)
+            {
+                var laneX = Math.Max(f.X, t.X) + margin + idx * 12;
+                e.Route = new List<Point> { f, new(laneX, f.Y), new(laneX, t.Y), t };
+            }
+            else if (e.ExitSide == FSide.Left)
+            {
+                var laneX = Math.Min(f.X, t.X) - margin - idx * 12;
+                e.Route = new List<Point> { f, new(laneX, f.Y), new(laneX, t.Y), t };
+            }
+            else if (e.ExitSide == FSide.Bottom)
+            {
+                var laneY = Math.Max(f.Y, t.Y) + margin + idx * 12;
+                e.Route = new List<Point> { f, new(f.X, laneY), new(t.X, laneY), t };
+            }
+            else
+            {
+                var laneY = Math.Min(f.Y, t.Y) - margin - idx * 12;
+                e.Route = new List<Point> { f, new(f.X, laneY), new(t.X, laneY), t };
+            }
+            e.LabelAt = LongestSegMid(e.Route);
+        }
+
+        private static Point LongestSegMid(List<Point> pts)
+        {
+            if (pts.Count < 2) return pts.Count == 1 ? pts[0] : default;
+            double best = -1; Point mid = default;
+            for (int i = 0; i < pts.Count - 1; i++)
+            {
+                var d = Dist(pts[i], pts[i + 1]);
+                if (d > best) { best = d; mid = new Point((pts[i].X + pts[i + 1].X) / 2, (pts[i].Y + pts[i + 1].Y) / 2); }
+            }
+            return mid;
+        }
+
+        // Draw an orthogonal edge as a rounded polyline with an optional background casing (so crossings
+        // read as a weave) and an arrowhead aligned to the final segment.
+        private static void DrawOrthEdge(DrawingContext ctx, List<Point> pts, Pen pen, Pen? casing,
+            bool hasArrow, IBrush arrowBrush)
+        {
+            if (pts.Count < 2) return;
+
+            var draw = new List<Point>(pts);
+            double arrAngle = 0;
+            if (hasArrow)
+            {
+                var a = draw[^2]; var b = draw[^1];
+                arrAngle = Math.Atan2(b.Y - a.Y, b.X - a.X);
+                var segLen = Dist(a, b);
+                var pull = Math.Min(ArrSz * 0.8, segLen * 0.5);
+                draw[^1] = new Point(b.X - pull * Math.Cos(arrAngle), b.Y - pull * Math.Sin(arrAngle));
+            }
+
+            var geo = RoundedPolyline(draw, 9);
+            if (casing != null)
+                ctx.DrawGeometry(null, casing, geo);
+            ctx.DrawGeometry(null, pen, geo);
+
+            if (hasArrow)
+                DrawArrowHead(ctx, pts[^1], arrAngle, arrowBrush);
+        }
+
+        // A polyline with its interior corners rounded by up to <paramref name="radius"/>, using a
+        // quadratic through each corner so right-angle connectors look smooth, not boxy.
+        private static StreamGeometry RoundedPolyline(List<Point> pts, double radius)
+        {
+            var geo = new StreamGeometry();
+            using var gc = geo.Open();
+            gc.BeginFigure(pts[0], false);
+            for (int i = 1; i < pts.Count - 1; i++)
+            {
+                var prev = pts[i - 1];
+                var cur = pts[i];
+                var next = pts[i + 1];
+                var len1 = Dist(prev, cur);
+                var len2 = Dist(cur, next);
+                var r = Math.Min(radius, Math.Min(len1, len2) / 2);
+                if (r < 0.5) { gc.LineTo(cur); continue; }
+                var d1x = (cur.X - prev.X) / Math.Max(len1, 0.001);
+                var d1y = (cur.Y - prev.Y) / Math.Max(len1, 0.001);
+                var d2x = (next.X - cur.X) / Math.Max(len2, 0.001);
+                var d2y = (next.Y - cur.Y) / Math.Max(len2, 0.001);
+                gc.LineTo(new Point(cur.X - d1x * r, cur.Y - d1y * r));
+                gc.QuadraticBezierTo(cur, new Point(cur.X + d2x * r, cur.Y + d2y * r));
+            }
+            gc.LineTo(pts[^1]);
+            gc.EndFigure(false);
+            return geo;
+        }
+
+        // Midpoint (t=0.5) of the same cubic bezier DrawBezierEdge draws, for label placement.
+        private Point BezierMid(Point from, Point to, double offsetFactor = 0.35, double maxOffset = 50)
+        {
+            var dist = Math.Max(Math.Abs(to.X - from.X), Math.Abs(to.Y - from.Y));
+            var offset = Math.Clamp(dist * offsetFactor, 12, maxOffset);
+            Point cp1, cp2;
+            if (!_ltr)
+            {
+                cp1 = new Point(from.X, from.Y + offset);
+                cp2 = new Point(to.X, to.Y - offset);
+            }
+            else
+            {
+                cp1 = new Point(from.X + offset, from.Y);
+                cp2 = new Point(to.X - offset, to.Y);
+            }
+            return new Point(
+                (from.X + 3 * cp1.X + 3 * cp2.X + to.X) / 8,
+                (from.Y + 3 * cp1.Y + 3 * cp2.Y + to.Y) / 8);
         }
 
         private static void DrawBezierEdge(DrawingContext ctx, Point from, Point to, Pen pen,
-            bool hasArrow, bool vertical, IBrush arrowBrush)
+            bool hasArrow, bool vertical, IBrush arrowBrush, Pen? casing = null,
+            double offsetFactor = 0.35, double maxOffset = 50)
         {
             var dist = Math.Max(Math.Abs(to.X - from.X), Math.Abs(to.Y - from.Y));
-            var offset = Math.Clamp(dist * 0.35, 12, 50);
+            var offset = Math.Clamp(dist * offsetFactor, 12, maxOffset);
 
             Point cp1, cp2;
             if (vertical)
@@ -2540,6 +3686,11 @@ public class StrataMermaid : TemplatedControl
                 gc.CubicBezierTo(cp1, cp2, target);
                 gc.EndFigure(false);
             }
+
+            // Background-coloured casing drawn first so later edges visually "cut" earlier ones at
+            // crossings (a weave effect), turning a tangle of overlapping lines into legible strands.
+            if (casing != null)
+                ctx.DrawGeometry(null, casing, geo);
             ctx.DrawGeometry(null, pen, geo);
 
             if (hasArrow)
@@ -2627,6 +3778,42 @@ public class StrataMermaid : TemplatedControl
 
             var idx = t.IndexOf(' ');
             return idx >= 0 ? t[..idx] : t;
+        }
+
+        // Resolve one side of an edge into node ids, expanding mermaid "&" groups
+        // (A & B) and remapping any subgraph reference to its first/last member.
+        private static List<string> ResolveEndpoints(string segment, Dictionary<string, FSubgraph> subgraphs, bool trailing)
+        {
+            var ids = new List<string>();
+            foreach (var piece in segment.Split('&'))
+            {
+                var id = trailing ? LastWord(piece) : FirstWord(piece);
+                if (id.Length == 0) continue;
+
+                if (subgraphs.TryGetValue(id, out var sg))
+                {
+                    var mapped = trailing ? sg.LastNode : sg.FirstNode;
+                    if (!string.IsNullOrWhiteSpace(mapped)) id = mapped!;
+                }
+
+                ids.Add(id);
+            }
+            return ids;
+        }
+
+        private static readonly Regex BareNodeIdRegex = new($"^{NodeIdPattern}$", RegexOptions.Compiled);
+
+        // All node ids referenced on a (bracket-stripped) line: bracketed definitions, bare id
+        // listings, and edge endpoints. Used to assign subgraph membership.
+        private static IEnumerable<string> CollectLineNodeRefs(string stripped)
+        {
+            var s = Regex.Replace(stripped, @"\|[^|]*\|", " ");                       // drop edge labels
+            s = Regex.Replace(s, @"<-\.->|<==>|<-->|<--|-\.->|==>|-->|---|&", " ");   // drop arrows / &
+            foreach (var tok in s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (tok.Any(char.IsLetterOrDigit) && BareNodeIdRegex.IsMatch(tok))
+                    yield return tok;
+            }
         }
 
         private static bool IsInsideBracketLabel(string line, int index)
