@@ -514,6 +514,11 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
+        <!-- Hide voice button when speech recognition is unavailable (e.g. non-Windows) -->
+        <Style Selector="^:not(:can-voice) /template/ Button#PART_VoiceButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
         <!-- Hide model picker when no models -->
         <Style Selector="^:not(:has-models) /template/ Panel#PART_ModelPickerWrap">
           <Setter Property="IsVisible" Value="False" />

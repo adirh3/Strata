@@ -99,7 +99,7 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :can-attach, :can-send-without-prompt,
-/// :editing, :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
+/// :can-voice, :editing, :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
 /// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
 /// </remarks>
 public class StrataChatComposer : TemplatedControl
@@ -198,6 +198,11 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Whether to show the attach (+) button.</summary>
     public static readonly StyledProperty<bool> CanAttachProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanAttach), true);
+
+    /// <summary>Whether the voice (push-to-talk) button is shown. Hidden when false — e.g. on
+    /// platforms without a speech recognizer. Defaults to true.</summary>
+    public static readonly StyledProperty<bool> CanVoiceProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanVoice), true);
 
     /// <summary>When true, the send command can execute even if <see cref="PromptText"/> is empty.</summary>
     public static readonly StyledProperty<bool> CanSendWithoutPromptProperty =
@@ -481,6 +486,7 @@ public class StrataChatComposer : TemplatedControl
         SteerWhileBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SendWithEnterProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanAttachProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        CanVoiceProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanSendWithoutPromptProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsRecordingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsSuggestionsGeneratingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
@@ -582,6 +588,7 @@ public class StrataChatComposer : TemplatedControl
     public bool SteerWhileBusy { get => GetValue(SteerWhileBusyProperty); set => SetValue(SteerWhileBusyProperty, value); }
     public bool SendWithEnter { get => GetValue(SendWithEnterProperty); set => SetValue(SendWithEnterProperty, value); }
     public bool CanAttach { get => GetValue(CanAttachProperty); set => SetValue(CanAttachProperty, value); }
+    public bool CanVoice { get => GetValue(CanVoiceProperty); set => SetValue(CanVoiceProperty, value); }
     public bool CanSendWithoutPrompt { get => GetValue(CanSendWithoutPromptProperty); set => SetValue(CanSendWithoutPromptProperty, value); }
     public string SuggestionA { get => GetValue(SuggestionAProperty); set => SetValue(SuggestionAProperty, value); }
     public string SuggestionB { get => GetValue(SuggestionBProperty); set => SetValue(SuggestionBProperty, value); }
@@ -908,9 +915,17 @@ public class StrataChatComposer : TemplatedControl
         HandleSendAction();
     }
 
+    // Primary command modifier: Cmd (Meta) on macOS, Ctrl on Windows/Linux — so the composer's
+    // send and paste shortcuts feel native on each platform and match Lumi's other key handlers.
+    // On Windows/Linux this is exactly the previous Control check, so their behavior is unchanged.
+    private static bool HasCommandModifier(KeyModifiers modifiers)
+        => OperatingSystem.IsMacOS()
+            ? modifiers.HasFlag(KeyModifiers.Meta)
+            : modifiers.HasFlag(KeyModifiers.Control);
+
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.V && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        if (e.Key == Key.V && HasCommandModifier(e.KeyModifiers))
         {
             e.Handled = true;
             _ = HandlePasteFromKeyboardAsync();
@@ -955,7 +970,7 @@ public class StrataChatComposer : TemplatedControl
         if (e.Key == Key.Enter)
         {
             var isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-            var isCtrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+            var isCtrl = HasCommandModifier(e.KeyModifiers);
             var isAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
 
             // Alt+Enter while effectively busy = abort the running turn and send this as a fresh
@@ -1641,6 +1656,7 @@ public class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":steer", canSendWhileBusy && SteerWhileBusy);
         PseudoClasses.Set(":stop-send", canSendWhileBusy && !SteerWhileBusy);
         PseudoClasses.Set(":can-attach", CanAttach);
+        PseudoClasses.Set(":can-voice", CanVoice);
         PseudoClasses.Set(":can-send-without-prompt", CanSendWithoutPrompt);
         PseudoClasses.Set(":a-empty", string.IsNullOrWhiteSpace(SuggestionA));
         PseudoClasses.Set(":b-empty", string.IsNullOrWhiteSpace(SuggestionB));
