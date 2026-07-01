@@ -35,14 +35,15 @@ public readonly struct MdBlock : IEquatable<MdBlock>
     public int Level { get; init; }       // heading level, indent, item number
     public string Language { get; init; }  // code block language
     public int SourceStart { get; init; }
+    public bool IsClosed { get; init; }    // fenced code/viz block whose closing ``` fence has been seen
 
     public bool Equals(MdBlock other) =>
-        Kind == other.Kind && Level == other.Level &&
+        Kind == other.Kind && Level == other.Level && IsClosed == other.IsClosed &&
         string.Equals(Content, other.Content, StringComparison.Ordinal) &&
         string.Equals(Language, other.Language, StringComparison.Ordinal);
 
     public override bool Equals(object? obj) => obj is MdBlock b && Equals(b);
-    public override int GetHashCode() => HashCode.Combine(Kind, Content, Level, Language);
+    public override int GetHashCode() => HashCode.Combine(Kind, Content, Level, Language, IsClosed);
 }
 
 /// <summary>
@@ -249,6 +250,7 @@ public sealed class MarkdownParser
                         Content = code,
                         Language = codeLanguage,
                         SourceStart = codeStart >= 0 ? codeStart : absoluteLineStart,
+                        IsClosed = true,
                     });
                     inCodeBlock = false;
                     codeLanguage = string.Empty;
@@ -399,7 +401,9 @@ public sealed class MarkdownParser
 
         var endOffset = baseOffset + source.Length;
 
-        // Handle unclosed code block
+        // Handle unclosed code block. IsClosed stays false: while streaming, a fenced viz block
+        // whose closing ``` hasn't arrived yet is still "in progress", so downstream rendering keeps
+        // showing the placeholder instead of repairing a half-streamed JSON payload.
         if (inCodeBlock)
         {
             var code = codeBuffer.ToString();

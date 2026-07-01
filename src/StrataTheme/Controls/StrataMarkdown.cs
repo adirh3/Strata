@@ -1018,12 +1018,12 @@ public class StrataMarkdown : ContentControl
             MdBlockKind.HorizontalRule => CreateHorizontalRuleControl(),
             MdBlockKind.Blockquote => CreateBlockquoteControl(block.Content),
             MdBlockKind.Table => CreateTableControl(block.Content),
-            MdBlockKind.Chart => CreateChartControl(block.Content),
+            MdBlockKind.Chart => CreateChartControl(block.Content, block.IsClosed),
             MdBlockKind.Mermaid => CreateMermaidControl(block.Content),
-            MdBlockKind.Confidence => CreateConfidenceControl(block.Content),
-            MdBlockKind.Comparison => CreateComparisonControl(block.Content),
-            MdBlockKind.Card => CreateCardControl(block.Content),
-            MdBlockKind.Sources => CreateSourcesControl(block.Content),
+            MdBlockKind.Confidence => CreateConfidenceControl(block.Content, block.IsClosed),
+            MdBlockKind.Comparison => CreateComparisonControl(block.Content, block.IsClosed),
+            MdBlockKind.Card => CreateCardControl(block.Content, block.IsClosed),
+            MdBlockKind.Sources => CreateSourcesControl(block.Content, block.IsClosed),
             _ => new Border(),
         };
     }
@@ -1938,7 +1938,87 @@ public class StrataMarkdown : ContentControl
         return shell;
     }
 
-    private Control CreateChartControl(string json)
+    private static readonly JsonDocumentOptions VizJsonOptions = new()
+    {
+        AllowTrailingCommas = true,
+        CommentHandling = JsonCommentHandling.Skip,
+    };
+
+    /// <summary>
+    /// Parses the JSON payload of a visualization block (chart, comparison, card, confidence,
+    /// sources). Tries a strict parse first. When <paramref name="allowRepair"/> is true and the
+    /// strict parse fails, it attempts a structure-balancing repair so a *complete* block still
+    /// renders when the model emits a nearly-valid payload — most commonly a dropped trailing
+    /// brace/bracket. Repair is intentionally gated to complete (closed-fence) blocks: while a
+    /// block is still streaming its JSON is legitimately incomplete on every chunk, so repairing
+    /// it would churn a half-built control (and restart chart animations) instead of showing the
+    /// placeholder. Throws when neither parse succeeds, so callers keep their placeholder fallback
+    /// for genuinely broken (or still-streaming) input.
+    /// </summary>
+    internal static JsonDocument ParseVizJson(string trimmed, bool allowRepair)
+    {
+        try
+        {
+            return JsonDocument.Parse(trimmed, VizJsonOptions);
+        }
+        catch (JsonException) when (allowRepair)
+        {
+            return JsonDocument.Parse(RepairVizJson(trimmed), VizJsonOptions);
+        }
+    }
+
+    /// <summary>
+    /// Best-effort repair of a nearly-valid JSON payload: closes a dangling string value and
+    /// balances any unclosed objects/arrays. The scan is string-aware, so braces, brackets, and
+    /// quotes inside string values are never altered. Returns the input untouched when it is
+    /// already balanced. Trailing commas are tolerated by <see cref="VizJsonOptions"/> at parse time.
+    /// </summary>
+    internal static string RepairVizJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return json ?? string.Empty;
+
+        var s = json.Trim();
+        var closers = new Stack<char>();
+        var inString = false;
+        var escape = false;
+
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            if (inString)
+            {
+                if (escape) escape = false;
+                else if (c == '\\') escape = true;
+                else if (c == '"') inString = false;
+                continue;
+            }
+
+            switch (c)
+            {
+                case '"': inString = true; break;
+                case '{': closers.Push('}'); break;
+                case '[': closers.Push(']'); break;
+                case '}':
+                case ']':
+                    if (closers.Count > 0) closers.Pop();
+                    break;
+            }
+        }
+
+        if (!inString && closers.Count == 0)
+            return s;
+
+        var sb = new StringBuilder(s.Length + closers.Count + 1);
+        sb.Append(s);
+        if (inString)
+            sb.Append('"');
+        while (closers.Count > 0)
+            sb.Append(closers.Pop());
+        return sb.ToString();
+    }
+
+    private Control CreateChartControl(string json, bool allowRepair)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
@@ -1954,7 +2034,7 @@ public class StrataMarkdown : ContentControl
 
         try
         {
-            using var doc = JsonDocument.Parse(trimmed);
+            using var doc = ParseVizJson(trimmed, allowRepair);
             var root = doc.RootElement;
 
             var typeStr = root.TryGetProperty("type", out var typeProp) ? typeProp.GetString() : "bar";
@@ -2477,7 +2557,7 @@ public class StrataMarkdown : ContentControl
         return _blockPlaceholder;
     }
 
-    private Control CreateConfidenceControl(string json)
+    private Control CreateConfidenceControl(string json, bool allowRepair)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
@@ -2492,7 +2572,7 @@ public class StrataMarkdown : ContentControl
 
         try
         {
-            using var doc = JsonDocument.Parse(trimmed);
+            using var doc = ParseVizJson(trimmed, allowRepair);
             var root = doc.RootElement;
 
             var label = root.TryGetProperty("label", out var lp) ? lp.GetString() ?? "Confidence" : "Confidence";
@@ -2519,7 +2599,7 @@ public class StrataMarkdown : ContentControl
         }
     }
 
-    private Control CreateComparisonControl(string json)
+    private Control CreateComparisonControl(string json, bool allowRepair)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
@@ -2534,7 +2614,7 @@ public class StrataMarkdown : ContentControl
 
         try
         {
-            using var doc = JsonDocument.Parse(trimmed);
+            using var doc = ParseVizJson(trimmed, allowRepair);
             var root = doc.RootElement;
 
             var titleA = "Option A";
@@ -2573,7 +2653,7 @@ public class StrataMarkdown : ContentControl
         }
     }
 
-    private Control CreateCardControl(string json)
+    private Control CreateCardControl(string json, bool allowRepair)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
@@ -2588,7 +2668,7 @@ public class StrataMarkdown : ContentControl
 
         try
         {
-            using var doc = JsonDocument.Parse(trimmed);
+            using var doc = ParseVizJson(trimmed, allowRepair);
             var root = doc.RootElement;
 
             var header = root.TryGetProperty("header", out var hp) ? hp.GetString() ?? "" : "";
@@ -2627,7 +2707,7 @@ public class StrataMarkdown : ContentControl
         }
     }
 
-    private Control CreateSourcesControl(string json)
+    private Control CreateSourcesControl(string json, bool allowRepair)
     {
         var trimmed = json.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
@@ -2642,7 +2722,7 @@ public class StrataMarkdown : ContentControl
 
         try
         {
-            using var doc = JsonDocument.Parse(trimmed);
+            using var doc = ParseVizJson(trimmed, allowRepair);
             var root = doc.RootElement;
 
             if (!root.TryGetProperty("sources", out var sourcesProp) || sourcesProp.ValueKind != JsonValueKind.Array)
