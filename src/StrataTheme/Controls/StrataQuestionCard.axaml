@@ -81,6 +81,7 @@
                 <Style Selector="Button.question-option">
                   <Setter Property="Padding" Value="14,7" />
                   <Setter Property="Margin" Value="0,0,8,8" />
+                  <Setter Property="MaxWidth" Value="440" />
                   <Setter Property="FontSize" Value="12.5" />
                   <Setter Property="FontWeight" Value="Medium" />
                   <Setter Property="CornerRadius" Value="16" />

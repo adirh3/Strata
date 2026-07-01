@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 
 namespace StrataTheme.Controls;
 
@@ -199,7 +200,14 @@ public class StrataQuestionCard : TemplatedControl
 
             var btn = new Button
             {
-                Content = opt,
+                Content = new TextBlock
+                {
+                    Text = opt,
+                    TextWrapping = TextWrapping.Wrap,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    TextAlignment = TextAlignment.Center,
+                    MaxLines = 2,
+                },
                 Classes = { "question-option" },
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 Tag = opt,
