@@ -198,6 +198,24 @@ public class StrataCanvas : TemplatedControl
         }, DispatcherPriority.Loaded);
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (IsGenerating)
+                StartGeneratingAnimation();
+        }, DispatcherPriority.Loaded);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        // Stop the Forever generating animation while the bar is still attached so a detach
+        // can't orphan it on the render thread.
+        StopGeneratingAnimation();
+        base.OnDetachedFromVisualTree(e);
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -418,6 +436,9 @@ public class StrataCanvas : TemplatedControl
         if (visual is null)
             return;
 
+        // Stop the running Forever animations — setting Opacity alone leaves the opacity pulse
+        // ticking; the offset reset below replaces (and thereby stops) the Forever offset.
+        visual.StopAnimation("Opacity");
         visual.Opacity = 0;
 
         var comp = visual.Compositor;

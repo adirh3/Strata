@@ -116,6 +116,21 @@ public class StrataStream : TemplatedControl
             HideStreamBar();
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (IsStreaming)
+            Dispatcher.UIThread.Post(StartStreamAnimation, DispatcherPriority.Loaded);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        // Stop the Forever stream animations while the bar is still attached so a detach
+        // can't orphan them on the render thread.
+        HideStreamBar();
+        base.OnDetachedFromVisualTree(e);
+    }
+
     private void OnStreamTrackSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         if (IsStreaming)
@@ -170,6 +185,9 @@ public class StrataStream : TemplatedControl
         if (visual is null)
             return;
 
+        // Stop the running Forever animations — setting Opacity alone leaves them ticking.
+        visual.StopAnimation("Offset");
+        visual.StopAnimation("Opacity");
         visual.Opacity = 0;
     }
 

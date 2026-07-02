@@ -25,6 +25,10 @@ public class StrataOrb : TemplatedControl
 {
     private Border? _orb;
     private CompositionVisual? _orbVisual;
+    private bool _breatheActive;
+
+    /// <summary>Test-only probe: true while the Active-state breathe animation is running.</summary>
+    internal bool IsBreatheActiveForTest => _breatheActive;
 
     /// <summary>Current visual state of the orb.</summary>
     public static readonly StyledProperty<OrbState> StateProperty =
@@ -73,6 +77,14 @@ public class StrataOrb : TemplatedControl
         base.OnAttachedToVisualTree(e);
         Avalonia.Threading.Dispatcher.UIThread.Post(ApplyAnimation, Avalonia.Threading.DispatcherPriority.Loaded);
         UpdateInteractiveClass();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        // Stop the Forever breathe animation while the visual is still attached, so a detach
+        // (e.g. onboarding teardown) can never orphan it ticking on the render thread.
+        StopBreathe();
+        base.OnDetachedFromVisualTree(e);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -146,13 +158,22 @@ public class StrataOrb : TemplatedControl
             anim.Duration = TimeSpan.FromMilliseconds(1800);
             anim.IterationBehavior = AnimationIterationBehavior.Forever;
             _orbVisual.StartAnimation("Opacity", anim);
+            _breatheActive = true;
         }
         else
         {
             // Static — reset opacity to full
-            _orbVisual.StopAnimation("Opacity");
-            _orbVisual.Opacity = 1f;
+            StopBreathe();
         }
+    }
+
+    private void StopBreathe()
+    {
+        _breatheActive = false;
+        if (_orbVisual is null)
+            return;
+        _orbVisual.StopAnimation("Opacity");
+        _orbVisual.Opacity = 1f;
     }
 }
 

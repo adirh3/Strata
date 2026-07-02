@@ -48,7 +48,7 @@ public class StrataPulse : TemplatedControl
 
     static StrataPulse()
     {
-        IsLiveProperty.Changed.AddClassHandler<StrataPulse>((p, _) => p.UpdatePseudoClasses());
+        IsLiveProperty.Changed.AddClassHandler<StrataPulse>((p, _) => p.OnIsLiveChanged());
         RateProperty.Changed.AddClassHandler<StrataPulse>((p, _) => p.OnRateChanged());
     }
 
@@ -84,6 +84,30 @@ public class StrataPulse : TemplatedControl
 
         if (IsLive)
             Dispatcher.UIThread.Post(StartLivePulse, DispatcherPriority.Loaded);
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (IsLive)
+            Dispatcher.UIThread.Post(StartLivePulse, DispatcherPriority.Loaded);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        // Stop the Forever pulse while the status dot is still attached so a detach can't
+        // orphan it on the render thread.
+        StopLivePulse();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnIsLiveChanged()
+    {
+        UpdatePseudoClasses();
+        if (IsLive)
+            StartLivePulse();
+        else
+            StopLivePulse();
     }
 
     private void BuildBars()
@@ -161,5 +185,14 @@ public class StrataPulse : TemplatedControl
         anim.Duration = TimeSpan.FromMilliseconds(1600);
         anim.IterationBehavior = AnimationIterationBehavior.Forever;
         visual.StartAnimation("Opacity", anim);
+    }
+
+    private void StopLivePulse()
+    {
+        if (_statusDot is null) return;
+        var visual = ElementComposition.GetElementVisual(_statusDot);
+        if (visual is null) return;
+        visual.StopAnimation("Opacity");
+        visual.Opacity = 1f;
     }
 }

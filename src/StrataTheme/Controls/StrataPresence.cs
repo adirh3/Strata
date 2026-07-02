@@ -414,8 +414,16 @@ public class StrataPresence : Panel, IDisposable
         _companionNorm = null;
         if (Find(LobeRole.Companion)?.Border is { } companionBorder)
             companionBorder.Opacity = 0;
+        // Stop any running Forever composition animations while the visuals are still live.
+        // Avalonia detaches the compositor (nulling CompositionVisual) only AFTER this override
+        // returns, so the stored visual refs are still valid here; a virtualized/Path-B detach
+        // would otherwise leave them orphaned, ticking the render thread. Re-attach re-acquires
+        // visuals via InitComposition and re-applies state, so behaviour is preserved.
+        StopVisualAnimations(_selfVisual);
         foreach (var lobe in _lobes)
         {
+            StopVisualAnimations(lobe.Visual);
+            StopVisualAnimations(lobe.HostVisual);
             lobe.Visual = null;
             lobe.HostVisual = null;
             lobe.SpringPlaced = false;
@@ -424,6 +432,14 @@ public class StrataPresence : Panel, IDisposable
             lobe.SpringP0X = lobe.SpringV0X = lobe.SpringP0Y = lobe.SpringV0Y = 0;
         }
         _selfVisual = null;
+    }
+
+    private static void StopVisualAnimations(CompositionVisual? visual)
+    {
+        if (visual is null)
+            return;
+        visual.StopAnimation("Offset");
+        visual.StopAnimation("Scale");
     }
 
     /// <summary>
