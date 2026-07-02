@@ -102,6 +102,13 @@ public class StrataChatMessage : TemplatedControl
     private readonly HashSet<Control> _contextMenuTargets = new();
     private bool _originalContentWasMarkdown;
 
+    // Tracks visual-tree attachment so the deferred stream-pulse start (posted to the dispatcher)
+    // never begins a Forever composition animation on an already-detached, off-tree visual.
+    private bool _isAttachedToVisualTree;
+
+    // Mirrors the streaming-pulse start/stop state machine (see IsStreamPulseActiveForTest).
+    private bool _streamPulseActive;
+
     // ── Cached state to skip redundant updates ──
     private bool _cachedEditVisible;
     private bool _cachedRetryVisible;
@@ -264,6 +271,9 @@ public class StrataChatMessage : TemplatedControl
         DetachTemplatePartHandlers();
 
         base.OnApplyTemplate(e);
+        // Stop any pulse on the outgoing stream bar before it is replaced, so a re-templated control
+        // cannot leave a Forever animation running on the discarded visual.
+        StopStreamPulse();
         _streamBar = e.NameScope.Find<Border>("PART_StreamBar");
         _bubble = e.NameScope.Find<Border>("PART_Bubble");
         _actionLayer = e.NameScope.Find<Border>("PART_ActionLayer");
@@ -305,6 +315,8 @@ public class StrataChatMessage : TemplatedControl
     {
         base.OnAttachedToVisualTree(e);
 
+        _isAttachedToVisualTree = true;
+
         // Transcript virtualization can detach and reattach the same already-templated message
         // instance. OnApplyTemplate is not called on that plain reattach, so any handlers cleaned up
         // during detach must be restored here.
@@ -326,6 +338,16 @@ public class StrataChatMessage : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _isAttachedToVisualTree = false;
+
+        // Stop the streaming pulse while the composition visual is still attached (before base runs).
+        // A Forever composition animation left running when the visual detaches keeps ticking on the
+        // render thread; the compositor only deactivates it if a later parent re-sync fires, so under
+        // transcript virtualization it can leak indefinitely. Over a long streaming session those
+        // orphaned animations accumulate and starve the render thread (broken animations, the
+        // navigation menu ceasing to composite, and global slowdown).
+        StopStreamPulse();
+
         DetachTemplatePartHandlers();
         if (_contextMenu is not null)
         {
@@ -1118,7 +1140,17 @@ public class StrataChatMessage : TemplatedControl
 
     private void StartStreamPulse()
     {
-        if (_streamBar is null) return;
+        // Guard stale/asynchronous starts. This runs from the dispatcher (posted by OnApplyTemplate
+        // and OnAttachedToVisualTree) and directly from OnStreamingChanged, so by the time it executes
+        // the message may have stopped streaming or been detached by transcript virtualization.
+        // Starting a Forever animation on a detached (off-tree) visual would orphan it — no parent
+        // re-sync will ever stop it — so only start while still streaming AND attached.
+        if (!IsStreaming || !_isAttachedToVisualTree || _streamBar is null) return;
+
+        // The start/stop state machine is engaged (guard passed). Tracked separately from compositor
+        // internals so the detach/guard contract is observable to tests via IsStreamPulseActiveForTest.
+        _streamPulseActive = true;
+
         var visual = ElementComposition.GetElementVisual(_streamBar);
         if (visual is null) return;
 
@@ -1134,6 +1166,7 @@ public class StrataChatMessage : TemplatedControl
 
     private void StopStreamPulse()
     {
+        _streamPulseActive = false;
         if (_streamBar is null) return;
         var visual = ElementComposition.GetElementVisual(_streamBar);
         if (visual is null) return;
@@ -1141,4 +1174,13 @@ public class StrataChatMessage : TemplatedControl
         visual.StopAnimation("Opacity");
         visual.Opacity = 0f;
     }
+
+    /// <summary>
+    /// Test-only view of the streaming-pulse state machine: <see langword="true"/> once
+    /// <see cref="StartStreamPulse"/> has engaged the Forever pulse (after its streaming/attachment
+    /// guard) and <see langword="false"/> after <see cref="StopStreamPulse"/>. Exposed to
+    /// <c>Lumi.Tests</c> via <c>InternalsVisibleTo</c> to assert the detach-stops-and-does-not-restart
+    /// contract without reaching into compositor internals.
+    /// </summary>
+    internal bool IsStreamPulseActiveForTest => _streamPulseActive;
 }

@@ -798,7 +798,11 @@ public class StrataChatShell : TemplatedControl
     {
         if (!container.IsVisible)
         {
-            if (!isScrolling && container.CacheMode is not null)
+            // An off-screen/collapsed container never needs a scroll rasterization cache. Release it
+            // unconditionally (even mid-scroll) so a container that scrolls out of view — or is about
+            // to be virtualized away — cannot retain a BitmapCache (a render-thread bitmap surface /
+            // large-object allocation) after it leaves the visible set.
+            if (container.CacheMode is not null)
                 container.CacheMode = null;
 
             return;
