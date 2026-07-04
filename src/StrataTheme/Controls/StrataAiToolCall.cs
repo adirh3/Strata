@@ -50,6 +50,8 @@ public class StrataAiToolCall : TemplatedControl
     private StrataMarkdown? _inputMarkdown;
     private StrataMarkdown? _infoMarkdown;
     private ContextMenu? _contextMenu;
+    private readonly RunningElapsedClock _elapsedClock;
+    private bool _isAttached;
 
     /// <summary>Name of the tool being invoked (e.g. "search_code").</summary>
     public static readonly StyledProperty<string> ToolNameProperty =
@@ -86,6 +88,12 @@ public class StrataAiToolCall : TemplatedControl
     public static readonly DirectProperty<StrataAiToolCall, string> DurationTextProperty =
         AvaloniaProperty.RegisterDirect<StrataAiToolCall, string>(nameof(DurationText), control => control.DurationText);
 
+    /// <summary>Live "how long it has been running" readout, shown while the tool is in progress
+    /// (e.g. "8s", "1m 04s"). Empty until the tool has been running for at least a second, and
+    /// cleared the moment it finishes so the status pill returns to its terminal state.</summary>
+    public static readonly DirectProperty<StrataAiToolCall, string> ElapsedTextProperty =
+        AvaloniaProperty.RegisterDirect<StrataAiToolCall, string>(nameof(ElapsedText), control => control.ElapsedText);
+
     static StrataAiToolCall()
     {
         StatusProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
@@ -93,6 +101,11 @@ public class StrataAiToolCall : TemplatedControl
         InputParametersProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         MoreInfoProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         DurationMsProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
+    }
+
+    public StrataAiToolCall()
+    {
+        _elapsedClock = new RunningElapsedClock(OnElapsedTick);
     }
 
     public string ToolName
@@ -150,6 +163,20 @@ public class StrataAiToolCall : TemplatedControl
         ? $"Duration \u00b7 {DurationMs / 1000d:F2}s"
         : $"Duration \u00b7 {DurationMs:F0} ms";
 
+    private string _elapsedText = "";
+
+    public string ElapsedText
+    {
+        get => _elapsedText;
+        private set => SetAndRaise(ElapsedTextProperty, ref _elapsedText, value);
+    }
+
+    private void OnElapsedTick()
+    {
+        var elapsed = _elapsedClock.Elapsed;
+        ElapsedText = elapsed.TotalSeconds >= 1 ? RunningElapsedClock.Format(elapsed) : "";
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         if (_header is not null)
@@ -186,8 +213,19 @@ public class StrataAiToolCall : TemplatedControl
         }
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _isAttached = true;
+        // Resume the live pulse when a recycled/virtualized container comes back still in progress
+        // (OnApplyTemplate's deferred start does not re-fire on an already-templated container).
+        if (Status == StrataAiToolCallStatus.InProgress)
+            StartRunningPulse();
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _isAttached = false;
         StopRunningPulse();
 
         if (_contextMenu is not null)
@@ -338,6 +376,16 @@ public class StrataAiToolCall : TemplatedControl
 
     private void StartRunningPulse()
     {
+        // A running DispatcherTimer roots this control via its tick closure, so never arm it while the
+        // control is out of the visual tree — e.g. the OnApplyTemplate Loaded-priority post firing after
+        // the container was recycled during a fast chat switch — or the detached card leaks and keeps
+        // ticking forever. OnAttachedToVisualTree restarts it when the control is realized again.
+        if (!_isAttached)
+            return;
+
+        _elapsedClock.Start();
+        OnElapsedTick();
+
         if (_stateDot is null)
             return;
 
@@ -357,6 +405,9 @@ public class StrataAiToolCall : TemplatedControl
 
     private void StopRunningPulse()
     {
+        _elapsedClock.Stop();
+        ElapsedText = "";
+
         if (_stateDot is null)
             return;
 

@@ -79,11 +79,22 @@
                             Padding="7,2"
                             CornerRadius="999"
                             Background="{DynamicResource Brush.AccentSubtle}">
-                      <TextBlock Name="PART_StatusText"
-                                 Text="{Binding StatusText, RelativeSource={RelativeSource TemplatedParent}}"
-                                 FontSize="10"
-                                 FontWeight="SemiBold"
-                                 Foreground="{DynamicResource Brush.AccentDefault}" />
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Name="PART_StatusText"
+                                   Text="{Binding StatusText, RelativeSource={RelativeSource TemplatedParent}}"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.AccentDefault}" />
+                        <TextBlock Name="PART_ElapsedText"
+                                   Text="{Binding ElapsedText, RelativeSource={RelativeSource TemplatedParent}}"
+                                   IsVisible="{Binding ElapsedText, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Opacity="0.75"
+                                   Foreground="{DynamicResource Brush.AccentDefault}" />
+                      </StackPanel>
                     </Border>
                   </Grid>
                 </Border>
@@ -180,6 +191,23 @@
               </KeyFrame>
             </Animation>
           </Style.Animations>
+        </Style>
+
+        <!-- Status-specific styling: Running in background (turn ended, OS process still alive) -->
+        <Style Selector="^:running-bg /template/ Border#PART_StateDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
+        <Style Selector="^:running-bg /template/ Border#PART_StatusPill">
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningSubtle}" />
+        </Style>
+        <Style Selector="^:running-bg /template/ TextBlock#PART_StatusText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
+        <Style Selector="^:running-bg /template/ TextBlock#PART_ElapsedText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
+        <Style Selector="^:running-bg /template/ Border#PART_Stratum">
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
         </Style>
 
         <!-- Status-specific styling: Completed -->
