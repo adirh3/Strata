@@ -420,11 +420,11 @@
 
         <!-- Busy: stop mode -->
         <Style Selector="^:busy /template/ Button#PART_SendButton">
-          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+          <Setter Property="Background" Value="{DynamicResource Brush.ComposerStop}" />
           <Setter Property="ToolTip.Tip" Value="Stop generation" />
         </Style>
         <Style Selector="^:busy /template/ Button#PART_SendButton:pointerover">
-          <Setter Property="Background" Value="{DynamicResource Brush.DangerHover}" />
+          <Setter Property="Background" Value="{DynamicResource Brush.ComposerStopHover}" />
         </Style>
         <Style Selector="^:busy /template/ Path#PART_SendIcon">
           <Setter Property="IsVisible" Value="False" />
@@ -564,10 +564,10 @@
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientPressed}" />
   </Style>
   <Style Selector="controls|StrataChatComposer:busy /template/ Button#PART_SendButton /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerStop}" />
   </Style>
   <Style Selector="controls|StrataChatComposer:busy /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="{DynamicResource Brush.DangerHover}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerStopHover}" />
   </Style>
   <Style Selector="controls|StrataChatComposer:stop-send /template/ Button#PART_SendButton /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />

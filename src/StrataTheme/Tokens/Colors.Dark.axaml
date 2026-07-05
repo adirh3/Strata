@@ -142,6 +142,11 @@
   <SolidColorBrush x:Key="Brush.DangerPressed" Color="{DynamicResource Color.DangerPressed}" />
   <SolidColorBrush x:Key="Brush.DangerSubtle" Color="{DynamicResource Color.DangerSubtle}" />
 
+  <!-- Composer stop button (busy state). Aliased to the danger red so the dark theme keeps
+       its existing look; the light theme overrides this with a tuned gradient. -->
+  <SolidColorBrush x:Key="Brush.ComposerStop" Color="{DynamicResource Color.DangerDefault}" />
+  <SolidColorBrush x:Key="Brush.ComposerStopHover" Color="{DynamicResource Color.DangerHover}" />
+
   <SolidColorBrush x:Key="Brush.ControlDefault" Color="{DynamicResource Color.ControlDefault}" />
   <SolidColorBrush x:Key="Brush.ControlHover" Color="{DynamicResource Color.ControlHover}" />
   <SolidColorBrush x:Key="Brush.ControlPressed" Color="{DynamicResource Color.ControlPressed}" />

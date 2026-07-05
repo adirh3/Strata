@@ -142,6 +142,18 @@
   <SolidColorBrush x:Key="Brush.DangerPressed" Color="{DynamicResource Color.DangerPressed}" />
   <SolidColorBrush x:Key="Brush.DangerSubtle" Color="{DynamicResource Color.DangerSubtle}" />
 
+  <!-- Composer stop button (busy state): a clean, vibrant red pill that mirrors the polish
+       of the accent send gradient. Kept separate from Brush.DangerDefault so error *text*
+       (which needs a darker red for contrast on light surfaces) is unaffected. -->
+  <LinearGradientBrush x:Key="Brush.ComposerStop" StartPoint="0%,0%" EndPoint="100%,100%">
+    <GradientStop Offset="0" Color="#EF4444" />
+    <GradientStop Offset="1" Color="#DC2626" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="Brush.ComposerStopHover" StartPoint="0%,0%" EndPoint="100%,100%">
+    <GradientStop Offset="0" Color="#F87171" />
+    <GradientStop Offset="1" Color="#E53E3E" />
+  </LinearGradientBrush>
+
   <SolidColorBrush x:Key="Brush.ControlDefault" Color="{DynamicResource Color.ControlDefault}" />
   <SolidColorBrush x:Key="Brush.ControlHover" Color="{DynamicResource Color.ControlHover}" />
   <SolidColorBrush x:Key="Brush.ControlPressed" Color="{DynamicResource Color.ControlPressed}" />
