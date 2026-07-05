@@ -75,7 +75,9 @@ public class FileSelectedEventArgs : EventArgs
 /// <summary>
 /// Chat composer with borderless text input, model/quality selectors, suggestion chips,
 /// and a circular accent send button. Enter sends; Shift+Enter inserts a newline.
-/// When <see cref="IsBusy"/> is true, the send button turns into a stop button.
+/// When <see cref="IsBusy"/> is true, the send button turns into a stop button. If the user types
+/// while busy and <see cref="SteerWhileBusy"/> is true (default), submitting steers the running turn
+/// (sends without stopping) instead of aborting generation.
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage:</b></para>
@@ -95,7 +97,7 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
-/// <para><b>Pseudo-classes:</b> :busy, :empty, :stop-send, :can-attach, :can-send-without-prompt,
+/// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :can-attach, :can-send-without-prompt,
 /// :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
 /// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
 /// </remarks>
@@ -179,6 +181,13 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>When true, the send button becomes a stop button.</summary>
     public static readonly StyledProperty<bool> IsBusyProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsBusy));
+
+    /// <summary>When true (default), submitting while <see cref="IsBusy"/> steers the running turn:
+    /// the draft is sent via <see cref="SendCommand"/> WITHOUT invoking <see cref="StopCommand"/>, so
+    /// the in-flight turn keeps running and the message is injected into it. When false, submitting
+    /// while busy sends the draft and then stops the current turn (the legacy stop-and-send).</summary>
+    public static readonly StyledProperty<bool> SteerWhileBusyProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(SteerWhileBusy), true);
 
     /// <summary>When true, Enter sends and Shift+Enter inserts newline. When false, Ctrl+Enter sends.</summary>
     public static readonly StyledProperty<bool> SendWithEnterProperty =
@@ -438,6 +447,7 @@ public class StrataChatComposer : TemplatedControl
             Dispatcher.UIThread.Post(() => c.CheckAutoComplete(), DispatcherPriority.Input);
         });
         IsBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        SteerWhileBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SendWithEnterProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanAttachProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanSendWithoutPromptProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
@@ -536,6 +546,7 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? Modes { get => GetValue(ModesProperty); set => SetValue(ModesProperty, value); }
     public object? SelectedMode { get => GetValue(SelectedModeProperty); set => SetValue(SelectedModeProperty, value); }
     public bool IsBusy { get => GetValue(IsBusyProperty); set => SetValue(IsBusyProperty, value); }
+    public bool SteerWhileBusy { get => GetValue(SteerWhileBusyProperty); set => SetValue(SteerWhileBusyProperty, value); }
     public bool SendWithEnter { get => GetValue(SendWithEnterProperty); set => SetValue(SendWithEnterProperty, value); }
     public bool CanAttach { get => GetValue(CanAttachProperty); set => SetValue(CanAttachProperty, value); }
     public bool CanSendWithoutPrompt { get => GetValue(CanSendWithoutPromptProperty); set => SetValue(CanSendWithoutPromptProperty, value); }
@@ -983,6 +994,10 @@ public class StrataChatComposer : TemplatedControl
             {
                 RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
                 CommandHelper.Execute(SendCommand, SendCommandParameter ?? promptText);
+
+                // Steering: the draft is injected into the in-flight turn, so we must NOT stop it.
+                if (SteerWhileBusy)
+                    return;
             }
 
             RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
@@ -1513,7 +1528,9 @@ public class StrataChatComposer : TemplatedControl
 
         PseudoClasses.Set(":busy", IsBusy);
         PseudoClasses.Set(":empty", !hasPromptText);
-        PseudoClasses.Set(":stop-send", IsBusy && (hasPromptText || CanSendWithoutPrompt));
+        var canSendWhileBusy = IsBusy && (hasPromptText || CanSendWithoutPrompt);
+        PseudoClasses.Set(":steer", canSendWhileBusy && SteerWhileBusy);
+        PseudoClasses.Set(":stop-send", canSendWhileBusy && !SteerWhileBusy);
         PseudoClasses.Set(":can-attach", CanAttach);
         PseudoClasses.Set(":can-send-without-prompt", CanSendWithoutPrompt);
         PseudoClasses.Set(":a-empty", string.IsNullOrWhiteSpace(SuggestionA));

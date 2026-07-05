@@ -448,6 +448,24 @@
           <Setter Property="IsVisible" Value="True" />
         </Style>
 
+        <!-- Busy + has text + steering: inject the draft into the running turn without stopping it. -->
+        <Style Selector="^:steer /template/ Button#PART_SendButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+          <Setter Property="ToolTip.Tip" Value="Send to steer (Enter)" />
+        </Style>
+        <Style Selector="^:steer /template/ Button#PART_SendButton:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+        </Style>
+        <Style Selector="^:steer /template/ Path#PART_StopIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:steer /template/ Canvas#PART_StopSendIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:steer /template/ Path#PART_SendIcon">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
         <!-- Empty: dim send -->
         <Style Selector="^:empty:not(:busy) /template/ Button#PART_SendButton">
           <Setter Property="Opacity" Value="0.35" />
@@ -555,6 +573,12 @@
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
   </Style>
   <Style Selector="controls|StrataChatComposer:stop-send /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:steer /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:steer /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
   </Style>
   <Style Selector="controls|StrataChatComposer:has-mcps /template/ Button#PART_McpButton /template/ Border#PART_Surface">
