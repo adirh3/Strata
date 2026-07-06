@@ -1029,11 +1029,14 @@ public class StrataChatComposer : TemplatedControl
     private async Task<bool> TryRaiseClipboardPasteRequestedAsync(IAsyncDataTransfer dataTransfer)
     {
         var shouldRaise = dataTransfer.Formats.Contains(DataFormat.File)
-            || ContainsInterceptedClipboardFormat(dataTransfer);
+            || ContainsInterceptedClipboardFormat(dataTransfer)
+            || ClipboardImage.HasImageFormat(dataTransfer);
 
         if (!shouldRaise)
         {
-            var bitmap = await dataTransfer.TryGetBitmapAsync().ConfigureAwait(true);
+            // Use the cross-platform image probe so macOS (public.tiff) is detected too — the built-in
+            // TryGetBitmapAsync only decodes PNG/BMP. On Windows/Linux this resolves identically.
+            var bitmap = await ClipboardImage.TryGetImageAsync(dataTransfer).ConfigureAwait(true);
             if (bitmap is null)
                 return false;
 
