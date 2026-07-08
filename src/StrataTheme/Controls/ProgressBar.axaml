@@ -39,7 +39,17 @@
           </ControlTemplate>
         </Setter>
 
-        <Style Selector="^ /template/ Border#PART_Indicator">
+        <!--
+          Perpetual "breathing" pulse is gated behind :indeterminate ONLY.
+          An unconditional IterationCount="Infinite" animation here previously ran on
+          EVERY ProgressBar (including the determinate PART_Progress inside every
+          StrataThink of every chat message). Avalonia never tears down infinite
+          Style.Animations on detach, so each running animation pinned the control's
+          composition subtree to the app-lifetime Compositor — keeping thousands of
+          detached StrataChatMessage subtrees alive (the "Lumi gets huge" memory leak).
+          Determinate bars show real progress and don't need a perpetual animation.
+        -->
+        <Style Selector="^:indeterminate /template/ Border#PART_Indicator">
           <Style.Animations>
             <Animation Duration="0:0:1.6" IterationCount="Infinite">
               <KeyFrame Cue="0%">
