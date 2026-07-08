@@ -40,21 +40,15 @@
           </ControlTemplate>
         </Setter>
 
-        <Style Selector="^ /template/ Border#TooltipRoot">
-          <Style.Animations>
-            <Animation Duration="0:0:2.4" IterationCount="Infinite">
-              <KeyFrame Cue="0%">
-                <Setter Property="Opacity" Value="0.92" />
-              </KeyFrame>
-              <KeyFrame Cue="50%">
-                <Setter Property="Opacity" Value="1" />
-              </KeyFrame>
-              <KeyFrame Cue="100%">
-                <Setter Property="Opacity" Value="0.92" />
-              </KeyFrame>
-            </Animation>
-          </Style.Animations>
-        </Style>
+        <!--
+          NOTE: No perpetual IterationCount="Infinite" pulse here.
+          An unconditional "^ /template/ Border#TooltipRoot" infinite animation
+          always matches, so Avalonia never emits an "unmatch" on detach and never
+          disposes the animation instance — pinning the tooltip's composition subtree
+          to the app-lifetime Compositor for every tooltip ever shown (a steady leak).
+          The open fade is handled by OverlayAnimationHelper.AnimateOpen + the
+          Opacity DoubleTransition above; a resting tooltip should not breathe.
+        -->
       </ControlTheme>
 
     </ResourceDictionary>
