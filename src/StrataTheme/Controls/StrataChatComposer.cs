@@ -287,6 +287,11 @@ public class StrataChatComposer : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> StopRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(StopRequested), RoutingStrategies.Bubble);
 
+    /// <summary>Raised when the user asks to stop the running turn and immediately send the draft as a
+    /// fresh turn (abort + send). Distinct from steering, which injects into the running turn.</summary>
+    public static readonly RoutedEvent<RoutedEventArgs> StopAndSendRequestedEvent =
+        RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(StopAndSendRequested), RoutingStrategies.Bubble);
+
     /// <summary>Raised when the user clicks the attach (+) button.</summary>
     public static readonly RoutedEvent<RoutedEventArgs> AttachRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(AttachRequested), RoutingStrategies.Bubble);
@@ -346,6 +351,15 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Optional parameter for <see cref="StopCommand"/>.</summary>
     public static readonly StyledProperty<object?> StopCommandParameterProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(StopCommandParameter));
+
+    /// <summary>Command executed when the user chooses "stop &amp; send": abort the running turn and send
+    /// the current draft as a fresh turn. Exposed as a secondary action while steering is the primary one.</summary>
+    public static readonly StyledProperty<ICommand?> StopAndSendCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(StopAndSendCommand));
+
+    /// <summary>Optional parameter for <see cref="StopAndSendCommand"/>. Defaults to the committed prompt text.</summary>
+    public static readonly StyledProperty<object?> StopAndSendCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(StopAndSendCommandParameter));
 
     /// <summary>Command executed when the user clicks the attach button.</summary>
     public static readonly StyledProperty<ICommand?> AttachCommandProperty =
@@ -517,6 +531,8 @@ public class StrataChatComposer : TemplatedControl
     { add => AddHandler(SendRequestedEvent, value); remove => RemoveHandler(SendRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? StopRequested
     { add => AddHandler(StopRequestedEvent, value); remove => RemoveHandler(StopRequestedEvent, value); }
+    public event EventHandler<RoutedEventArgs>? StopAndSendRequested
+    { add => AddHandler(StopAndSendRequestedEvent, value); remove => RemoveHandler(StopAndSendRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? AttachRequested
     { add => AddHandler(AttachRequestedEvent, value); remove => RemoveHandler(AttachRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? AgentRemoved
@@ -584,6 +600,8 @@ public class StrataChatComposer : TemplatedControl
     public object? SendCommandParameter { get => GetValue(SendCommandParameterProperty); set => SetValue(SendCommandParameterProperty, value); }
     public ICommand? StopCommand { get => GetValue(StopCommandProperty); set => SetValue(StopCommandProperty, value); }
     public object? StopCommandParameter { get => GetValue(StopCommandParameterProperty); set => SetValue(StopCommandParameterProperty, value); }
+    public ICommand? StopAndSendCommand { get => GetValue(StopAndSendCommandProperty); set => SetValue(StopAndSendCommandProperty, value); }
+    public object? StopAndSendCommandParameter { get => GetValue(StopAndSendCommandParameterProperty); set => SetValue(StopAndSendCommandParameterProperty, value); }
     public ICommand? AttachCommand { get => GetValue(AttachCommandProperty); set => SetValue(AttachCommandProperty, value); }
     public object? AttachCommandParameter { get => GetValue(AttachCommandParameterProperty); set => SetValue(AttachCommandParameterProperty, value); }
     public ICommand? VoiceCommand { get => GetValue(VoiceCommandProperty); set => SetValue(VoiceCommandProperty, value); }
@@ -888,6 +906,16 @@ public class StrataChatComposer : TemplatedControl
         {
             var isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
             var isCtrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+            var isAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+
+            // Alt+Enter while busy = abort the running turn and send this as a fresh turn (abort + send).
+            // Plain Enter still steers the draft into the running turn.
+            if (isAlt && IsBusy && !isShift)
+            {
+                e.Handled = true;
+                HandleStopAndSendAction();
+                return;
+            }
 
             if (SendWithEnter)
             {
@@ -1008,6 +1036,35 @@ public class StrataChatComposer : TemplatedControl
         if (!hasPromptText && !CanSendWithoutPrompt) return;
         RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
         CommandHelper.Execute(SendCommand, SendCommandParameter ?? promptText);
+    }
+
+    /// <summary>
+    /// Abort the running turn and send the draft as a fresh turn (abort + send), instead of steering it
+    /// into the running turn. Invoked via the Alt+Enter shortcut. Only meaningful while <see cref="IsBusy"/>;
+    /// no-op when there is nothing to send.
+    /// </summary>
+    private void HandleStopAndSendAction()
+    {
+        var promptText = CommitInputText();
+        var hasPromptText = !string.IsNullOrWhiteSpace(promptText);
+        if (!hasPromptText && !CanSendWithoutPrompt) return;
+
+        RaiseEvent(new RoutedEventArgs(StopAndSendRequestedEvent));
+
+        // Prefer a dedicated abort+send command: it should queue the draft and stop the running turn so
+        // the host drains the queued draft into a fresh turn.
+        if (StopAndSendCommand is not null)
+        {
+            CommandHelper.Execute(StopAndSendCommand, StopAndSendCommandParameter ?? promptText);
+            return;
+        }
+
+        // Fallback (no dedicated command bound): reproduce the ":stop-send" primary behavior — queue the
+        // draft via Send, then Stop the current turn so the host drains the queued draft as a new turn.
+        RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
+        CommandHelper.Execute(SendCommand, SendCommandParameter ?? promptText);
+        RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
+        CommandHelper.Execute(StopCommand, StopCommandParameter);
     }
 
     // ── Inline autocomplete ────────────────────────────────────────
