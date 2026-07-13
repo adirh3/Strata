@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Windows.Input;
+using Avalonia.Input;
 using StrataTheme.Controls;
 
 namespace StrataTheme.Tests;
@@ -57,6 +58,59 @@ public class StrataChatComposerSendTests
 
             Assert.False(sendRequested);
             Assert.Equal(0, command.ExecuteCount);
+        });
+    }
+
+    [Fact]
+    public async Task HandleSendAction_WhenEditingAndBusy_UsesEditSendInsteadOfSteerOrStop()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var send = new RecordingCommand();
+            var stop = new RecordingCommand();
+            var composer = new StrataChatComposer
+            {
+                PromptText = "updated turn",
+                IsBusy = true,
+                IsEditing = true,
+                SendCommand = send,
+                StopCommand = stop
+            };
+
+            InvokeHandleSendAction(composer);
+
+            Assert.Equal(1, send.ExecuteCount);
+            Assert.Equal("updated turn", send.LastParameter);
+            Assert.Equal(0, stop.ExecuteCount);
+            Assert.Contains(":editing", composer.Classes);
+            Assert.DoesNotContain(":busy", composer.Classes);
+            Assert.DoesNotContain(":steer", composer.Classes);
+        });
+    }
+
+    [Fact]
+    public async Task Escape_WhenEditing_ExecutesCancelCommand()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var cancel = new RecordingCommand();
+            var composer = new StrataChatComposer
+            {
+                IsEditing = true,
+                CancelEditCommand = cancel
+            };
+            var args = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Escape
+            };
+
+            typeof(StrataChatComposer)
+                .GetMethod("OnInputKeyDown", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(composer, [composer, args]);
+
+            Assert.True(args.Handled);
+            Assert.Equal(1, cancel.ExecuteCount);
         });
     }
 

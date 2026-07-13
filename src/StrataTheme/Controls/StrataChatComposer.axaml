@@ -466,6 +466,16 @@
           <Setter Property="IsVisible" Value="True" />
         </Style>
 
+        <!-- Host-owned edit mode: the integrated StatusContent provides explicit Update/Cancel
+             actions, while editing semantics take precedence over busy/steering. -->
+        <Style Selector="^:editing /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="BoxShadow" Value="0 0 0 1 #20818CF8, 0 2 8 0 #11000000" />
+        </Style>
+        <Style Selector="^:editing /template/ Button#PART_SendButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
         <!-- Empty: dim send -->
         <Style Selector="^:empty:not(:busy) /template/ Button#PART_SendButton">
           <Setter Property="Opacity" Value="0.35" />
