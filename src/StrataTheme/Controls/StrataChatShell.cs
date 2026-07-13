@@ -9,8 +9,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Rendering.Composition;
-using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -70,7 +68,7 @@ public sealed class StrataTranscriptViewportChangedEventArgs : EventArgs
 /// PART_ScrollToBottomButton (Button – scroll-to-bottom action),
 /// PART_NewContentDot (Border – pulsing badge on the scroll-to-bottom button).</para>
 /// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence, :scrolling,
-/// :scrolled-away, :show-scroll-to-bottom, :has-new-content.</para>
+/// :scrolled-away, :show-scroll-to-bottom, :has-new-content, :pulse-new-content.</para>
 /// </remarks>
 public class StrataChatShell : TemplatedControl
 {
@@ -78,7 +76,6 @@ public class StrataChatShell : TemplatedControl
     private const double UserScrollDeltaThreshold = 0.05;
     private const double LayoutShiftDeltaTolerance = 0.2;
 
-    private Border? _presenceDot;
     private ScrollViewer? _scrollViewer;
     private Panel? _transcriptPanel;
     private ItemsControl? _transcriptItemsControl;
@@ -94,13 +91,10 @@ public class StrataChatShell : TemplatedControl
     private int _programmaticScrollReleaseVersion;
     private bool _forceFullAlignment = true;
     private int _lastAlignedMessageCount;
-    private bool _isPulseRunning;
     private readonly DispatcherTimer _scrollingStateTimer;
     private DateTime _lastScrollActivityUtc;
     private bool _isTranscriptScrolling;
     private Button? _scrollToBottomButton;
-    private Border? _newContentDot;
-    private bool _isNewContentPulseRunning;
     private bool _hasNewContent;
 
 
@@ -198,10 +192,8 @@ public class StrataChatShell : TemplatedControl
 
         DetachTemplatePartHandlers();
 
-        _presenceDot = e.NameScope.Find<Border>("PART_PresenceDot");
         _scrollViewer = e.NameScope.Find<ScrollViewer>("PART_TranscriptScroll");
         _scrollToBottomButton = e.NameScope.Find<Button>("PART_ScrollToBottomButton");
-        _newContentDot = e.NameScope.Find<Border>("PART_NewContentDot");
 
         AttachTemplatePartHandlers();
 
@@ -219,9 +211,6 @@ public class StrataChatShell : TemplatedControl
         PseudoClasses.Set(":scrolled-away", !IsFollowingTail);
         UpdateScrollToBottomButtonVisibility();
 
-        _isPulseRunning = false;
-        _isNewContentPulseRunning = false;
-        UpdatePresencePulse();
         UpdateHasNewContent();
         ScheduleApplyTranscriptAlignment(forceFull: true);
         NotifyTranscriptLayoutChanged();
@@ -234,12 +223,8 @@ public class StrataChatShell : TemplatedControl
         _scrollingStateTimer.Tick += OnScrollingStateTimerTick;
         AttachTemplatePartHandlers();
         ConfigureAlignmentSubscription();
-        // Compositor visual may have been recreated on re-attach.
-        _isPulseRunning = false;
-        _isNewContentPulseRunning = false;
         Dispatcher.UIThread.Post(() =>
         {
-            UpdatePresencePulse();
             UpdateScrollToBottomButtonVisibility();
             UpdateHasNewContent();
             ApplyTranscriptAlignment(forceFull: true);
@@ -254,8 +239,6 @@ public class StrataChatShell : TemplatedControl
         _scrollingStateTimer.Stop();
         SetTranscriptScrollingState(false);
         UnsubscribeTranscriptPanel();
-        StopPresencePulse();
-        StopNewContentPulse();
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -309,21 +292,11 @@ public class StrataChatShell : TemplatedControl
         var online = IsOnline;
         PseudoClasses.Set(":online", online);
         PseudoClasses.Set(":offline", !online);
-        UpdatePresencePulse();
     }
 
     private void OnPresenceTextChanged()
     {
         PseudoClasses.Set(":has-presence", !string.IsNullOrWhiteSpace(PresenceText));
-        UpdatePresencePulse();
-    }
-
-    private void UpdatePresencePulse()
-    {
-        if (IsOnline && !string.IsNullOrWhiteSpace(PresenceText))
-            StartPresencePulse();
-        else
-            StopPresencePulse();
     }
 
     private void ConfigureAlignmentSubscription()
@@ -544,45 +517,6 @@ public class StrataChatShell : TemplatedControl
             for (var i = 0; i < itemsControl.Items.Count; i++)
                 ApplyAlignmentRecursive(itemsControl.ContainerFromIndex(i) ?? itemsControl.Items[i]);
         }
-    }
-
-    private void StartPresencePulse()
-    {
-        if (_presenceDot is null || _isPulseRunning)
-            return;
-
-        var visual = ElementComposition.GetElementVisual(_presenceDot);
-        if (visual is null)
-            return;
-
-        _isPulseRunning = true;
-        var anim = visual.Compositor.CreateScalarKeyFrameAnimation();
-        anim.Target = "Opacity";
-        anim.InsertKeyFrame(0f, 1f);
-        anim.InsertKeyFrame(0.5f, 0.45f);
-        anim.InsertKeyFrame(1f, 1f);
-        anim.Duration = TimeSpan.FromMilliseconds(1500);
-        anim.IterationBehavior = AnimationIterationBehavior.Forever;
-        visual.StartAnimation("Opacity", anim);
-    }
-
-    private void StopPresencePulse()
-    {
-        if (_presenceDot is null || !_isPulseRunning)
-            return;
-
-        _isPulseRunning = false;
-        var visual = ElementComposition.GetElementVisual(_presenceDot);
-        if (visual is null)
-            return;
-
-        var reset = visual.Compositor.CreateScalarKeyFrameAnimation();
-        reset.Target = "Opacity";
-        reset.InsertKeyFrame(0f, 1f);
-        reset.Duration = TimeSpan.FromMilliseconds(1);
-        reset.IterationBehavior = AnimationIterationBehavior.Count;
-        reset.IterationCount = 1;
-        visual.StartAnimation("Opacity", reset);
     }
 
     /// <summary>
@@ -1134,15 +1068,9 @@ public class StrataChatShell : TemplatedControl
         var hasNew = !IsFollowingTail && (_scrollPolicy.HasUnseenContent || IsStreaming);
 
         PseudoClasses.Set(":has-new-content", hasNew);
+        PseudoClasses.Set(":pulse-new-content", hasNew && IsStreaming);
 
         HasNewContent = hasNew;
-
-        var shouldPulse = hasNew && IsStreaming;
-
-        if (shouldPulse && !_isNewContentPulseRunning)
-            StartNewContentPulse();
-        else if (!shouldPulse && _isNewContentPulseRunning)
-            StopNewContentPulse();
     }
 
     private void OnScrollToBottomButtonClick(object? sender, RoutedEventArgs e)
@@ -1156,42 +1084,4 @@ public class StrataChatShell : TemplatedControl
         JumpToLatest();
     }
 
-    private void StartNewContentPulse()
-    {
-        if (_newContentDot is null || _isNewContentPulseRunning)
-            return;
-
-        var visual = ElementComposition.GetElementVisual(_newContentDot);
-        if (visual is null)
-            return;
-
-        _isNewContentPulseRunning = true;
-        var anim = visual.Compositor.CreateScalarKeyFrameAnimation();
-        anim.Target = "Opacity";
-        anim.InsertKeyFrame(0f, 1f);
-        anim.InsertKeyFrame(0.5f, 0.4f);
-        anim.InsertKeyFrame(1f, 1f);
-        anim.Duration = TimeSpan.FromMilliseconds(1800);
-        anim.IterationBehavior = AnimationIterationBehavior.Forever;
-        visual.StartAnimation("Opacity", anim);
-    }
-
-    private void StopNewContentPulse()
-    {
-        if (_newContentDot is null || !_isNewContentPulseRunning)
-            return;
-
-        _isNewContentPulseRunning = false;
-        var visual = ElementComposition.GetElementVisual(_newContentDot);
-        if (visual is null)
-            return;
-
-        var reset = visual.Compositor.CreateScalarKeyFrameAnimation();
-        reset.Target = "Opacity";
-        reset.InsertKeyFrame(0f, 1f);
-        reset.Duration = TimeSpan.FromMilliseconds(1);
-        reset.IterationBehavior = AnimationIterationBehavior.Count;
-        reset.IterationCount = 1;
-        visual.StartAnimation("Opacity", reset);
-    }
 }

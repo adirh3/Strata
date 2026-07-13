@@ -1,11 +1,8 @@
-using System;
-using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Rendering.Composition;
-using Avalonia.Rendering.Composition.Animations;
+using StrataTheme.Animation;
 
 namespace StrataTheme.Controls;
 
@@ -24,11 +21,9 @@ namespace StrataTheme.Controls;
 public class StrataOrb : TemplatedControl
 {
     private Border? _orb;
-    private CompositionVisual? _orbVisual;
-    private bool _breatheActive;
 
     /// <summary>Test-only probe: true while the Active-state breathe animation is running.</summary>
-    internal bool IsBreatheActiveForTest => _breatheActive;
+    internal bool IsBreatheActiveForTest => _orb is not null && LifecycleOpacityPulse.IsRunning(_orb);
 
     /// <summary>Current visual state of the orb.</summary>
     public static readonly StyledProperty<OrbState> StateProperty =
@@ -75,16 +70,7 @@ public class StrataOrb : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        Avalonia.Threading.Dispatcher.UIThread.Post(ApplyAnimation, Avalonia.Threading.DispatcherPriority.Loaded);
         UpdateInteractiveClass();
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        // Stop the Forever breathe animation while the visual is still attached, so a detach
-        // (e.g. onboarding teardown) can never orphan it ticking on the render thread.
-        StopBreathe();
-        base.OnDetachedFromVisualTree(e);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -117,9 +103,6 @@ public class StrataOrb : TemplatedControl
         PseudoClasses.Set(":success", State == OrbState.Success);
         PseudoClasses.Set(":warning", State == OrbState.Warning);
         PseudoClasses.Set(":error", State == OrbState.Error);
-
-        if (_orb is not null)
-            ApplyAnimation();
     }
 
     private void UpdateInteractiveClass()
@@ -139,42 +122,6 @@ public class StrataOrb : TemplatedControl
         };
     }
 
-    private void ApplyAnimation()
-    {
-        if (_orb is null) return;
-        _orbVisual = ElementComposition.GetElementVisual(_orb);
-        if (_orbVisual is null) return;
-
-        var comp = _orbVisual.Compositor;
-
-        if (State == OrbState.Active)
-        {
-            // Subtle opacity breathe for active state only
-            var anim = comp.CreateScalarKeyFrameAnimation();
-            anim.Target = "Opacity";
-            anim.InsertKeyFrame(0f, 1f);
-            anim.InsertKeyFrame(0.5f, 0.5f);
-            anim.InsertKeyFrame(1f, 1f);
-            anim.Duration = TimeSpan.FromMilliseconds(1800);
-            anim.IterationBehavior = AnimationIterationBehavior.Forever;
-            _orbVisual.StartAnimation("Opacity", anim);
-            _breatheActive = true;
-        }
-        else
-        {
-            // Static — reset opacity to full
-            StopBreathe();
-        }
-    }
-
-    private void StopBreathe()
-    {
-        _breatheActive = false;
-        if (_orbVisual is null)
-            return;
-        _orbVisual.StopAnimation("Opacity");
-        _orbVisual.Opacity = 1f;
-    }
 }
 
 public enum OrbState

@@ -123,6 +123,11 @@
         <!-- Active state: accent dot -->
         <Style Selector="^:active /template/ Border#PART_Dot">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.3" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.4" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="CompositorDefault" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
 
         <Style Selector="^:has-meta /template/ TextBlock#PART_MetaText">

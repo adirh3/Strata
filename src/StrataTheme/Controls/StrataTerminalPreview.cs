@@ -3,8 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Rendering.Composition;
-using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
@@ -23,7 +21,6 @@ namespace StrataTheme.Controls;
 public class StrataTerminalPreview : TemplatedControl
 {
     private Border? _header;
-    private Border? _stateDot;
     private Border? _root;
     private TextBlock? _outputText;
     private ScrollViewer? _outputScroll;
@@ -181,7 +178,6 @@ public class StrataTerminalPreview : TemplatedControl
         base.OnApplyTemplate(e);
 
         _header = e.NameScope.Find<Border>("PART_Header");
-        _stateDot = e.NameScope.Find<Border>("PART_StateDot");
         _root = e.NameScope.Find<Border>("PART_Root");
         _outputText = e.NameScope.Find<TextBlock>("PART_OutputText");
         _outputScroll = e.NameScope.Find<ScrollViewer>("PART_OutputScroll");
@@ -194,7 +190,7 @@ public class StrataTerminalPreview : TemplatedControl
         Dispatcher.UIThread.Post(() =>
         {
             if (Status == StrataAiToolCallStatus.InProgress || IsRunningInBackground)
-                StartRunningPulse();
+                StartRunningActivity();
         }, DispatcherPriority.Loaded);
     }
 
@@ -214,13 +210,13 @@ public class StrataTerminalPreview : TemplatedControl
         // Resume the live affordance when a recycled/virtualized container comes back while still
         // running (OnApplyTemplate's deferred start does not re-fire on an already-templated container).
         if (Status == StrataAiToolCallStatus.InProgress || IsRunningInBackground)
-            StartRunningPulse();
+            StartRunningActivity();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _isAttached = false;
-        StopRunningPulse();
+        StopRunningActivity();
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -249,9 +245,9 @@ public class StrataTerminalPreview : TemplatedControl
             _outputText.Text = Output;
 
         if (running)
-            StartRunningPulse();
+            StartRunningActivity();
         else
-            StopRunningPulse();
+            StopRunningActivity();
 
         // Auto-scroll output to bottom when new content arrives
         if (_outputScroll is not null && !string.IsNullOrEmpty(Output))
@@ -263,7 +259,7 @@ public class StrataTerminalPreview : TemplatedControl
         }
     }
 
-    private void StartRunningPulse()
+    private void StartRunningActivity()
     {
         // Never arm the elapsed-clock timer on a control that is not in the visual tree. A running
         // DispatcherTimer is a GC root (its tick closure captures this control), so a detached control
@@ -275,31 +271,11 @@ public class StrataTerminalPreview : TemplatedControl
 
         _elapsedClock.Start();
         OnElapsedTick();
-
-        if (_stateDot is null) return;
-        var visual = ElementComposition.GetElementVisual(_stateDot);
-        if (visual is null) return;
-
-        var anim = visual.Compositor.CreateScalarKeyFrameAnimation();
-        anim.Target = "Opacity";
-        anim.InsertKeyFrame(0f, 1f);
-        anim.InsertKeyFrame(0.5f, 0.35f);
-        anim.InsertKeyFrame(1f, 1f);
-        anim.Duration = TimeSpan.FromMilliseconds(920);
-        anim.IterationBehavior = AnimationIterationBehavior.Forever;
-        visual.StartAnimation("Opacity", anim);
     }
 
-    private void StopRunningPulse()
+    private void StopRunningActivity()
     {
         _elapsedClock.Stop();
         ElapsedText = "";
-
-        if (_stateDot is null) return;
-        var visual = ElementComposition.GetElementVisual(_stateDot);
-        if (visual is null) return;
-
-        visual.StopAnimation("Opacity");
-        visual.Opacity = 1f;
     }
 }

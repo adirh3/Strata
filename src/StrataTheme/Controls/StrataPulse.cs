@@ -6,9 +6,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Media;
-using Avalonia.Rendering.Composition;
-using Avalonia.Rendering.Composition.Animations;
-using Avalonia.Threading;
 
 namespace StrataTheme.Controls;
 
@@ -30,7 +27,6 @@ public class StrataPulse : TemplatedControl
 {
     private StackPanel? _barHost;
     private TextBlock? _rateText;
-    private Border? _statusDot;
     private readonly double[] _values = new double[16];
     private int _cursor;
 
@@ -71,7 +67,6 @@ public class StrataPulse : TemplatedControl
         base.OnApplyTemplate(e);
         _barHost = e.NameScope.Find<StackPanel>("PART_BarHost");
         _rateText = e.NameScope.Find<TextBlock>("PART_RateText");
-        _statusDot = e.NameScope.Find<Border>("PART_StatusDot");
 
         // Seed with some initial values
         var rng = new Random(42);
@@ -81,33 +76,11 @@ public class StrataPulse : TemplatedControl
 
         BuildBars();
         UpdatePseudoClasses();
-
-        if (IsLive)
-            Dispatcher.UIThread.Post(StartLivePulse, DispatcherPriority.Loaded);
-    }
-
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnAttachedToVisualTree(e);
-        if (IsLive)
-            Dispatcher.UIThread.Post(StartLivePulse, DispatcherPriority.Loaded);
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        // Stop the Forever pulse while the status dot is still attached so a detach can't
-        // orphan it on the render thread.
-        StopLivePulse();
-        base.OnDetachedFromVisualTree(e);
     }
 
     private void OnIsLiveChanged()
     {
         UpdatePseudoClasses();
-        if (IsLive)
-            StartLivePulse();
-        else
-            StopLivePulse();
     }
 
     private void BuildBars()
@@ -170,29 +143,4 @@ public class StrataPulse : TemplatedControl
         PseudoClasses.Set(":paused", !IsLive);
     }
 
-    private void StartLivePulse()
-    {
-        if (_statusDot is null) return;
-        var visual = ElementComposition.GetElementVisual(_statusDot);
-        if (visual is null) return;
-
-        var comp = visual.Compositor;
-        var anim = comp.CreateScalarKeyFrameAnimation();
-        anim.Target = "Opacity";
-        anim.InsertKeyFrame(0f, 1f);
-        anim.InsertKeyFrame(0.5f, 0.35f);
-        anim.InsertKeyFrame(1f, 1f);
-        anim.Duration = TimeSpan.FromMilliseconds(1600);
-        anim.IterationBehavior = AnimationIterationBehavior.Forever;
-        visual.StartAnimation("Opacity", anim);
-    }
-
-    private void StopLivePulse()
-    {
-        if (_statusDot is null) return;
-        var visual = ElementComposition.GetElementVisual(_statusDot);
-        if (visual is null) return;
-        visual.StopAnimation("Opacity");
-        visual.Opacity = 1f;
-    }
 }

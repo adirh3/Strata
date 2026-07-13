@@ -635,57 +635,29 @@
   </Style>
 
   <Style Selector="Border.suggestion-loading-pill.phase-a">
-    <Style.Animations>
-      <Animation Duration="0:0:0.95" IterationCount="INFINITE">
-        <KeyFrame Cue="0%">
-          <Setter Property="Opacity" Value="0.28" />
-        </KeyFrame>
-        <KeyFrame Cue="38%">
-          <Setter Property="Opacity" Value="0.62" />
-        </KeyFrame>
-        <KeyFrame Cue="100%">
-          <Setter Property="Opacity" Value="0.28" />
-        </KeyFrame>
-      </Animation>
-    </Style.Animations>
+    <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.28" />
+    <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.62" />
+    <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:0.95" />
+    <Setter Property="sa:LifecycleOpacityPulse.PeakAt" Value="0.38" />
+    <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
   </Style>
 
   <Style Selector="Border.suggestion-loading-pill.phase-b">
-    <Style.Animations>
-      <Animation Duration="0:0:0.95" IterationCount="INFINITE">
-        <KeyFrame Cue="0%">
-          <Setter Property="Opacity" Value="0.28" />
-        </KeyFrame>
-        <KeyFrame Cue="18%">
-          <Setter Property="Opacity" Value="0.28" />
-        </KeyFrame>
-        <KeyFrame Cue="56%">
-          <Setter Property="Opacity" Value="0.62" />
-        </KeyFrame>
-        <KeyFrame Cue="100%">
-          <Setter Property="Opacity" Value="0.28" />
-        </KeyFrame>
-      </Animation>
-    </Style.Animations>
+    <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.28" />
+    <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.62" />
+    <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:0.95" />
+    <Setter Property="sa:LifecycleOpacityPulse.HoldUntil" Value="0.18" />
+    <Setter Property="sa:LifecycleOpacityPulse.PeakAt" Value="0.56" />
+    <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
   </Style>
 
   <Style Selector="Border.suggestion-loading-pill.phase-c">
-    <Style.Animations>
-      <Animation Duration="0:0:0.95" IterationCount="INFINITE">
-        <KeyFrame Cue="0%">
-          <Setter Property="Opacity" Value="0.28" />
-        </KeyFrame>
-        <KeyFrame Cue="36%">
-          <Setter Property="Opacity" Value="0.28" />
-        </KeyFrame>
-        <KeyFrame Cue="74%">
-          <Setter Property="Opacity" Value="0.62" />
-        </KeyFrame>
-        <KeyFrame Cue="100%">
-          <Setter Property="Opacity" Value="0.28" />
-        </KeyFrame>
-      </Animation>
-    </Style.Animations>
+    <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.28" />
+    <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.62" />
+    <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:0.95" />
+    <Setter Property="sa:LifecycleOpacityPulse.HoldUntil" Value="0.36" />
+    <Setter Property="sa:LifecycleOpacityPulse.PeakAt" Value="0.74" />
+    <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
   </Style>
 
   <!-- Programmatic skill chip styles -->

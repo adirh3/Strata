@@ -60,6 +60,11 @@
 
         <Style Selector="^:live /template/ Border#PART_StatusDot">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.35" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.6" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="CompositorDefault" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
 
         <Style Selector="^:paused /template/ Border#PART_StatusDot">

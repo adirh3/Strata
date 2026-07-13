@@ -232,6 +232,13 @@
         <Style Selector="^:online /template/ Border#PART_PresenceDot">
           <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
         </Style>
+        <Style Selector="^:online:has-presence /template/ Border#PART_PresenceDot">
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.45" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.5" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="CompositorDefault" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
+        </Style>
         <Style Selector="^:offline /template/ Border#PART_PresenceDot">
           <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
         </Style>
@@ -265,6 +272,13 @@
 
         <Style Selector="^:has-new-content /template/ Border#PART_NewContentDot">
           <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:pulse-new-content /template/ Border#PART_NewContentDot">
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.4" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.8" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="CompositorDefault" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
       </ControlTheme>
     </ResourceDictionary>

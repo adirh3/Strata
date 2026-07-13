@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sa="using:StrataTheme.Animation">
   <Styles.Resources>
     <ResourceDictionary>
 
@@ -40,29 +41,14 @@
         </Setter>
 
         <!--
-          Perpetual "breathing" pulse is gated behind :indeterminate ONLY.
-          An unconditional IterationCount="Infinite" animation here previously ran on
-          EVERY ProgressBar (including the determinate PART_Progress inside every
-          StrataThink of every chat message). Avalonia never tears down infinite
-          Style.Animations on detach, so each running animation pinned the control's
-          composition subtree to the app-lifetime Compositor — keeping thousands of
-          detached StrataChatMessage subtrees alive (the "Lumi gets huge" memory leak).
-          Determinate bars show real progress and don't need a perpetual animation.
+          The lifecycle-managed pulse is gated behind :indeterminate only. Determinate
+          bars show real progress and do not need a perpetual compositor animation.
         -->
         <Style Selector="^:indeterminate /template/ Border#PART_Indicator">
-          <Style.Animations>
-            <Animation Duration="0:0:1.6" IterationCount="Infinite">
-              <KeyFrame Cue="0%">
-                <Setter Property="Opacity" Value="0.9" />
-              </KeyFrame>
-              <KeyFrame Cue="50%">
-                <Setter Property="Opacity" Value="1" />
-              </KeyFrame>
-              <KeyFrame Cue="100%">
-                <Setter Property="Opacity" Value="0.9" />
-              </KeyFrame>
-            </Animation>
-          </Style.Animations>
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.9" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.6" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
 
         <Style Selector="^:pointerover /template/ Border#PART_Indicator">

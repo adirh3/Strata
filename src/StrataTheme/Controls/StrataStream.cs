@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
+using StrataTheme.Animation;
 
 namespace StrataTheme.Controls;
 
@@ -29,7 +30,20 @@ public class StrataStream : TemplatedControl
 {
     private Border? _streamTrack;
     private Border? _streamBar;
+    private CompositionVisual? _streamAnimationVisual;
+    private readonly EffectiveVisibilityObserver _visibilityObserver;
     private Border? _statusArea;
+    private bool _isAttached;
+    private bool _isStreamAnimationRunning;
+    private int _streamAnimationStopCount;
+
+    internal bool IsStreamAnimationRunningForTest => _isStreamAnimationRunning;
+    internal int StreamAnimationStopCountForTest => _streamAnimationStopCount;
+
+    public StrataStream()
+    {
+        _visibilityObserver = new EffectiveVisibilityObserver(this, OnEffectiveVisibilityChanged);
+    }
 
     public static readonly StyledProperty<object?> HeaderProperty =
         AvaloniaProperty.Register<StrataStream, object?>(nameof(Header));
@@ -92,6 +106,8 @@ public class StrataStream : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        HideStreamBar();
+
         if (_streamTrack is not null)
             _streamTrack.SizeChanged -= OnStreamTrackSizeChanged;
         if (_statusArea is not null)
@@ -119,14 +135,16 @@ public class StrataStream : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _isAttached = true;
+        _visibilityObserver.Subscribe();
         if (IsStreaming)
             Dispatcher.UIThread.Post(StartStreamAnimation, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        // Stop the Forever stream animations while the bar is still attached so a detach
-        // can't orphan them on the render thread.
+        _isAttached = false;
+        _visibilityObserver.Unsubscribe();
         HideStreamBar();
         base.OnDetachedFromVisualTree(e);
     }
@@ -135,6 +153,14 @@ public class StrataStream : TemplatedControl
     {
         if (IsStreaming)
             StartStreamAnimation();
+    }
+
+    private void OnEffectiveVisibilityChanged()
+    {
+        if (IsEffectivelyVisible)
+            StartStreamAnimation();
+        else
+            HideStreamBar();
     }
 
     private void OnStatusAreaPointerPressed(object? sender, PointerPressedEventArgs pointerEvent)
@@ -178,27 +204,39 @@ public class StrataStream : TemplatedControl
 
     private void HideStreamBar()
     {
-        if (_streamBar is null)
-            return;
+        _isStreamAnimationRunning = false;
+        if (_streamBar is not null)
+            _streamBar.Opacity = 0;
 
-        var visual = ElementComposition.GetElementVisual(_streamBar);
-        if (visual is null)
-            return;
+        var visual = _streamAnimationVisual;
+        _streamAnimationVisual = null;
+        StopAndResetStreamVisual(visual, countStop: true);
 
-        // Stop the running Forever animations — setting Opacity alone leaves them ticking.
-        visual.StopAnimation("Offset");
-        visual.StopAnimation("Opacity");
-        visual.Opacity = 0;
+        var currentVisual = _streamBar is null
+            ? null
+            : ElementComposition.GetElementVisual(_streamBar);
+        if (!ReferenceEquals(currentVisual, visual))
+            StopAndResetStreamVisual(currentVisual, countStop: false);
     }
 
     private void StartStreamAnimation()
     {
-        if (_streamBar is null || _streamTrack is null)
+        if (!_isAttached ||
+            !IsStreaming ||
+            !IsEffectivelyVisible ||
+            _streamBar is null ||
+            _streamTrack is null)
             return;
 
         var visual = ElementComposition.GetElementVisual(_streamBar);
         if (visual is null)
             return;
+
+        if (_streamAnimationVisual is not null &&
+            !ReferenceEquals(_streamAnimationVisual, visual))
+        {
+            HideStreamBar();
+        }
 
         var trackWidth = _streamTrack.Bounds.Width;
         if (trackWidth < 10)
@@ -227,5 +265,21 @@ public class StrataStream : TemplatedControl
 
         visual.StartAnimation("Offset", offset);
         visual.StartAnimation("Opacity", opacity);
+        _streamAnimationVisual = visual;
+        _isStreamAnimationRunning = true;
+    }
+
+    private void StopAndResetStreamVisual(CompositionVisual? visual, bool countStop)
+    {
+        if (visual is null)
+            return;
+
+        // Stop the running Forever animations — setting Opacity alone leaves them ticking.
+        visual.StopAnimation("Offset");
+        visual.StopAnimation("Opacity");
+        visual.Offset = Vector3.Zero;
+        visual.Opacity = 0;
+        if (countStop)
+            _streamAnimationStopCount++;
     }
 }

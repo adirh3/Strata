@@ -6,8 +6,6 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Rendering.Composition;
-using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
 
 namespace StrataTheme.Controls;
@@ -34,7 +32,6 @@ public class StrataThink : TemplatedControl
 {
     private static readonly TimeSpan ExpandedRevealDelay = TimeSpan.FromMilliseconds(340);
 
-    private Border? _dot;
     private Border? _pill;
     private Border? _header;
     private Border? _contentHost;
@@ -42,7 +39,6 @@ public class StrataThink : TemplatedControl
     private Transitions? _savedPillTransitions;
     private CancellationTokenSource? _expandedRevealCts;
     private bool _initialWidthTransitionSuppressed;
-    private bool _pulseRunning;
     private bool _isUserInteractionExpand;
     private object? _displayedContent;
 
@@ -119,7 +115,6 @@ public class StrataThink : TemplatedControl
         if (_pill is not null)
             _pill.PointerPressed -= OnPillPointerPressed;
 
-        _dot = e.NameScope.Find<Border>("PART_Dot");
         _pill = e.NameScope.Find<Border>("PART_Pill");
         _header = e.NameScope.Find<Border>("PART_Header");
         _contentHost = e.NameScope.Find<Border>("PART_ContentHost");
@@ -159,9 +154,6 @@ public class StrataThink : TemplatedControl
             parent.SizeChanged += OnParentSizeChanged;
 
         LayoutUpdated += OnLayoutUpdated;
-
-        if (IsActive)
-            Dispatcher.UIThread.Post(() => { if (IsActive) StartPulse(); }, DispatcherPriority.Loaded);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -179,8 +171,6 @@ public class StrataThink : TemplatedControl
         LayoutUpdated -= OnLayoutUpdated;
 
         CancelExpandedReveal();
-        StopPulse();
-        _pulseRunning = false;
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -224,17 +214,6 @@ public class StrataThink : TemplatedControl
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Meta));
         PseudoClasses.Set(":has-progress", ProgressValue >= 0);
         PseudoClasses.Set(":complete", ProgressValue >= 99.999);
-
-        if (IsActive && !_pulseRunning)
-        {
-            _pulseRunning = true;
-            StartPulse();
-        }
-        else if (!IsActive && _pulseRunning)
-        {
-            _pulseRunning = false;
-            StopPulse();
-        }
     }
 
     private void UpdateDisplayedContent()
@@ -425,40 +404,6 @@ public class StrataThink : TemplatedControl
 
         expandedRevealCts.Cancel();
         expandedRevealCts.Dispose();
-    }
-
-    private void StartPulse()
-    {
-        if (_dot is null) return;
-        var visual = ElementComposition.GetElementVisual(_dot);
-        if (visual is null) return;
-
-        var comp = visual.Compositor;
-        var anim = comp.CreateScalarKeyFrameAnimation();
-        anim.Target = "Opacity";
-        anim.InsertKeyFrame(0f, 1f);
-        anim.InsertKeyFrame(0.5f, 0.3f);
-        anim.InsertKeyFrame(1f, 1f);
-        anim.Duration = TimeSpan.FromMilliseconds(1400);
-        anim.IterationBehavior = AnimationIterationBehavior.Forever;
-        visual.StartAnimation("Opacity", anim);
-    }
-
-    private void StopPulse()
-    {
-        if (_dot is null) return;
-        var visual = ElementComposition.GetElementVisual(_dot);
-        if (visual is null) return;
-
-        var comp = visual.Compositor;
-        var reset = comp.CreateScalarKeyFrameAnimation();
-        reset.Target = "Opacity";
-        reset.InsertKeyFrame(0f, 1f);
-        reset.InsertKeyFrame(1f, 1f);
-        reset.Duration = TimeSpan.FromMilliseconds(1);
-        reset.IterationBehavior = AnimationIterationBehavior.Count;
-        reset.IterationCount = 1;
-        visual.StartAnimation("Opacity", reset);
     }
 
     private void SuppressInitialWidthTransition()

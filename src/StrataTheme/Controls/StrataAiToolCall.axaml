@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:StrataTheme.Controls">
+        xmlns:controls="using:StrataTheme.Controls"
+        xmlns:sa="using:StrataTheme.Animation">
 
   <Styles.Resources>
     <ResourceDictionary>
@@ -161,6 +162,11 @@
 
         <Style Selector="^:inprogress /template/ Border#PART_StateDot">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.35" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:0.92" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="CompositorDefault" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
 
         <Style Selector="^:inprogress /template/ Border#PART_StatusPill">
@@ -173,19 +179,10 @@
 
         <Style Selector="^:inprogress /template/ Border#PART_Stratum">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
-          <Style.Animations>
-            <Animation Duration="0:0:1.1" IterationCount="Infinite">
-              <KeyFrame Cue="0%">
-                <Setter Property="Opacity" Value="0.55" />
-              </KeyFrame>
-              <KeyFrame Cue="50%">
-                <Setter Property="Opacity" Value="1" />
-              </KeyFrame>
-              <KeyFrame Cue="100%">
-                <Setter Property="Opacity" Value="0.55" />
-              </KeyFrame>
-            </Animation>
-          </Style.Animations>
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.55" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.1" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
 
         <Style Selector="^:completed /template/ Border#PART_StateDot">

@@ -4,9 +4,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Rendering.Composition;
-using Avalonia.Rendering.Composition.Animations;
-using Avalonia.Threading;
 using System;
 using System.IO;
 using System.Windows.Input;
@@ -44,7 +41,6 @@ public enum StrataAttachmentStatus
 /// </remarks>
 public class StrataFileAttachment : TemplatedControl
 {
-    private Border? _statusDot;
     private Border? _root;
     private Button? _removeBtn;
 
@@ -177,8 +173,6 @@ public class StrataFileAttachment : TemplatedControl
 
         base.OnApplyTemplate(e);
 
-        _statusDot = e.NameScope.Find<Border>("PART_StatusDot");
-
         _root = e.NameScope.Find<Border>("PART_Root");
         if (_root is not null)
             _root.PointerPressed += OnRootPointerPressed;
@@ -189,12 +183,6 @@ public class StrataFileAttachment : TemplatedControl
 
         UpdateState();
         UpdateIconForExtension();
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (Status == StrataAttachmentStatus.Uploading)
-                StartUploadPulse();
-        }, DispatcherPriority.Loaded);
     }
 
     private void OnRootPointerPressed(object? sender, PointerPressedEventArgs pe)
@@ -211,12 +199,6 @@ public class StrataFileAttachment : TemplatedControl
         RaiseEvent(new RoutedEventArgs(RemoveRequestedEvent));
         if (RemoveCommand is { } cmd && cmd.CanExecute(null))
             cmd.Execute(null);
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        StopUploadPulse();
-        base.OnDetachedFromVisualTree(e);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -249,11 +231,6 @@ public class StrataFileAttachment : TemplatedControl
         PseudoClasses.Set(":removable", IsRemovable);
         PseudoClasses.Set(":compact", IsCompact);
         PseudoClasses.Set(":has-icon-image", IconImage is not null);
-
-        if (Status == StrataAttachmentStatus.Uploading)
-            StartUploadPulse();
-        else
-            StopUploadPulse();
     }
 
     private void UpdateIconForExtension()
@@ -278,29 +255,4 @@ public class StrataFileAttachment : TemplatedControl
         SetValue(IconGlyphProperty, glyph);
     }
 
-    private void StartUploadPulse()
-    {
-        if (_statusDot is null) return;
-        var visual = ElementComposition.GetElementVisual(_statusDot);
-        if (visual is null) return;
-
-        var anim = visual.Compositor.CreateScalarKeyFrameAnimation();
-        anim.Target = "Opacity";
-        anim.InsertKeyFrame(0f, 1f);
-        anim.InsertKeyFrame(0.5f, 0.35f);
-        anim.InsertKeyFrame(1f, 1f);
-        anim.Duration = TimeSpan.FromMilliseconds(900);
-        anim.IterationBehavior = AnimationIterationBehavior.Forever;
-        visual.StartAnimation("Opacity", anim);
-    }
-
-    private void StopUploadPulse()
-    {
-        if (_statusDot is null) return;
-        var visual = ElementComposition.GetElementVisual(_statusDot);
-        if (visual is null) return;
-
-        visual.StopAnimation("Opacity");
-        visual.Opacity = 1f;
-    }
 }

@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
+using StrataTheme.Animation;
 
 namespace StrataTheme.Controls;
 
@@ -43,12 +44,25 @@ public class StrataCanvas : TemplatedControl
     private Border? _root;
     private Border? _activityTrack;
     private Border? _activityBar;
+    private CompositionVisual? _activityAnimationVisual;
+    private readonly EffectiveVisibilityObserver _visibilityObserver;
     private Button? _closeButton;
     private Button? _prevButton;
     private Button? _nextButton;
 
     private bool _isTemplateApplied;
+    private bool _isAttached;
+    private bool _isGeneratingAnimationRunning;
+    private int _generatingAnimationStopCount;
     private int _animationVersion;
+
+    internal bool IsGeneratingAnimationRunningForTest => _isGeneratingAnimationRunning;
+    internal int GeneratingAnimationStopCountForTest => _generatingAnimationStopCount;
+
+    public StrataCanvas()
+    {
+        _visibilityObserver = new EffectiveVisibilityObserver(this, OnEffectiveVisibilityChanged);
+    }
 
     /// <summary>Title displayed in the canvas title bar.</summary>
     public static readonly StyledProperty<string> TitleProperty =
@@ -139,6 +153,10 @@ public class StrataCanvas : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        StopGeneratingAnimation();
+        if (_activityTrack is not null)
+            _activityTrack.SizeChanged -= OnActivityTrackSizeChanged;
+
         base.OnApplyTemplate(e);
         _isTemplateApplied = true;
         _root = e.NameScope.Find<Border>("PART_Root");
@@ -179,11 +197,7 @@ public class StrataCanvas : TemplatedControl
             };
 
         if (_activityTrack is not null)
-            _activityTrack.SizeChanged += (_, _) =>
-            {
-                if (IsGenerating)
-                    StartGeneratingAnimation();
-            };
+            _activityTrack.SizeChanged += OnActivityTrackSizeChanged;
 
         UpdatePseudoClasses();
         UpdateVersionButtons();
@@ -201,6 +215,8 @@ public class StrataCanvas : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _isAttached = true;
+        _visibilityObserver.Subscribe();
         Dispatcher.UIThread.Post(() =>
         {
             if (IsGenerating)
@@ -210,8 +226,8 @@ public class StrataCanvas : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        // Stop the Forever generating animation while the bar is still attached so a detach
-        // can't orphan it on the render thread.
+        _isAttached = false;
+        _visibilityObserver.Unsubscribe();
         StopGeneratingAnimation();
         base.OnDetachedFromVisualTree(e);
     }
@@ -253,9 +269,12 @@ public class StrataCanvas : TemplatedControl
             _animationVersion++;
             IsVisible = true;
             AnimateShow();
+            if (IsGenerating)
+                StartGeneratingAnimation();
         }
         else
         {
+            StopGeneratingAnimation();
             AnimateHide();
         }
     }
@@ -288,6 +307,20 @@ public class StrataCanvas : TemplatedControl
             _prevButton.IsEnabled = Version > 1;
         if (_nextButton is not null)
             _nextButton.IsEnabled = Version < VersionCount;
+    }
+
+    private void OnActivityTrackSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (IsGenerating)
+            StartGeneratingAnimation();
+    }
+
+    private void OnEffectiveVisibilityChanged()
+    {
+        if (IsEffectivelyVisible)
+            StartGeneratingAnimation();
+        else
+            StopGeneratingAnimation();
     }
 
     private void AnimateShow()
@@ -391,12 +424,23 @@ public class StrataCanvas : TemplatedControl
 
     private void StartGeneratingAnimation()
     {
-        if (_activityBar is null || _activityTrack is null)
+        if (!_isAttached ||
+            !IsOpen ||
+            !IsGenerating ||
+            !IsEffectivelyVisible ||
+            _activityBar is null ||
+            _activityTrack is null)
             return;
 
         var visual = ElementComposition.GetElementVisual(_activityBar);
         if (visual is null)
             return;
+
+        if (_activityAnimationVisual is not null &&
+            !ReferenceEquals(_activityAnimationVisual, visual))
+        {
+            StopGeneratingAnimation();
+        }
 
         var trackWidth = _activityTrack.Bounds.Width;
         if (trackWidth < 10)
@@ -425,29 +469,37 @@ public class StrataCanvas : TemplatedControl
 
         visual.StartAnimation("Offset", offset);
         visual.StartAnimation("Opacity", opacity);
+        _activityAnimationVisual = visual;
+        _isGeneratingAnimationRunning = true;
     }
 
     private void StopGeneratingAnimation()
     {
-        if (_activityBar is null)
-            return;
+        _isGeneratingAnimationRunning = false;
+        if (_activityBar is not null)
+            _activityBar.Opacity = 0;
 
-        var visual = ElementComposition.GetElementVisual(_activityBar);
+        var visual = _activityAnimationVisual;
+        _activityAnimationVisual = null;
+        StopAndResetActivityVisual(visual, countStop: true);
+
+        var currentVisual = _activityBar is null
+            ? null
+            : ElementComposition.GetElementVisual(_activityBar);
+        if (!ReferenceEquals(currentVisual, visual))
+            StopAndResetActivityVisual(currentVisual, countStop: false);
+    }
+
+    private void StopAndResetActivityVisual(CompositionVisual? visual, bool countStop)
+    {
         if (visual is null)
             return;
 
-        // Stop the running Forever animations — setting Opacity alone leaves the opacity pulse
-        // ticking; the offset reset below replaces (and thereby stops) the Forever offset.
+        visual.StopAnimation("Offset");
         visual.StopAnimation("Opacity");
+        visual.Offset = Vector3.Zero;
         visual.Opacity = 0;
-
-        var comp = visual.Compositor;
-        var resetOffset = comp.CreateVector3KeyFrameAnimation();
-        resetOffset.Target = "Offset";
-        resetOffset.InsertKeyFrame(0f, new Vector3(0f, 0f, 0f));
-        resetOffset.Duration = TimeSpan.FromMilliseconds(1);
-        resetOffset.IterationBehavior = AnimationIterationBehavior.Count;
-        resetOffset.IterationCount = 1;
-        visual.StartAnimation("Offset", resetOffset);
+        if (countStop)
+            _generatingAnimationStopCount++;
     }
 }

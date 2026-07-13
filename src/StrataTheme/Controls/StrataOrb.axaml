@@ -41,6 +41,11 @@
         </Style>
         <Style Selector="^:active /template/ Border#PART_Orb">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.5" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.8" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="CompositorDefault" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
         <Style Selector="^:success /template/ Border#PART_Orb">
           <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
