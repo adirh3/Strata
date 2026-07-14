@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Windows.Input;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
@@ -98,12 +99,13 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :can-attach, :can-send-without-prompt,
-/// :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
+/// :editing, :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
 /// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
 /// </remarks>
 public class StrataChatComposer : TemplatedControl
 {
     private TextBox? _input;
+    private Button? _sendButton;
     private WrapPanel? _chipsRow;
     private Popup? _autoCompletePopup;
     private StackPanel? _autoCompletePanel;
@@ -200,6 +202,20 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>When true, the send command can execute even if <see cref="PromptText"/> is empty.</summary>
     public static readonly StyledProperty<bool> CanSendWithoutPromptProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanSendWithoutPrompt));
+
+    /// <summary>When true, the composer is editing an existing turn. Editing takes precedence over
+    /// busy/steering semantics: submit executes <see cref="SendCommand"/>, and Escape executes
+    /// <see cref="CancelEditCommand"/> after any open autocomplete popup has handled Escape first.</summary>
+    public static readonly StyledProperty<bool> IsEditingProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsEditing));
+
+    /// <summary>Command executed when Escape cancels the host-owned edit state.</summary>
+    public static readonly StyledProperty<ICommand?> CancelEditCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(CancelEditCommand));
+
+    /// <summary>Accessible label for the edit submit action.</summary>
+    public static readonly StyledProperty<string> EditingSubmitLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(EditingSubmitLabel), "Update & resend");
 
     /// <summary>Text for the first quick-suggestion chip. Empty hides the chip.</summary>
     public static readonly StyledProperty<string> SuggestionAProperty =
@@ -461,6 +477,7 @@ public class StrataChatComposer : TemplatedControl
             Dispatcher.UIThread.Post(() => c.CheckAutoComplete(), DispatcherPriority.Input);
         });
         IsBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        IsEditingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SteerWhileBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SendWithEnterProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanAttachProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
@@ -580,6 +597,9 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? AvailableProjects { get => GetValue(AvailableProjectsProperty); set => SetValue(AvailableProjectsProperty, value); }
     public IEnumerable? AvailableFiles { get => GetValue(AvailableFilesProperty); set => SetValue(AvailableFilesProperty, value); }
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
+    public bool IsEditing { get => GetValue(IsEditingProperty); set => SetValue(IsEditingProperty, value); }
+    public ICommand? CancelEditCommand { get => GetValue(CancelEditCommandProperty); set => SetValue(CancelEditCommandProperty, value); }
+    public string EditingSubmitLabel { get => GetValue(EditingSubmitLabelProperty); set => SetValue(EditingSubmitLabelProperty, value); }
     public object? StatusContent { get => GetValue(StatusContentProperty); set => SetValue(StatusContentProperty, value); }
     public object? AttachmentContent { get => GetValue(AttachmentContentProperty); set => SetValue(AttachmentContentProperty, value); }
     public IEnumerable? ClipboardPasteInterceptFormats { get => GetValue(ClipboardPasteInterceptFormatsProperty); set => SetValue(ClipboardPasteInterceptFormatsProperty, value); }
@@ -666,6 +686,7 @@ public class StrataChatComposer : TemplatedControl
 
         base.OnApplyTemplate(e);
         _input = e.NameScope.Find<TextBox>("PART_Input");
+        _sendButton = e.NameScope.Find<Button>("PART_SendButton");
         if (_input is not null)
         {
             _input.AddHandler(KeyDownEvent, OnInputKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
@@ -747,6 +768,28 @@ public class StrataChatComposer : TemplatedControl
     public void FocusInput()
     {
         Dispatcher.UIThread.Post(() => _input?.Focus(), DispatcherPriority.Loaded);
+    }
+
+    /// <summary>Focuses the text input and places the caret at the end of the current prompt.</summary>
+    public void FocusInputAtEnd()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_input is null)
+                return;
+
+            // PromptText is the host's authoritative edit value. Synchronize the templated input
+            // before focusing so a pending TwoWay binding update cannot clamp the caret to index 0.
+            var text = PromptText ?? string.Empty;
+            if (!string.Equals(_input.Text, text, StringComparison.Ordinal))
+                _input.Text = text;
+
+            _input.Focus();
+            var end = text.Length;
+            _input.CaretIndex = end;
+            _input.SelectionStart = end;
+            _input.SelectionEnd = end;
+        }, DispatcherPriority.Loaded);
     }
 
     private void UpdateInputDirection(string? text)
@@ -902,15 +945,22 @@ public class StrataChatComposer : TemplatedControl
             }
         }
 
+        if (e.Key == Key.Escape && IsEditing)
+        {
+            e.Handled = true;
+            CommandHelper.Execute(CancelEditCommand, null);
+            return;
+        }
+
         if (e.Key == Key.Enter)
         {
             var isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
             var isCtrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
             var isAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
 
-            // Alt+Enter while busy = abort the running turn and send this as a fresh turn (abort + send).
-            // Plain Enter still steers the draft into the running turn.
-            if (isAlt && IsBusy && !isShift)
+            // Alt+Enter while effectively busy = abort the running turn and send this as a fresh
+            // turn. Host-owned editing takes precedence over all busy/steer keyboard semantics.
+            if (isAlt && IsBusy && !IsEditing && !isShift)
             {
                 e.Handled = true;
                 HandleStopAndSendAction();
@@ -1016,7 +1066,7 @@ public class StrataChatComposer : TemplatedControl
         var promptText = CommitInputText();
         var hasPromptText = !string.IsNullOrWhiteSpace(promptText);
 
-        if (IsBusy)
+        if (IsBusy && !IsEditing)
         {
             if (hasPromptText || CanSendWithoutPrompt)
             {
@@ -1583,9 +1633,11 @@ public class StrataChatComposer : TemplatedControl
     {
         var hasPromptText = !string.IsNullOrWhiteSpace(PromptText);
 
-        PseudoClasses.Set(":busy", IsBusy);
+        var effectiveBusy = IsBusy && !IsEditing;
+        PseudoClasses.Set(":editing", IsEditing);
+        PseudoClasses.Set(":busy", effectiveBusy);
         PseudoClasses.Set(":empty", !hasPromptText);
-        var canSendWhileBusy = IsBusy && (hasPromptText || CanSendWithoutPrompt);
+        var canSendWhileBusy = effectiveBusy && (hasPromptText || CanSendWithoutPrompt);
         PseudoClasses.Set(":steer", canSendWhileBusy && SteerWhileBusy);
         PseudoClasses.Set(":stop-send", canSendWhileBusy && !SteerWhileBusy);
         PseudoClasses.Set(":can-attach", CanAttach);
@@ -1611,6 +1663,19 @@ public class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":recording", IsRecording);
         PseudoClasses.Set(":suggestions-generating", IsSuggestionsGenerating);
         PseudoClasses.Set(":has-mcp-options", HasAnyAvailableMcps());
+
+        if (_sendButton is not null)
+        {
+            var actionLabel = IsEditing
+                ? EditingSubmitLabel
+                : effectiveBusy
+                    ? canSendWhileBusy
+                        ? SteerWhileBusy ? "Send to steer" : "Stop & send"
+                        : "Stop generation"
+                    : "Send";
+            AutomationProperties.SetName(_sendButton, actionLabel);
+            ToolTip.SetTip(_sendButton, actionLabel);
+        }
     }
 
     private bool HasAnySuggestions() =>
