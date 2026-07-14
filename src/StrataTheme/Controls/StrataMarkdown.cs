@@ -3341,6 +3341,17 @@ public class StrataMarkdown : ContentControl
                 UpdateResponsiveLayout(e.NewSize.Width);
         }
 
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            // Chat content is measured broadly before its bubble arranges it more narrowly.
+            // Preserve the allocated width in scroll mode so the fixed columns cannot expand
+            // the table past the threshold and switch it back to fit mode during remeasure.
+            if (_horizontalScrollMode && Bounds.Width > 0)
+                availableSize = availableSize.WithWidth(Math.Min(availableSize.Width, Bounds.Width));
+
+            return base.MeasureOverride(availableSize);
+        }
+
         /// <summary>
         /// Chooses between width-fitting star columns (wrap, no horizontal scroll)
         /// and fixed-width columns (horizontal scroll) based on whether every
