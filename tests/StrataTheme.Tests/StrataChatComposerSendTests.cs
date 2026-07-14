@@ -115,6 +115,42 @@ public class StrataChatComposerSendTests
     }
 
     [Fact]
+    public async Task AltEnter_WhenEditingAndBusy_ExecutesEditSendOnly()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var send = new RecordingCommand();
+            var stop = new RecordingCommand();
+            var stopAndSend = new RecordingCommand();
+            var composer = new StrataChatComposer
+            {
+                PromptText = "updated turn",
+                IsBusy = true,
+                IsEditing = true,
+                SendCommand = send,
+                StopCommand = stop,
+                StopAndSendCommand = stopAndSend
+            };
+            var args = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Enter,
+                KeyModifiers = KeyModifiers.Alt
+            };
+
+            typeof(StrataChatComposer)
+                .GetMethod("OnInputKeyDown", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(composer, [composer, args]);
+
+            Assert.True(args.Handled);
+            Assert.Equal(1, send.ExecuteCount);
+            Assert.Equal("updated turn", send.LastParameter);
+            Assert.Equal(0, stop.ExecuteCount);
+            Assert.Equal(0, stopAndSend.ExecuteCount);
+        });
+    }
+
+    [Fact]
     public async Task HandleStopAndSendAction_WhenCommandBound_ExecutesItWithPromptAndRaisesEvent()
     {
         await _fixture.Dispatch(() =>

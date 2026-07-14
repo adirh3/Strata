@@ -958,9 +958,9 @@ public class StrataChatComposer : TemplatedControl
             var isCtrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
             var isAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
 
-            // Alt+Enter while busy = abort the running turn and send this as a fresh turn (abort + send).
-            // Plain Enter still steers the draft into the running turn.
-            if (isAlt && IsBusy && !isShift)
+            // Alt+Enter while effectively busy = abort the running turn and send this as a fresh
+            // turn. Host-owned editing takes precedence over all busy/steer keyboard semantics.
+            if (isAlt && IsBusy && !IsEditing && !isShift)
             {
                 e.Handled = true;
                 HandleStopAndSendAction();
