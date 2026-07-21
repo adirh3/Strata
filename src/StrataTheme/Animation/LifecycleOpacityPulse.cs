@@ -224,7 +224,7 @@ public sealed class LifecycleOpacityPulse
                    $"({configuration.PeakAt}), and PeakAt must be before 1.");
             }
 
-            var animation = visual.Compositor.CreateScalarKeyFrameAnimation();
+            var animation = visual.Compositor.CreateStableScalarKeyFrameAnimation();
             animation.Target = "Opacity";
             animation.Duration = configuration.Duration;
             animation.Direction = configuration.PlaybackDirection;

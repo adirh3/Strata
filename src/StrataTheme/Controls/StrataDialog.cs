@@ -165,13 +165,13 @@ public class StrataDialog : TemplatedControl
         var cy = (float)(bounds.Height / 2);
         visual.CenterPoint = new Vector3(cx, cy, 0);
 
-        var scaleAnim = compositor.CreateVector3KeyFrameAnimation();
+        var scaleAnim = compositor.CreateStableVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
         scaleAnim.InsertKeyFrame(0f, new Vector3(0.95f, 0.95f, 1f));
         scaleAnim.InsertKeyFrame(1f, new Vector3(1f));
         scaleAnim.Duration = TimeSpan.FromMilliseconds(200);
 
-        var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
+        var opacityAnim = compositor.CreateStableScalarKeyFrameAnimation();
         opacityAnim.Target = "Opacity";
         opacityAnim.InsertKeyFrame(0f, 0f);
         opacityAnim.InsertKeyFrame(0.4f, 1f);

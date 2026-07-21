@@ -1166,7 +1166,7 @@ public class StrataChatMessage : TemplatedControl
         var visual = ElementComposition.GetElementVisual(_streamBar);
         if (visual is null) return;
 
-        var anim = visual.Compositor.CreateScalarKeyFrameAnimation();
+        var anim = visual.Compositor.CreateStableScalarKeyFrameAnimation();
         anim.Target = "Opacity";
         anim.InsertKeyFrame(0f, 0.3f);
         anim.InsertKeyFrame(0.5f, 1f);

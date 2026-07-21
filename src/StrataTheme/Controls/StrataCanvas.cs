@@ -338,21 +338,21 @@ public class StrataCanvas : TemplatedControl
             0,
             _root.Bounds.Height / 2, 0);
 
-        var scaleAnim = comp.CreateVector3KeyFrameAnimation();
+        var scaleAnim = comp.CreateStableVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
         scaleAnim.InsertKeyFrame(0f, new Vector3(0.94f, 0.98f, 1f));
         scaleAnim.InsertKeyFrame(0.72f, new Vector3(1.012f, 1.002f, 1f));
         scaleAnim.InsertKeyFrame(1f, new Vector3(1f, 1f, 1f));
         scaleAnim.Duration = TimeSpan.FromMilliseconds(320);
 
-        var offsetAnim = comp.CreateVector3KeyFrameAnimation();
+        var offsetAnim = comp.CreateStableVector3KeyFrameAnimation();
         offsetAnim.Target = "Offset";
         offsetAnim.InsertKeyFrame(0f, new Vector3(-26f, 0f, 0f));
         offsetAnim.InsertKeyFrame(0.72f, new Vector3(2f, 0f, 0f));
         offsetAnim.InsertKeyFrame(1f, new Vector3(0f, 0f, 0f));
         offsetAnim.Duration = TimeSpan.FromMilliseconds(320);
 
-        var fadeAnim = comp.CreateScalarKeyFrameAnimation();
+        var fadeAnim = comp.CreateStableScalarKeyFrameAnimation();
         fadeAnim.Target = "Opacity";
         fadeAnim.InsertKeyFrame(0f, 0f);
         fadeAnim.InsertKeyFrame(0.35f, 0.78f);
@@ -386,21 +386,21 @@ public class StrataCanvas : TemplatedControl
             0,
             _root.Bounds.Height / 2, 0);
 
-        var offsetAnim = comp.CreateVector3KeyFrameAnimation();
+        var offsetAnim = comp.CreateStableVector3KeyFrameAnimation();
         offsetAnim.Target = "Offset";
         offsetAnim.InsertKeyFrame(0f, new Vector3(0f, 0f, 0f));
         offsetAnim.InsertKeyFrame(0.25f, new Vector3(1f, 0f, 0f));
         offsetAnim.InsertKeyFrame(1f, new Vector3(-22f, 0f, 0f));
         offsetAnim.Duration = TimeSpan.FromMilliseconds(230);
 
-        var scaleAnim = comp.CreateVector3KeyFrameAnimation();
+        var scaleAnim = comp.CreateStableVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
         scaleAnim.InsertKeyFrame(0f, new Vector3(1f, 1f, 1f));
         scaleAnim.InsertKeyFrame(0.4f, new Vector3(1.004f, 1.001f, 1f));
         scaleAnim.InsertKeyFrame(1f, new Vector3(0.965f, 0.99f, 1f));
         scaleAnim.Duration = TimeSpan.FromMilliseconds(230);
 
-        var fadeAnim = comp.CreateScalarKeyFrameAnimation();
+        var fadeAnim = comp.CreateStableScalarKeyFrameAnimation();
         fadeAnim.Target = "Opacity";
         fadeAnim.InsertKeyFrame(0f, 1f);
         fadeAnim.InsertKeyFrame(0.45f, 0.62f);
@@ -452,14 +452,14 @@ public class StrataCanvas : TemplatedControl
 
         var comp = visual.Compositor;
 
-        var offset = comp.CreateVector3KeyFrameAnimation();
+        var offset = comp.CreateStableVector3KeyFrameAnimation();
         offset.Target = "Offset";
         offset.InsertKeyFrame(0f, new Vector3((float)-barWidth, 0f, 0f));
         offset.InsertKeyFrame(1f, new Vector3((float)trackWidth, 0f, 0f));
         offset.Duration = TimeSpan.FromMilliseconds(1350);
         offset.IterationBehavior = AnimationIterationBehavior.Forever;
 
-        var opacity = comp.CreateScalarKeyFrameAnimation();
+        var opacity = comp.CreateStableScalarKeyFrameAnimation();
         opacity.Target = "Opacity";
         opacity.InsertKeyFrame(0f, 0.15f);
         opacity.InsertKeyFrame(0.5f, 0.95f);

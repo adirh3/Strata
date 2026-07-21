@@ -367,7 +367,7 @@ public class StrataStepFlow : TemplatedControl
         var comp = visual.Compositor;
         var from = visual.Offset;
 
-        var offsetAnim = comp.CreateVector3KeyFrameAnimation();
+        var offsetAnim = comp.CreateStableVector3KeyFrameAnimation();
         offsetAnim.Target = "Offset";
         offsetAnim.InsertKeyFrame(0f, new Vector3((float)from.X, (float)from.Y, (float)from.Z));
         offsetAnim.InsertKeyFrame(1f, new Vector3((float)targetX, (float)from.Y, (float)from.Z));
@@ -375,7 +375,7 @@ public class StrataStepFlow : TemplatedControl
         visual.StartAnimation("Offset", offsetAnim);
 
         visual.CenterPoint = new Avalonia.Vector3D(headWidth / 2, headWidth / 2, 0);
-        var scaleAnim = comp.CreateVector3KeyFrameAnimation();
+        var scaleAnim = comp.CreateStableVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
         scaleAnim.InsertKeyFrame(0f, new Vector3(1f, 1f, 1f));
         scaleAnim.InsertKeyFrame(0.45f, new Vector3(1.22f, 1.22f, 1f));
@@ -477,7 +477,7 @@ public class StrataStepFlow : TemplatedControl
         {
             var comp = inVisual.Compositor;
             inVisual.Opacity = 0;
-            var fadeIn = comp.CreateScalarKeyFrameAnimation();
+            var fadeIn = comp.CreateStableScalarKeyFrameAnimation();
             fadeIn.Target = "Opacity";
             fadeIn.InsertKeyFrame(0f, 0f);
             fadeIn.InsertKeyFrame(1f, 1f);
@@ -494,7 +494,7 @@ public class StrataStepFlow : TemplatedControl
             if (outVisual is not null)
             {
                 var comp = outVisual.Compositor;
-                var fadeOut = comp.CreateScalarKeyFrameAnimation();
+                var fadeOut = comp.CreateStableScalarKeyFrameAnimation();
                 fadeOut.Target = "Opacity";
                 fadeOut.InsertKeyFrame(0f, 1f);
                 fadeOut.InsertKeyFrame(1f, 0f);

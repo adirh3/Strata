@@ -79,14 +79,14 @@ public static class DataGridSortAnimationHelper
                 0f);
 
             // Materialize: scale 0.97 → 1.0 vertically + fade in
-            var scaleAnim = compositor.CreateVector3KeyFrameAnimation();
+            var scaleAnim = compositor.CreateStableVector3KeyFrameAnimation();
             scaleAnim.Target = "Scale";
             scaleAnim.InsertKeyFrame(0f, new Vector3(1f, 0.92f, 1f));
             scaleAnim.InsertKeyFrame(1f, new Vector3(1f, 1f, 1f));
             scaleAnim.Duration = TimeSpan.FromMilliseconds(280);
             scaleAnim.DelayTime = delay;
 
-            var opacityAnim = compositor.CreateScalarKeyFrameAnimation();
+            var opacityAnim = compositor.CreateStableScalarKeyFrameAnimation();
             opacityAnim.Target = "Opacity";
             opacityAnim.InsertKeyFrame(0f, 0f);
             opacityAnim.InsertKeyFrame(0.4f, 0.7f);

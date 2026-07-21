@@ -248,14 +248,14 @@ public class StrataStream : TemplatedControl
 
         var comp = visual.Compositor;
 
-        var offset = comp.CreateVector3KeyFrameAnimation();
+        var offset = comp.CreateStableVector3KeyFrameAnimation();
         offset.Target = "Offset";
         offset.InsertKeyFrame(0f, new Vector3((float)-barWidth, 0f, 0f));
         offset.InsertKeyFrame(1f, new Vector3((float)trackWidth, 0f, 0f));
         offset.Duration = TimeSpan.FromMilliseconds(1100);
         offset.IterationBehavior = AnimationIterationBehavior.Forever;
 
-        var opacity = comp.CreateScalarKeyFrameAnimation();
+        var opacity = comp.CreateStableScalarKeyFrameAnimation();
         opacity.Target = "Opacity";
         opacity.InsertKeyFrame(0f, 0.28f);
         opacity.InsertKeyFrame(0.35f, 0.9f);

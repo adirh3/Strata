@@ -215,7 +215,7 @@ public class StrataFork : TemplatedControl
         }
 
         var comp = visual.Compositor;
-        var anim = comp.CreateVector3KeyFrameAnimation();
+        var anim = comp.CreateStableVector3KeyFrameAnimation();
         anim.Target = "Offset";
         anim.InsertKeyFrame(0f, new Vector3((float)current.X, (float)current.Y, (float)current.Z));
         anim.InsertKeyFrame(1f, new Vector3(targetX, (float)current.Y, (float)current.Z));
@@ -261,7 +261,7 @@ public class StrataFork : TemplatedControl
         if (inVisual is not null)
         {
             var comp = inVisual.Compositor;
-            var fadeIn = comp.CreateScalarKeyFrameAnimation();
+            var fadeIn = comp.CreateStableScalarKeyFrameAnimation();
             fadeIn.Target = "Opacity";
             fadeIn.InsertKeyFrame(0f, 0f);
             fadeIn.InsertKeyFrame(1f, 1f);
@@ -272,7 +272,7 @@ public class StrataFork : TemplatedControl
         if (outVisual is not null)
         {
             var comp = outVisual.Compositor;
-            var fadeOut = comp.CreateScalarKeyFrameAnimation();
+            var fadeOut = comp.CreateStableScalarKeyFrameAnimation();
             fadeOut.Target = "Opacity";
             fadeOut.InsertKeyFrame(0f, 1f);
             fadeOut.InsertKeyFrame(1f, 0f);

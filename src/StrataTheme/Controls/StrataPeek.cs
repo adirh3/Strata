@@ -212,7 +212,7 @@ public class StrataPeek : TemplatedControl
         if (visual is null) return;
 
         var comp = visual.Compositor;
-        var anim = comp.CreateScalarKeyFrameAnimation();
+        var anim = comp.CreateStableScalarKeyFrameAnimation();
         anim.Target = "Opacity";
         anim.InsertKeyFrame(0f, show ? 0f : 1f);
         anim.InsertKeyFrame(1f, show ? 1f : 0f);

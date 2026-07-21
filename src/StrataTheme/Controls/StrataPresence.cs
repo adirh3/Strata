@@ -743,7 +743,7 @@ public class StrataPresence : Panel, IDisposable
         var amp = profile.DriftAmp * minDim * (0.80 + 0.16 * lobe.Phase);
 
         // Seamless elliptical drift around the lobe's anchor.
-        var drift = comp.CreateVector3KeyFrameAnimation();
+        var drift = comp.CreateStableVector3KeyFrameAnimation();
         drift.Target = "Offset";
         drift.InsertKeyFrame(0.00f, new Vector3((float)(bx + amp), (float)by, 0));
         drift.InsertKeyFrame(0.25f, new Vector3((float)bx, (float)(by + amp * 0.7), 0));
@@ -760,7 +760,7 @@ public class StrataPresence : Panel, IDisposable
         var bMin = 1.0 - (1.0 - profile.BreatheMin) * depth;
         var bMax = 1.0 + (profile.BreatheMax - 1.0) * depth;
         var wb = profile.WidthBias;
-        var breathe = comp.CreateVector3KeyFrameAnimation();
+        var breathe = comp.CreateStableVector3KeyFrameAnimation();
         breathe.Target = "Scale";
         breathe.InsertKeyFrame(0.00f, new Vector3((float)(bMin * wb), (float)bMin, 1f));
         breathe.InsertKeyFrame(0.50f, new Vector3((float)(bMax * wb), (float)bMax, 1f));
@@ -857,7 +857,7 @@ public class StrataPresence : Panel, IDisposable
         if (lobe.Visual is { } visual)
         {
             var comp = visual.Compositor;
-            var sc = comp.CreateVector3KeyFrameAnimation();
+            var sc = comp.CreateStableVector3KeyFrameAnimation();
             sc.Target = "Scale";
             sc.InsertKeyFrame(0f, new Vector3((float)sMin, (float)sMin, 1f));
             sc.InsertKeyFrame(0.5f, new Vector3((float)sMax, (float)sMax, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
@@ -873,7 +873,7 @@ public class StrataPresence : Panel, IDisposable
     private static void SettleScale(CompositionVisual visual)
     {
         var comp = visual.Compositor;
-        var sc = comp.CreateVector3KeyFrameAnimation();
+        var sc = comp.CreateStableVector3KeyFrameAnimation();
         sc.Target = "Scale";
         sc.InsertKeyFrame(1f, Vector3.One, new Avalonia.Animation.Easings.CubicEaseOut());
         sc.Duration = TimeSpan.FromMilliseconds(300);
@@ -987,7 +987,7 @@ public class StrataPresence : Panel, IDisposable
         if (lobe.Visual is { } visual)
         {
             var comp = visual.Compositor;
-            var sc = comp.CreateVector3KeyFrameAnimation();
+            var sc = comp.CreateStableVector3KeyFrameAnimation();
             sc.Target = "Scale";
             sc.InsertKeyFrame(0f, new Vector3(0.99f, 0.99f, 1f));
             sc.InsertKeyFrame(0.5f, new Vector3(1.03f, 1.03f, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
@@ -1235,7 +1235,7 @@ public class StrataPresence : Panel, IDisposable
 
         var horizonMs = Math.Clamp(PresenceSpring.SettleSeconds(omega, zeta) * 1000.0, 220.0, 2000.0);
         var comp = hv.Compositor;
-        var move = comp.CreateVector3KeyFrameAnimation();
+        var move = comp.CreateStableVector3KeyFrameAnimation();
         move.Target = "Offset";
         // Explicit live start (not "this.StartingValue"): we pin the base Offset to the target below, after
         // which StartingValue would read as the target and erase the from-position. The seeded start is
@@ -1358,7 +1358,7 @@ public class StrataPresence : Panel, IDisposable
         // The light gathers small while travelling, then BLOOMS past full as it arrives (~0.72) and
         // relaxes back — a soft overshoot that makes the settle read as a breath of light, not a stop.
         var comp = visual.Compositor;
-        var grow = comp.CreateVector3KeyFrameAnimation();
+        var grow = comp.CreateStableVector3KeyFrameAnimation();
         grow.Target = "Scale";
         grow.InsertKeyFrame(0f, new Vector3(0.80f, 0.80f, 1f));
         grow.InsertKeyFrame(0.72f, new Vector3(1.20f, 1.20f, 1f), FocusEase);
@@ -1433,7 +1433,7 @@ public class StrataPresence : Panel, IDisposable
         if (lobe.Visual is { } visual)
         {
             var comp = visual.Compositor;
-            var scale = comp.CreateVector3KeyFrameAnimation();
+            var scale = comp.CreateStableVector3KeyFrameAnimation();
             scale.Target = "Scale";
             scale.InsertKeyFrame(0f, new Vector3((float)startScale, (float)startScale, 1f));
             scale.InsertKeyFrame(1f, new Vector3((float)endScale, (float)endScale, 1f), new Avalonia.Animation.Easings.CubicEaseOut());
@@ -1471,7 +1471,7 @@ public class StrataPresence : Panel, IDisposable
         var peak = new Vector3((float)(dx * dist), (float)(dy * dist), 0f);
 
         var comp = sv.Compositor;
-        var anim = comp.CreateVector3KeyFrameAnimation();
+        var anim = comp.CreateStableVector3KeyFrameAnimation();
         anim.Target = "Offset";
         anim.InsertKeyFrame(0f, Vector3.Zero);
         // Lean out, then ease home in ever-shallower steps — the same decaying-settle shape as the
@@ -1525,7 +1525,7 @@ public class StrataPresence : Panel, IDisposable
 
         var peak = (float)(dyFraction * h);
         var comp = sv.Compositor;
-        var anim = comp.CreateVector3KeyFrameAnimation();
+        var anim = comp.CreateStableVector3KeyFrameAnimation();
         anim.Target = "Offset";
         anim.InsertKeyFrame(0f, Vector3.Zero);
         // Quick decelerating surge to the peak, then a gentle, ever-shallower decay home — each segment
@@ -1574,7 +1574,7 @@ public class StrataPresence : Panel, IDisposable
         if (lobe.Visual is { } cv)
         {
             // A slow, shallow shimmer so the parked pool reads as quietly alive, never a pump.
-            var sc = cv.Compositor.CreateVector3KeyFrameAnimation();
+            var sc = cv.Compositor.CreateStableVector3KeyFrameAnimation();
             sc.Target = "Scale";
             sc.InsertKeyFrame(0f, new Vector3(0.98f, 0.98f, 1f));
             sc.InsertKeyFrame(0.5f, new Vector3(1.03f, 1.03f, 1f), new Avalonia.Animation.Easings.SineEaseInOut());

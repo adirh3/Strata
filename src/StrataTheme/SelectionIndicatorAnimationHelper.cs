@@ -115,7 +115,7 @@ public static class SelectionIndicatorAnimationHelper
             (float)layoutOffset.Y,
             (float)layoutOffset.Z);
 
-        var offsetAnim = comp.CreateVector3KeyFrameAnimation();
+        var offsetAnim = comp.CreateStableVector3KeyFrameAnimation();
         offsetAnim.Target = "Offset";
         offsetAnim.InsertKeyFrame(0f, startOffset);
         offsetAnim.InsertKeyFrame(1f, endOffset);
@@ -129,7 +129,7 @@ public static class SelectionIndicatorAnimationHelper
         {
             visual.CenterPoint = new Avalonia.Vector3D(bounds.Width / 2, bounds.Height / 2, 0);
 
-            var scaleAnim = comp.CreateVector3KeyFrameAnimation();
+            var scaleAnim = comp.CreateStableVector3KeyFrameAnimation();
             scaleAnim.Target = "Scale";
             // Depart: slightly elongate in travel direction
             scaleAnim.InsertKeyFrame(0f,    new Vector3(1f, 1.15f, 1f));
@@ -158,7 +158,7 @@ public static class SelectionIndicatorAnimationHelper
         // Set center to middle
         visual.CenterPoint = new Avalonia.Vector3D(bounds.Width / 2, bounds.Height / 2, 0);
 
-        var scaleAnim = comp.CreateVector3KeyFrameAnimation();
+        var scaleAnim = comp.CreateStableVector3KeyFrameAnimation();
         scaleAnim.Target = "Scale";
         if (isVertical)
         {
