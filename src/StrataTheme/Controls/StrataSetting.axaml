@@ -24,6 +24,7 @@
 
                 <Grid Name="PART_Row"
                       ColumnDefinitions="Auto,*,Auto"
+                      RowDefinitions="Auto,Auto"
                       MinHeight="{DynamicResource Size.ControlHeightM}">
 
                   <!-- Highlight accent bar (left edge indicator for search) -->
