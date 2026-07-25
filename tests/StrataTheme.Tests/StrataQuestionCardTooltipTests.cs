@@ -69,8 +69,9 @@ public class StrataQuestionCardTooltipTests
             Assert.Equal(options.Count, optionButtons.Count);
             foreach (var button in optionButtons)
             {
-                var label = Assert.IsType<string>(button.Content);
-                Assert.Equal(label, ToolTip.GetTip(button));
+                // Option labels wrap to two lines, so the content is a TextBlock rather than a raw string.
+                var label = Assert.IsType<TextBlock>(button.Content);
+                Assert.Equal(label.Text, ToolTip.GetTip(button));
             }
 
             window.Close();
