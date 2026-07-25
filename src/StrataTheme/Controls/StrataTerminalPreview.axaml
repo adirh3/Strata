@@ -94,6 +94,14 @@
                                    VerticalAlignment="Center"
                                    Opacity="0.75"
                                    Foreground="{DynamicResource Brush.AccentDefault}" />
+                        <TextBlock Name="PART_DurationText"
+                                   Text="{Binding DurationText, RelativeSource={RelativeSource TemplatedParent}}"
+                                   IsVisible="{Binding DurationText, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Opacity="0.7"
+                                   Foreground="{DynamicResource Brush.TextTertiary}" />
                       </StackPanel>
                     </Border>
                   </Grid>

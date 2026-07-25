@@ -66,6 +66,15 @@ public class StrataAiToolCall : TemplatedControl
     public static readonly StyledProperty<double> DurationMsProperty =
         AvaloniaProperty.Register<StrataAiToolCall, double>(nameof(DurationMs), 0);
 
+    /// <summary>
+    /// The instant this tool call actually started (its authoritative start time). When set, the live
+    /// elapsed readout is computed from this fixed point rather than from when the control loaded, so
+    /// the clock stays correct across control recreation (chat switch, list virtualization) instead of
+    /// resetting to zero. Leave unset to fall back to a control-local clock.
+    /// </summary>
+    public static readonly StyledProperty<DateTimeOffset?> RunningSinceProperty =
+        AvaloniaProperty.Register<StrataAiToolCall, DateTimeOffset?>(nameof(RunningSince));
+
     /// <summary>Current execution status. Drives the status pill colour and animation.</summary>
     public static readonly StyledProperty<StrataAiToolCallStatus> StatusProperty =
         AvaloniaProperty.Register<StrataAiToolCall, StrataAiToolCallStatus>(nameof(Status), StrataAiToolCallStatus.InProgress);
@@ -98,6 +107,7 @@ public class StrataAiToolCall : TemplatedControl
         InputParametersProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         MoreInfoProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         DurationMsProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
+        RunningSinceProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.OnElapsedTick());
     }
 
     public StrataAiToolCall()
@@ -127,6 +137,12 @@ public class StrataAiToolCall : TemplatedControl
     {
         get => GetValue(DurationMsProperty);
         set => SetValue(DurationMsProperty, value);
+    }
+
+    public DateTimeOffset? RunningSince
+    {
+        get => GetValue(RunningSinceProperty);
+        set => SetValue(RunningSinceProperty, value);
     }
 
     public object? HeaderAction
@@ -170,7 +186,21 @@ public class StrataAiToolCall : TemplatedControl
 
     private void OnElapsedTick()
     {
-        var elapsed = _elapsedClock.Elapsed;
+        // Only in-flight calls show a live readout; a terminal call reports its frozen DurationText.
+        if (Status != StrataAiToolCallStatus.InProgress)
+        {
+            ElapsedText = "";
+            return;
+        }
+
+        // Prefer the authoritative start time when supplied: it's a fixed instant, so the readout is
+        // immune to control recreation (chat switch, virtualization) that would otherwise reset a
+        // freshly-started local clock back to zero. Fall back to the local clock when unset.
+        var elapsed = RunningSince is { } since
+            ? DateTimeOffset.UtcNow - since
+            : _elapsedClock.Elapsed;
+        if (elapsed < TimeSpan.Zero)
+            elapsed = TimeSpan.Zero;
         ElapsedText = elapsed.TotalSeconds >= 1 ? RunningElapsedClock.Format(elapsed) : "";
     }
 

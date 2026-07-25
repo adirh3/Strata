@@ -75,6 +75,12 @@ public class StrataTerminalPreview : TemplatedControl
     public static readonly DirectProperty<StrataTerminalPreview, string> ElapsedTextProperty =
         AvaloniaProperty.RegisterDirect<StrataTerminalPreview, string>(nameof(ElapsedText), c => c.ElapsedText);
 
+    /// <summary>Frozen "how long it took" readout, shown once the command has finished (e.g. "2.68s",
+    /// "559 ms"). Empty while it is still running, or when no duration was measured — so the pill
+    /// never shows a fabricated time.</summary>
+    public static readonly DirectProperty<StrataTerminalPreview, string> DurationTextProperty =
+        AvaloniaProperty.RegisterDirect<StrataTerminalPreview, string>(nameof(DurationText), c => c.DurationText);
+
     static StrataTerminalPreview()
     {
         StatusProperty.Changed.AddClassHandler<StrataTerminalPreview>((c, _) => c.UpdateState());
@@ -157,8 +163,22 @@ public class StrataTerminalPreview : TemplatedControl
         private set => SetAndRaise(ElapsedTextProperty, ref _elapsedText, value);
     }
 
+    public string DurationText
+        => IsRunningInBackground || Status == StrataAiToolCallStatus.InProgress || DurationMs <= 0
+            ? ""
+            : DurationMs >= 1000
+                ? $"{DurationMs / 1000d:F2}s"
+                : $"{DurationMs:F0} ms";
+
     private void OnElapsedTick()
     {
+        // Only a live command shows a running readout; a finished one reports its frozen DurationText.
+        if (Status != StrataAiToolCallStatus.InProgress && !IsRunningInBackground)
+        {
+            ElapsedText = "";
+            return;
+        }
+
         // Prefer the authoritative start time when supplied: it's a fixed instant, so the readout is
         // immune to control recreation / restarts (chat switch, collapse) that would otherwise reset
         // a freshly-started local clock back to zero. Fall back to the local clock when unset.
@@ -232,6 +252,7 @@ public class StrataTerminalPreview : TemplatedControl
         _wasRunning = running;
 
         RaisePropertyChanged(StatusTextProperty, default!, StatusText);
+        RaisePropertyChanged(DurationTextProperty, default!, DurationText);
 
         PseudoClasses.Set(":inprogress", running);
         PseudoClasses.Set(":completed", !running && Status == StrataAiToolCallStatus.Completed);
