@@ -41,8 +41,12 @@ public enum StrataAttachmentStatus
 /// </remarks>
 public class StrataFileAttachment : TemplatedControl
 {
+    /// <summary>Pointer travel, in DIPs, still treated as a click rather than a drag.</summary>
+    private const double ClickSlop = 4;
+
     private Border? _root;
     private Button? _removeBtn;
+    private Point? _pressOrigin;
 
     public static readonly StyledProperty<string> FileNameProperty =
         AvaloniaProperty.Register<StrataFileAttachment, string>(nameof(FileName), "file.txt");
@@ -167,7 +171,10 @@ public class StrataFileAttachment : TemplatedControl
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         if (_root is not null)
+        {
             _root.PointerPressed -= OnRootPointerPressed;
+            _root.PointerReleased -= OnRootPointerReleased;
+        }
         if (_removeBtn is not null)
             _removeBtn.Click -= OnRemoveButtonClick;
 
@@ -175,7 +182,10 @@ public class StrataFileAttachment : TemplatedControl
 
         _root = e.NameScope.Find<Border>("PART_Root");
         if (_root is not null)
+        {
             _root.PointerPressed += OnRootPointerPressed;
+            _root.PointerReleased += OnRootPointerReleased;
+        }
 
         _removeBtn = e.NameScope.Find<Button>("PART_RemoveButton");
         if (_removeBtn is not null)
@@ -189,9 +199,29 @@ public class StrataFileAttachment : TemplatedControl
     {
         if (pe.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            RaiseEvent(new RoutedEventArgs(OpenRequestedEvent));
+            _pressOrigin = pe.GetPosition(this);
             pe.Handled = true;
         }
+    }
+
+    // Open on release rather than press so the chip can also act as a drag source: a press that
+    // turns into a drag never releases over the chip, so it can't be mistaken for a click.
+    private void OnRootPointerReleased(object? sender, PointerReleasedEventArgs pe)
+    {
+        var origin = _pressOrigin;
+        _pressOrigin = null;
+
+        if (origin is not { } start || pe.InitialPressMouseButton != MouseButton.Left)
+            return;
+
+        var position = pe.GetPosition(this);
+        if (Math.Abs(position.X - start.X) > ClickSlop || Math.Abs(position.Y - start.Y) > ClickSlop)
+            return;
+        if (!new Rect(Bounds.Size).Contains(position))
+            return;
+
+        RaiseEvent(new RoutedEventArgs(OpenRequestedEvent));
+        pe.Handled = true;
     }
 
     private void OnRemoveButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -217,6 +247,7 @@ public class StrataFileAttachment : TemplatedControl
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
+        _pressOrigin = null;
         PseudoClasses.Set(":pressed", false);
     }
 
