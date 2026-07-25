@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -11,6 +12,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using System.Windows.Input;
 
 namespace StrataTheme.Controls;
 
@@ -40,6 +42,8 @@ public class StrataModelPicker : TemplatedControl
     private StackPanel? _effortSection;
     private StackPanel? _contextWindowSection;
     private bool _suppressPickerRebuild;
+    private INotifyCollectionChanged? _observedModels;
+    private bool _isAttachedToVisualTree;
 
     public static readonly StyledProperty<IEnumerable?> ModelsProperty =
         AvaloniaProperty.Register<StrataModelPicker, IEnumerable?>(nameof(Models));
@@ -62,10 +66,23 @@ public class StrataModelPicker : TemplatedControl
     public static readonly StyledProperty<object?> SelectedContextWindowTierProperty =
         AvaloniaProperty.Register<StrataModelPicker, object?>(nameof(SelectedContextWindowTier));
 
+    /// <summary>
+    /// Command executed each time the picker popup opens, before the user makes a choice. Hosts can
+    /// use it to lazily refresh <see cref="Models"/> — updating the collection while the popup is
+    /// open rebuilds the rows in place.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> PickerOpenedCommandProperty =
+        AvaloniaProperty.Register<StrataModelPicker, ICommand?>(nameof(PickerOpenedCommand));
+
+    /// <summary>Optional parameter for <see cref="PickerOpenedCommand"/>.</summary>
+    public static readonly StyledProperty<object?> PickerOpenedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataModelPicker, object?>(nameof(PickerOpenedCommandParameter));
+
     static StrataModelPicker()
     {
         ModelsProperty.Changed.AddClassHandler<StrataModelPicker>((picker, _) =>
         {
+            picker.ObserveModelsCollection();
             picker.EnsureSelectedValues();
             picker.Sync();
             picker.RefreshModelPickerIfOpen();
@@ -129,6 +146,18 @@ public class StrataModelPicker : TemplatedControl
         set => SetValue(SelectedContextWindowTierProperty, value);
     }
 
+    public ICommand? PickerOpenedCommand
+    {
+        get => GetValue(PickerOpenedCommandProperty);
+        set => SetValue(PickerOpenedCommandProperty, value);
+    }
+
+    public object? PickerOpenedCommandParameter
+    {
+        get => GetValue(PickerOpenedCommandParameterProperty);
+        set => SetValue(PickerOpenedCommandParameterProperty, value);
+    }
+
     public StrataModelPicker()
     {
         EnsureSelectedValues();
@@ -166,6 +195,13 @@ public class StrataModelPicker : TemplatedControl
         Sync();
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _isAttachedToVisualTree = true;
+        ObserveModelsCollection();
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         if (_modelPickerButton is not null)
@@ -176,7 +212,48 @@ public class StrataModelPicker : TemplatedControl
             _modelPickerPopup.Closed -= OnModelPickerPopupClosed;
         }
 
+        // The models collection is owned by the host view model and usually outlives this control,
+        // so the subscription must be dropped or the picker would be kept alive by it.
+        _isAttachedToVisualTree = false;
+        DetachModelsCollection();
+
         base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>
+    /// Tracks content changes of the bound <see cref="Models"/> collection — not just replacement of
+    /// the collection itself — so models added after the picker was created (e.g. a catalog refresh
+    /// discovering a newly released model) appear immediately, even while the popup is open.
+    /// </summary>
+    private void ObserveModelsCollection()
+    {
+        var collection = Models as INotifyCollectionChanged;
+        if (ReferenceEquals(collection, _observedModels))
+            return;
+
+        DetachModelsCollection();
+
+        if (collection is null || !_isAttachedToVisualTree)
+            return;
+
+        _observedModels = collection;
+        collection.CollectionChanged += OnModelsCollectionChanged;
+    }
+
+    private void DetachModelsCollection()
+    {
+        if (_observedModels is null)
+            return;
+
+        _observedModels.CollectionChanged -= OnModelsCollectionChanged;
+        _observedModels = null;
+    }
+
+    private void OnModelsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        EnsureSelectedValues();
+        Sync();
+        RefreshModelPickerIfOpen();
     }
 
     private void OnModelPickerButtonClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -194,6 +271,17 @@ public class StrataModelPicker : TemplatedControl
     {
         PseudoClasses.Set(":model-picker-open", false);
         AnimateChevron(false);
+    }
+
+    private void RaisePickerOpened()
+    {
+        var command = PickerOpenedCommand;
+        if (command is null)
+            return;
+
+        var parameter = PickerOpenedCommandParameter;
+        if (command.CanExecute(parameter))
+            command.Execute(parameter);
     }
 
     private void ConfigurePopupTranslucency(Popup popup)
@@ -231,6 +319,7 @@ public class StrataModelPicker : TemplatedControl
         _modelPickerPopup.IsOpen = true;
         PseudoClasses.Set(":model-picker-open", true);
         AnimateChevron(true);
+        RaisePickerOpened();
 
         Dispatcher.UIThread.Post(() =>
         {

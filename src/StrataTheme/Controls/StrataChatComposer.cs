@@ -385,6 +385,16 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Command executed when the user clicks the attach button.</summary>
     public static readonly StyledProperty<ICommand?> AttachCommandProperty =
         AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(AttachCommand));
+    /// <summary>
+    /// Command executed each time the embedded model picker popup opens. Hosts can use it to lazily
+    /// refresh <see cref="Models"/> so newly available models appear without recreating the composer.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> ModelPickerOpenedCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(ModelPickerOpenedCommand));
+
+    /// <summary>Optional parameter for <see cref="ModelPickerOpenedCommand"/>.</summary>
+    public static readonly StyledProperty<object?> ModelPickerOpenedCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(ModelPickerOpenedCommandParameter));
 
     /// <summary>Optional parameter for <see cref="AttachCommand"/>.</summary>
     public static readonly StyledProperty<object?> AttachCommandParameterProperty =
@@ -631,6 +641,8 @@ public class StrataChatComposer : TemplatedControl
     public object? StopAndSendCommandParameter { get => GetValue(StopAndSendCommandParameterProperty); set => SetValue(StopAndSendCommandParameterProperty, value); }
     public ICommand? AttachCommand { get => GetValue(AttachCommandProperty); set => SetValue(AttachCommandProperty, value); }
     public object? AttachCommandParameter { get => GetValue(AttachCommandParameterProperty); set => SetValue(AttachCommandParameterProperty, value); }
+    public ICommand? ModelPickerOpenedCommand { get => GetValue(ModelPickerOpenedCommandProperty); set => SetValue(ModelPickerOpenedCommandProperty, value); }
+    public object? ModelPickerOpenedCommandParameter { get => GetValue(ModelPickerOpenedCommandParameterProperty); set => SetValue(ModelPickerOpenedCommandParameterProperty, value); }
     public ICommand? VoiceCommand { get => GetValue(VoiceCommandProperty); set => SetValue(VoiceCommandProperty, value); }
     public object? VoiceCommandParameter { get => GetValue(VoiceCommandParameterProperty); set => SetValue(VoiceCommandParameterProperty, value); }
     public ICommand? MentionCommand { get => GetValue(MentionCommandProperty); set => SetValue(MentionCommandProperty, value); }

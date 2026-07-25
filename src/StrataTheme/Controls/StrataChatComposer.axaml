@@ -207,7 +207,9 @@
                                                   QualityLevels="{TemplateBinding QualityLevels}"
                                                   SelectedQuality="{Binding SelectedQuality, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                                   ContextWindowTiers="{TemplateBinding ContextWindowTiers}"
-                                                  SelectedContextWindowTier="{Binding SelectedContextWindowTier, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
+                                                  SelectedContextWindowTier="{Binding SelectedContextWindowTier, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                                  PickerOpenedCommand="{TemplateBinding ModelPickerOpenedCommand}"
+                                                  PickerOpenedCommandParameter="{TemplateBinding ModelPickerOpenedCommandParameter}" />
                     </Panel>
 
                     <!-- Modes ComboBox (Ask / Plan / Agent) -->
