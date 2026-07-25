@@ -51,6 +51,21 @@
           <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
 
+        <!--
+          Avalonia only publishes the indeterminate geometry through TemplateSettings; the sweep itself
+          belongs to the theme. Without it the indicator collapses to its content width and sits still at
+          the left edge, so an indeterminate bar reads as a stuck sliver instead of ongoing work. The travel
+          is a lifecycle-managed compositor animation, so it stops when the bar is hidden or detached, and
+          the determinate width transition is dropped: indeterminate width is fixed, so animating it would
+          only make the sliver grow in and restart the sweep.
+        -->
+        <Style Selector="^:indeterminate:horizontal /template/ Border#PART_Indicator">
+          <Setter Property="Width" Value="{Binding $parent[ProgressBar].TemplateSettings.ContainerWidth}" />
+          <Setter Property="Transitions" Value="{x:Null}" />
+          <Setter Property="sa:LifecycleOffsetSweep.Duration" Value="0:0:1.4" />
+          <Setter Property="sa:LifecycleOffsetSweep.IsActive" Value="True" />
+        </Style>
+
         <Style Selector="^:pointerover /template/ Border#PART_Indicator">
           <Setter Property="BoxShadow" Value="0 0 0 2 #184F46E5" />
         </Style>
