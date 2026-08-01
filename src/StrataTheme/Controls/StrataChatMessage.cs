@@ -159,6 +159,18 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<bool> UseInlineEditProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(UseInlineEdit), true);
 
+    /// <summary>
+    /// Whether the context menu offers "Fork from here", which lets the host branch the
+    /// conversation into a new chat containing everything up to and including this message.
+    /// Off by default so hosts that have no fork concept are unaffected.
+    /// </summary>
+    public static readonly StyledProperty<bool> CanForkProperty =
+        AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(CanFork));
+
+    /// <summary>Menu label for the fork action, so hosts can localize it.</summary>
+    public static readonly StyledProperty<string> ForkMenuHeaderProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(ForkMenuHeader), "Fork from here");
+
     /// <summary>Text value of the edit box when editing.</summary>
     public static readonly StyledProperty<string?> EditTextProperty =
         AvaloniaProperty.Register<StrataChatMessage, string?>(nameof(EditText));
@@ -179,6 +191,10 @@ public class StrataChatMessage : TemplatedControl
 
     public static readonly RoutedEvent<RoutedEventArgs> CopyTurnRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(CopyTurnRequested), RoutingStrategies.Bubble);
+
+    /// <summary>Raised when the user picks "Fork from here" on this message.</summary>
+    public static readonly RoutedEvent<RoutedEventArgs> ForkRequestedEvent =
+        RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(ForkRequested), RoutingStrategies.Bubble);
 
     public static readonly RoutedEvent<RoutedEventArgs> RegenerateRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(RegenerateRequested), RoutingStrategies.Bubble);
@@ -224,6 +240,7 @@ public class StrataChatMessage : TemplatedControl
     static StrataChatMessage()
     {
         RoleProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnRoleChanged());
+        CanForkProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         ContentProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnContentChanged());
         IsStreamingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStreamingChanged());
         IsEditingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditingChanged());
@@ -238,6 +255,8 @@ public class StrataChatMessage : TemplatedControl
     { add => AddHandler(CopyRequestedEvent, value); remove => RemoveHandler(CopyRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? CopyTurnRequested
     { add => AddHandler(CopyTurnRequestedEvent, value); remove => RemoveHandler(CopyTurnRequestedEvent, value); }
+    public event EventHandler<RoutedEventArgs>? ForkRequested
+    { add => AddHandler(ForkRequestedEvent, value); remove => RemoveHandler(ForkRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? RegenerateRequested
     { add => AddHandler(RegenerateRequestedEvent, value); remove => RemoveHandler(RegenerateRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? EditRequested
@@ -265,6 +284,8 @@ public class StrataChatMessage : TemplatedControl
     public bool UseInlineEdit { get => GetValue(UseInlineEditProperty); set => SetValue(UseInlineEditProperty, value); }
     public string? EditText { get => GetValue(EditTextProperty); set => SetValue(EditTextProperty, value); }
     public bool ApplyEditToContent { get => GetValue(ApplyEditToContentProperty); set => SetValue(ApplyEditToContentProperty, value); }
+    public bool CanFork { get => GetValue(CanForkProperty); set => SetValue(CanForkProperty, value); }
+    public string ForkMenuHeader { get => GetValue(ForkMenuHeaderProperty); set => SetValue(ForkMenuHeaderProperty, value); }
 
     /// <summary>
     /// Gets or sets whether the containing chat shell is currently scrolling.
@@ -675,6 +696,19 @@ public class StrataChatMessage : TemplatedControl
             items.Add(copyTurnItem);
         }
 
+        if (!IsEditing && CanFork)
+        {
+            items.Add(new Separator());
+
+            var forkItem = new MenuItem
+            {
+                Header = string.IsNullOrWhiteSpace(ForkMenuHeader) ? "Fork from here" : ForkMenuHeader,
+                Icon = CreateForkMenuIcon()
+            };
+            forkItem.Click += (_, _) => RaiseEvent(new RoutedEventArgs(ForkRequestedEvent));
+            items.Add(forkItem);
+        }
+
         if (IsEditing)
         {
             if (IsEditable)
@@ -711,6 +745,25 @@ public class StrataChatMessage : TemplatedControl
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
         };
     }
+
+    /// <summary>
+    /// Fork glyph drawn as a vector: one node branching into two. The icon fonts ship no
+    /// branch/fork glyph, so a path keeps the menu item from falling back to an empty box.
+    /// Public so hosts can render the same glyph in their own fork affordances.
+    /// </summary>
+    public static Geometry ForkIconGeometry { get; } = Geometry.Parse(
+        "M9.4 6a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0-5.2 0zM10.9 6a1.1 1.1 0 1 1 2.2 0a1.1 1.1 0 1 1-2.2 0z" +
+        "M4.4 18a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0-5.2 0zM5.9 18a1.1 1.1 0 1 1 2.2 0a1.1 1.1 0 1 1-2.2 0z" +
+        "M14.4 18a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0-5.2 0zM15.9 18a1.1 1.1 0 1 1 2.2 0a1.1 1.1 0 1 1-2.2 0z" +
+        "M11.3 8.6h1.4v2.8h-1.4zM6.3 11.4h11.4v1.4H6.3zM6.3 12.8h1.4v2.6H6.3zM16.3 12.8h1.4v2.6h-1.4z");
+
+    private static PathIcon CreateForkMenuIcon() => new()
+    {
+        Data = ForkIconGeometry,
+        Width = 12,
+        Height = 12,
+        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+    };
 
     private readonly record struct MessageCopyResult(string Text, bool IsSelection);
 
