@@ -70,7 +70,7 @@
                       WindowManagerAddShadowHint="False"
                       strata:PopupAnimationHelper.EnableOpenAnimation="True">
                 <Border Name="PART_ModelPickerPanel"
-                        Width="300"
+                        Width="340"
                         Margin="8"
                         Background="{DynamicResource Brush.Surface1Translucent}"
                         BorderBrush="{DynamicResource Brush.BorderSubtle}"
@@ -195,7 +195,7 @@
     <Setter Property="Height" Value="26" />
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="MinWidth" Value="0" />
-    <Setter Property="Padding" Value="12,2" />
+    <Setter Property="Padding" Value="2,2" />
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Cursor" Value="Hand" />

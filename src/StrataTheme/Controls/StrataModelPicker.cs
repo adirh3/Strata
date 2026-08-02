@@ -519,6 +519,7 @@ public class StrataModelPicker : TemplatedControl
             var button = new Button
             {
                 Content = level?.ToString() ?? string.Empty,
+                FontSize = GetSegmentFontSize(levels.Count),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
@@ -603,6 +604,7 @@ public class StrataModelPicker : TemplatedControl
             var button = new Button
             {
                 Content = tier?.ToString() ?? string.Empty,
+                FontSize = GetSegmentFontSize(tiers.Count),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
@@ -639,6 +641,18 @@ public class StrataModelPicker : TemplatedControl
         toggleBorder.Child = grid;
         _contextWindowSection.Children.Add(toggleBorder);
     }
+
+    /// <summary>
+    /// Segments share one row of fixed popup width, so a model that exposes many reasoning efforts
+    /// (low/medium/high/xhigh/max) would otherwise clip its longest label. Step the label size down as
+    /// the row gets busier instead of truncating.
+    /// </summary>
+    private static double GetSegmentFontSize(int segmentCount) => segmentCount switch
+    {
+        >= 6 => 9.5,
+        5 => 10.5,
+        _ => 11
+    };
 
     private static string GetModelGroup(string modelId)
     {
