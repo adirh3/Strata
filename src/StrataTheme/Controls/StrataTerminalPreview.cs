@@ -20,6 +20,9 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataTerminalPreview : TemplatedControl
 {
+    internal const int MaxRenderedOutputLength = 8_192;
+    internal const string TruncatedOutputPrefix = "[Earlier output omitted]\n";
+
     private Border? _header;
     private Border? _root;
     private TextBlock? _outputText;
@@ -263,7 +266,7 @@ public class StrataTerminalPreview : TemplatedControl
         PseudoClasses.Set(":has-output", !string.IsNullOrEmpty(Output));
 
         if (_outputText is not null)
-            _outputText.Text = Output;
+            _outputText.Text = BuildOutputPreview(Output);
 
         if (running)
             StartRunningActivity();
@@ -278,6 +281,20 @@ public class StrataTerminalPreview : TemplatedControl
                 _outputScroll.ScrollToEnd();
             }, DispatcherPriority.Loaded);
         }
+    }
+
+    internal static string BuildOutputPreview(string? output)
+    {
+        if (string.IsNullOrEmpty(output) || output.Length <= MaxRenderedOutputLength)
+            return output ?? "";
+
+        var tailLength = MaxRenderedOutputLength - TruncatedOutputPrefix.Length;
+        var start = output.Length - tailLength;
+
+        if (char.IsLowSurrogate(output[start]) && char.IsHighSurrogate(output[start - 1]))
+            start++;
+
+        return TruncatedOutputPrefix + output[start..];
     }
 
     private void StartRunningActivity()

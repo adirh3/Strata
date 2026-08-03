@@ -150,7 +150,6 @@
                                     VerticalScrollBarVisibility="Auto"
                                     MaxHeight="260">
                         <TextBlock Name="PART_OutputText"
-                                   Text="{TemplateBinding Output}"
                                    FontFamily="Cascadia Code, Consolas, Courier New, monospace"
                                    FontSize="11.5"
                                    Foreground="{DynamicResource Brush.TerminalPreviewOutput}"
