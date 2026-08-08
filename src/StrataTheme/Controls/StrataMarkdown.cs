@@ -205,6 +205,13 @@ public class StrataMarkdown : ContentControl
         AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(RetainContentOnDetach));
 
     /// <summary>
+    /// Allows <c>file:</c> links and local filesystem paths to launch. Disabled by default because
+    /// markdown commonly contains untrusted model output.
+    /// </summary>
+    public static readonly StyledProperty<bool> AllowLocalFileLinksProperty =
+        AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(AllowLocalFileLinks));
+
+    /// <summary>
     /// Internal performance test toggle: when true, append updates reparse only the
     /// last unstable block instead of the full document.
     /// </summary>
@@ -501,6 +508,12 @@ public class StrataMarkdown : ContentControl
     {
         get => GetValue(RetainContentOnDetachProperty);
         set => SetValue(RetainContentOnDetachProperty, value);
+    }
+
+    public bool AllowLocalFileLinks
+    {
+        get => GetValue(AllowLocalFileLinksProperty);
+        set => SetValue(AllowLocalFileLinksProperty, value);
     }
 
     internal bool EnableAppendTailParsing
@@ -1727,15 +1740,22 @@ public class StrataMarkdown : ContentControl
 
         try
         {
-            if (Uri.TryCreate(linkTarget, UriKind.Absolute, out var absoluteUri) &&
-                (absoluteUri.Scheme == Uri.UriSchemeHttp || absoluteUri.Scheme == Uri.UriSchemeHttps || absoluteUri.Scheme == Uri.UriSchemeFile))
+            if (Uri.TryCreate(linkTarget, UriKind.Absolute, out var absoluteUri))
             {
-                if (launcher is not null)
-                    _ = launcher.LaunchUriAsync(absoluteUri);
-                else
-                    ShellOpen(absoluteUri.ToString());
+                if (IsAllowedExternalUri(absoluteUri)
+                    || (AllowLocalFileLinks && absoluteUri.IsFile))
+                {
+                    if (launcher is not null)
+                        _ = launcher.LaunchUriAsync(absoluteUri);
+                    else
+                        ShellOpen(absoluteUri.ToString());
+                }
+
                 return;
             }
+
+            if (!AllowLocalFileLinks)
+                return;
 
             var resolvedPath = ResolveLocalPath(linkTarget);
             if (string.IsNullOrWhiteSpace(resolvedPath))
@@ -1763,19 +1783,32 @@ public class StrataMarkdown : ContentControl
         Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
     }
 
-    private static string BuildLinkTooltip(string linkTarget)
+    private string BuildLinkTooltip(string linkTarget)
     {
         linkTarget = NormalizeLinkTarget(linkTarget);
 
         if (Uri.TryCreate(linkTarget, UriKind.Absolute, out var absoluteUri))
-            return $"Open {absoluteUri}";
+        {
+            return IsAllowedExternalUri(absoluteUri)
+                   || (AllowLocalFileLinks && absoluteUri.IsFile)
+                ? $"Open {absoluteUri}"
+                : $"Blocked link: {absoluteUri}";
+        }
 
-        var resolvedPath = ResolveLocalPath(linkTarget);
-        if (!string.IsNullOrWhiteSpace(resolvedPath))
-            return $"Open file: {resolvedPath}";
+        if (AllowLocalFileLinks)
+        {
+            var resolvedPath = ResolveLocalPath(linkTarget);
+            if (!string.IsNullOrWhiteSpace(resolvedPath))
+                return $"Open file: {resolvedPath}";
+        }
 
         return $"Reference: {linkTarget}";
     }
+
+    internal static bool IsAllowedExternalUri(Uri uri) =>
+        uri.Scheme == Uri.UriSchemeHttp
+        || uri.Scheme == Uri.UriSchemeHttps
+        || uri.Scheme == Uri.UriSchemeMailto;
 
     private static string? ResolveLocalPath(string linkTarget)
     {

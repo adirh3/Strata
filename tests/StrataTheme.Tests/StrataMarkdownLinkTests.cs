@@ -17,6 +17,19 @@ public class StrataMarkdownLinkTests
         _fixture = fixture;
     }
 
+    [Theory]
+    [InlineData("https://example.com", true)]
+    [InlineData("http://example.com", true)]
+    [InlineData("mailto:user@example.com", true)]
+    [InlineData("file:///C:/Windows/win.ini", false)]
+    [InlineData("file://attacker/share/report.pdf", false)]
+    [InlineData("javascript:alert(1)", false)]
+    public void ExternalLinkSchemesRejectLocalAndExecutableTargets(string target, bool expected)
+    {
+        Assert.Equal(expected, StrataMarkdown.IsAllowedExternalUri(new Uri(target)));
+        Assert.False(new StrataMarkdown().AllowLocalFileLinks);
+    }
+
     [Fact]
     public async Task GetLinkAtPoint_UsesHitPositionInsteadOfSelectionStart()
     {
