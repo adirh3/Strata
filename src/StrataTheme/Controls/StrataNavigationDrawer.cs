@@ -52,6 +52,10 @@ public class StrataNavigationDrawer : ContentControl
     public static readonly StyledProperty<bool> IsDragEnabledProperty =
         AvaloniaProperty.Register<StrataNavigationDrawer, bool>(nameof(IsDragEnabled), true);
 
+    /// <summary>Whether a closed drawer can be opened by a horizontal swipe from anywhere.</summary>
+    public static readonly StyledProperty<bool> CanOpenFromAnywhereProperty =
+        AvaloniaProperty.Register<StrataNavigationDrawer, bool>(nameof(CanOpenFromAnywhere));
+
     /// <summary>Opacity of the scrim at full open.</summary>
     public static readonly StyledProperty<double> ScrimOpacityProperty =
         AvaloniaProperty.Register<StrataNavigationDrawer, double>(nameof(ScrimOpacity), 0.55);
@@ -120,6 +124,12 @@ public class StrataNavigationDrawer : ContentControl
         set => SetValue(IsDragEnabledProperty, value);
     }
 
+    public bool CanOpenFromAnywhere
+    {
+        get => GetValue(CanOpenFromAnywhereProperty);
+        set => SetValue(CanOpenFromAnywhereProperty, value);
+    }
+
     public double ScrimOpacity
     {
         get => GetValue(ScrimOpacityProperty);
@@ -179,6 +189,10 @@ public class StrataNavigationDrawer : ContentControl
                 AnimateTo(settleOpen ? 1 : 0);
                 IsOpen = settleOpen;
             }
+        }
+        else if (change.Property == CanOpenFromAnywhereProperty)
+        {
+            _drag.CanOpenFromAnywhere = CanOpenFromAnywhere;
         }
 
         else if (change.Property == PanelWidthProperty)

@@ -131,7 +131,7 @@
                 </Border.Transitions>
                 <StackPanel Spacing="0">
                   <TextBox Name="PART_EditBox"
-                           Classes="message-edit-embed"
+                           Classes="message-edit-embed no-focus-accent"
                            Text="{Binding EditText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                            AcceptsReturn="True"
                            TextWrapping="Wrap"

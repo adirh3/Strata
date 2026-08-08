@@ -1,6 +1,7 @@
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Threading;
 using StrataTheme.Controls;
@@ -127,6 +128,47 @@ public sealed class EdgeDragGestureRecognizerTests
     }
 
     [Fact]
+    public async Task ClosedDrawerCanClaimAnOpeningSwipeFromTheMiddleWhenEnabled()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var (window, target, recognizer) = CreateTarget();
+            recognizer.CanOpenFromAnywhere = true;
+            var deltas = new List<double>();
+            target.AddHandler(EdgeDragGestureRecognizer.EdgeDragEvent, (_, e) => deltas.Add(e.Delta));
+            var pointer = CreatePointer(PointerType.Touch, isPrimary: true);
+
+            Press(recognizer, target, pointer, new Point(180, 40), 1_000);
+            Move(recognizer, target, pointer, new Point(220, 43), 1_020);
+            Release(recognizer, target, pointer, new Point(220, 43), 1_030);
+
+            Assert.Single(deltas);
+            Assert.True(deltas[0] > 0);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task FullSurfaceOpeningSwipeStillYieldsToVerticalScrollIntent()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var (window, target, recognizer) = CreateTarget();
+            recognizer.CanOpenFromAnywhere = true;
+            var dragCount = 0;
+            target.AddHandler(EdgeDragGestureRecognizer.EdgeDragEvent, (_, _) => dragCount++);
+            var pointer = CreatePointer(PointerType.Touch, isPrimary: true);
+
+            Press(recognizer, target, pointer, new Point(180, 40), 1_000);
+            Move(recognizer, target, pointer, new Point(184, 80), 1_020);
+            Release(recognizer, target, pointer, new Point(184, 80), 1_030);
+
+            Assert.Equal(0, dragCount);
+            window.Close();
+        });
+    }
+
+    [Fact]
     public async Task ReleasePositionContributesFinalDeltaAndVelocity()
     {
         await _fixture.Dispatch(() =>
@@ -179,6 +221,189 @@ public sealed class EdgeDragGestureRecognizerTests
     public void DefaultThresholdClaimsEdgeIntentBeforeOrdinaryScroll()
     {
         Assert.Equal(4, new EdgeDragGestureRecognizer().Threshold);
+    }
+
+    [Fact]
+    public void FullSurfaceThresholdClaimsHorizontalIntentBeforeOrdinaryScroll()
+    {
+        Assert.Equal(6, new EdgeDragGestureRecognizer().AnywhereThreshold);
+    }
+
+    [Fact]
+    public async Task FullSurfaceHorizontalSwipeClaimsBeforeNestedScrollViewer()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var scrollContent = new Border
+            {
+                Width = 300,
+                Height = 1200
+            };
+            var recognizer = new EdgeDragGestureRecognizer
+            {
+                CanOpenFromAnywhere = true
+            };
+            var scrollPresenter = new ScrollContentPresenter
+            {
+                Width = 300,
+                Height = 200,
+                CanVerticallyScroll = true,
+                Content = scrollContent
+            };
+            var target = new Border
+            {
+                Width = 300,
+                Height = 200,
+                Child = scrollPresenter
+            };
+            target.GestureRecognizers.Add(recognizer);
+            var dragCount = 0;
+            target.AddHandler(EdgeDragGestureRecognizer.EdgeDragEvent, (_, _) => dragCount++);
+            var window = new Window
+            {
+                Width = 300,
+                Height = 200,
+                Content = target
+            };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var pointer = CreatePointer(PointerType.Touch, isPrimary: true);
+            RaisePress(scrollContent, target, pointer, new Point(150, 100), 1_000);
+            RaiseMove(scrollContent, target, pointer, new Point(157, 102), 1_016);
+
+            Assert.Equal(1, dragCount);
+
+            RaiseRelease(scrollContent, target, pointer, new Point(157, 102), 1_032);
+            pointer.Capture(null);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task FullSurfaceOpeningSwipeYieldsToOffsetHorizontalScrollViewer()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var scrollContent = new Border
+            {
+                MinWidth = 900,
+                Height = 200
+            };
+            var scrollPresenter = new ScrollContentPresenter
+            {
+                Width = 300,
+                Height = 200,
+                CanHorizontallyScroll = true,
+                Content = scrollContent
+            };
+            var recognizer = new EdgeDragGestureRecognizer
+            {
+                CanOpenFromAnywhere = true
+            };
+            var target = new Border
+            {
+                Width = 300,
+                Height = 200,
+                Child = scrollPresenter
+            };
+            target.GestureRecognizers.Add(recognizer);
+            var dragCount = 0;
+            target.AddHandler(EdgeDragGestureRecognizer.EdgeDragEvent, (_, _) => dragCount++);
+            var window = new Window
+            {
+                Width = 300,
+                Height = 200,
+                Content = target
+            };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            scrollPresenter.Offset = new Vector(120, 0);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(
+                scrollPresenter.Extent.Width > scrollPresenter.Viewport.Width,
+                $"Extent={scrollPresenter.Extent}, Viewport={scrollPresenter.Viewport}, Content={scrollContent.Bounds}");
+            Assert.True(scrollPresenter.Offset.X > 0);
+
+            var pointer = CreatePointer(PointerType.Touch, isPrimary: true);
+            RaisePress(scrollContent, target, pointer, new Point(150, 100), 1_000);
+            RaiseMove(scrollContent, target, pointer, new Point(157, 102), 1_016);
+
+            Assert.Equal(0, dragCount);
+            Assert.Null(pointer.Captured);
+
+            RaiseRelease(scrollContent, target, pointer, new Point(157, 102), 1_032);
+            window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData(false, Avalonia.Media.FlowDirection.LeftToRight, 0, false)]
+    [InlineData(false, Avalonia.Media.FlowDirection.LeftToRight, 120, true)]
+    [InlineData(false, Avalonia.Media.FlowDirection.RightToLeft, 0, true)]
+    [InlineData(false, Avalonia.Media.FlowDirection.RightToLeft, 600, false)]
+    [InlineData(true, Avalonia.Media.FlowDirection.LeftToRight, 0, true)]
+    [InlineData(true, Avalonia.Media.FlowDirection.LeftToRight, 600, false)]
+    [InlineData(true, Avalonia.Media.FlowDirection.RightToLeft, 0, false)]
+    [InlineData(true, Avalonia.Media.FlowDirection.RightToLeft, 120, true)]
+    public void HorizontalScrollBoundaryUsesTheNestedPresentersFlowDirection(
+        bool drawerIsRightToLeft,
+        Avalonia.Media.FlowDirection scrollFlowDirection,
+        double offset,
+        bool expected)
+    {
+        var actual = EdgeDragGestureRecognizer.CanHorizontalScrollConsumeOpeningGesture(
+            new Vector(offset, 0),
+            new Size(900, 200),
+            new Size(300, 200),
+            scrollFlowDirection,
+            drawerIsRightToLeft);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public async Task FullSurfaceSwipeYieldsToFocusedEditableTextBox()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var recognizer = new EdgeDragGestureRecognizer
+            {
+                CanOpenFromAnywhere = true
+            };
+            var editor = new TextBox
+            {
+                Text = "Move this caret",
+                Width = 260
+            };
+            var target = new Border
+            {
+                Width = 300,
+                Height = 120,
+                Child = editor
+            };
+            target.GestureRecognizers.Add(recognizer);
+            var dragCount = 0;
+            target.AddHandler(EdgeDragGestureRecognizer.EdgeDragEvent, (_, _) => dragCount++);
+            var window = new Window
+            {
+                Width = 300,
+                Height = 120,
+                Content = target
+            };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(editor.Focus());
+
+            var pointer = CreatePointer(PointerType.Touch, isPrimary: true);
+            RaisePress(editor, target, pointer, new Point(120, 50), 1_000);
+            RaiseMove(editor, target, pointer, new Point(140, 50), 1_020);
+            RaiseRelease(editor, target, pointer, new Point(140, 50), 1_040);
+
+            Assert.Equal(0, dragCount);
+            Assert.Null(pointer.Captured);
+            window.Close();
+        });
     }
 
     [Fact]
@@ -320,6 +545,54 @@ public sealed class EdgeDragGestureRecognizerTests
 
     private static void CaptureLost(EdgeDragGestureRecognizer recognizer, IPointer pointer) =>
         InvokeRecognizer(recognizer, "PointerCaptureLost", pointer);
+
+    private static void RaisePress(
+        Control source,
+        Visual root,
+        IPointer pointer,
+        Point position,
+        ulong timestamp) =>
+        source.RaiseEvent(new PointerPressedEventArgs(
+            source,
+            pointer,
+            root,
+            position,
+            timestamp,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonPressed),
+            KeyModifiers.None,
+            1));
+
+    private static void RaiseMove(
+        Control source,
+        Visual root,
+        IPointer pointer,
+        Point position,
+        ulong timestamp) =>
+        source.RaiseEvent(new PointerEventArgs(
+            InputElement.PointerMovedEvent,
+            source,
+            pointer,
+            root,
+            position,
+            timestamp,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other),
+            KeyModifiers.None));
+
+    private static void RaiseRelease(
+        Control source,
+        Visual root,
+        IPointer pointer,
+        Point position,
+        ulong timestamp) =>
+        source.RaiseEvent(new PointerReleasedEventArgs(
+            source,
+            pointer,
+            root,
+            position,
+            timestamp,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+            KeyModifiers.None,
+            MouseButton.Left));
 
     private static void InvokeRecognizer(
         EdgeDragGestureRecognizer recognizer,

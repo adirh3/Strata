@@ -84,22 +84,20 @@
                   </DataValidationErrors>
                 </DockPanel>
               </Border>
-              <!-- Bottom accent bar — scales from center on focus -->
+              <!-- Rounded focus outline. It follows the control geometry instead of drawing a
+                   straight underline beneath rounded fields. -->
               <Border Name="FocusAccentBar"
-                      Height="2"
-                      CornerRadius="0,0,6,6"
-                      Background="{DynamicResource Brush.StratumLine}"
-                      VerticalAlignment="Bottom"
+                      CornerRadius="{TemplateBinding CornerRadius}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource Brush.StratumLine}"
+                      BorderThickness="2"
+                      VerticalAlignment="Stretch"
                       HorizontalAlignment="Stretch"
-                      Margin="4,0"
                       Opacity="0"
-                      IsHitTestVisible="False"
-                      RenderTransformOrigin="0.5,0.5"
-                      RenderTransform="scaleX(0)">
+                      IsHitTestVisible="False">
                 <Border.Transitions>
                   <Transitions>
                     <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.3" Easing="0.2,0 0,1" />
                   </Transitions>
                 </Border.Transitions>
               </Border>
@@ -112,12 +110,11 @@
         </Style>
         <Style Selector="^:focus-within /template/ Border#PART_Border">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
-          <Setter Property="BorderThickness" Value="1,1,1,2" />
+          <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
           <Setter Property="BoxShadow" Value="0 0 0 2 #1A4F46E5" />
         </Style>
         <Style Selector="^:focus-within /template/ Border#FocusAccentBar">
           <Setter Property="Opacity" Value="1" />
-          <Setter Property="RenderTransform" Value="scaleX(1)" />
           <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.72" />
           <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="1" />
           <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.6" />
@@ -134,9 +131,7 @@
     </ResourceDictionary>
   </Styles.Resources>
 
-  <!-- Capsule/search fields use the border + focus halo as one coherent shape. The default bottom
-       accent line is designed for rectangular form fields and looks like a stray underline inside
-       a pill. Opt-in so normal desktop fields keep the Strata accent treatment. -->
+  <!-- Capsule/search fields can opt out of the animated outline while keeping the border halo. -->
   <Style Selector="TextBox.no-focus-accent /template/ Border#FocusAccentBar">
     <Setter Property="IsVisible" Value="False" />
   </Style>

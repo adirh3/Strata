@@ -624,6 +624,15 @@
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
   </Style>
+  <Style Selector="TextBox.composer-embed /template/ Border#FocusAccentBar">
+    <Setter Property="Height" Value="2" />
+    <Setter Property="Margin" Value="14,0" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="CornerRadius" Value="1" />
+    <Setter Property="Background" Value="{DynamicResource Brush.StratumLine}" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
 
   <Style Selector="ComboBox.composer-select /template/ Border#Border">
     <Setter Property="BorderThickness" Value="0" />

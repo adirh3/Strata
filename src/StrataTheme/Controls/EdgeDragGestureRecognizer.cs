@@ -1,15 +1,18 @@
 using System;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Input.GestureRecognizers;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
 /// <summary>
-/// Recognises a horizontal drag that either starts within a screen edge gutter or anywhere over an
-/// already-open panel, and reports it as a continuous stream of deltas so the target can track the
-/// finger one-to-one.
+/// Recognises a horizontal drag that starts within a screen edge gutter, optionally anywhere on the
+/// closed surface, or anywhere over an already-open panel. Reports continuous deltas so the target
+/// can track the finger one-to-one.
 ///
 /// <para>A gesture recognizer is the only mechanism that works here. Once any recognizer captures a
 /// pointer, Avalonia delivers subsequent moves straight to that recognizer and they stop travelling
@@ -53,6 +56,15 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
     public double EdgeInset { get; set; } = 18;
 
     /// <summary>
+    /// Allows a closed drawer's opening swipe to begin anywhere on the target. Direction-aware intent
+    /// arbitration keeps vertical transcript scrolling in control.
+    /// </summary>
+    public bool CanOpenFromAnywhere { get; set; }
+
+    /// <summary>Movement required for an opening swipe that begins outside the edge gutter.</summary>
+    public double AnywhereThreshold { get; set; } = 6;
+
+    /// <summary>
     /// Movement required before the drag is claimed, in DIPs. Below
     /// <c>ScrollGestureRecognizer.ScrollStartDistance</c> so an intentional horizontal drag in the
     /// gutter wins the race against a scroll.
@@ -75,6 +87,8 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
     private ulong _lastTimestamp;
     private ulong _lastVelocityTimestamp;
     private double _velocity;
+    private bool _startedOutsideGutter;
+    private ScrollContentPresenter? _horizontalScrollOwner;
 
     protected override void PointerPressed(PointerPressedEventArgs e)
     {
@@ -84,12 +98,19 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
         _dragging = false;
         _abandoned = false;
         _velocity = 0;
+        _startedOutsideGutter = false;
+        _horizontalScrollOwner = null;
 
         if (Target is not Visual target)
             return;
 
         // Mouse drags would fight text selection and the desktop has a real sidebar anyway.
         if (e.Pointer.Type == PointerType.Mouse)
+            return;
+
+        // Touch drags inside an editor belong to caret/selection handling. A navigation gesture may
+        // start almost anywhere, but never by stealing the user's attempt to move the insertion point.
+        if (IsInsideEditableTextBox(e.Source as Visual, target))
             return;
 
         var point = e.GetPosition(target);
@@ -100,8 +121,12 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
                 ? point.X <= target.Bounds.Width - EdgeInset
                   && point.X >= target.Bounds.Width - EdgeInset - EdgeWidth
                 : point.X >= EdgeInset && point.X <= EdgeInset + EdgeWidth;
-            if (!withinGutter)
+            if (!withinGutter && !CanOpenFromAnywhere)
                 return;
+
+            _startedOutsideGutter = !withinGutter;
+            if (_startedOutsideGutter)
+                _horizontalScrollOwner = FindHorizontalScrollOwner(e.Source as Visual, target);
         }
 
         _pointer = e.Pointer;
@@ -126,24 +151,43 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
         {
             var dx = point.X - _origin.X;
             var dy = point.Y - _origin.Y;
+            var threshold = !IsOpen && _startedOutsideGutter
+                ? Math.Max(Threshold, AnywhereThreshold)
+                : Threshold;
 
             // Vertical intent: hand the gesture back for good rather than fighting the scroller
             // for the rest of the stroke.
-            if (Math.Abs(dy) > Threshold && Math.Abs(dy) >= Math.Abs(dx))
+            if (Math.Abs(dy) > threshold && Math.Abs(dy) >= Math.Abs(dx))
             {
-                _abandoned = true;
-                _pointer = null;
+                Abandon();
                 return;
             }
 
-            if (Math.Abs(dx) <= Threshold)
+            var openingDistance = dx * (IsRightToLeft ? -1 : 1);
+            if (!IsOpen
+                && _startedOutsideGutter
+                && openingDistance > 0
+                && CanHorizontalScrollOwnerConsumeOpeningGesture())
+            {
+                Abandon();
+                return;
+            }
+
+            if (!IsOpen && openingDistance < -threshold)
+            {
+                Abandon();
+                return;
+            }
+
+            if ((!IsOpen && openingDistance <= threshold)
+                || (IsOpen && Math.Abs(dx) <= threshold))
                 return;
 
             _dragging = true;
 
             // Start measuring from the threshold rather than the touch-down point, so the panel
             // does not jump by Threshold on the first frame.
-            _last = new Point(_origin.X + Math.Sign(dx) * Threshold, point.Y);
+            _last = new Point(_origin.X + Math.Sign(dx) * threshold, point.Y);
             if (captureWhenClaimed)
                 Capture(e.Pointer);
         }
@@ -182,6 +226,7 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
         e.Handled = wasDragging;
         _dragging = false;
         _pointer = null;
+        _horizontalScrollOwner = null;
     }
 
     protected override void PointerCaptureLost(IPointer pointer)
@@ -192,6 +237,7 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
         End();
         _dragging = false;
         _pointer = null;
+        _horizontalScrollOwner = null;
     }
 
     private void End()
@@ -209,6 +255,79 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
         // Keep tracking the owning pointer until its normal release/capture-loss arrives. Avalonia's
         // gesture-capture release API is internal; retaining this recognizer lets the framework
         // unwind ownership safely instead of removing a still-captured recognizer.
+    }
+
+    private void Abandon()
+    {
+        _abandoned = true;
+        _pointer = null;
+        _horizontalScrollOwner = null;
+    }
+
+    private bool CanHorizontalScrollOwnerConsumeOpeningGesture()
+    {
+        if (_horizontalScrollOwner is not { } scrollPresenter)
+            return false;
+
+        return CanHorizontalScrollConsumeOpeningGesture(
+            scrollPresenter.Offset,
+            scrollPresenter.Extent,
+            scrollPresenter.Viewport,
+            scrollPresenter.FlowDirection,
+            IsRightToLeft);
+    }
+
+    internal static bool CanHorizontalScrollConsumeOpeningGesture(
+        Vector offset,
+        Size extent,
+        Size viewport,
+        Avalonia.Media.FlowDirection scrollFlowDirection,
+        bool drawerIsRightToLeft)
+    {
+        const double tolerance = 0.5;
+        var maxOffset = Math.Max(0, extent.Width - viewport.Width);
+
+        // ScrollGestureRecognizer reports previous-position minus current-position. The presenter
+        // then reverses that delta for RTL content before applying it to Offset.X.
+        var physicalOpeningDirection = drawerIsRightToLeft ? -1d : 1d;
+        var scrollGestureDelta = -physicalOpeningDirection;
+        var offsetDelta = scrollFlowDirection == Avalonia.Media.FlowDirection.RightToLeft
+            ? -scrollGestureDelta
+            : scrollGestureDelta;
+
+        return offsetDelta < 0
+            ? offset.X > tolerance
+            : offset.X < maxOffset - tolerance;
+    }
+
+    private static ScrollContentPresenter? FindHorizontalScrollOwner(Visual? source, Visual target)
+    {
+        for (var visual = source;
+             visual is not null && !ReferenceEquals(visual, target);
+             visual = visual.GetVisualParent())
+        {
+            if (visual is ScrollContentPresenter scrollPresenter
+                && scrollPresenter.CanHorizontallyScroll
+                && scrollPresenter.Extent.Width > scrollPresenter.Viewport.Width + 0.5)
+            {
+                return scrollPresenter;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsInsideEditableTextBox(Visual? source, Visual target)
+    {
+        for (var visual = source;
+             visual is not null && !ReferenceEquals(visual, target);
+             visual = visual.GetVisualParent())
+        {
+            if (visual is TextBox { IsReadOnly: false, IsEnabled: true })
+                return true;
+        }
+
+        return false;
     }
 }
 
