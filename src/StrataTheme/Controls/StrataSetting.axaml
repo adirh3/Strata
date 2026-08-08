@@ -42,7 +42,8 @@
                   </Border>
 
                   <!-- Header + description + inline revert -->
-                  <StackPanel Grid.Column="1"
+                  <StackPanel Name="PART_Labels"
+                              Grid.Column="1"
                               VerticalAlignment="Center"
                               Spacing="2"
                               Margin="0,0,16,0">
@@ -88,7 +89,8 @@
                   </StackPanel>
 
                   <!-- Setting control -->
-                  <ContentPresenter Grid.Column="2"
+                  <ContentPresenter Name="PART_Content"
+                                    Grid.Column="2"
                                     Content="{TemplateBinding SettingContent}"
                                     VerticalAlignment="Center" />
                 </Grid>
@@ -96,6 +98,20 @@
             </StackPanel>
           </ControlTemplate>
         </Setter>
+
+        <!-- Stacked: control drops below the labels and spans the full width. A side-by-side row
+             assumes the control is narrow; on a touch layout the control is often a segmented
+             picker or a full-width field, which otherwise crushes the description to a few words
+             per line. -->
+        <Style Selector="^.stacked /template/ ContentPresenter#PART_Content">
+          <Setter Property="Grid.Column" Value="1" />
+          <Setter Property="Grid.Row" Value="1" />
+          <Setter Property="HorizontalAlignment" Value="Stretch" />
+          <Setter Property="Margin" Value="0,10,0,0" />
+        </Style>
+        <Style Selector="^.stacked /template/ StackPanel#PART_Labels">
+          <Setter Property="Margin" Value="0" />
+        </Style>
 
         <!-- Modified: show revert button with scale-in -->
         <Style Selector="^:modified /template/ Button#PART_RevertButton">

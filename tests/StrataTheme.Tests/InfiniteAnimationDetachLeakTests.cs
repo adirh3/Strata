@@ -92,6 +92,7 @@ public sealed class InfiniteAnimationDetachLeakTests
     {
         var allowedFiles = new HashSet<string>(StringComparer.Ordinal)
         {
+            "LifecycleOffsetSweep.cs",
             "LifecycleOpacityPulse.cs",
             "StrataCanvas.cs",
             "StrataChatMessage.cs",
@@ -105,6 +106,24 @@ public sealed class InfiniteAnimationDetachLeakTests
                 "AnimationIterationBehavior.Forever",
                 StringComparison.Ordinal))
             .Where(path => !allowedFiles.Contains(Path.GetFileName(path)))
+            .Select(path => Path.GetRelativePath(FindStrataSourceRoot(), path))
+            .ToArray();
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void InfiniteAvaloniaAnimations_DoNotUseTheRunApi()
+    {
+        // Avalonia throws at runtime when an Animation with IterationCount.Infinite is started with
+        // Run/RunAsync: "Looping animations must not use the Run method." These calls are commonly
+        // fire-and-forget, so the exception becomes an unobserved task and the animation simply never
+        // runs. Infinite motion belongs on the lifecycle-managed compositor helpers instead.
+        var violations = Directory
+            .EnumerateFiles(FindStrataSourceRoot(), "*.cs", SearchOption.AllDirectories)
+            .Where(path => File.ReadAllText(path).Contains(
+                "IterationCount.Infinite",
+                StringComparison.Ordinal))
             .Select(path => Path.GetRelativePath(FindStrataSourceRoot(), path))
             .ToArray();
 

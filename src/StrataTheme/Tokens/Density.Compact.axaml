@@ -8,6 +8,8 @@
 
   <!-- Control heights -->
   <x:Double x:Key="Size.ControlHeightS">24</x:Double>
+  <x:Double x:Key="Size.IconButtonXS">16</x:Double>
+  <x:Double x:Key="Size.FloatingAction">36</x:Double>
   <x:Double x:Key="Size.ControlHeightM">30</x:Double>
   <x:Double x:Key="Size.ControlHeightL">36</x:Double>
 

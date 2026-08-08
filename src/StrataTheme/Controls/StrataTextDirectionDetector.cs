@@ -51,6 +51,7 @@ public static class StrataTextDirectionDetector
                     ltrStrongCount++;
                     continue;
                 }
+
             }
 
             var category = Rune.GetUnicodeCategory(rune);
@@ -111,6 +112,42 @@ public static class StrataTextDirectionDetector
         return rtlStrongCount > ltrStrongCount
             ? FlowDirection.RightToLeft
             : FlowDirection.LeftToRight;
+    }
+
+    public static FlowDirection? DetectLeading(string? text, int scanLimit = DefaultScanLimit)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var scannedChars = 0;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            scannedChars += rune.Utf16SequenceLength;
+            if (scannedChars > scanLimit)
+                break;
+
+            if (IsStrongRtl(rune.Value))
+                return FlowDirection.RightToLeft;
+
+            if (rune.Value <= 0x7F)
+            {
+                var ascii = (char)rune.Value;
+                if (ascii is >= 'A' and <= 'Z' or >= 'a' and <= 'z')
+                    return FlowDirection.LeftToRight;
+                continue;
+            }
+
+            if (Rune.GetUnicodeCategory(rune) is UnicodeCategory.UppercaseLetter
+                or UnicodeCategory.LowercaseLetter
+                or UnicodeCategory.TitlecaseLetter
+                or UnicodeCategory.ModifierLetter
+                or UnicodeCategory.OtherLetter)
+            {
+                return FlowDirection.LeftToRight;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

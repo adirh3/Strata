@@ -238,6 +238,10 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<string?> AgentNameProperty =
         AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(AgentName));
 
+    /// <summary>Stable backing value for the active agent when its display name is not unique.</summary>
+    public static readonly StyledProperty<string?> AgentValueProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(AgentValue));
+
     /// <summary>Icon glyph shown in the agent chip.</summary>
     public static readonly StyledProperty<string> AgentGlyphProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AgentGlyph), "◉");
@@ -269,6 +273,10 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<string?> ProjectNameProperty =
         AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ProjectName));
 
+    /// <summary>Stable backing value for the active project when its display name is not unique.</summary>
+    public static readonly StyledProperty<string?> ProjectValueProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ProjectValue));
+
     /// <summary>Catalog of projects available for selection via $ autocomplete.</summary>
     public static readonly StyledProperty<IEnumerable?> AvailableProjectsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableProjects));
@@ -292,6 +300,17 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Optional content for displaying pending file attachments inside the composer.</summary>
     public static readonly StyledProperty<object?> AttachmentContentProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(AttachmentContent));
+
+    /// <summary>
+    /// Optional host content placed at the start of the toolbar row, before the built-in buttons.
+    ///
+    /// <para>The built-in toolbar is a desktop shape: an inline model dropdown, a modes combo and
+    /// an MCP popup, all sized for a cursor. A host that needs different affordances — a phone that
+    /// routes model selection through a bottom sheet, for instance — can hide those and supply its
+    /// own here, rather than forking the template to move one control.</para>
+    /// </summary>
+    public static readonly StyledProperty<object?> ToolbarContentProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(ToolbarContent));
 
     /// <summary>
     /// Additional clipboard data formats the host wants to handle itself before
@@ -604,6 +623,7 @@ public class StrataChatComposer : TemplatedControl
     public string SuggestionB { get => GetValue(SuggestionBProperty); set => SetValue(SuggestionBProperty, value); }
     public string SuggestionC { get => GetValue(SuggestionCProperty); set => SetValue(SuggestionCProperty, value); }
     public string? AgentName { get => GetValue(AgentNameProperty); set => SetValue(AgentNameProperty, value); }
+    public string? AgentValue { get => GetValue(AgentValueProperty); set => SetValue(AgentValueProperty, value); }
     public string AgentGlyph { get => GetValue(AgentGlyphProperty); set => SetValue(AgentGlyphProperty, value); }
     public IEnumerable? SkillItems { get => GetValue(SkillItemsProperty); set => SetValue(SkillItemsProperty, value); }
     public IEnumerable? AvailableAgents { get => GetValue(AvailableAgentsProperty); set => SetValue(AvailableAgentsProperty, value); }
@@ -611,6 +631,7 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? McpItems { get => GetValue(McpItemsProperty); set => SetValue(McpItemsProperty, value); }
     public IEnumerable? AvailableMcps { get => GetValue(AvailableMcpsProperty); set => SetValue(AvailableMcpsProperty, value); }
     public string? ProjectName { get => GetValue(ProjectNameProperty); set => SetValue(ProjectNameProperty, value); }
+    public string? ProjectValue { get => GetValue(ProjectValueProperty); set => SetValue(ProjectValueProperty, value); }
     public IEnumerable? AvailableProjects { get => GetValue(AvailableProjectsProperty); set => SetValue(AvailableProjectsProperty, value); }
     public IEnumerable? AvailableFiles { get => GetValue(AvailableFilesProperty); set => SetValue(AvailableFilesProperty, value); }
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
@@ -619,6 +640,7 @@ public class StrataChatComposer : TemplatedControl
     public string EditingSubmitLabel { get => GetValue(EditingSubmitLabelProperty); set => SetValue(EditingSubmitLabelProperty, value); }
     public object? StatusContent { get => GetValue(StatusContentProperty); set => SetValue(StatusContentProperty, value); }
     public object? AttachmentContent { get => GetValue(AttachmentContentProperty); set => SetValue(AttachmentContentProperty, value); }
+    public object? ToolbarContent { get => GetValue(ToolbarContentProperty); set => SetValue(ToolbarContentProperty, value); }
     public IEnumerable? ClipboardPasteInterceptFormats { get => GetValue(ClipboardPasteInterceptFormatsProperty); set => SetValue(ClipboardPasteInterceptFormatsProperty, value); }
 
     /// <summary>
@@ -1238,7 +1260,7 @@ public class StrataChatComposer : TemplatedControl
                     AvailableAgents,
                     ChipKind.Agent,
                     query,
-                    chip => chip.Name != AgentName,
+                    chip => !MatchesSelection(chip, AgentName, AgentValue),
                     rankResults: true);
                 break;
             case '/':
@@ -1254,7 +1276,7 @@ public class StrataChatComposer : TemplatedControl
                     AvailableProjects,
                     ChipKind.Project,
                     query,
-                    chip => chip.Name != ProjectName,
+                    chip => !MatchesSelection(chip, ProjectName, ProjectValue),
                     rankResults: true);
                 break;
             case '#':
@@ -1422,6 +1444,7 @@ public class StrataChatComposer : TemplatedControl
             switch (kind)
             {
                 case ChipKind.Agent:
+                    AgentValue = chip.Value;
                     AgentName = chip.Name;
                     AgentGlyph = chip.Glyph;
                     break;
@@ -1430,6 +1453,7 @@ public class StrataChatComposer : TemplatedControl
                         skillList.Add(chip);
                     break;
                 case ChipKind.Project:
+                    ProjectValue = chip.Value;
                     ProjectName = chip.Name;
                     break;
             }
@@ -1438,6 +1462,11 @@ public class StrataChatComposer : TemplatedControl
         CloseAutoComplete();
         _input?.Focus();
     }
+
+    private static bool MatchesSelection(StrataComposerChip chip, string? name, string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+            ? string.Equals(chip.Value, value, StringComparison.Ordinal)
+            : string.Equals(chip.Name, name, StringComparison.Ordinal);
 
     private void MoveAutoCompleteSelection(int delta)
     {

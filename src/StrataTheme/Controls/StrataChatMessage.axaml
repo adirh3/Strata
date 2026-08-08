@@ -48,7 +48,12 @@
                       <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
                     </Transitions>
                   </Border.Transitions>
-                  <ContentPresenter Content="{TemplateBinding Content}" />
+                  <!-- TextBlock.TextWrapping is inherited by the TextBlock the presenter creates
+                       for plain-string Content. Without it a message set as a raw string renders
+                       on one line and is clipped by the bubble's MaxWidth, which is exactly what a
+                       chat bubble must never do. Rich content supplies its own wrapping. -->
+                  <ContentPresenter Content="{TemplateBinding Content}"
+                                    TextBlock.TextWrapping="Wrap" />
                 </Border>
 
                 <!-- Action toolbar: sits beside the bubble (col 2 = right for assistant, col 0 = left for user) -->
@@ -316,6 +321,12 @@
           <Setter Property="RenderTransform" Value="translateX(0)" />
         </Style>
         <Style Selector="^:focus-within /template/ Border#PART_ActionLayer">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+          <Setter Property="RenderTransform" Value="translateX(0)" />
+        </Style>
+        <!-- Touch has no hover: a tap sets :actions-revealed so the bar is reachable by finger. -->
+        <Style Selector="^:actions-revealed /template/ Border#PART_ActionLayer">
           <Setter Property="Opacity" Value="1" />
           <Setter Property="IsHitTestVisible" Value="True" />
           <Setter Property="RenderTransform" Value="translateX(0)" />

@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -242,6 +243,183 @@ public class StrataChatMessageTests
             Assert.Contains("Copy assistant turn", headers);
             Assert.DoesNotContain("Copy selected text", headers);
         });
+    }
+
+    /// <summary>
+    /// A finger cannot hover, so before <c>:actions-revealed</c> existed the copy/edit/regenerate bar
+    /// was permanently invisible and non-hit-testable on a touch device — every message action was
+    /// unreachable from the Lumi mobile app.
+    /// </summary>
+    [Fact]
+    public async Task TouchTap_TogglesTheActionBarBecauseTouchCannotHover()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.User,
+                Content = new SelectableTextBlock { Text = "Tap me" }
+            };
+
+            Assert.False(message.AreActionsRevealed);
+
+            Tap(message, PointerType.Touch);
+            Assert.True(message.AreActionsRevealed);
+            Assert.Contains(":actions-revealed", message.Classes);
+
+            Tap(message, PointerType.Touch);
+            Assert.False(message.AreActionsRevealed);
+            Assert.DoesNotContain(":actions-revealed", message.Classes);
+        });
+    }
+
+    [Fact]
+    public async Task MouseRelease_LeavesTheActionBarToHoverSoDesktopIsUnchanged()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.User,
+                Content = new SelectableTextBlock { Text = "Click me" }
+            };
+
+            Release(message, PointerType.Mouse);
+
+            Assert.False(message.AreActionsRevealed);
+        });
+    }
+
+    [Fact]
+    public async Task TouchReleaseWithoutOwnedPress_DoesNotRevealActions()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.User,
+                Content = new SelectableTextBlock { Text = "Orphan release" }
+            };
+
+            Release(message, PointerType.Touch);
+
+            Assert.False(message.AreActionsRevealed);
+        });
+    }
+
+    [Fact]
+    public async Task TouchTapFromNestedSelectableTextRevealsActions()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var text = new SelectableTextBlock { Text = "Nested text" };
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.Assistant,
+                Content = text,
+                Template = new FuncControlTemplate<StrataChatMessage>((_, _) => new Border { Child = text })
+            };
+            var window = new Window { Content = message, Width = 320, Height = 180 };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Contains(message, text.GetVisualAncestors());
+            Tap(text, PointerType.Touch);
+
+            Assert.True(message.AreActionsRevealed);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task NewPrimaryTouchRecoversAfterScrollOwnedRelease()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.Assistant,
+                Content = new SelectableTextBlock { Text = "Scroll then tap" }
+            };
+            var stale = new Avalonia.Input.Pointer(
+                Avalonia.Input.Pointer.GetNextFreeId(),
+                PointerType.Touch,
+                isPrimary: true);
+            message.RaiseEvent(new PointerPressedEventArgs(
+                message,
+                stale,
+                message,
+                default,
+                0,
+                new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonPressed),
+                KeyModifiers.None));
+
+            Tap(message, PointerType.Touch);
+
+            Assert.True(message.AreActionsRevealed);
+        });
+    }
+
+    private static void Release(StrataChatMessage message, PointerType pointerType)
+    {
+        var pointer = new Avalonia.Input.Pointer(
+            Avalonia.Input.Pointer.GetNextFreeId(), pointerType, isPrimary: true);
+        message.RaiseEvent(new PointerReleasedEventArgs(
+            message,
+            pointer,
+            message,
+            default,
+            0,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+            KeyModifiers.None,
+            MouseButton.Left));
+    }
+
+    private static void Tap(StrataChatMessage message, PointerType pointerType)
+    {
+        var pointer = new Avalonia.Input.Pointer(
+            Avalonia.Input.Pointer.GetNextFreeId(), pointerType, isPrimary: true);
+        message.RaiseEvent(new PointerPressedEventArgs(
+            message,
+            pointer,
+            message,
+            default,
+            0,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonPressed),
+            KeyModifiers.None));
+        message.RaiseEvent(new PointerReleasedEventArgs(
+            message,
+            pointer,
+            message,
+            default,
+            1,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+            KeyModifiers.None,
+            MouseButton.Left));
+    }
+
+    private static void Tap(Control source, PointerType pointerType)
+    {
+        var pointer = new Avalonia.Input.Pointer(
+            Avalonia.Input.Pointer.GetNextFreeId(), pointerType, isPrimary: true);
+        var root = TopLevel.GetTopLevel(source) ?? source;
+        source.RaiseEvent(new PointerPressedEventArgs(
+            source,
+            pointer,
+            root,
+            default,
+            0,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonPressed),
+            KeyModifiers.None));
+        source.RaiseEvent(new PointerReleasedEventArgs(
+            source,
+            pointer,
+            root,
+            default,
+            1,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+            KeyModifiers.None,
+            MouseButton.Left));
     }
 
     private static void ConfirmEdit(StrataChatMessage message)

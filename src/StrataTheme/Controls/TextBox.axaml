@@ -133,4 +133,15 @@
 
     </ResourceDictionary>
   </Styles.Resources>
+
+  <!-- Capsule/search fields use the border + focus halo as one coherent shape. The default bottom
+       accent line is designed for rectangular form fields and looks like a stray underline inside
+       a pill. Opt-in so normal desktop fields keep the Strata accent treatment. -->
+  <Style Selector="TextBox.no-focus-accent /template/ Border#FocusAccentBar">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="TextBox.no-focus-accent:focus-within /template/ Border#PART_Border">
+    <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+  </Style>
+
 </Styles>

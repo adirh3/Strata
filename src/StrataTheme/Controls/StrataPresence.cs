@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
+using StrataTheme.Animation;
 
 namespace StrataTheme.Controls;
 
@@ -190,7 +191,6 @@ public class StrataPresence : Panel, IDisposable
     // handled by ArrangeOverride (which arranges each lobe host AT its focal target); this snap only keeps
     // the FocusPoint refinement from adding spring jitter on top.
     private bool _resizeSnap;
-    private System.Threading.CancellationTokenSource? _beaconCts;
     private PresenceState _beaconState = (PresenceState)(-1);
     private double _beaconIntensity = -1;
     private System.Threading.CancellationTokenSource? _haloCts;
@@ -398,8 +398,6 @@ public class StrataPresence : Panel, IDisposable
         _attached = false;
         _ready = false;
         _motionLevel = (MotionLevel)(-1);
-        _beaconCts?.Cancel();
-        _beaconCts = null;
         _beaconState = (PresenceState)(-1);
         _beaconIntensity = -1;
         _travelCts?.Cancel();
@@ -422,6 +420,7 @@ public class StrataPresence : Panel, IDisposable
         StopVisualAnimations(_selfVisual);
         foreach (var lobe in _lobes)
         {
+            LifecycleOpacityPulse.SetIsActive(lobe.Border, false);
             StopVisualAnimations(lobe.Visual);
             StopVisualAnimations(lobe.HostVisual);
             lobe.Visual = null;
@@ -454,7 +453,8 @@ public class StrataPresence : Panel, IDisposable
         foreach (var sub in _subscriptions)
             sub.Dispose();
         _subscriptions.Clear();
-        _beaconCts?.Cancel();
+        foreach (var lobe in _lobes)
+            LifecycleOpacityPulse.SetIsActive(lobe.Border, false);
         _travelCts?.Cancel();
         _haloCts?.Cancel();
         _companionCts?.Cancel();
@@ -804,8 +804,7 @@ public class StrataPresence : Panel, IDisposable
         if (active && _beaconState == state && Math.Abs(_beaconIntensity - intensity) < 0.001)
             return;
 
-        _beaconCts?.Cancel();
-        _beaconCts = null;
+        LifecycleOpacityPulse.SetIsActive(lobe.Border, false);
         // A beacon state change (engage or release) supersedes any resting travel surge on the same
         // Border/Visual — cancel it so the two never animate the focal lobe at once.
         _travelCts?.Cancel();
@@ -824,33 +823,16 @@ public class StrataPresence : Panel, IDisposable
         if (this.TryFindResource(colorKey, ActualThemeVariant, out var value) && value is Color c)
             lobe.Border.Background = BuildGlow(c, 168, 60);
 
-        // Brightness throb (UI thread, cheap — restarts only on a state change).
-        var anim = new Avalonia.Animation.Animation
-        {
-            Duration = TimeSpan.FromMilliseconds(periodMs),
-            IterationCount = Avalonia.Animation.IterationCount.Infinite,
-            Easing = new Avalonia.Animation.Easings.SineEaseInOut(),
-            Children =
-            {
-                new Avalonia.Animation.KeyFrame
-                {
-                    Cue = new Avalonia.Animation.Cue(0d),
-                    Setters = { new Avalonia.Styling.Setter(OpacityProperty, lo) },
-                },
-                new Avalonia.Animation.KeyFrame
-                {
-                    Cue = new Avalonia.Animation.Cue(0.5d),
-                    Setters = { new Avalonia.Styling.Setter(OpacityProperty, hi) },
-                },
-                new Avalonia.Animation.KeyFrame
-                {
-                    Cue = new Avalonia.Animation.Cue(1d),
-                    Setters = { new Avalonia.Styling.Setter(OpacityProperty, lo) },
-                },
-            },
-        };
-        _beaconCts = new System.Threading.CancellationTokenSource();
-        _ = anim.RunAsync(lobe.Border, _beaconCts.Token);
+        // Brightness throb on the compositor. Avalonia intentionally rejects RunAsync for an
+        // infinite animation ("Looping animations must not use the Run method"); the old fire-and-
+        // forget call faulted on every launch and the pulse never ran. This lifecycle-managed path
+        // starts only while attached/visible and stops cleanly on detach.
+        LifecycleOpacityPulse.SetFromOpacity(lobe.Border, lo);
+        LifecycleOpacityPulse.SetToOpacity(lobe.Border, hi);
+        LifecycleOpacityPulse.SetDuration(lobe.Border, TimeSpan.FromMilliseconds(periodMs));
+        LifecycleOpacityPulse.SetPeakAt(lobe.Border, 0.5);
+        LifecycleOpacityPulse.SetEasing(lobe.Border, LifecycleOpacityPulseEasing.SineEaseInOut);
+        LifecycleOpacityPulse.SetIsActive(lobe.Border, true);
 
         // Size throb (render thread) — the light gently swells and contracts in time with the
         // brightness, so the pulse reads as a living breath rather than a flat fade.
@@ -900,6 +882,7 @@ public class StrataPresence : Panel, IDisposable
 
         _haloCts?.Cancel();
         _haloCts = null;
+        LifecycleOpacityPulse.SetIsActive(lobe.Border, false);
         _haloActive = active;
 
         if (!active)
@@ -956,33 +939,12 @@ public class StrataPresence : Panel, IDisposable
         // ambient field, so the welcome mark's glow brightens in lock-step and stays tunable.
         var haloLo = Math.Clamp(0.160 * Luminance, 0, 1);
         var haloHi = Math.Clamp(0.205 * Luminance, 0, 1);
-        var anim = new Avalonia.Animation.Animation
-        {
-            Duration = TimeSpan.FromMilliseconds(6000),
-            IterationCount = Avalonia.Animation.IterationCount.Infinite,
-            Easing = new Avalonia.Animation.Easings.SineEaseInOut(),
-            Children =
-            {
-                new Avalonia.Animation.KeyFrame
-                {
-                    Cue = new Avalonia.Animation.Cue(0d),
-                    Setters = { new Avalonia.Styling.Setter(OpacityProperty, haloLo) },
-                },
-                new Avalonia.Animation.KeyFrame
-                {
-                    Cue = new Avalonia.Animation.Cue(0.5d),
-                    Setters = { new Avalonia.Styling.Setter(OpacityProperty, haloHi) },
-                },
-                new Avalonia.Animation.KeyFrame
-                {
-                    Cue = new Avalonia.Animation.Cue(1d),
-                    Setters = { new Avalonia.Styling.Setter(OpacityProperty, haloLo) },
-                },
-            },
-        };
-
-        _haloCts = new System.Threading.CancellationTokenSource();
-        _ = anim.RunAsync(lobe.Border, _haloCts.Token);
+        LifecycleOpacityPulse.SetFromOpacity(lobe.Border, haloLo);
+        LifecycleOpacityPulse.SetToOpacity(lobe.Border, haloHi);
+        LifecycleOpacityPulse.SetDuration(lobe.Border, TimeSpan.FromMilliseconds(6000));
+        LifecycleOpacityPulse.SetPeakAt(lobe.Border, 0.5);
+        LifecycleOpacityPulse.SetEasing(lobe.Border, LifecycleOpacityPulseEasing.SineEaseInOut);
+        LifecycleOpacityPulse.SetIsActive(lobe.Border, true);
 
         if (lobe.Visual is { } visual)
         {
