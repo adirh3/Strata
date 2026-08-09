@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -202,6 +203,13 @@ public class StrataMarkdown : ContentControl
     /// </summary>
     public static readonly StyledProperty<bool> RetainContentOnDetachProperty =
         AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(RetainContentOnDetach));
+
+    /// <summary>
+    /// Allows <c>file:</c> links and local filesystem paths to launch. Disabled by default because
+    /// markdown commonly contains untrusted model output.
+    /// </summary>
+    public static readonly StyledProperty<bool> AllowLocalFileLinksProperty =
+        AvaloniaProperty.Register<StrataMarkdown, bool>(nameof(AllowLocalFileLinks));
 
     /// <summary>
     /// Internal performance test toggle: when true, append updates reparse only the
@@ -502,6 +510,12 @@ public class StrataMarkdown : ContentControl
         set => SetValue(RetainContentOnDetachProperty, value);
     }
 
+    public bool AllowLocalFileLinks
+    {
+        get => GetValue(AllowLocalFileLinksProperty);
+        set => SetValue(AllowLocalFileLinksProperty, value);
+    }
+
     internal bool EnableAppendTailParsing
     {
         get => GetValue(EnableAppendTailParsingProperty);
@@ -670,7 +684,8 @@ public class StrataMarkdown : ContentControl
                 return;
             }
 
-            if (!RequiresMarkdownRendering(normalized))
+            if (!RequiresMarkdownRendering(normalized)
+                && !RequiresDirectionalBlockRendering(normalized))
             {
                 System.Threading.Interlocked.Increment(ref _diagnosticPlainTextFastPathCount);
                 RebuildPlainText(normalized);
@@ -749,6 +764,49 @@ public class StrataMarkdown : ContentControl
             || PlainTextMarkdownRulePattern.IsMatch(text);
     }
 
+    private static bool RequiresDirectionalBlockRendering(string text)
+    {
+        if (!HasLogicalBlankLine(text))
+            return false;
+
+        FlowDirection? direction = null;
+        foreach (var block in MarkdownParser.Parse(text))
+        {
+            if (!IsMergeableKind(block.Kind))
+                continue;
+
+            var blockDirection = DetectBlockDirection(block);
+            if (direction is not null
+                && blockDirection is not null
+                && direction != blockDirection)
+            {
+                return true;
+            }
+
+            direction ??= blockDirection;
+        }
+
+        return false;
+    }
+
+    private static bool HasLogicalBlankLine(string text)
+    {
+        var remaining = text.AsSpan();
+        while (!remaining.IsEmpty)
+        {
+            var newline = remaining.IndexOf('\n');
+            if (newline < 0)
+                return false;
+
+            if (remaining[..newline].Trim().IsEmpty)
+                return true;
+
+            remaining = remaining[(newline + 1)..];
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Parses markdown text into a flat list of lightweight block descriptors.
     /// Delegates to <see cref="MarkdownParser.Parse"/>.
@@ -812,8 +870,9 @@ public class StrataMarkdown : ContentControl
             return;
         }
 
-        // During streaming, groups before the last are likely unchanged
-        var diffStart = isStreamingAppend && oldGroupCount > 0 ? oldGroupCount - 1 : 0;
+        // The final group can merge with its predecessor when appended text changes its dominant
+        // writing direction. Backtrack two groups so that boundary is always revalidated.
+        var diffStart = isStreamingAppend && oldGroupCount > 1 ? oldGroupCount - 2 : 0;
         diffStart = Math.Min(diffStart, newGroupCount);
 
         // Track cache keys for skipped unchanged groups
@@ -839,7 +898,10 @@ public class StrataMarkdown : ContentControl
                         ? IsMergeableKind(newGroup.Kind)
                         : IsTextBlockKind(newBlocks[newGroup.StartIndex].Kind)))
                 {
-                    ApplyDirectionalTextLayout(_contentHost.Children[g], FlowDirection);
+                    ApplyDirectionalTextLayout(
+                        _contentHost.Children[g],
+                        FlowDirection,
+                        GetGroupDirectionSource(newBlocks, newGroup));
                 }
 
                 for (int i = 0; i < newGroup.Count; i++)
@@ -1108,20 +1170,102 @@ public class StrataMarkdown : ContentControl
 
     private static readonly Thickness RtlTextPadding = new(0, 0, 4, 0);
 
-    internal static void ApplyDirectionalTextLayout(SelectableTextBlock textBlock, FlowDirection flowDirection)
+    internal static void ApplyDirectionalTextLayout(
+        SelectableTextBlock textBlock,
+        FlowDirection flowDirection,
+        string? sourceText = null)
     {
-        var isRtl = flowDirection == FlowDirection.RightToLeft;
+        var visibleText = GetRenderedDirectionSource(textBlock);
+        if (string.IsNullOrWhiteSpace(visibleText))
+            visibleText = GetVisibleMarkdownDirectionSource(sourceText);
 
-        textBlock.FlowDirection = flowDirection;
+        var resolvedDirection = StrataTextDirectionDetector.DetectLeading(visibleText)
+                                ?? StrataTextDirectionDetector.Detect(visibleText)
+                                ?? flowDirection;
+        var isRtl = resolvedDirection == FlowDirection.RightToLeft;
+
+        textBlock.FlowDirection = resolvedDirection;
         textBlock.TextAlignment = isRtl ? TextAlignment.Right : TextAlignment.Left;
         textBlock.Padding = isRtl ? RtlTextPadding : ZeroThickness;
     }
 
-    internal static void ApplyDirectionalTextLayout(Control control, FlowDirection flowDirection)
+    private static string? GetRenderedDirectionSource(SelectableTextBlock textBlock)
+    {
+        if (!string.IsNullOrWhiteSpace(textBlock.Text))
+            return textBlock.Text;
+        if (textBlock.Inlines is not { Count: > 0 } inlines)
+            return null;
+
+        var source = new StringBuilder(StrataTextDirectionDetector.DefaultScanLimit);
+        AppendRenderedDirectionSource(inlines, source);
+        return source.ToString();
+    }
+
+    private static void AppendRenderedDirectionSource(IEnumerable<Inline> inlines, StringBuilder source)
+    {
+        foreach (var inline in inlines)
+        {
+            if (source.Length >= StrataTextDirectionDetector.DefaultScanLimit)
+                return;
+
+            switch (inline)
+            {
+                case Run run when !string.IsNullOrEmpty(run.Text):
+                    source.Append(run.Text);
+                    break;
+                case LineBreak:
+                    source.AppendLine();
+                    break;
+                case Span span when span.Inlines is { Count: > 0 } children:
+                    AppendRenderedDirectionSource(children, source);
+                    break;
+            }
+        }
+    }
+
+    private static string? GetVisibleMarkdownDirectionSource(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return markdown;
+
+        var source = new StringBuilder(Math.Min(
+            markdown.Length,
+            StrataTextDirectionDetector.DefaultScanLimit));
+        for (var index = 0;
+             index < markdown.Length && source.Length < StrataTextDirectionDetector.DefaultScanLimit;
+             index++)
+        {
+            if (markdown[index] == '[')
+            {
+                var labelEnd = markdown.IndexOf(']', index + 1);
+                if (labelEnd > index
+                    && labelEnd + 1 < markdown.Length
+                    && markdown[labelEnd + 1] == '(')
+                {
+                    var targetEnd = markdown.IndexOf(')', labelEnd + 2);
+                    if (targetEnd > labelEnd)
+                    {
+                        source.Append(markdown, index + 1, labelEnd - index - 1);
+                        index = targetEnd;
+                        continue;
+                    }
+                }
+            }
+
+            source.Append(markdown[index]);
+        }
+
+        return source.ToString();
+    }
+
+    internal static void ApplyDirectionalTextLayout(
+        Control control,
+        FlowDirection flowDirection,
+        string? sourceText = null)
     {
         var textBlock = FindSelectableTextBlock(control);
         if (textBlock is not null)
-            ApplyDirectionalTextLayout(textBlock, flowDirection);
+            ApplyDirectionalTextLayout(textBlock, flowDirection, sourceText);
     }
 
     private void RefreshDirectionalLayoutForExistingTextControls()
@@ -1133,13 +1277,18 @@ public class StrataMarkdown : ContentControl
             if (group.Count > 1)
             {
                 if (IsMergeableKind(group.Kind))
-                    ApplyDirectionalTextLayout(_contentHost.Children[groupIndex], FlowDirection);
+                {
+                    ApplyDirectionalTextLayout(
+                        _contentHost.Children[groupIndex],
+                        FlowDirection,
+                        GetGroupDirectionSource(_previousBlocks, group));
+                }
                 continue;
             }
 
             var block = _previousBlocks[group.StartIndex];
             if (IsTextBlockKind(block.Kind))
-                ApplyDirectionalTextLayout(_contentHost.Children[groupIndex], FlowDirection);
+                ApplyDirectionalTextLayout(_contentHost.Children[groupIndex], FlowDirection, block.Content);
         }
     }
 
@@ -1153,9 +1302,8 @@ public class StrataMarkdown : ContentControl
             ClipToBounds = false,
             Margin = ZeroThickness
         };
-        ApplyDirectionalTextLayout(textBlock, FlowDirection);
-
         var hadLinks = AppendFormattedInlines(textBlock, text, prefix);
+        ApplyDirectionalTextLayout(textBlock, FlowDirection, text);
 
         if (hadLinks)
         {
@@ -1575,46 +1723,92 @@ public class StrataMarkdown : ContentControl
         return -1;
     }
 
-    private static void OpenLink(string linkTarget)
+    /// <summary>
+    /// Opens a markdown link. Routed through the <see cref="TopLevel"/>'s launcher rather than
+    /// <c>Process.Start</c> so links work on every platform Strata runs on — mobile heads have no
+    /// shell to start a process with, and a tapped link there would silently do nothing.
+    /// <c>Process.Start</c> stays as the fallback for a control that is not attached to a TopLevel.
+    /// </summary>
+    private void OpenLink(string linkTarget)
     {
         linkTarget = NormalizeLinkTarget(linkTarget);
 
         if (string.IsNullOrWhiteSpace(linkTarget))
             return;
 
+        var launcher = TopLevel.GetTopLevel(this)?.Launcher;
+
         try
         {
-            if (Uri.TryCreate(linkTarget, UriKind.Absolute, out var absoluteUri) &&
-                (absoluteUri.Scheme == Uri.UriSchemeHttp || absoluteUri.Scheme == Uri.UriSchemeHttps || absoluteUri.Scheme == Uri.UriSchemeFile))
+            if (Uri.TryCreate(linkTarget, UriKind.Absolute, out var absoluteUri))
             {
-                Process.Start(new ProcessStartInfo(absoluteUri.ToString()) { UseShellExecute = true });
+                if (IsAllowedExternalUri(absoluteUri)
+                    || (AllowLocalFileLinks && absoluteUri.IsFile))
+                {
+                    if (launcher is not null)
+                        _ = launcher.LaunchUriAsync(absoluteUri);
+                    else
+                        ShellOpen(absoluteUri.ToString());
+                }
+
                 return;
             }
 
+            if (!AllowLocalFileLinks)
+                return;
+
             var resolvedPath = ResolveLocalPath(linkTarget);
-            if (!string.IsNullOrWhiteSpace(resolvedPath))
-            {
-                Process.Start(new ProcessStartInfo(resolvedPath) { UseShellExecute = true });
-            }
+            if (string.IsNullOrWhiteSpace(resolvedPath))
+                return;
+
+            if (launcher is null)
+                ShellOpen(resolvedPath);
+            else if (Directory.Exists(resolvedPath))
+                _ = launcher.LaunchDirectoryInfoAsync(new DirectoryInfo(resolvedPath));
+            else if (File.Exists(resolvedPath))
+                _ = launcher.LaunchFileInfoAsync(new FileInfo(resolvedPath));
+            else
+                ShellOpen(resolvedPath);
         }
         catch
         {
         }
     }
 
-    private static string BuildLinkTooltip(string linkTarget)
+    private static void ShellOpen(string target)
+    {
+        if (OperatingSystem.IsAndroid() || OperatingSystem.IsIOS() || OperatingSystem.IsBrowser())
+            return;
+
+        Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+    }
+
+    private string BuildLinkTooltip(string linkTarget)
     {
         linkTarget = NormalizeLinkTarget(linkTarget);
 
         if (Uri.TryCreate(linkTarget, UriKind.Absolute, out var absoluteUri))
-            return $"Open {absoluteUri}";
+        {
+            return IsAllowedExternalUri(absoluteUri)
+                   || (AllowLocalFileLinks && absoluteUri.IsFile)
+                ? $"Open {absoluteUri}"
+                : $"Blocked link: {absoluteUri}";
+        }
 
-        var resolvedPath = ResolveLocalPath(linkTarget);
-        if (!string.IsNullOrWhiteSpace(resolvedPath))
-            return $"Open file: {resolvedPath}";
+        if (AllowLocalFileLinks)
+        {
+            var resolvedPath = ResolveLocalPath(linkTarget);
+            if (!string.IsNullOrWhiteSpace(resolvedPath))
+                return $"Open file: {resolvedPath}";
+        }
 
         return $"Reference: {linkTarget}";
     }
+
+    internal static bool IsAllowedExternalUri(Uri uri) =>
+        uri.Scheme == Uri.UriSchemeHttp
+        || uri.Scheme == Uri.UriSchemeHttps
+        || uri.Scheme == Uri.UriSchemeMailto;
 
     private static string? ResolveLocalPath(string linkTarget)
     {
@@ -1701,9 +1895,8 @@ public class StrataMarkdown : ContentControl
 
     /// <summary>
     /// Scans blocks and produces groups of consecutive mergeable blocks.
-    /// All text-based block kinds (paragraphs, headings, bullets, numbered items,
-    /// task items) merge into a single group. Per-block formatting is applied
-    /// via Run-level styling in <see cref="PopulateMergedInlines"/>.
+    /// Consecutive text-based blocks merge while their resolved writing direction remains the same.
+    /// Per-block formatting is applied via Run-level styling in <see cref="PopulateMergedInlines"/>.
     /// </summary>
     private static void ComputeGroups(IReadOnlyList<MdBlock> blocks, List<MdBlockGroup> groups)
     {
@@ -1722,12 +1915,27 @@ public class StrataMarkdown : ContentControl
             }
 
             int groupStart = i;
+            var groupDirection = DetectBlockDirection(block);
             i++;
             while (i < blocks.Count && IsMergeableKind(blocks[i].Kind))
+            {
+                var nextDirection = DetectBlockDirection(blocks[i]);
+                if (groupDirection is not null
+                    && nextDirection is not null
+                    && groupDirection != nextDirection)
+                {
+                    break;
+                }
+
+                groupDirection ??= nextDirection;
                 i++;
+            }
             groups.Add(new MdBlockGroup(groupStart, i - groupStart, MdBlockKind.Paragraph, 0));
         }
     }
+
+    private static FlowDirection? DetectBlockDirection(MdBlock block) =>
+        StrataTextDirectionDetector.DetectLeading(GetVisibleMarkdownDirectionSource(block.Content));
 
     /// <summary>
     /// Updates the SelectableTextBlock inside an existing paragraph/heading/bullet/numbered
@@ -1740,14 +1948,13 @@ public class StrataMarkdown : ContentControl
         if (tb is null)
             return false;
 
-        ApplyDirectionalTextLayout(tb, FlowDirection);
-
         // Remove old link runs for this text block before clearing inlines
         RemoveLinkRunsForTextBlock(tb);
 
         tb.Text = null;
         tb.Inlines?.Clear();
         AppendFormattedInlines(tb, newContent);
+        ApplyDirectionalTextLayout(tb, FlowDirection, newContent);
 
         // Re-wire link handlers if needed
         if (tb.Inlines != null)
@@ -2905,12 +3112,24 @@ public class StrataMarkdown : ContentControl
         return new SolidColorBrush(Color.FromArgb(25, 128, 128, 128));
     }
 
-    private static string GetCurrentThemeVariantName()
-    {
-        return TryGetApplicationThemeVariant(out var themeVariant)
-            ? themeVariant.ToString()
-            : ThemeVariant.Light.ToString();
-    }
+    private static string GetCurrentThemeVariantName() =>
+        ResolveThemeVariantName(
+            TryGetApplicationThemeVariant(out var themeVariant) ? themeVariant : ThemeVariant.Light);
+
+    /// <summary>
+    /// Names a possibly-unresolved theme variant.
+    ///
+    /// <para><c>Application.ActualThemeVariant</c> is typed non-nullable but is genuinely null until
+    /// the platform has resolved a variant. That window exists only when
+    /// <c>RequestedThemeVariant</c> is <see cref="ThemeVariant.Default"/> — the "follow the OS"
+    /// setting — because Avalonia then has to consult platform settings rather than use a value it
+    /// was handed. On Android those settings are not available while the first view is still being
+    /// constructed, so calling <c>ToString()</c> on the variant threw and killed the process before
+    /// the window ever appeared. Desktop never saw it: its platform settings resolve synchronously.
+    /// </para>
+    /// </summary>
+    internal static string ResolveThemeVariantName(ThemeVariant? variant) =>
+        (variant ?? ThemeVariant.Light).ToString();
 
     private static bool TryGetApplicationResource(string key, out object? resource)
     {
@@ -2927,9 +3146,14 @@ public class StrataMarkdown : ContentControl
 
     private static bool TryGetApplicationThemeVariant(out ThemeVariant themeVariant)
     {
-        if (Dispatcher.UIThread.CheckAccess() && Application.Current is { } application)
+        // ActualThemeVariant is typed non-nullable but genuinely can be null before the platform has
+        // resolved a variant — see ResolveThemeVariantName. Guarded here so a null never reaches a
+        // caller that treats the out value as present.
+        if (Dispatcher.UIThread.CheckAccess()
+            && Application.Current is { } application
+            && application.ActualThemeVariant is { } resolved)
         {
-            themeVariant = application.ActualThemeVariant;
+            themeVariant = resolved;
             return true;
         }
 
@@ -2953,8 +3177,6 @@ public class StrataMarkdown : ContentControl
         tb.ClipToBounds = false;
         tb.Opacity = 1d;
         tb.TextDecorations = null;
-        ApplyDirectionalTextLayout(tb, FlowDirection);
-
         // Margin: bullet indent, or heading top-margin when prose group starts with heading
         if (group.Kind == MdBlockKind.Bullet && group.Level > 0)
             tb.Margin = new Thickness(group.Level * 16, 0, 0, 0);
@@ -2991,6 +3213,7 @@ public class StrataMarkdown : ContentControl
         ConfigureMergedTextBlock(tb, group, blocks);
 
         var hasLinks = PopulateMergedInlines(tb, blocks, group);
+        ApplyDirectionalTextLayout(tb, FlowDirection, GetGroupDirectionSource(blocks, group));
         if (hasLinks)
         {
             AttachLinkHandlers(tb);
@@ -3015,6 +3238,7 @@ public class StrataMarkdown : ContentControl
         tb.Inlines?.Clear();
 
         var hasLinks = PopulateMergedInlines(tb, blocks, group);
+        ApplyDirectionalTextLayout(tb, FlowDirection, GetGroupDirectionSource(blocks, group));
 
         DetachLinkHandlers(tb);
         if (hasLinks)
@@ -3098,6 +3322,22 @@ public class StrataMarkdown : ContentControl
         }
 
         return hasLinks;
+    }
+
+    private static string GetGroupDirectionSource(IReadOnlyList<MdBlock> blocks, MdBlockGroup group)
+    {
+        if (group.Count == 1)
+            return blocks[group.StartIndex].Content;
+
+        var source = new StringBuilder();
+        for (var index = 0; index < group.Count; index++)
+        {
+            if (index > 0)
+                source.AppendLine();
+            source.Append(blocks[group.StartIndex + index].Content);
+        }
+
+        return source.ToString();
     }
 
     private static Control CreateHorizontalRuleControl()

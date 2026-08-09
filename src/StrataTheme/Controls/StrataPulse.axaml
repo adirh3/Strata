@@ -33,13 +33,13 @@
                       </Border.Transitions>
                     </Border>
                     <TextBlock Text="{TemplateBinding Label}"
-                               FontSize="11"
+                               FontSize="{DynamicResource Font.SizeCaption}"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource Brush.TextSecondary}" />
                   </StackPanel>
                   <TextBlock Name="PART_RateText"
                              DockPanel.Dock="Right"
-                             FontSize="10"
+                             FontSize="{DynamicResource Font.SizeCaption}"
                              FontWeight="SemiBold"
                              Foreground="{DynamicResource Brush.TextTertiary}"
                              VerticalAlignment="Center" />

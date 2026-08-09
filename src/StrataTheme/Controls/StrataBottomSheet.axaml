@@ -1,0 +1,153 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <Design.PreviewWith>
+    <Border Width="360" Height="420">
+      <controls:StrataBottomSheet IsOpen="True" Title="Chat actions">
+        <StackPanel>
+          <TextBlock Text="Rename" Margin="20,14" />
+          <TextBlock Text="Delete" Margin="20,14" />
+        </StackPanel>
+      </controls:StrataBottomSheet>
+    </Border>
+  </Design.PreviewWith>
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataBottomSheet}" TargetType="controls:StrataBottomSheet">
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel Name="PART_Root">
+              <!-- Scrim: dims the page and gives a huge, imprecise dismiss target. -->
+              <Border Name="PART_Scrim"
+                      Background="#99000000"
+                      Opacity="0"
+                      IsHitTestVisible="False">
+                <Border.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+              </Border>
+
+              <Border Name="PART_SheetMotion"
+                      VerticalAlignment="Bottom"
+                      HorizontalAlignment="Stretch"
+                      RenderTransformOrigin="0.5,1"
+                      Opacity="0">
+                <Border.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+
+                <Border Name="PART_Sheet"
+                        Background="{DynamicResource Brush.Surface1}"
+                        BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                        BorderThickness="1,1,1,0"
+                        CornerRadius="20,20,0,0"
+                        BoxShadow="0 -8 32 0 #50000000"
+                        ClipToBounds="True">
+                  <DockPanel LastChildFill="True">
+                  <!-- Grab handle. Also the drag surface: a 44dp-tall strip is easy to hit without
+                       looking, which is the whole point of a thumb-driven dismiss. -->
+                  <Border Name="PART_Handle"
+                          DockPanel.Dock="Top"
+                          Background="Transparent"
+                          Height="26"
+                          Cursor="Hand">
+                    <Border Width="38" Height="4" CornerRadius="2"
+                            VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Background="{DynamicResource Brush.BorderStrong}" />
+                  </Border>
+
+                  <TextBlock Name="PART_Title"
+                             DockPanel.Dock="Top"
+                             Text="{TemplateBinding Title}"
+                             Margin="20,2,20,10"
+                             FontSize="13"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource Brush.TextTertiary}"
+                             IsVisible="{TemplateBinding Title,
+                                         Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Margin="0,0,0,10"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                  </DockPanel>
+                </Border>
+              </Border>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Closed: parked below the bottom edge and transparent to input, so it never eats taps
+             on the page. The offset is a fixed distance rather than a percentage because Avalonia's
+             transform parser has no % unit. 900 clears any sheet a phone can show. -->
+        <Style Selector="^ /template/ Border#PART_SheetMotion">
+          <Setter Property="RenderTransform" Value="translateY(900px)" />
+        </Style>
+
+        <!--
+          A closed sheet is not merely off-screen: its content must not participate in measure/render.
+          Translating a long markdown plan below the viewport still built and laid out the entire
+          document during Window.Show, which could hang the mobile surface before the user ever opened
+          the sheet. Keep the lightweight shell alive for the transition, but realize its payload only
+          while open.
+        -->
+        <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:open">
+          <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:open /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:open /template/ Border#PART_Scrim">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:open /template/ Border#PART_SheetMotion">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="translateY(0)" />
+          <Setter Property="Transitions">
+            <Transitions>
+              <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+              <TransformOperationsTransition Property="RenderTransform"
+                                             Duration="0:0:0.26" Easing="CubicEaseOut" />
+            </Transitions>
+          </Setter>
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Full-width rows: a sheet's actions are thumb targets, not menu items. -->
+  <Style Selector="controls|StrataBottomSheet Button.sheet-item">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="20,15" />
+    <Setter Property="MinHeight" Value="54" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="controls|StrataBottomSheet Button.sheet-item:pressed">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+  </Style>
+
+  <Style Selector="controls|StrataBottomSheet Button.sheet-item.danger">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+  </Style>
+
+</Styles>

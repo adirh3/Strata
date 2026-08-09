@@ -58,13 +58,17 @@
                 </Grid>
               </Button>
 
+               <!-- SlideX keeps the panel on screen. The popup is centred on the picker button,
+                    and that button sits near the left edge of a phone composer, so a 300-wide
+                    panel would otherwise be positioned at a negative X and have its section
+                    headers and radio dots clipped off the side of the display. -->
                <Popup Name="PART_ModelPickerPopup"
                       IsLightDismissEnabled="True"
                       ShouldUseOverlayLayer="True"
                       Placement="AnchorAndGravity"
                       PlacementAnchor="Bottom"
                       PlacementGravity="Top"
-                      PlacementConstraintAdjustment="FlipY,ResizeY"
+                      PlacementConstraintAdjustment="FlipY,ResizeY,SlideX"
                       VerticalOffset="4"
                       PlacementTarget="{Binding #PART_ModelPickerButton}"
                       WindowManagerAddShadowHint="False"

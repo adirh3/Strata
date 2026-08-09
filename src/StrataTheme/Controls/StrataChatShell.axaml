@@ -80,8 +80,8 @@
                 </Border>
 
                 <!-- Composer docked at bottom -->
-                <Border DockPanel.Dock="Bottom"
-                  Padding="12,8,12,10"
+                <Border Name="PART_ComposerHost"
+                  DockPanel.Dock="Bottom"
                   CornerRadius="0,0,11,11">
                   <ContentPresenter Content="{TemplateBinding Composer}" />
                 </Border>
@@ -100,7 +100,7 @@
                                   HorizontalScrollBarVisibility="Disabled"
                                   IsScrollChainingEnabled="False"
                                   BringIntoViewOnFocusChange="False">
-                      <Border Name="PART_ScrollContent" Padding="16,12,16,12">
+                      <Border Name="PART_ScrollContent">
                         <ContentPresenter Content="{TemplateBinding Transcript}" />
                       </Border>
                     </ScrollViewer>
@@ -121,10 +121,10 @@
                       </Panel.Transitions>
 
                       <Button Name="PART_ScrollToBottomButton"
-                              Width="36"
-                              Height="36"
-                              MinWidth="36"
-                              MinHeight="36"
+                              Width="{DynamicResource Size.FloatingAction}"
+                              Height="{DynamicResource Size.FloatingAction}"
+                              MinWidth="{DynamicResource Size.FloatingAction}"
+                              MinHeight="{DynamicResource Size.FloatingAction}"
                               Padding="0"
                               Background="Transparent"
                               BorderBrush="Transparent"
@@ -189,6 +189,15 @@
             </Border>
           </ControlTemplate>
         </Setter>
+
+        <!-- Defaults live in styles rather than template-local values so consuming form factors can
+             override the named hosts without replacing the desktop template. -->
+        <Style Selector="^ /template/ Border#PART_ComposerHost">
+          <Setter Property="Padding" Value="12,8,12,10" />
+        </Style>
+        <Style Selector="^ /template/ Border#PART_ScrollContent">
+          <Setter Property="Padding" Value="16,12,16,12" />
+        </Style>
 
         <Style Selector="^:has-header /template/ DockPanel#PART_HeaderRow">
           <Setter Property="IsVisible" Value="True" />

@@ -1,0 +1,47 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <Design.PreviewWith>
+    <Border Width="420" Height="360">
+      <controls:StrataNavigationDrawer IsOpen="True" PanelWidth="260">
+        <controls:StrataNavigationDrawer.Panel>
+          <Border Background="#1A1A1F" />
+        </controls:StrataNavigationDrawer.Panel>
+        <Border Background="#0E0E12" />
+      </controls:StrataNavigationDrawer>
+    </Border>
+  </Design.PreviewWith>
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataNavigationDrawer}"
+                    TargetType="controls:StrataNavigationDrawer">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <!-- Host content sits underneath and is never moved: shifting the conversation with
+                   the drawer would re-layout the transcript on every frame of the drag. -->
+              <ContentPresenter Name="PART_ContentPresenter"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}" />
+
+              <Border Name="PART_Scrim"
+                      Background="{DynamicResource Brush.OverlayScrim}"
+                      Opacity="0"
+                      IsVisible="False" />
+
+              <!-- Offset by RenderTransform from code-behind, so the drag costs no layout pass. -->
+              <ContentPresenter Name="PART_Panel"
+                                HorizontalAlignment="Left"
+                                Width="{TemplateBinding PanelWidth}"
+                                Content="{TemplateBinding Panel}"
+                                ContentTemplate="{TemplateBinding PanelTemplate}"
+                                IsVisible="False" />
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

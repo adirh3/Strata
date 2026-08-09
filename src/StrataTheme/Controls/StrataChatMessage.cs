@@ -81,6 +81,8 @@ public class StrataCopyRequestedEventArgs : RoutedEventArgs
 /// </remarks>
 public class StrataChatMessage : TemplatedControl
 {
+    private const double TouchDragThreshold = 10;
+
     private Border? _streamBar;
     private Border? _bubble;
     private Border? _actionLayer;
@@ -101,6 +103,9 @@ public class StrataChatMessage : TemplatedControl
     private readonly HashSet<StrataMarkdown> _observedMarkdownControls = new();
     private readonly HashSet<Control> _contextMenuTargets = new();
     private bool _originalContentWasMarkdown;
+    private IPointer? _touchPressPointer;
+    private Point _touchPressPosition;
+    private bool _touchDragExceeded;
 
     // Tracks visual-tree attachment so the deferred stream-pulse start (posted to the dispatcher)
     // never begins a Forever composition animation on an already-detached, off-tree visual.
@@ -186,6 +191,17 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<bool> IsHostScrollingProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsHostScrolling));
 
+    /// <summary>
+    /// Pins the message action bar (copy / edit / regenerate) visible.
+    ///
+    /// The action bar is otherwise revealed by <c>:pointerover</c> / <c>:focus-within</c>, neither of
+    /// which a finger can produce, so on a touch device those commands would be unreachable. The
+    /// control sets this itself when it is tapped by a touch or pen pointer (tap again to dismiss),
+    /// which leaves mouse behaviour untouched; a host can also bind it to keep the bar always on.
+    /// </summary>
+    public static readonly StyledProperty<bool> AreActionsRevealedProperty =
+        AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(AreActionsRevealed));
+
     public static readonly RoutedEvent<StrataCopyRequestedEventArgs> CopyRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, StrataCopyRequestedEventArgs>(nameof(CopyRequested), RoutingStrategies.Bubble);
 
@@ -251,6 +267,14 @@ public class StrataChatMessage : TemplatedControl
         StatusTextProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStatusChanged());
     }
 
+    public StrataChatMessage()
+    {
+        AddHandler(PointerPressedEvent, OnTouchPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerMovedEvent, OnTouchPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, OnTouchPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerCaptureLostEvent, OnTouchPointerCaptureLost, RoutingStrategies.Direct, handledEventsToo: true);
+    }
+
     public event EventHandler<StrataCopyRequestedEventArgs>? CopyRequested
     { add => AddHandler(CopyRequestedEvent, value); remove => RemoveHandler(CopyRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? CopyTurnRequested
@@ -291,6 +315,11 @@ public class StrataChatMessage : TemplatedControl
     /// Gets or sets whether the containing chat shell is currently scrolling.
     /// </summary>
     public bool IsHostScrolling { get => GetValue(IsHostScrollingProperty); set => SetValue(IsHostScrollingProperty, value); }
+
+    /// <summary>
+    /// Gets or sets whether the action bar is pinned visible (the touch equivalent of hovering).
+    /// </summary>
+    public bool AreActionsRevealed { get => GetValue(AreActionsRevealedProperty); set => SetValue(AreActionsRevealedProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -360,11 +389,104 @@ public class StrataChatMessage : TemplatedControl
 
         if (change.Property == IsPointerOverProperty || change.Property == IsFocusedProperty)
             UpdateActionChromeMount();
+        else if (change.Property == AreActionsRevealedProperty)
+            OnActionsRevealedChanged();
+    }
+
+    private void OnTouchPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.Pointer.Type is not (PointerType.Touch or PointerType.Pen))
+            return;
+
+        if (_touchPressPointer is not null)
+        {
+            // A primary press after a completed scroll means the old pointer was captured and
+            // released by the scroll recognizer without routing release back through this message.
+            if (!e.Pointer.IsPrimary)
+                return;
+            ClearTouchPress();
+        }
+        if (IsInteractiveTouchSource(e.Source, e))
+            return;
+
+        _touchPressPointer = e.Pointer;
+        _touchPressPosition = e.GetPosition(this);
+        _touchDragExceeded = false;
+    }
+
+    private void OnTouchPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!ReferenceEquals(_touchPressPointer, e.Pointer))
+            return;
+
+        var current = e.GetPosition(this);
+        var dx = current.X - _touchPressPosition.X;
+        var dy = current.Y - _touchPressPosition.Y;
+        _touchDragExceeded |= (dx * dx) + (dy * dy) >= TouchDragThreshold * TouchDragThreshold;
+    }
+
+    /// <summary>
+    /// Touch/pen tap toggles the action bar, because a finger cannot hover and the bar is otherwise
+    /// only reachable through <c>:pointerover</c>. Mouse input is deliberately excluded so desktop
+    /// behaviour is unchanged. Interactive descendants and Markdown links are rejected when the
+    /// owning press is observed, while handled selectable-text events still count as ordinary taps.
+    /// </summary>
+    private void OnTouchPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        var ownsRelease = ReferenceEquals(_touchPressPointer, e.Pointer);
+        var wasTouchDrag = ownsRelease && _touchDragExceeded;
+        if (!ownsRelease)
+            return;
+
+        ClearTouchPress();
+
+        if (wasTouchDrag || IsEditing || IsHostScrolling)
+            return;
+
+        if (e.Pointer.Type is not (PointerType.Touch or PointerType.Pen))
+            return;
+
+        if (e.InitialPressMouseButton is not (MouseButton.Left or MouseButton.None))
+            return;
+
+        AreActionsRevealed = !AreActionsRevealed;
+    }
+
+    private void OnTouchPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (ReferenceEquals(_touchPressPointer, e.Pointer))
+            ClearTouchPress();
+    }
+
+    private void ClearTouchPress()
+    {
+        _touchPressPointer = null;
+        _touchDragExceeded = false;
+    }
+
+    private bool IsInteractiveTouchSource(object? source, PointerEventArgs e)
+    {
+        if (source is SelectableTextBlock textBlock
+            && textBlock.FindAncestorOfType<StrataMarkdown>() is { } markdown
+            && markdown.GetLinkAtPoint(textBlock, e.GetPosition(textBlock)) is not null)
+        {
+            return true;
+        }
+
+        for (var visual = source as Visual; visual is not null && !ReferenceEquals(visual, this);
+             visual = visual.GetVisualParent())
+        {
+            if (visual is Button or TextBox or ToggleButton or Slider or ScrollBar)
+                return true;
+        }
+
+        return false;
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _isAttachedToVisualTree = false;
+        ClearTouchPress();
 
         // Stop the streaming pulse while the composition visual is still attached (before base runs).
         // A Forever composition animation left running when the visual detaches keeps ticking on the
@@ -959,6 +1081,12 @@ public class StrataChatMessage : TemplatedControl
         }
     }
 
+    private void OnActionsRevealedChanged()
+    {
+        PseudoClasses.Set(":actions-revealed", AreActionsRevealed);
+        UpdateActionChromeMount();
+    }
+
     private void OnMetaChanged()
     {
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Timestamp));
@@ -1145,6 +1273,7 @@ public class StrataChatMessage : TemplatedControl
         PseudoClasses.Set(":editing", IsEditing);
         PseudoClasses.Set(":editable", IsEditable);
         PseudoClasses.Set(":host-scrolling", IsHostScrolling);
+        PseudoClasses.Set(":actions-revealed", AreActionsRevealed);
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Timestamp));
         PseudoClasses.Set(":has-status", !string.IsNullOrWhiteSpace(StatusText));
     }
