@@ -149,6 +149,7 @@ public class StrataMarkdown : ContentControl
     private List<MdBlock> _previousBlocks;
     private string? _previousMarkdownNormalized;
     private int _previousMarkdownLength;
+    private FlowDirection? _renderedFlowDirection;
 
     // ── Rebuild debouncing for rapid streaming ──
     private bool _rebuildQueued;
@@ -316,6 +317,7 @@ public class StrataMarkdown : ContentControl
         _previousBlocks.Clear();
         _previousMarkdownNormalized = null;
         _previousMarkdownLength = 0;
+        _renderedFlowDirection = null;
 
         base.OnDetachedFromVisualTree(e);
     }
@@ -359,6 +361,11 @@ public class StrataMarkdown : ContentControl
             // retained tree is already current, so we do NOTHING -- this is the hot switch-back path
             // and must stay free of any reparse/refresh work.
             _rebuildQueued = false;
+            ScheduleRebuild();
+        }
+        else if (_renderedFlowDirection is { } renderedDirection
+                 && renderedDirection != FlowDirection)
+        {
             ScheduleRebuild();
         }
     }
@@ -657,6 +664,8 @@ public class StrataMarkdown : ContentControl
             _tableKeysUsed.Clear();
 
             var source = Markdown;
+            var flowDirectionChanged = _renderedFlowDirection is { } renderedDirection
+                                       && renderedDirection != FlowDirection;
             if (string.IsNullOrWhiteSpace(source))
             {
                 _contentHost.Children.Clear();
@@ -665,6 +674,7 @@ public class StrataMarkdown : ContentControl
                 _previousGroups.Clear();
                 _previousMarkdownNormalized = null;
                 _previousMarkdownLength = 0;
+                _renderedFlowDirection = FlowDirection;
                 EvictStaleCaches();
                 return;
             }
@@ -675,7 +685,12 @@ public class StrataMarkdown : ContentControl
             if (normalized.Length == _previousMarkdownLength &&
                 string.Equals(normalized, _previousMarkdownNormalized, StringComparison.Ordinal))
             {
-                RefreshDirectionalLayoutForExistingTextControls();
+                RefreshDirectionalTextControls(
+                    normalized,
+                    _previousBlocks,
+                    _previousGroups,
+                    flowDirectionChanged);
+                _renderedFlowDirection = FlowDirection;
 
                 // Re-mark all cache keys as used so eviction doesn't clear them
                 foreach (var block in _previousBlocks)
@@ -719,11 +734,14 @@ public class StrataMarkdown : ContentControl
 
             // ── Incremental diff: only touch changed groups ──
             ApplyGroupsDiff(newBlocks, newGroups, isStreamingAppend);
+            if (flowDirectionChanged)
+                RefreshDirectionalTextControls(normalized, newBlocks, newGroups, rebuildContent: true);
 
             _previousBlocks = newBlocks;
             _previousGroups = newGroups;
             _previousMarkdownNormalized = normalized;
             _previousMarkdownLength = normalized.Length;
+            _renderedFlowDirection = FlowDirection;
 
             EvictStaleCaches();
         }
@@ -747,6 +765,7 @@ public class StrataMarkdown : ContentControl
         _previousGroups.Clear();
         _previousMarkdownNormalized = normalized;
         _previousMarkdownLength = normalized.Length;
+        _renderedFlowDirection = FlowDirection;
         EvictStaleCaches();
     }
 
@@ -1268,28 +1287,91 @@ public class StrataMarkdown : ContentControl
             ApplyDirectionalTextLayout(textBlock, flowDirection, sourceText);
     }
 
-    private void RefreshDirectionalLayoutForExistingTextControls()
+    private void RefreshDirectionalTextControls(
+        string normalized,
+        IReadOnlyList<MdBlock> blocks,
+        IReadOnlyList<MdBlockGroup> groups,
+        bool rebuildContent)
     {
-        var groupCount = Math.Min(_previousGroups.Count, _contentHost.Children.Count);
+        if (groups.Count == 0)
+        {
+            if (_contentHost.Children.Count != 1)
+                return;
+
+            if (rebuildContent)
+            {
+                if (!TryUpdateTextBlockInPlace(_contentHost.Children[0], normalized))
+                    RebuildPlainText(normalized);
+            }
+            else
+            {
+                ApplyDirectionalTextLayout(_contentHost.Children[0], FlowDirection, normalized);
+            }
+
+            return;
+        }
+
+        var groupCount = Math.Min(groups.Count, _contentHost.Children.Count);
         for (var groupIndex = 0; groupIndex < groupCount; groupIndex++)
         {
-            var group = _previousGroups[groupIndex];
+            var group = groups[groupIndex];
             if (group.Count > 1)
             {
                 if (IsMergeableKind(group.Kind))
                 {
-                    ApplyDirectionalTextLayout(
-                        _contentHost.Children[groupIndex],
-                        FlowDirection,
-                        GetGroupDirectionSource(_previousBlocks, group));
+                    if (rebuildContent)
+                    {
+                        if (!TryUpdateMergedGroupInPlace(_contentHost.Children[groupIndex], blocks, group))
+                            ReplaceTextGroupControl(groupIndex, blocks, group);
+                    }
+                    else
+                    {
+                        ApplyDirectionalTextLayout(
+                            _contentHost.Children[groupIndex],
+                            FlowDirection,
+                            GetGroupDirectionSource(blocks, group));
+                    }
                 }
                 continue;
             }
 
-            var block = _previousBlocks[group.StartIndex];
-            if (IsTextBlockKind(block.Kind))
+            var block = blocks[group.StartIndex];
+            if (block.Kind == MdBlockKind.Table && rebuildContent)
+            {
+                if (_contentHost.Children[groupIndex] is MarkdownTableView tableView)
+                    tableView.RefreshDirection(this);
+                else
+                    ReplaceTextGroupControl(groupIndex, blocks, group);
+                continue;
+            }
+
+            if (!IsTextBlockKind(block.Kind))
+                continue;
+
+            if (rebuildContent)
+            {
+                if (!TryUpdateTextBlockInPlace(_contentHost.Children[groupIndex], block.Content))
+                    ReplaceTextGroupControl(groupIndex, blocks, group);
+            }
+            else
+            {
                 ApplyDirectionalTextLayout(_contentHost.Children[groupIndex], FlowDirection, block.Content);
+            }
         }
+    }
+
+    private void ReplaceTextGroupControl(
+        int groupIndex,
+        IReadOnlyList<MdBlock> blocks,
+        MdBlockGroup group)
+    {
+        var existing = _contentHost.Children[groupIndex];
+        var replacement = group.Count > 1
+            ? CreateMergedTextControl(blocks, group)
+            : CreateControlForBlock(blocks[group.StartIndex]);
+
+        RemoveLinkRunsForControl(existing);
+        _contentHost.Children[groupIndex] = replacement;
     }
 
     private SelectableTextBlock CreateRichText(string text, double fontSize, double lineHeight, TextWrapping wrapping, string? prefix = null)
@@ -1302,8 +1384,8 @@ public class StrataMarkdown : ContentControl
             ClipToBounds = false,
             Margin = ZeroThickness
         };
-        var hadLinks = AppendFormattedInlines(textBlock, text, prefix);
         ApplyDirectionalTextLayout(textBlock, FlowDirection, text);
+        var hadLinks = AppendFormattedInlines(textBlock, text, prefix);
 
         if (hadLinks)
         {
@@ -1323,10 +1405,11 @@ public class StrataMarkdown : ContentControl
     {
         if (!string.IsNullOrEmpty(prefix) && string.IsNullOrEmpty(text))
         {
+            var displayPrefix = PrepareDirectionalText(target, prefix);
             if (forceInlines)
-                target.Inlines?.Add(new Run(prefix));
+                target.Inlines?.Add(new Run(displayPrefix));
             else
-                target.Text = prefix;
+                target.Text = displayPrefix;
             return false;
         }
 
@@ -1340,12 +1423,14 @@ public class StrataMarkdown : ContentControl
         // previously added LineBreak/Run inlines from earlier items in the group).
         if (!forceInlines && span.IndexOfAny('`', '*', '[') < 0 && span.IndexOfAny('~', '_', '!') < 0)
         {
-            target.Text = string.IsNullOrEmpty(prefix) ? text : prefix + text;
+            target.Text = PrepareDirectionalText(
+                target,
+                string.IsNullOrEmpty(prefix) ? text : prefix + text);
             return false;
         }
 
         if (!string.IsNullOrEmpty(prefix))
-            target.Inlines?.Add(new Run(prefix));
+            target.Inlines?.Add(new Run(PrepareDirectionalText(target, prefix)));
 
         int pos = 0;
         int textStart = 0;
@@ -1364,7 +1449,7 @@ public class StrataMarkdown : ContentControl
                     closePos += pos + 1;
                     // Flush preceding plain text
                     if (pos > textStart)
-                        target.Inlines?.Add(new Run(text[textStart..pos]));
+                        target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
 
                     var codeText = text[(pos + 1)..closePos];
                     target.Inlines?.Add(CreateInlineCode(codeText, target.FontSize));
@@ -1389,7 +1474,7 @@ public class StrataMarkdown : ContentControl
                     if (closeIdx >= 0)
                     {
                         if (pos > textStart)
-                            target.Inlines?.Add(new Run(text[textStart..pos]));
+                            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
 
                         var innerText = text[(pos + 3)..closeIdx];
                         hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Italic);
@@ -1406,7 +1491,7 @@ public class StrataMarkdown : ContentControl
                     if (closeIdx >= 0)
                     {
                         if (pos > textStart)
-                            target.Inlines?.Add(new Run(text[textStart..pos]));
+                            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
 
                         var innerText = text[(pos + 2)..closeIdx];
                         hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Normal);
@@ -1423,7 +1508,7 @@ public class StrataMarkdown : ContentControl
                     if (closeIdx >= 0)
                     {
                         if (pos > textStart)
-                            target.Inlines?.Add(new Run(text[textStart..pos]));
+                            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
 
                         var innerText = text[(pos + 1)..closeIdx];
                         hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Normal, FontStyle.Italic);
@@ -1444,12 +1529,12 @@ public class StrataMarkdown : ContentControl
                     if (parenClose >= 0)
                     {
                         if (pos > textStart)
-                            target.Inlines?.Add(new Run(text[textStart..pos]));
+                            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
 
                         var linkLabel = text[(pos + 1)..bracketClose];
                         var linkTarget = NormalizeLinkTarget(text[(bracketClose + 2)..parenClose]);
 
-                        var linkRun = new Run(linkLabel)
+                        var linkRun = new Run(PrepareDirectionalText(target, linkLabel))
                         {
                             Foreground = _linkBrush ??= ResolveLinkBrush(),
                             TextDecorations = TextDecorations.Underline,
@@ -1474,11 +1559,14 @@ public class StrataMarkdown : ContentControl
                     if (parenClose >= 0)
                     {
                         if (pos > textStart)
-                            target.Inlines?.Add(new Run(text[textStart..pos]));
+                            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
 
                         var altText = text[(pos + 2)..bracketClose];
                         var imageUrl = text[(bracketClose + 2)..parenClose].Trim();
-                        target.Inlines?.Add(CreateImageInline(altText, imageUrl, target.FontSize));
+                        target.Inlines?.Add(CreateImageInline(
+                            PrepareDirectionalText(target, altText),
+                            imageUrl,
+                            target.FontSize));
                         pos = parenClose + 1;
                         textStart = pos;
                         continue;
@@ -1493,10 +1581,10 @@ public class StrataMarkdown : ContentControl
                 if (closeIdx >= 0)
                 {
                     if (pos > textStart)
-                        target.Inlines?.Add(new Run(text[textStart..pos]));
+                        target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
 
                     var innerText = text[(pos + 2)..closeIdx];
-                    target.Inlines?.Add(new Run(innerText)
+                    target.Inlines?.Add(new Run(PrepareDirectionalText(target, innerText))
                     {
                         TextDecorations = TextDecorations.Strikethrough,
                     });
@@ -1519,7 +1607,7 @@ public class StrataMarkdown : ContentControl
                     if (closeIdx >= 0 && (closeIdx + 2 >= span.Length || !char.IsLetterOrDigit(span[closeIdx + 2])))
                     {
                         if (pos > textStart)
-                            target.Inlines?.Add(new Run(text[textStart..pos]));
+                            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
 
                         var innerText = text[(pos + 2)..closeIdx];
                         hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Bold, FontStyle.Normal);
@@ -1535,7 +1623,7 @@ public class StrataMarkdown : ContentControl
                     if (closeIdx >= 0 && (closeIdx + 1 >= span.Length || !char.IsLetterOrDigit(span[closeIdx + 1])))
                     {
                         if (pos > textStart)
-                            target.Inlines?.Add(new Run(text[textStart..pos]));
+                            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
 
                         var innerText = text[(pos + 1)..closeIdx];
                         hasLinks |= AppendNestedCodeInlines(target, innerText, FontWeight.Normal, FontStyle.Italic);
@@ -1556,13 +1644,13 @@ public class StrataMarkdown : ContentControl
             // When forceInlines is active, always use a Run to avoid clearing
             // inlines that were already appended for prior items in a merged group.
             if (!forceInlines && (target.Inlines == null || target.Inlines.Count == 0))
-                target.Text = text;
+                target.Text = PrepareDirectionalText(target, text);
             else
-                target.Inlines?.Add(new Run(text));
+                target.Inlines?.Add(new Run(PrepareDirectionalText(target, text)));
         }
         else if (textStart < span.Length)
         {
-            target.Inlines?.Add(new Run(text[textStart..]));
+            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..])));
         }
 
         return hasLinks;
@@ -1592,7 +1680,11 @@ public class StrataMarkdown : ContentControl
                     foundSpecial = true;
 
                     if (pos > textStart)
-                        target.Inlines?.Add(new Run(text[textStart..pos]) { FontWeight = weight, FontStyle = style });
+                        target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos]))
+                        {
+                            FontWeight = weight,
+                            FontStyle = style
+                        });
 
                     var codeText = text[(pos + 1)..closePos];
                     target.Inlines?.Add(CreateInlineCode(codeText, target.FontSize, weight, style));
@@ -1615,12 +1707,16 @@ public class StrataMarkdown : ContentControl
                         hasLinks = true;
 
                         if (pos > textStart)
-                            target.Inlines?.Add(new Run(text[textStart..pos]) { FontWeight = weight, FontStyle = style });
+                            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos]))
+                            {
+                                FontWeight = weight,
+                                FontStyle = style
+                            });
 
                         var linkLabel = text[(pos + 1)..bracketClose];
                         var linkTarget = NormalizeLinkTarget(text[(bracketClose + 2)..parenClose]);
 
-                        var linkRun = new Run(linkLabel)
+                        var linkRun = new Run(PrepareDirectionalText(target, linkLabel))
                         {
                             FontWeight = weight,
                             FontStyle = style,
@@ -1645,10 +1741,14 @@ public class StrataMarkdown : ContentControl
                     foundSpecial = true;
 
                     if (pos > textStart)
-                        target.Inlines?.Add(new Run(text[textStart..pos]) { FontWeight = weight, FontStyle = style });
+                        target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos]))
+                        {
+                            FontWeight = weight,
+                            FontStyle = style
+                        });
 
                     var innerText = text[(pos + 2)..closeIdx];
-                    target.Inlines?.Add(new Run(innerText)
+                    target.Inlines?.Add(new Run(PrepareDirectionalText(target, innerText))
                     {
                         FontWeight = weight,
                         FontStyle = style,
@@ -1665,14 +1765,30 @@ public class StrataMarkdown : ContentControl
 
         if (!foundSpecial)
         {
-            target.Inlines?.Add(new Run(text) { FontWeight = weight, FontStyle = style });
+            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text))
+            {
+                FontWeight = weight,
+                FontStyle = style
+            });
         }
         else if (textStart < span.Length)
         {
-            target.Inlines?.Add(new Run(text[textStart..]) { FontWeight = weight, FontStyle = style });
+            target.Inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..]))
+            {
+                FontWeight = weight,
+                FontStyle = style
+            });
         }
 
         return hasLinks;
+    }
+
+    private static string PrepareDirectionalText(SelectableTextBlock target, string text)
+    {
+        var flowDirection = StrataTextDirectionDetector.DetectLeading(text)
+                            ?? StrataTextDirectionDetector.Detect(text)
+                            ?? target.FlowDirection;
+        return StrataTextDirectionDetector.OrientFlowArrows(text, flowDirection);
     }
 
     /// <summary>
@@ -1953,8 +2069,8 @@ public class StrataMarkdown : ContentControl
 
         tb.Text = null;
         tb.Inlines?.Clear();
-        AppendFormattedInlines(tb, newContent);
         ApplyDirectionalTextLayout(tb, FlowDirection, newContent);
+        AppendFormattedInlines(tb, newContent);
 
         // Re-wire link handlers if needed
         if (tb.Inlines != null)
@@ -3212,8 +3328,8 @@ public class StrataMarkdown : ContentControl
         var tb = new SelectableTextBlock();
         ConfigureMergedTextBlock(tb, group, blocks);
 
-        var hasLinks = PopulateMergedInlines(tb, blocks, group);
         ApplyDirectionalTextLayout(tb, FlowDirection, GetGroupDirectionSource(blocks, group));
+        var hasLinks = PopulateMergedInlines(tb, blocks, group);
         if (hasLinks)
         {
             AttachLinkHandlers(tb);
@@ -3237,8 +3353,8 @@ public class StrataMarkdown : ContentControl
         tb.Text = null;
         tb.Inlines?.Clear();
 
-        var hasLinks = PopulateMergedInlines(tb, blocks, group);
         ApplyDirectionalTextLayout(tb, FlowDirection, GetGroupDirectionSource(blocks, group));
+        var hasLinks = PopulateMergedInlines(tb, blocks, group);
 
         DetachLinkHandlers(tb);
         if (hasLinks)
@@ -3518,8 +3634,14 @@ public class StrataMarkdown : ContentControl
             Classes.Add("strata-md-table");
         }
 
-        public void Update(StrataMarkdown owner, string[] headers, List<string[]> rows)
+        public void Update(StrataMarkdown owner, string[] headers, IReadOnlyList<string[]> rows)
         {
+            foreach (var textBlock in _grid.GetVisualDescendants().OfType<SelectableTextBlock>())
+            {
+                owner.RemoveLinkRunsForTextBlock(textBlock);
+                owner.DetachLinkHandlers(textBlock);
+            }
+
             _headers = headers;
             _rows = rows;
             _grid.Children.Clear();
@@ -3573,6 +3695,11 @@ public class StrataMarkdown : ContentControl
             }
 
             UpdateResponsiveLayout(Bounds.Width);
+        }
+
+        public void RefreshDirection(StrataMarkdown owner)
+        {
+            Update(owner, _headers, _rows);
         }
 
         private void OnTableSizeChanged(object? sender, SizeChangedEventArgs e)

@@ -263,6 +263,11 @@ public sealed class Strings
             ["MermaidDiagrams.Subtitle"] = "Flowcharts, sequences, state machines, class diagrams, timelines, and quadrant charts rendered from standard Mermaid syntax via StrataMarkdown.",
             ["MermaidDiagrams.Footer"] = "Use ```mermaid fenced blocks with graph/flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, timeline, or quadrantChart syntax. Pie and xychart-beta also supported.",
 
+            // RTL chart regression samples
+            ["RtlCharts"] = "RTL Chart Regression Samples",
+            ["RtlCharts.Subtitle"] = "Hebrew and mixed-direction labels across line, bar, donut, and pie charts.",
+            ["RtlCharts.Footer"] = "These samples intentionally stay in Hebrew when the demo UI is English so chart direction regressions are easy to reproduce.",
+
             // Hebrew RTL markdown samples
             ["MarkdownHebrewSamples"] = "Hebrew RTL Markdown Samples",
             ["MarkdownHebrewSamples.Subtitle"] = "Dedicated Hebrew samples for validating RTL selection, caret placement, inline code, mixed-direction text, and wrapped lines.",
@@ -284,6 +289,9 @@ public sealed class Strings
                 זהו בלוק נוסף בסגנון צ׳אט כדי לבדוק פסקאות ארוכות יותר עם מזהים באנגלית כמו build-2481, הנתיב api/orders, והגדרה `MaxBatchBytes = 262144`.
 
                 בשורה הבאה יש **טקסט מודגש**, _טקסט נטוי_, ו-~~טקסט מחוק~~ כדי לוודא שגם עם עיצוב inline הסימון נשאר צמוד לאות שנלחצה.
+
+                זרימת עבודה: בקשה → אימות → עיבוד → תשובה.
+                רצף אנגלי מוטמע: **Plan → Build → Test → Ship**.
 
                 ולבסוף נוסיף משפט עם כתובת support@example.com ועם הערך `RightToLeft` כדי לבדוק רצפים לועזיים בתוך טקסט עברי רציף.
                 """,
@@ -569,6 +577,11 @@ public sealed class Strings
             ["MermaidDiagrams.Subtitle"] = "תרשימי זרימה, רצפים, מכונות מצב, תרשימי מחלקות, צירי זמן ותרשימי רבעים מתחביר Mermaid סטנדרטי באמצעות StrataMarkdown.",
             ["MermaidDiagrams.Footer"] = "השתמשו בבלוקי ```mermaid עם graph/flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, timeline או quadrantChart. תמיכה גם ב-pie ו-xychart-beta.",
 
+            // RTL chart regression samples
+            ["RtlCharts"] = "דוגמאות רגרסיה לתרשימי RTL",
+            ["RtlCharts.Subtitle"] = "תוויות בעברית ובכיווניות מעורבת בתרשימי קו, עמודות, טבעת ועוגה.",
+            ["RtlCharts.Footer"] = "הדוגמאות נשארות בעברית גם כאשר ממשק הדמו באנגלית, כדי שיהיה קל לשחזר רגרסיות כיווניות בתרשימים.",
+
             // Hebrew RTL markdown samples
             ["MarkdownHebrewSamples"] = "דוגמאות Markdown בעברית",
             ["MarkdownHebrewSamples.Subtitle"] = "דוגמאות ייעודיות בעברית לבדיקת בחירת RTL, מיקום סמן, קוד inline, טקסט מעורב ועטיפת שורות.",
@@ -590,6 +603,9 @@ public sealed class Strings
                 זהו בלוק נוסף בסגנון צ׳אט כדי לבדוק פסקאות ארוכות יותר עם מזהים באנגלית כמו build-2481, הנתיב api/orders, והגדרה `MaxBatchBytes = 262144`.
 
                 בשורה הבאה יש **טקסט מודגש**, _טקסט נטוי_, ו-~~טקסט מחוק~~ כדי לוודא שגם עם עיצוב inline הסימון נשאר צמוד לאות שנלחצה.
+
+                זרימת עבודה: בקשה → אימות → עיבוד → תשובה.
+                רצף אנגלי מוטמע: **Plan → Build → Test → Ship**.
 
                 ולבסוף נוסיף משפט עם כתובת support@example.com ועם הערך `RightToLeft` כדי לבדוק רצפים לועזיים בתוך טקסט עברי רציף.
                 """,

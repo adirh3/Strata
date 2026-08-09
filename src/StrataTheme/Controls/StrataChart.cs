@@ -424,13 +424,28 @@ public class StrataChart : TemplatedControl
             IsHitTestVisible = true;
         }
 
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+            if (change.Property == FlowDirectionProperty)
+                InvalidateVisual();
+        }
+
+        private bool IsHostedInRtlLayout() =>
+            FlowDirection == FlowDirection.RightToLeft;
+
+        private Point GetChartPosition(Point position) =>
+            IsHostedInRtlLayout()
+                ? new Point(Bounds.Width - position.X, position.Y)
+                : position;
+
         // ── Pointer events ─────────────────────────────────────
 
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             base.OnPointerMoved(e);
             var old = _hoverIndex;
-            _hoverIndex = HitTest(e.GetPosition(this));
+            _hoverIndex = HitTest(GetChartPosition(e.GetPosition(this)));
             if (old != _hoverIndex) InvalidateVisual();
         }
 
@@ -443,7 +458,7 @@ public class StrataChart : TemplatedControl
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
             base.OnPointerPressed(e);
-            var pos = e.GetPosition(this);
+            var pos = GetChartPosition(e.GetPosition(this));
             foreach (var (idx, rect) in _legendHitRects)
             {
                 if (rect.Contains(pos))
@@ -560,7 +575,23 @@ public class StrataChart : TemplatedControl
 
         public override void Render(DrawingContext ctx)
         {
-            var b = Bounds;
+            var bounds = Bounds;
+            if (IsHostedInRtlLayout())
+            {
+                using (ctx.PushTransform(
+                           Matrix.CreateScale(-1, 1) *
+                           Matrix.CreateTranslation(bounds.Width, 0)))
+                {
+                    RenderCore(ctx, bounds);
+                }
+                return;
+            }
+
+            RenderCore(ctx, bounds);
+        }
+
+        private void RenderCore(DrawingContext ctx, Rect b)
+        {
             if (b.Width < 40 || b.Height < 40) return;
 
             var series = _chart.Series;
@@ -615,8 +646,11 @@ public class StrataChart : TemplatedControl
                     ? PieMetrics().center
                     : DonutMetrics().center;
                 var startX = bounds.Width * 0.65;
+                var endX = bounds.Right - RightPad;
                 var itemCount = labels?.Count ?? 0;
                 var startY = center.Y - itemCount * 22.0 / 2;
+                var isRtl = GetContentFlowDirection(labels ?? Array.Empty<string>())
+                    == FlowDirection.RightToLeft;
 
                 for (int i = 0; i < itemCount; i++)
                 {
@@ -624,47 +658,107 @@ public class StrataChart : TemplatedControl
                     var brush = hidden ? dimBrush : SeriesBrush(i);
                     var textBr = hidden ? dimBrush : labelBrush;
 
-                    ctx.DrawEllipse(brush, null, new Point(startX + 5, startY + 7), 5, 5);
-                    if (hidden)
-                    {
-                        // Strikethrough line over the dot
-                        var strikePen = new Pen(dimBrush, 1.5);
-                        ctx.DrawLine(strikePen, new Point(startX, startY + 7), new Point(startX + 10, startY + 7));
-                    }
                     var label = labels![i];
                     if (vals is not null && i < vals.Count && visibleTotal > 0 && !hidden)
-                        label += $"  {vals[i] / visibleTotal * 100:F0}%";
+                        label = AppendDirectionalValue(label, $"{vals[i] / visibleTotal * 100:F0}%", "  ");
                     var ft = Txt(label, 11, textBr);
-                    ctx.DrawText(ft, new Point(startX + 16, startY));
 
-                    _legendHitRects.Add((i, new Rect(startX, startY, 16 + ft.Width, 18)));
+                    if (isRtl)
+                    {
+                        var markerCenterX = endX - 5;
+                        var textX = markerCenterX - 11 - ft.Width;
+                        DrawLegendMarker(ctx, brush, dimBrush, hidden, markerCenterX, startY + 7);
+                        ctx.DrawText(ft, new Point(textX, startY));
+                        _legendHitRects.Add((i, new Rect(textX, startY, endX - textX, 18)));
+                    }
+                    else
+                    {
+                        DrawLegendMarker(ctx, brush, dimBrush, hidden, startX + 5, startY + 7);
+                        ctx.DrawText(ft, new Point(startX + 16, startY));
+                        _legendHitRects.Add((i, new Rect(startX, startY, 16 + ft.Width, 18)));
+                    }
+
                     startY += 22;
                 }
             }
             else
             {
                 // Horizontal legend above chart area
-                double x = LeftPad;
-                for (int i = 0; i < series.Count; i++)
+                var isRtl = GetContentFlowDirection(series.Select(item => item.Name))
+                    == FlowDirection.RightToLeft;
+
+                if (isRtl)
                 {
-                    var hidden = _hiddenIndices.Contains(i);
-                    var brush = hidden ? dimBrush : SeriesBrush(i);
-                    var textBr = hidden ? dimBrush : labelBrush;
-
-                    ctx.DrawEllipse(brush, null, new Point(x + 5, TopPad + 7), 5, 5);
-                    if (hidden)
+                    double x = bounds.Right - RightPad;
+                    for (int i = 0; i < series.Count; i++)
                     {
-                        var strikePen = new Pen(dimBrush, 1.5);
-                        ctx.DrawLine(strikePen, new Point(x, TopPad + 7), new Point(x + 10, TopPad + 7));
-                    }
-                    var ft = Txt(series[i].Name, 11, textBr);
-                    ctx.DrawText(ft, new Point(x + 14, TopPad));
+                        var hidden = _hiddenIndices.Contains(i);
+                        var brush = hidden ? dimBrush : SeriesBrush(i);
+                        var textBr = hidden ? dimBrush : labelBrush;
+                        var ft = Txt(series[i].Name, 11, textBr);
+                        var itemW = 14 + ft.Width;
+                        var itemLeft = x - itemW;
 
-                    var itemW = 14 + ft.Width;
-                    _legendHitRects.Add((i, new Rect(x, TopPad, itemW, 18)));
-                    x += itemW + 20;
+                        DrawLegendMarker(ctx, brush, dimBrush, hidden, x - 5, TopPad + 7);
+                        ctx.DrawText(ft, new Point(itemLeft, TopPad));
+                        _legendHitRects.Add((i, new Rect(itemLeft, TopPad, itemW, 18)));
+                        x = itemLeft - 20;
+                    }
+                }
+                else
+                {
+                    double x = LeftPad;
+                    for (int i = 0; i < series.Count; i++)
+                    {
+                        var hidden = _hiddenIndices.Contains(i);
+                        var brush = hidden ? dimBrush : SeriesBrush(i);
+                        var textBr = hidden ? dimBrush : labelBrush;
+
+                        DrawLegendMarker(ctx, brush, dimBrush, hidden, x + 5, TopPad + 7);
+                        var ft = Txt(series[i].Name, 11, textBr);
+                        ctx.DrawText(ft, new Point(x + 14, TopPad));
+
+                        var itemW = 14 + ft.Width;
+                        _legendHitRects.Add((i, new Rect(x, TopPad, itemW, 18)));
+                        x += itemW + 20;
+                    }
                 }
             }
+        }
+
+        private static void DrawLegendMarker(
+            DrawingContext ctx,
+            IBrush brush,
+            IBrush dimBrush,
+            bool hidden,
+            double centerX,
+            double centerY)
+        {
+            ctx.DrawEllipse(brush, null, new Point(centerX, centerY), 5, 5);
+            if (!hidden)
+                return;
+
+            var strikePen = new Pen(dimBrush, 1.5);
+            ctx.DrawLine(
+                strikePen,
+                new Point(centerX - 5, centerY),
+                new Point(centerX + 5, centerY));
+        }
+
+        private static FlowDirection GetContentFlowDirection(IEnumerable<string> values)
+        {
+            return MermaidTextHelper.GetFlowDirection(
+                string.Join(" ", values.Where(value => !string.IsNullOrWhiteSpace(value))));
+        }
+
+        private static string AppendDirectionalValue(string label, string value, string separator)
+        {
+            if (string.IsNullOrEmpty(label))
+                return value;
+
+            return MermaidTextHelper.GetFlowDirection(label) == FlowDirection.RightToLeft
+                ? $"{label}{separator}\u2066{value}\u2069"
+                : $"{label}{separator}{value}";
         }
 
         // ── Grid + Axes ────────────────────────────────────────
@@ -1012,7 +1106,10 @@ public class StrataChart : TemplatedControl
                         center.Y + (outerR + 10) * Math.Sin(midRad));
 
                     var pct = vals[_hoverIndex] / visibleTotal * 100;
-                    var tipText = $"{labels[_hoverIndex]}: {FormatValue(vals[_hoverIndex])} ({pct:F0}%)";
+                    var tipText = AppendDirectionalValue(
+                        labels[_hoverIndex],
+                        $"{FormatValue(vals[_hoverIndex])} ({pct:F0}%)",
+                        ": ");
 
                     var gridBrush = _chart.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
                     DrawSimpleTooltip(ctx, tipAnchor, tipText, textBrush, surfaceBrush, gridBrush);
@@ -1103,7 +1200,10 @@ public class StrataChart : TemplatedControl
                         center.Y + (radius + 12) * Math.Sin(midRad));
 
                     var pct = vals[_hoverIndex] / visibleTotal * 100;
-                    var tipText = $"{labels[_hoverIndex]}: {FormatValue(vals[_hoverIndex])} ({pct:F0}%)";
+                    var tipText = AppendDirectionalValue(
+                        labels[_hoverIndex],
+                        $"{FormatValue(vals[_hoverIndex])} ({pct:F0}%)",
+                        ": ");
 
                     var gridBrush = _chart.ResolveBrush("Brush.BorderSubtle", Color.Parse("#2D2D2D"));
                     DrawSimpleTooltip(ctx, tipAnchor, tipText, textBrush, surfaceBrush, gridBrush);
@@ -1200,7 +1300,13 @@ public class StrataChart : TemplatedControl
 
             for (int si = 0; si < series.Count; si++)
                 if (idx < series[si].Values.Count)
-                    lines.Add((Txt($"{series[si].Name}: {FormatValue(series[si].Values[idx])}", 11, textBrush),
+                    lines.Add((Txt(
+                            AppendDirectionalValue(
+                                series[si].Name,
+                                FormatValue(series[si].Values[idx]),
+                                ": "),
+                            11,
+                            textBrush),
                         SeriesBrush(si)));
 
             if (lines.Count == 0) return;
@@ -1229,9 +1335,25 @@ public class StrataChart : TemplatedControl
             double textY = ty + py + topStripe;
             foreach (var (ft, dot) in lines)
             {
-                if (dot != Brushes.Transparent)
-                    ctx.DrawEllipse(dot, null, new Point(tx + px + 4, textY + ft.Height / 2), 3.5, 3.5);
-                ctx.DrawText(ft, new Point(tx + px + (dot != Brushes.Transparent ? 12 : 0), textY));
+                var hasDot = dot != Brushes.Transparent;
+                if (ft.FlowDirection == FlowDirection.RightToLeft)
+                {
+                    var contentRight = tx + tipW - px;
+                    if (hasDot)
+                    {
+                        ctx.DrawEllipse(dot, null, new Point(contentRight - 4, textY + ft.Height / 2), 3.5, 3.5);
+                        contentRight -= 12;
+                    }
+
+                    ctx.DrawText(ft, new Point(contentRight - ft.Width, textY));
+                }
+                else
+                {
+                    if (hasDot)
+                        ctx.DrawEllipse(dot, null, new Point(tx + px + 4, textY + ft.Height / 2), 3.5, 3.5);
+                    ctx.DrawText(ft, new Point(tx + px + (hasDot ? 12 : 0), textY));
+                }
+
                 textY += ft.Height + 2;
             }
         }

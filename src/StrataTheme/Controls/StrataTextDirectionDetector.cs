@@ -39,6 +39,21 @@ public static class StrataTextDirectionDetector
             if (scannedChars > scanLimit)
                 break;
 
+            var directionalMark = GetDirectionalMark(rune.Value);
+            if (directionalMark == FlowDirection.RightToLeft)
+            {
+                firstStrongIsRtl ??= true;
+                rtlStrongCount++;
+                continue;
+            }
+
+            if (directionalMark == FlowDirection.LeftToRight)
+            {
+                firstStrongIsRtl ??= false;
+                ltrStrongCount++;
+                continue;
+            }
+
             if (rune.Value <= 0x7F)
             {
                 var ascii = (char)rune.Value;
@@ -56,29 +71,8 @@ public static class StrataTextDirectionDetector
 
             var category = Rune.GetUnicodeCategory(rune);
 
-            if (category is UnicodeCategory.SpaceSeparator
-                or UnicodeCategory.LineSeparator
-                or UnicodeCategory.ParagraphSeparator
-                or UnicodeCategory.Control
-                or UnicodeCategory.Format
-                or UnicodeCategory.NonSpacingMark
-                or UnicodeCategory.SpacingCombiningMark
-                or UnicodeCategory.EnclosingMark
-                or UnicodeCategory.ConnectorPunctuation
-                or UnicodeCategory.DashPunctuation
-                or UnicodeCategory.OpenPunctuation
-                or UnicodeCategory.ClosePunctuation
-                or UnicodeCategory.InitialQuotePunctuation
-                or UnicodeCategory.FinalQuotePunctuation
-                or UnicodeCategory.OtherPunctuation
-                or UnicodeCategory.MathSymbol
-                or UnicodeCategory.CurrencySymbol
-                or UnicodeCategory.ModifierSymbol
-                or UnicodeCategory.OtherSymbol
-                or UnicodeCategory.DecimalDigitNumber)
-            {
+            if (IsDirectionNeutral(category))
                 continue;
-            }
 
             if (IsStrongRtl(rune.Value))
             {
@@ -126,8 +120,9 @@ public static class StrataTextDirectionDetector
             if (scannedChars > scanLimit)
                 break;
 
-            if (IsStrongRtl(rune.Value))
-                return FlowDirection.RightToLeft;
+            var directionalMark = GetDirectionalMark(rune.Value);
+            if (directionalMark is not null)
+                return directionalMark;
 
             if (rune.Value <= 0x7F)
             {
@@ -137,7 +132,14 @@ public static class StrataTextDirectionDetector
                 continue;
             }
 
-            if (Rune.GetUnicodeCategory(rune) is UnicodeCategory.UppercaseLetter
+            var category = Rune.GetUnicodeCategory(rune);
+            if (IsDirectionNeutral(category))
+                continue;
+
+            if (IsStrongRtl(rune.Value))
+                return FlowDirection.RightToLeft;
+
+            if (category is UnicodeCategory.UppercaseLetter
                 or UnicodeCategory.LowercaseLetter
                 or UnicodeCategory.TitlecaseLetter
                 or UnicodeCategory.ModifierLetter
@@ -148,6 +150,156 @@ public static class StrataTextDirectionDetector
         }
 
         return null;
+    }
+
+    internal static string OrientFlowArrows(string text, FlowDirection flowDirection)
+    {
+        if (flowDirection != FlowDirection.RightToLeft || string.IsNullOrEmpty(text))
+            return text;
+
+        StringBuilder? oriented = null;
+        var copyStart = 0;
+
+        for (var index = 0; index < text.Length; index++)
+        {
+            var replacement = GetOppositeFlowArrow(text[index]);
+            var consumed = 1;
+
+            if (replacement is null &&
+                TryGetOppositeAsciiFlowArrow(text, index, out var asciiReplacement, out consumed))
+            {
+                replacement = asciiReplacement;
+            }
+
+            if (replacement is null)
+                continue;
+
+            oriented ??= new StringBuilder(text.Length);
+            oriented.Append(text, copyStart, index - copyStart);
+            oriented.Append(replacement);
+            index += consumed - 1;
+            copyStart = index + 1;
+        }
+
+        if (oriented is null)
+            return text;
+
+        oriented.Append(text, copyStart, text.Length - copyStart);
+        return oriented.ToString();
+    }
+
+    private static string? GetOppositeFlowArrow(char value)
+    {
+        return value switch
+        {
+            '\u2190' => "\u2192",
+            '\u2192' => "\u2190",
+            '\u21A4' => "\u21A6",
+            '\u21A6' => "\u21A4",
+            '\u21D0' => "\u21D2",
+            '\u21D2' => "\u21D0",
+            '\u27F5' => "\u27F6",
+            '\u27F6' => "\u27F5",
+            '\u27F8' => "\u27F9",
+            '\u27F9' => "\u27F8",
+            '\u2B05' => "\u27A1",
+            '\u27A1' => "\u2B05",
+            _ => null,
+        };
+    }
+
+    private static bool TryGetOppositeAsciiFlowArrow(
+        string text,
+        int index,
+        out string? replacement,
+        out int consumed)
+    {
+        replacement = null;
+        consumed = 1;
+
+        if (!IsFlowArrowBoundary(text, index - 1))
+            return false;
+
+        if (index + 3 <= text.Length)
+        {
+            var token = text.AsSpan(index, 3);
+            if (token.SequenceEqual("-->"))
+            {
+                if (!IsFlowArrowBoundary(text, index + 3))
+                    return false;
+                replacement = "<--";
+                consumed = 3;
+                return true;
+            }
+
+            if (token.SequenceEqual("<--"))
+            {
+                if (!IsFlowArrowBoundary(text, index + 3))
+                    return false;
+                replacement = "-->";
+                consumed = 3;
+                return true;
+            }
+        }
+
+        if (index + 2 > text.Length)
+            return false;
+
+        var shortToken = text.AsSpan(index, 2);
+        if (shortToken.SequenceEqual("->"))
+            replacement = "<-";
+        else if (shortToken.SequenceEqual("<-"))
+            replacement = "->";
+        else
+            return false;
+
+        if (!IsFlowArrowBoundary(text, index + 2))
+        {
+            replacement = null;
+            return false;
+        }
+
+        consumed = 2;
+        return true;
+    }
+
+    private static bool IsFlowArrowBoundary(string text, int index)
+    {
+        return index < 0 || index >= text.Length || char.IsWhiteSpace(text[index]);
+    }
+
+    private static FlowDirection? GetDirectionalMark(int codePoint)
+    {
+        return codePoint switch
+        {
+            0x061C or 0x200F => FlowDirection.RightToLeft,
+            0x200E => FlowDirection.LeftToRight,
+            _ => null,
+        };
+    }
+
+    private static bool IsDirectionNeutral(UnicodeCategory category)
+    {
+        return category is UnicodeCategory.SpaceSeparator
+            or UnicodeCategory.LineSeparator
+            or UnicodeCategory.ParagraphSeparator
+            or UnicodeCategory.Control
+            or UnicodeCategory.Format
+            or UnicodeCategory.NonSpacingMark
+            or UnicodeCategory.SpacingCombiningMark
+            or UnicodeCategory.EnclosingMark
+            or UnicodeCategory.ConnectorPunctuation
+            or UnicodeCategory.DashPunctuation
+            or UnicodeCategory.OpenPunctuation
+            or UnicodeCategory.ClosePunctuation
+            or UnicodeCategory.InitialQuotePunctuation
+            or UnicodeCategory.FinalQuotePunctuation
+            or UnicodeCategory.OtherPunctuation
+            or UnicodeCategory.MathSymbol
+            or UnicodeCategory.CurrencySymbol
+            or UnicodeCategory.ModifierSymbol
+            or UnicodeCategory.OtherSymbol
+            or UnicodeCategory.DecimalDigitNumber;
     }
 
     /// <summary>

@@ -23,6 +23,16 @@ public class MermaidTextHelperTests
     [Theory]
     [InlineData("`<b>שלום</b>`", FlowDirection.RightToLeft)]
     [InlineData("`**Hello**`", FlowDirection.LeftToRight)]
+    [InlineData("מכירות API platform metrics", FlowDirection.RightToLeft)]
+    [InlineData("2026 - דוחות API platform metrics", FlowDirection.RightToLeft)]
+    [InlineData("API דוחות רבעוניים מפורטים", FlowDirection.LeftToRight)]
+    [InlineData("٢٠٢٦ API metrics", FlowDirection.LeftToRight)]
+    [InlineData("״API metrics", FlowDirection.LeftToRight)]
+    [InlineData("\u05B0שלום API", FlowDirection.RightToLeft)]
+    [InlineData("2026 / 2027", FlowDirection.LeftToRight)]
+    [InlineData("\u061CAPI metrics", FlowDirection.RightToLeft)]
+    [InlineData("\u200FAPI metrics", FlowDirection.RightToLeft)]
+    [InlineData("\u200Eשלום", FlowDirection.LeftToRight)]
     public void GetFlowDirection_DetectsRenderedLabelDirection(string input, FlowDirection expected)
     {
         var normalized = MermaidTextHelper.NormalizeLabelText(input);

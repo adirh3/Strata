@@ -1069,6 +1069,37 @@
             </StackPanel>
           </Border>
 
+          <!-- ── RTL chart regression samples ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="{Binding Strings[RtlCharts]}" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="{Binding Strings[RtlCharts.Subtitle]}" />
+              </StackPanel>
+
+              <sc:StrataMarkdown x:Name="RtlLineChartSample"
+                                 IsInline="True"
+                                 Markdown="### מגמת API רבעונית&#x0a;&#x0a;```chart&#x0a;{&quot;type&quot;:&quot;line&quot;,&quot;labels&quot;:[&quot;ינואר API 2026&quot;,&quot;פברואר SLA&quot;,&quot;מרץ Q1&quot;,&quot;אפריל 24/7&quot;],&quot;series&quot;:[{&quot;name&quot;:&quot;מכירות API platform metrics&quot;,&quot;values&quot;:[12,24,18,32]},{&quot;name&quot;:&quot;תחזית SLA 2026&quot;,&quot;values&quot;:[10,20,26,30]}],&quot;height&quot;:220}&#x0a;```" />
+
+              <sc:StrataMarkdown x:Name="RtlBarChartSample"
+                                 IsInline="True"
+                                 Markdown="### עומס לפי צוות&#x0a;&#x0a;```chart&#x0a;{&quot;type&quot;:&quot;bar&quot;,&quot;labels&quot;:[&quot;צוות API&quot;,&quot;תשתיות 24/7&quot;,&quot;אבטחת SLA&quot;,&quot;מוצר Q4&quot;],&quot;series&quot;:[{&quot;name&quot;:&quot;בקשות Production API&quot;,&quot;values&quot;:[32,48,26,41]},{&quot;name&quot;:&quot;תחזית capacity 2026&quot;,&quot;values&quot;:[28,44,30,38]}],&quot;height&quot;:220}&#x0a;```" />
+
+              <sc:StrataMarkdown x:Name="RtlDonutChartSample"
+                                 IsInline="True"
+                                 Markdown="### חלוקת בקשות&#x0a;&#x0a;```chart&#x0a;{&quot;type&quot;:&quot;donut&quot;,&quot;labels&quot;:[&quot;אימות&quot;,&quot;עיבוד API platform 2026&quot;,&quot;התראות SLA&quot;,&quot;דוחות Q4&quot;],&quot;series&quot;:[{&quot;name&quot;:&quot;חלוקת בקשות API&quot;,&quot;values&quot;:[30,45,15,10]}],&quot;donutCenterValue&quot;:&quot;100%&quot;,&quot;donutCenterLabel&quot;:&quot;סה״כ API 2026&quot;,&quot;height&quot;:240}&#x0a;```" />
+
+              <sc:StrataMarkdown x:Name="RtlPieChartSample"
+                                 IsInline="True"
+                                 Markdown="### פלחי לקוחות&#x0a;&#x0a;```chart&#x0a;{&quot;type&quot;:&quot;pie&quot;,&quot;labels&quot;:[&quot;לקוחות Enterprise&quot;,&quot;עסקים SMB&quot;,&quot;שותפים API&quot;,&quot;פנימי 24/7&quot;],&quot;series&quot;:[{&quot;name&quot;:&quot;פלחי לקוחות 2026&quot;,&quot;values&quot;:[40,30,20,10]}],&quot;height&quot;:240}&#x0a;```" />
+
+              <TextBlock Classes="caption tertiary"
+                         TextWrapping="Wrap"
+                         Text="{Binding Strings[RtlCharts.Footer]}" />
+            </StackPanel>
+          </Border>
+
           <!-- ── StrataFileAttachment ── -->
           <Border Classes="strata-card" Padding="24,20">
             <StackPanel Spacing="14">

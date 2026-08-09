@@ -95,7 +95,9 @@ internal static class MermaidTextHelper
 
     internal static FlowDirection GetFlowDirection(string? text, FlowDirection fallback = FlowDirection.LeftToRight)
     {
-        return StrataTextDirectionDetector.Detect(text) ?? fallback;
+        return StrataTextDirectionDetector.DetectLeading(text)
+               ?? StrataTextDirectionDetector.Detect(text)
+               ?? fallback;
     }
 
     private static string UnwrapKnownWrappers(string text)
