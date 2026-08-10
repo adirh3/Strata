@@ -2,6 +2,7 @@
         xmlns:sa="using:StrataTheme.Animation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:StrataTheme.Controls"
+        xmlns:textInput="using:Avalonia.Input.TextInput"
         xmlns:strata="using:StrataTheme">
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -848,6 +849,7 @@
     <Setter Property="MaxHeight" Value="132" />
     <Setter Property="Padding" Value="18,11,18,4" />
     <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="textInput:TextInputOptions.ReturnKeyType" Value="Return" />
   </Style>
 
   <Style Selector="controls|StrataChatComposer.mobile /template/ Grid#PART_Toolbar">
