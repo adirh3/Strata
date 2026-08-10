@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
@@ -194,6 +195,72 @@ public class StrataMarkdownReattachRebuildTests
         Assert.True(
             parsedWhileAttached > 0,
             "An attached retain-content markdown must still parse content changes immediately.");
+    }
+
+    [Fact]
+    public async Task ReleaseRetainedContent_AfterDetach_ClearsRenderedTree()
+    {
+        var remainingTextBlocks = await _fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                RetainContentOnDetach = true,
+                StreamingRebuildThrottleMs = 0,
+                FontSize = 14,
+                Markdown = "**bold** retained content that must be released",
+            };
+            var host = new Border { Child = markdown };
+            var window = new Window { Width = 400, Height = 300, Content = host };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.NotEmpty(markdown.GetLogicalDescendants().OfType<SelectableTextBlock>());
+            host.Child = null;
+            markdown.ReleaseRetainedContent();
+            var remaining = markdown.GetLogicalDescendants().OfType<SelectableTextBlock>().Count();
+
+            window.Close();
+            return remaining;
+        });
+
+        Assert.Equal(0, remainingTextBlocks);
+    }
+
+    [Fact]
+    public async Task ReleaseRetainedContent_CancelsPlaceholderAnimations()
+    {
+        var result = await _fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                RetainContentOnDetach = true,
+                StreamingRebuildThrottleMs = 0,
+                Markdown = "```chart\n\n```",
+            };
+            var host = new Border { Child = markdown };
+            var window = new Window { Width = 400, Height = 300, Content = host };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var dots = markdown.GetLogicalDescendants()
+                .OfType<Border>()
+                .Where(static border => border.Tag is CancellationTokenSource)
+                .ToArray();
+            var tokens = dots.Select(static dot => (CancellationTokenSource)dot.Tag!).ToArray();
+            Assert.NotEmpty(dots);
+
+            host.Child = null;
+            markdown.ReleaseRetainedContent();
+            var tagsCleared = dots.All(static dot => dot.Tag is null);
+            var tokensCancelled = tokens.All(static cts => cts.IsCancellationRequested);
+
+            window.Close();
+            return (dots.Length, tagsCleared, tokensCancelled);
+        });
+
+        Assert.Equal(3, result.Length);
+        Assert.True(result.tagsCleared);
+        Assert.True(result.tokensCancelled);
     }
 
     // Regression guard for the latent staleness edge found in code review: when a retained, detached

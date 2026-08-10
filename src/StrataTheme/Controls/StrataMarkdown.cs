@@ -268,6 +268,51 @@ public class StrataMarkdown : ContentControl
     }
 
     /// <summary>
+    /// Permanently releases a retained detached markdown tree and its render caches.
+    /// Hosts that intend to reuse the control should keep <see cref="RetainContentOnDetach"/> enabled
+    /// and must not call this method; terminal eviction paths call it before dropping the control.
+    /// </summary>
+    public void ReleaseRetainedContent()
+    {
+        if (_isAttachedToVisualTree)
+            throw new InvalidOperationException("Retained markdown content can only be released while detached.");
+
+        _rebuildDelayCts?.Cancel();
+        _rebuildDelayCts?.Dispose();
+        _rebuildDelayCts = null;
+        _rebuildQueued = false;
+
+        DetachLinkHandlers();
+        _linkRuns.Clear();
+
+        CancelPlaceholderAnimations(_chartPlaceholder);
+        CancelPlaceholderAnimations(_blockPlaceholder);
+        _chartPlaceholder = null;
+        _blockPlaceholder = null;
+
+        _chartCache.Clear();
+        _chartKeysUsed.Clear();
+        _diagramCache.Clear();
+        _diagramKeysUsed.Clear();
+        _confidenceCache.Clear();
+        _confidenceKeysUsed.Clear();
+        _comparisonCache.Clear();
+        _comparisonKeysUsed.Clear();
+        _cardCache.Clear();
+        _cardKeysUsed.Clear();
+        _sourcesCache.Clear();
+        _sourcesKeysUsed.Clear();
+        _tableCache.Clear();
+        _tableKeysUsed.Clear();
+
+        _contentHost.Children.Clear();
+        _previousBlocks.Clear();
+        _previousMarkdownNormalized = null;
+        _previousMarkdownLength = 0;
+        _renderedFlowDirection = null;
+    }
+
+    /// <summary>
     /// Releases caches, event handlers, and disposables when this control leaves the
     /// visual tree. Without this, orphaned StrataMarkdown instances hold charts,
     /// diagrams, tables, link-handler delegates, and CancellationTokenSources in memory
@@ -291,33 +336,7 @@ public class StrataMarkdown : ContentControl
             return;
         }
 
-        _rebuildQueued = false;
-
-        // Unsubscribe link handlers from all SelectableTextBlocks in _contentHost
-        DetachLinkHandlers();
-
-        _linkRuns.Clear();
-
-        _chartCache.Clear();
-        _chartKeysUsed.Clear();
-        _diagramCache.Clear();
-        _diagramKeysUsed.Clear();
-        _confidenceCache.Clear();
-        _confidenceKeysUsed.Clear();
-        _comparisonCache.Clear();
-        _comparisonKeysUsed.Clear();
-        _cardCache.Clear();
-        _cardKeysUsed.Clear();
-        _sourcesCache.Clear();
-        _sourcesKeysUsed.Clear();
-        _tableCache.Clear();
-        _tableKeysUsed.Clear();
-
-        _contentHost.Children.Clear();
-        _previousBlocks.Clear();
-        _previousMarkdownNormalized = null;
-        _previousMarkdownLength = 0;
-        _renderedFlowDirection = null;
+        ReleaseRetainedContent();
 
         base.OnDetachedFromVisualTree(e);
     }
@@ -2792,6 +2811,7 @@ public class StrataMarkdown : ContentControl
         }
 
         var cts = new System.Threading.CancellationTokenSource();
+        var token = cts.Token;
         dot.Tag = cts;
 
         async void Animate()
@@ -2799,20 +2819,36 @@ public class StrataMarkdown : ContentControl
             try
             {
                 if (delayMs > 0)
-                    await Task.Delay(delayMs, cts.Token);
+                    await Task.Delay(delayMs, token);
 
-                while (!cts.Token.IsCancellationRequested)
+                while (!token.IsCancellationRequested)
                 {
                     dot.Opacity = 0.7;
-                    await Task.Delay(400, cts.Token);
+                    await Task.Delay(400, token);
                     dot.Opacity = 0.2;
-                    await Task.Delay(400, cts.Token);
+                    await Task.Delay(400, token);
                 }
             }
-            catch (TaskCanceledException) { }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         }
 
         Animate();
+    }
+
+    private static void CancelPlaceholderAnimations(Border? placeholder)
+    {
+        if (placeholder is null)
+            return;
+
+        foreach (var dot in placeholder.GetVisualDescendants().OfType<Border>())
+        {
+            if (dot.Tag is not System.Threading.CancellationTokenSource cts)
+                continue;
+
+            cts.Cancel();
+            cts.Dispose();
+            dot.Tag = null;
+        }
     }
 
     private Control GetBlockPlaceholder(string emoji)
