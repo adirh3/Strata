@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using System;
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -31,18 +32,21 @@ public partial class StrataMarkdown
     private const double MaxInlineMarkdownImageWidth = 240;
     private const double MaxInlineMarkdownImageHeight = 180;
     private const int MaxMarkdownImageRedirects = 4;
-    private const int MaxConcurrentRemoteMarkdownImages = 2;
+    private const int MaxConcurrentMarkdownImagesPerComponent = 2;
+    private const int MaxConcurrentMarkdownImagesPerHost = 2;
     private const int MaxRemoteMarkdownImageAttempts = 2;
     private static readonly TimeSpan MarkdownImageRequestTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan MarkdownImageRetryDelay = TimeSpan.FromSeconds(1);
-    private static readonly TimeSpan MarkdownImageRateLimitRetryDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan MarkdownImageDefaultRateLimitCooldown = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan MarkdownImageFailureCacheDuration = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan MarkdownImageMaxDelaySlice = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan MarkdownImageRequestSpacing = TimeSpan.FromMilliseconds(500);
     private static readonly HttpClient MarkdownImageHttpClient = CreateMarkdownImageHttpClient();
-    private static readonly SemaphoreSlim MarkdownImageDownloadGate =
-        new(MaxConcurrentRemoteMarkdownImages, MaxConcurrentRemoteMarkdownImages);
-    private static readonly object MarkdownImageRequestScheduleLock = new();
-    private static DateTimeOffset _nextMarkdownImageRequestAt;
+    private static readonly ConcurrentDictionary<string, MarkdownImageHostLimiter> MarkdownImageHostLimiters =
+        new(StringComparer.OrdinalIgnoreCase);
 
+    private readonly SemaphoreSlim _imageDownloadGate =
+        new(MaxConcurrentMarkdownImagesPerComponent, MaxConcurrentMarkdownImagesPerComponent);
     private readonly Dictionary<string, MarkdownImageCacheEntry> _imageCache = new(StringComparer.Ordinal);
     private readonly HashSet<string> _imageKeysUsed = new(StringComparer.Ordinal);
 
@@ -103,9 +107,23 @@ public partial class StrataMarkdown
             return null;
 
         _imageKeysUsed.Add(source.CacheKey);
-        if (!_imageCache.TryGetValue(source.CacheKey, out var cacheEntry))
+        MarkdownImageCacheEntry? cacheEntry = null;
+        if (_imageCache.TryGetValue(source.CacheKey, out var existingEntry))
         {
-            cacheEntry = new MarkdownImageCacheEntry(source);
+            if (existingEntry.IsRetryReady)
+            {
+                existingEntry.Dispose();
+                _imageCache.Remove(source.CacheKey);
+            }
+            else
+            {
+                cacheEntry = existingEntry;
+            }
+        }
+
+        if (cacheEntry is null)
+        {
+            cacheEntry = new MarkdownImageCacheEntry(source, LoadMarkdownImageForControlAsync);
             _imageCache[source.CacheKey] = cacheEntry;
         }
 
@@ -438,7 +456,8 @@ public partial class StrataMarkdown
         {
             Timeout = Timeout.InfiniteTimeSpan,
         };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("StrataMarkdown/1.0");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(
+            "StrataMarkdown/1.0 (+https://github.com/adirh3/Strata)");
         return client;
     }
 
@@ -449,15 +468,29 @@ public partial class StrataMarkdown
         if (!TryResolveMarkdownImageSource(imageTarget, out var source))
             throw new NotSupportedException($"Unsupported markdown image source: {imageTarget}");
 
-        return await LoadMarkdownImageAsync(source, cancellationToken).ConfigureAwait(false);
+        using var componentGate = new SemaphoreSlim(
+            MaxConcurrentMarkdownImagesPerComponent,
+            MaxConcurrentMarkdownImagesPerComponent);
+        return await LoadMarkdownImageAsync(source, componentGate, cancellationToken).ConfigureAwait(false);
     }
+
+    private Task<Bitmap> LoadMarkdownImageForControlAsync(
+        MarkdownImageSource source,
+        CancellationToken cancellationToken) =>
+        LoadMarkdownImageAsync(source, _imageDownloadGate, cancellationToken);
 
     private static async Task<Bitmap> LoadMarkdownImageAsync(
         MarkdownImageSource source,
+        SemaphoreSlim componentGate,
         CancellationToken cancellationToken)
     {
         if (source.RemoteUri is { } remoteUri)
-            return await LoadRemoteMarkdownImageAsync(remoteUri, cancellationToken).ConfigureAwait(false);
+        {
+            return await LoadRemoteMarkdownImageAsync(
+                remoteUri,
+                componentGate,
+                cancellationToken).ConfigureAwait(false);
+        }
 
         var localPath = source.LocalPath
             ?? throw new InvalidOperationException("A markdown image source must be remote or local.");
@@ -481,13 +514,17 @@ public partial class StrataMarkdown
 
     private static async Task<Bitmap> LoadRemoteMarkdownImageAsync(
         Uri remoteUri,
+        SemaphoreSlim componentGate,
         CancellationToken cancellationToken)
     {
         for (var attempt = 0; ; attempt++)
         {
             try
             {
-                return await LoadRemoteMarkdownImageOnceAsync(remoteUri, cancellationToken)
+                return await LoadRemoteMarkdownImageOnceAsync(
+                        remoteUri,
+                        componentGate,
+                        cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (Exception ex) when (ShouldRetryRemoteMarkdownImageFailure(
@@ -495,27 +532,27 @@ public partial class StrataMarkdown
                        attempt,
                        cancellationToken))
             {
-                var retryDelay = GetRemoteMarkdownImageRetryDelay(ex);
-                DelayRemoteMarkdownImageRequests(retryDelay);
-                await Task.Delay(retryDelay, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(MarkdownImageRetryDelay, cancellationToken).ConfigureAwait(false);
             }
         }
     }
 
     private static async Task<Bitmap> LoadRemoteMarkdownImageOnceAsync(
         Uri remoteUri,
+        SemaphoreSlim componentGate,
         CancellationToken cancellationToken)
     {
-        await MarkdownImageDownloadGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await componentGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             using var requestTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             requestTimeout.CancelAfter(MarkdownImageRequestTimeout);
             var requestToken = requestTimeout.Token;
 
-            using var response = await GetRemoteMarkdownImageResponseAsync(
+            using var responseLease = await GetRemoteMarkdownImageResponseAsync(
                 remoteUri,
                 requestToken).ConfigureAwait(false);
+            var response = responseLease.Response;
             response.EnsureSuccessStatusCode();
 
             await using var responseStream = await response.Content
@@ -529,7 +566,7 @@ public partial class StrataMarkdown
         }
         finally
         {
-            MarkdownImageDownloadGate.Release();
+            componentGate.Release();
         }
     }
 
@@ -563,44 +600,53 @@ public partial class StrataMarkdown
         return false;
     }
 
-    private static TimeSpan GetRemoteMarkdownImageRetryDelay(Exception error) =>
-        error is HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests }
-            ? MarkdownImageRateLimitRetryDelay
-            : MarkdownImageRetryDelay;
-
-    private static async Task WaitForRemoteMarkdownImageRequestSlotAsync(
-        CancellationToken cancellationToken)
+    internal static bool IsTransientMarkdownImageFailure(Exception error)
     {
-        while (true)
-        {
-            TimeSpan delay;
-            lock (MarkdownImageRequestScheduleLock)
-            {
-                var now = DateTimeOffset.UtcNow;
-                if (_nextMarkdownImageRequestAt <= now)
-                {
-                    _nextMarkdownImageRequestAt = now + MarkdownImageRequestSpacing;
-                    return;
-                }
+        if (error is OperationCanceledException or IOException)
+            return true;
 
-                delay = _nextMarkdownImageRequestAt - now;
-            }
+        if (error is not HttpRequestException requestError)
+            return false;
 
-            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-        }
+        if (requestError.StatusCode is not { } statusCode)
+            return true;
+
+        return statusCode is HttpStatusCode.RequestTimeout
+                or HttpStatusCode.TooManyRequests
+            || (int)statusCode >= 500;
     }
 
-    private static void DelayRemoteMarkdownImageRequests(TimeSpan delay)
+    internal static string GetRemoteMarkdownImageHostKey(Uri uri) =>
+        $"{uri.Scheme.ToLowerInvariant()}://{uri.IdnHost.ToLowerInvariant()}:{uri.Port}";
+
+    internal static TimeSpan GetRemoteMarkdownImageDelaySlice(TimeSpan delay) =>
+        delay > MarkdownImageMaxDelaySlice ? MarkdownImageMaxDelaySlice : delay;
+
+    internal static TimeSpan GetRemoteMarkdownImageCooldown(
+        HttpResponseMessage response,
+        DateTimeOffset now)
     {
-        lock (MarkdownImageRequestScheduleLock)
+        if (response.StatusCode is not HttpStatusCode.TooManyRequests
+            and not HttpStatusCode.ServiceUnavailable)
         {
-            var delayedUntil = DateTimeOffset.UtcNow + delay;
-            if (delayedUntil > _nextMarkdownImageRequestAt)
-                _nextMarkdownImageRequestAt = delayedUntil;
+            return TimeSpan.Zero;
         }
+
+        if (response.Headers.RetryAfter?.Delta is { } delta && delta > TimeSpan.Zero)
+            return delta;
+
+        if (response.Headers.RetryAfter?.Date is { } retryDate && retryDate > now)
+            return retryDate - now;
+
+        return MarkdownImageDefaultRateLimitCooldown;
     }
 
-    private static async Task<HttpResponseMessage> GetRemoteMarkdownImageResponseAsync(
+    private static MarkdownImageHostLimiter GetRemoteMarkdownImageHostLimiter(Uri uri) =>
+        MarkdownImageHostLimiters.GetOrAdd(
+            GetRemoteMarkdownImageHostKey(uri),
+            static _ => new MarkdownImageHostLimiter());
+
+    private static async Task<MarkdownImageResponseLease> GetRemoteMarkdownImageResponseAsync(
         Uri initialUri,
         CancellationToken cancellationToken)
     {
@@ -610,30 +656,44 @@ public partial class StrataMarkdown
             if (!IsAllowedRemoteMarkdownImageUri(currentUri))
                 throw new HttpRequestException("Remote markdown images must resolve to a public internet address.");
 
-            await WaitForRemoteMarkdownImageRequestSlotAsync(cancellationToken).ConfigureAwait(false);
+            var hostLimiter = GetRemoteMarkdownImageHostLimiter(currentUri);
+            await hostLimiter.EnterAsync(cancellationToken).ConfigureAwait(false);
+            HttpResponseMessage? response = null;
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, currentUri);
-            var response = await MarkdownImageHttpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken).ConfigureAwait(false);
-
-            if ((int)response.StatusCode is >= 300 and < 400
-                && response.Headers.Location is { } location)
+            try
             {
-                if (redirect == MaxMarkdownImageRedirects)
+                using var request = new HttpRequestMessage(HttpMethod.Get, currentUri);
+                response = await MarkdownImageHttpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken).ConfigureAwait(false);
+
+                var cooldown = GetRemoteMarkdownImageCooldown(response, DateTimeOffset.UtcNow);
+                if (cooldown > TimeSpan.Zero)
+                    hostLimiter.Delay(cooldown);
+
+                if ((int)response.StatusCode is >= 300 and < 400
+                    && response.Headers.Location is { } location)
                 {
+                    if (redirect == MaxMarkdownImageRedirects)
+                        throw new HttpRequestException("Remote markdown image redirected too many times.");
+
+                    var nextUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
                     response.Dispose();
-                    throw new HttpRequestException("Remote markdown image redirected too many times.");
+                    response = null;
+                    hostLimiter.Release();
+                    currentUri = nextUri;
+                    continue;
                 }
 
-                var nextUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
-                response.Dispose();
-                currentUri = nextUri;
-                continue;
+                return new MarkdownImageResponseLease(response, hostLimiter);
             }
-
-            return response;
+            catch
+            {
+                response?.Dispose();
+                hostLimiter.Release();
+                throw;
+            }
         }
 
         throw new HttpRequestException("Remote markdown image redirected too many times.");
@@ -1086,6 +1146,9 @@ public partial class StrataMarkdown
         }
     }
 
+    private bool HasRetryReadyImageEntries() =>
+        _imageCache.Values.Any(static entry => entry.IsRetryReady);
+
     private void ClearImageCache()
     {
         foreach (var cacheEntry in _imageCache.Values)
@@ -1094,15 +1157,100 @@ public partial class StrataMarkdown
         _imageCache.Clear();
     }
 
+    private sealed class MarkdownImageHostLimiter
+    {
+        private readonly SemaphoreSlim _gate =
+            new(MaxConcurrentMarkdownImagesPerHost, MaxConcurrentMarkdownImagesPerHost);
+        private readonly object _scheduleLock = new();
+        private DateTimeOffset _nextRequestAt;
+
+        public async Task EnterAsync(CancellationToken cancellationToken)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await WaitForRequestSlotAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                _gate.Release();
+                throw;
+            }
+        }
+
+        public void Delay(TimeSpan delay)
+        {
+            lock (_scheduleLock)
+            {
+                var delayedUntil = DateTimeOffset.UtcNow + delay;
+                if (delayedUntil > _nextRequestAt)
+                    _nextRequestAt = delayedUntil;
+            }
+        }
+
+        public void Release() => _gate.Release();
+
+        private async Task WaitForRequestSlotAsync(CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                TimeSpan delay;
+                lock (_scheduleLock)
+                {
+                    var now = DateTimeOffset.UtcNow;
+                    if (_nextRequestAt <= now)
+                    {
+                        _nextRequestAt = now + MarkdownImageRequestSpacing;
+                        return;
+                    }
+
+                    delay = _nextRequestAt - now;
+                }
+
+                await Task.Delay(
+                    GetRemoteMarkdownImageDelaySlice(delay),
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private sealed class MarkdownImageResponseLease : IDisposable
+    {
+        private readonly MarkdownImageHostLimiter _hostLimiter;
+        private int _disposed;
+
+        public MarkdownImageResponseLease(
+            HttpResponseMessage response,
+            MarkdownImageHostLimiter hostLimiter)
+        {
+            Response = response;
+            _hostLimiter = hostLimiter;
+        }
+
+        public HttpResponseMessage Response { get; }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+
+            Response.Dispose();
+            _hostLimiter.Release();
+        }
+    }
+
     private sealed class MarkdownImageCacheEntry : IDisposable
     {
         private readonly CancellationTokenSource _cancellation = new();
+        private long _retryAtUtcTicks;
         private int _disposed;
 
-        public MarkdownImageCacheEntry(MarkdownImageSource source)
+        public MarkdownImageCacheEntry(
+            MarkdownImageSource source,
+            Func<MarkdownImageSource, CancellationToken, Task<Bitmap>> loadImageAsync)
         {
             Source = source;
-            BitmapTask = LoadMarkdownImageAsync(source, _cancellation.Token);
+            BitmapTask = LoadAndTrackFailureAsync(loadImageAsync);
         }
 
         public MarkdownImageSource Source { get; }
@@ -1110,6 +1258,36 @@ public partial class StrataMarkdown
         public Task<Bitmap> BitmapTask { get; }
 
         public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+        public bool IsRetryReady
+        {
+            get
+            {
+                var retryAtUtcTicks = Volatile.Read(ref _retryAtUtcTicks);
+                return retryAtUtcTicks > 0
+                    && DateTimeOffset.UtcNow.UtcDateTime.Ticks >= retryAtUtcTicks;
+            }
+        }
+
+        private async Task<Bitmap> LoadAndTrackFailureAsync(
+            Func<MarkdownImageSource, CancellationToken, Task<Bitmap>> loadImageAsync)
+        {
+            try
+            {
+                return await loadImageAsync(Source, _cancellation.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                if (!_cancellation.IsCancellationRequested
+                    && IsTransientMarkdownImageFailure(ex))
+                {
+                    var retryAt = DateTimeOffset.UtcNow + MarkdownImageFailureCacheDuration;
+                    Volatile.Write(ref _retryAtUtcTicks, retryAt.UtcDateTime.Ticks);
+                }
+
+                throw;
+            }
+        }
 
         public void Dispose()
         {

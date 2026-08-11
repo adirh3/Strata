@@ -705,7 +705,8 @@ public partial class StrataMarkdown : ContentControl
 
             // Fast path: identical content — skip everything
             if (normalized.Length == _previousMarkdownLength &&
-                string.Equals(normalized, _previousMarkdownNormalized, StringComparison.Ordinal))
+                string.Equals(normalized, _previousMarkdownNormalized, StringComparison.Ordinal) &&
+                !HasRetryReadyImageEntries())
             {
                 RefreshDirectionalTextControls(
                     normalized,
@@ -906,6 +907,12 @@ public partial class StrataMarkdown : ContentControl
 
         // Safety: children count must match old group count
         if (_contentHost.Children.Count != oldGroupCount)
+        {
+            RebuildChildrenFromGroups(newBlocks, newGroups);
+            return;
+        }
+
+        if (HasRetryReadyImageEntries())
         {
             RebuildChildrenFromGroups(newBlocks, newGroups);
             return;

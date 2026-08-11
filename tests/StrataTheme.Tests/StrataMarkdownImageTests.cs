@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.Collections;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Reflection;
 using StrataTheme.Controls;
 
@@ -90,6 +91,70 @@ public sealed class StrataMarkdownImageTests
     }
 
     [Theory]
+    [InlineData("https://example.com/image.jpg", "https://example.com/other.png", true)]
+    [InlineData("https://example.com/image.jpg", "https://other.example.com/image.jpg", false)]
+    [InlineData("https://example.com/image.jpg", "http://example.com/image.jpg", false)]
+    [InlineData("https://b\u00fccher.example/image.jpg", "https://xn--bcher-kva.example/other.png", true)]
+    public void GetRemoteMarkdownImageHostKey_GroupsByOrigin(
+        string first,
+        string second,
+        bool shouldMatch)
+    {
+        var firstKey = StrataMarkdown.GetRemoteMarkdownImageHostKey(new Uri(first));
+        var secondKey = StrataMarkdown.GetRemoteMarkdownImageHostKey(new Uri(second));
+
+        Assert.Equal(shouldMatch, string.Equals(firstKey, secondKey, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void GetRemoteMarkdownImageCooldown_UsesRetryAfter()
+    {
+        using var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+        response.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(12));
+
+        Assert.Equal(
+            TimeSpan.FromSeconds(12),
+            StrataMarkdown.GetRemoteMarkdownImageCooldown(response, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void GetRemoteMarkdownImageCooldown_IgnoresSuccessfulResponses()
+    {
+        using var response = new HttpResponseMessage(HttpStatusCode.OK);
+        response.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(12));
+
+        Assert.Equal(
+            TimeSpan.Zero,
+            StrataMarkdown.GetRemoteMarkdownImageCooldown(response, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void GetRemoteMarkdownImageDelaySlice_BoundsLongRetryAfter()
+    {
+        Assert.Equal(
+            TimeSpan.FromMinutes(1),
+            StrataMarkdown.GetRemoteMarkdownImageDelaySlice(TimeSpan.FromDays(60)));
+        Assert.Equal(
+            TimeSpan.FromSeconds(12),
+            StrataMarkdown.GetRemoteMarkdownImageDelaySlice(TimeSpan.FromSeconds(12)));
+    }
+
+    [Fact]
+    public async Task ImageDownloadGate_IsOwnedByEachMarkdownComponent()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var gateField = typeof(StrataMarkdown).GetField(
+                "_imageDownloadGate",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            var first = new StrataMarkdown();
+            var second = new StrataMarkdown();
+
+            Assert.NotSame(gateField?.GetValue(first), gateField?.GetValue(second));
+        });
+    }
+
+    [Theory]
     [InlineData(HttpStatusCode.RequestTimeout)]
     [InlineData(HttpStatusCode.TooManyRequests)]
     [InlineData(HttpStatusCode.InternalServerError)]
@@ -118,6 +183,10 @@ public sealed class StrataMarkdownImageTests
     {
         Assert.True(StrataMarkdown.IsRecoverableMarkdownImageFailure(
             new InvalidDataException("Unsupported image data.")));
+        Assert.False(StrataMarkdown.IsTransientMarkdownImageFailure(
+            new InvalidDataException("Unsupported image data.")));
+        Assert.True(StrataMarkdown.IsTransientMarkdownImageFailure(
+            new IOException("Temporary image read failure.")));
     }
 
     [Fact]
@@ -287,6 +356,111 @@ public sealed class StrataMarkdownImageTests
     }
 
     [Fact]
+    public async Task TransientImageFailure_RetriesAfterCacheCooldown()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"strata-markdown-missing-image-{Guid.NewGuid():N}.png");
+
+        await _fixture.Dispatch(async () =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                IsInline = true,
+                Markdown = $"![missing image]({path})",
+            };
+            var window = new Window
+            {
+                Width = 520,
+                Height = 220,
+                Content = markdown,
+            };
+
+            try
+            {
+                window.Show();
+                InvokeMarkdownRebuild(markdown);
+
+                var firstEntry = GetCachedImageEntry(markdown, path);
+                Assert.NotNull(firstEntry);
+                await Assert.ThrowsAsync<FileNotFoundException>(async () =>
+                {
+                    await GetBitmapTask(firstEntry);
+                });
+                Assert.False(GetCacheEntryRetryReady(firstEntry));
+
+                SetCacheEntryRetryAt(firstEntry, DateTimeOffset.UtcNow.AddSeconds(-1));
+                Assert.True(GetCacheEntryRetryReady(firstEntry));
+
+                InvokeMarkdownRebuild(markdown);
+
+                Assert.NotSame(firstEntry, GetCachedImageEntry(markdown, path));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task ExpiredImageFailure_RebuildsSkippedStreamingPrefix()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"strata-markdown-prefix-image-{Guid.NewGuid():N}.png");
+        var initialMarkdown = $"""
+            ![missing image]({path})
+
+            ---
+
+            ## One
+
+            ---
+
+            ## Two
+            """;
+
+        await _fixture.Dispatch(async () =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                IsInline = true,
+                Markdown = initialMarkdown,
+            };
+            var window = new Window
+            {
+                Width = 520,
+                Height = 420,
+                Content = markdown,
+            };
+
+            try
+            {
+                window.Show();
+                InvokeMarkdownRebuild(markdown);
+
+                var firstEntry = GetCachedImageEntry(markdown, path);
+                Assert.NotNull(firstEntry);
+                await Assert.ThrowsAsync<FileNotFoundException>(async () =>
+                {
+                    await GetBitmapTask(firstEntry);
+                });
+                SetCacheEntryRetryAt(firstEntry, DateTimeOffset.UtcNow.AddSeconds(-1));
+
+                markdown.Markdown = initialMarkdown + "\n\nAppended streaming tail.";
+                InvokeMarkdownRebuild(markdown);
+
+                Assert.NotSame(firstEntry, GetCachedImageEntry(markdown, path));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public async Task StandaloneImages_RenderAsSeparateBlockControls()
     {
         var path = CreateTempPng();
@@ -430,6 +604,23 @@ public sealed class StrataMarkdownImageTests
             .GetProperty("BitmapTask", BindingFlags.Instance | BindingFlags.Public)
             ?.GetValue(cacheEntry);
         return Assert.IsAssignableFrom<Task<Bitmap>>(bitmapTask);
+    }
+
+    private static bool GetCacheEntryRetryReady(object cacheEntry)
+    {
+        var isRetryReady = cacheEntry.GetType()
+            .GetProperty("IsRetryReady", BindingFlags.Instance | BindingFlags.Public)
+            ?.GetValue(cacheEntry);
+        return Assert.IsType<bool>(isRetryReady);
+    }
+
+    private static void SetCacheEntryRetryAt(object cacheEntry, DateTimeOffset retryAt)
+    {
+        var retryAtField = cacheEntry.GetType().GetField(
+            "_retryAtUtcTicks",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(retryAtField);
+        retryAtField.SetValue(cacheEntry, retryAt.UtcDateTime.Ticks);
     }
 
     private static void InvokeMarkdownRebuild(StrataMarkdown markdown)
