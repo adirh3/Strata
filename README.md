@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.10" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.12" />
 ```
 
 ### 2. Apply the theme in `App.axaml`

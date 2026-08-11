@@ -14,6 +14,7 @@ public enum MdBlockKind
     CodeBlock,
     HorizontalRule,
     Table,
+    Image,
     Chart,
     Mermaid,
     Confidence,
@@ -49,7 +50,7 @@ public readonly struct MdBlock : IEquatable<MdBlock>
 /// <summary>
 /// Pure markdown parser that converts markdown source text into a flat list of
 /// <see cref="MdBlock"/> descriptors. Zero Avalonia dependencies. Supports headings,
-/// bullets, numbered items, fenced code blocks, tables, and horizontal rules.
+/// bullets, numbered items, images, fenced code blocks, tables, and horizontal rules.
 /// </summary>
 /// <remarks>
 /// Static methods are allocation-friendly (new buffers per call). For streaming
@@ -310,6 +311,20 @@ public sealed class MarkdownParser
             FlushBlockquoteBlock(blockquoteBuffer, blocks, blockquoteStart);
             blockquoteStart = -1;
 
+            if (TryParseStandaloneImage(lineSpan, out var imageAltText, out var imageTarget))
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
+                blocks.Add(new MdBlock
+                {
+                    Kind = MdBlockKind.Image,
+                    Content = imageAltText,
+                    Language = imageTarget,
+                    SourceStart = absoluteLineStart,
+                });
+                continue;
+            }
+
             if (TryParseHeading(lineSpan, out var level, out var headingText))
             {
                 FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
@@ -433,6 +448,89 @@ public sealed class MarkdownParser
         if (language.Equals("card", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Card;
         if (language.Equals("sources", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Sources;
         return MdBlockKind.CodeBlock;
+    }
+
+    internal static bool TryParseStandaloneImage(
+        ReadOnlySpan<char> line,
+        out string altText,
+        out string imageTarget)
+    {
+        altText = string.Empty;
+        imageTarget = string.Empty;
+
+        var trimmed = line.Trim();
+        if (trimmed.Length < 5 || trimmed[0] != '!' || trimmed[1] != '[')
+            return false;
+
+        var bracketDepth = 0;
+        var bracketClose = -1;
+        for (var i = 2; i < trimmed.Length; i++)
+        {
+            if (trimmed[i] == '\\' && i + 1 < trimmed.Length)
+            {
+                i++;
+                continue;
+            }
+
+            if (trimmed[i] == '[')
+            {
+                bracketDepth++;
+            }
+            else if (trimmed[i] == ']')
+            {
+                if (bracketDepth == 0)
+                {
+                    bracketClose = i;
+                    break;
+                }
+
+                bracketDepth--;
+            }
+        }
+
+        if (bracketClose < 0
+            || bracketClose + 1 >= trimmed.Length
+            || trimmed[bracketClose + 1] != '(')
+        {
+            return false;
+        }
+
+        var parenDepth = 0;
+        var parenClose = -1;
+        for (var i = bracketClose + 2; i < trimmed.Length; i++)
+        {
+            if (trimmed[i] == '\\' && i + 1 < trimmed.Length)
+            {
+                i++;
+                continue;
+            }
+
+            if (trimmed[i] == '(')
+            {
+                parenDepth++;
+            }
+            else if (trimmed[i] == ')')
+            {
+                if (parenDepth == 0)
+                {
+                    parenClose = i;
+                    break;
+                }
+
+                parenDepth--;
+            }
+        }
+
+        if (parenClose < 0 || !trimmed[(parenClose + 1)..].IsWhiteSpace())
+            return false;
+
+        var target = trimmed[(bracketClose + 2)..parenClose].Trim();
+        if (target.IsEmpty)
+            return false;
+
+        altText = trimmed[2..bracketClose].ToString();
+        imageTarget = target.ToString();
+        return true;
     }
 
     internal static bool TryParseHeading(ReadOnlySpan<char> line, out int level, out string text)

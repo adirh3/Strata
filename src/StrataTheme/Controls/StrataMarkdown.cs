@@ -64,7 +64,7 @@ public readonly record struct StrataMarkdownDiagnosticsSnapshot(
 
 /// <summary>
 /// Lightweight markdown renderer. Supports headings, bullet lists, paragraphs,
-/// inline links, and fenced code blocks with syntax highlighting (via TextMate).
+/// inline links and images, and fenced code blocks with syntax highlighting (via TextMate).
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage (standalone card):</b></para>
@@ -77,7 +77,7 @@ public readonly record struct StrataMarkdownDiagnosticsSnapshot(
 /// &lt;controls:StrataMarkdown Markdown="{Binding Text}" IsInline="True" /&gt;
 /// </code>
 /// </remarks>
-public class StrataMarkdown : ContentControl
+public partial class StrataMarkdown : ContentControl
 {
     // ── Cached static layout values to avoid repeated heap allocations ──
     private static readonly Thickness BulletDotMargin = new(0, 7, 0, 0);
@@ -304,6 +304,8 @@ public class StrataMarkdown : ContentControl
         _sourcesKeysUsed.Clear();
         _tableCache.Clear();
         _tableKeysUsed.Clear();
+        ClearImageCache();
+        _imageKeysUsed.Clear();
 
         _contentHost.Children.Clear();
         _previousBlocks.Clear();
@@ -681,6 +683,7 @@ public class StrataMarkdown : ContentControl
             _cardKeysUsed.Clear();
             _sourcesKeysUsed.Clear();
             _tableKeysUsed.Clear();
+            _imageKeysUsed.Clear();
 
             var source = Markdown;
             var flowDirectionChanged = _renderedFlowDirection is { } renderedDirection
@@ -1061,6 +1064,9 @@ public class StrataMarkdown : ContentControl
     /// </summary>
     private void TrackCacheKeysForBlock(MdBlock block)
     {
+        if (CanContainInlineImages(block.Kind))
+            TrackImageCacheKeys(block.Content);
+
         switch (block.Kind)
         {
             case MdBlockKind.Chart:
@@ -1099,6 +1105,10 @@ public class StrataMarkdown : ContentControl
             case MdBlockKind.Table:
                 _tableKeysUsed.Add(MarkdownParser.GetTableCacheKey(block.Content));
                 break;
+            case MdBlockKind.Image:
+                if (TryResolveMarkdownImageSource(block.Language, out var source))
+                    _imageKeysUsed.Add(source.CacheKey);
+                break;
         }
     }
 
@@ -1118,6 +1128,7 @@ public class StrataMarkdown : ContentControl
             MdBlockKind.HorizontalRule => CreateHorizontalRuleControl(),
             MdBlockKind.Blockquote => CreateBlockquoteControl(block.Content),
             MdBlockKind.Table => CreateTableControl(block.Content),
+            MdBlockKind.Image => CreateImageBlockControl(block.Content, block.Language),
             MdBlockKind.Chart => CreateChartControl(block.Content, block.IsClosed),
             MdBlockKind.Mermaid => CreateMermaidControl(block.Content),
             MdBlockKind.Confidence => CreateConfidenceControl(block.Content, block.IsClosed),
@@ -1137,6 +1148,7 @@ public class StrataMarkdown : ContentControl
         EvictFromCache(_cardCache, _cardKeysUsed);
         EvictFromCache(_sourcesCache, _sourcesKeysUsed);
         EvictFromCache(_tableCache, _tableKeysUsed);
+        EvictStaleImageCache();
     }
 
     /// <summary>Remove cache entries not in the used set, without LINQ/ToList allocations.</summary>
@@ -3237,19 +3249,6 @@ public class StrataMarkdown : ContentControl
             FontWeight = weight == default ? FontWeight.Normal : weight,
             FontStyle = style,
             CodeBackground = _inlineCodeBrush ??= ResolveInlineCodeBrush(),
-        };
-    }
-
-    private static Inline CreateImageInline(string altText, string imageUrl, double fontSize)
-    {
-        // Inline images are rendered as styled alt-text placeholders with a 🖼 prefix.
-        // Full image loading would require async I/O which is impractical inside the
-        // inline text layout pipeline; the alt text gives the user meaningful context.
-        return new Run($"\U0001F5BC {altText}")
-        {
-            FontSize = fontSize,
-            FontStyle = FontStyle.Italic,
-            TextDecorations = TextDecorations.Underline,
         };
     }
 
