@@ -16,9 +16,9 @@ namespace StrataTheme.Controls;
 /// <summary>
 /// A living, full-bleed ambient "presence" field designed to sit <b>behind</b> a
 /// canvas (e.g. a chat transcript) and make the surface feel alive. It renders a
-/// soft, drifting aurora of overlapping radial-gradient lobes (indigo / violet /
-/// rose) that breathe continuously and react to <see cref="State"/> changes and
-/// one-shot <see cref="Pulse(PresencePulse)"/> events.
+/// soft aurora of overlapping radial-gradient lobes (indigo / violet / rose).
+/// It settles into a static resting pose while idle, animates while Lumi is active,
+/// and reacts to <see cref="State"/> changes and one-shot <see cref="Pulse(PresencePulse)"/> events.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -155,6 +155,8 @@ public class StrataPresence : Panel, IDisposable
         public byte InnerAlpha { get; init; }
         public byte MidAlpha { get; init; }
         public Color GlowColor { get; set; }
+        public bool OffsetLoopActive { get; set; }
+        public bool ScaleLoopActive { get; set; }
 
         // ── Spring focus-travel state ──
         // The live analytic trajectory that the render-thread Offset keyframes are sampled from. It is
@@ -423,6 +425,8 @@ public class StrataPresence : Panel, IDisposable
             LifecycleOpacityPulse.SetIsActive(lobe.Border, false);
             StopVisualAnimations(lobe.Visual);
             StopVisualAnimations(lobe.HostVisual);
+            lobe.OffsetLoopActive = false;
+            lobe.ScaleLoopActive = false;
             lobe.Visual = null;
             lobe.HostVisual = null;
             lobe.SpringPlaced = false;
@@ -668,9 +672,8 @@ public class StrataPresence : Panel, IDisposable
 
     private static MotionProfile ProfileFor(MotionLevel level) => level switch
     {
-        // Rest is very slow and shallow — aliveness comes from drift, not a visible "pump"; engaged
-        // states carry more energy so the field quickens when Lumi gets to work, but the breathe
-        // amplitude stays small enough that it reads as ambient light, never a beating element.
+        // Calm defines the static resting shape. Engaged states animate with more energy, but the
+        // breathe amplitude stays small enough that it reads as ambient light, never a beating element.
         MotionLevel.Calm => new MotionProfile
         {
             DriftAmp = 0.020, DriftPeriodMs = 32000,
@@ -719,55 +722,116 @@ public class StrataPresence : Panel, IDisposable
         {
             if (lobe.Signal)
                 continue;
-            StartMotion(lobe, profile);
+
+            if (level != MotionLevel.Calm)
+                StartMotion(lobe, profile);
+            else
+                SetRestingMotion(lobe, profile);
         }
+    }
+
+    private void SetRestingMotion(Lobe lobe, MotionProfile profile)
+    {
+        if (lobe.Visual is not { } visual || !TryGetMotionGeometry(
+                lobe,
+                profile,
+                out var baseX,
+                out var baseY,
+                out var amplitude,
+                out var breatheMin,
+                out var breatheMax))
+        {
+            return;
+        }
+
+        var offset = new Vector3((float)(baseX + amplitude), (float)baseY, 0);
+        var restingScale = breatheMin;
+
+        visual.StopAnimation("Offset");
+        visual.StopAnimation("Scale");
+        lobe.OffsetLoopActive = false;
+        lobe.ScaleLoopActive = false;
+        lobe.Border.RenderTransformOrigin = RelativePoint.Center;
+        lobe.Border.RenderTransform = new TransformGroup
+        {
+            Children =
+            {
+                new ScaleTransform(restingScale * profile.WidthBias, restingScale),
+                new TranslateTransform(offset.X, offset.Y),
+            },
+        };
     }
 
     private void StartMotion(Lobe lobe, MotionProfile profile)
     {
-        if (lobe.Visual is not { } visual)
+        if (lobe.Visual is not { } visual || !TryGetMotionGeometry(
+                lobe,
+                profile,
+                out var baseX,
+                out var baseY,
+                out var amplitude,
+                out var breatheMin,
+                out var breatheMax))
+        {
             return;
+        }
 
-        var w = Bounds.Width;
-        var h = Bounds.Height;
-        if (w <= 0 || h <= 0)
-            return;
-
+        lobe.Border.RenderTransform = null;
         var comp = visual.Compositor;
-        var minDim = Math.Min(w, h);
-        // Anchor the lobe's drift around the field centre using the SHORT edge (PresenceGeometry.AnchorSpread):
-        // on a wide window, normalising the spread to the full width would fling the hues hundreds of px apart
-        // into a horizontal smear. Short-edge spread keeps the multi-hue lobes clustered as one coherent pool
-        // that still travels as a unit toward the focal point.
-        var (bx, by) = PresenceGeometry.AnchorSpread(lobe.AnchorX, lobe.AnchorY, w, h);
-        var amp = profile.DriftAmp * minDim * (0.80 + 0.16 * lobe.Phase);
 
         // Seamless elliptical drift around the lobe's anchor.
         var drift = comp.CreateStableVector3KeyFrameAnimation();
         drift.Target = "Offset";
-        drift.InsertKeyFrame(0.00f, new Vector3((float)(bx + amp), (float)by, 0));
-        drift.InsertKeyFrame(0.25f, new Vector3((float)bx, (float)(by + amp * 0.7), 0));
-        drift.InsertKeyFrame(0.50f, new Vector3((float)(bx - amp), (float)by, 0));
-        drift.InsertKeyFrame(0.75f, new Vector3((float)bx, (float)(by - amp * 0.7), 0));
-        drift.InsertKeyFrame(1.00f, new Vector3((float)(bx + amp), (float)by, 0));
+        drift.InsertKeyFrame(0.00f, new Vector3((float)(baseX + amplitude), (float)baseY, 0));
+        drift.InsertKeyFrame(0.25f, new Vector3((float)baseX, (float)(baseY + amplitude * 0.7), 0));
+        drift.InsertKeyFrame(0.50f, new Vector3((float)(baseX - amplitude), (float)baseY, 0));
+        drift.InsertKeyFrame(0.75f, new Vector3((float)baseX, (float)(baseY - amplitude * 0.7), 0));
+        drift.InsertKeyFrame(1.00f, new Vector3((float)(baseX + amplitude), (float)baseY, 0));
         drift.Duration = TimeSpan.FromMilliseconds(profile.DriftPeriodMs * (0.85 + 0.12 * lobe.Phase));
         drift.IterationBehavior = AnimationIterationBehavior.Forever;
         visual.StartAnimation("Offset", drift);
 
         // Heartbeat breathe. The core lobe breathes a touch deeper. A horizontal WidthBias laminates the
         // resting pool along the composer/hero without disturbing the (uniform) breathe rhythm.
-        var depth = lobe.Role == LobeRole.Core ? 1.18 : 1.0;
-        var bMin = 1.0 - (1.0 - profile.BreatheMin) * depth;
-        var bMax = 1.0 + (profile.BreatheMax - 1.0) * depth;
         var wb = profile.WidthBias;
         var breathe = comp.CreateStableVector3KeyFrameAnimation();
         breathe.Target = "Scale";
-        breathe.InsertKeyFrame(0.00f, new Vector3((float)(bMin * wb), (float)bMin, 1f));
-        breathe.InsertKeyFrame(0.50f, new Vector3((float)(bMax * wb), (float)bMax, 1f));
-        breathe.InsertKeyFrame(1.00f, new Vector3((float)(bMin * wb), (float)bMin, 1f));
+        breathe.InsertKeyFrame(0.00f, new Vector3((float)(breatheMin * wb), (float)breatheMin, 1f));
+        breathe.InsertKeyFrame(0.50f, new Vector3((float)(breatheMax * wb), (float)breatheMax, 1f));
+        breathe.InsertKeyFrame(1.00f, new Vector3((float)(breatheMin * wb), (float)breatheMin, 1f));
         breathe.Duration = TimeSpan.FromMilliseconds(profile.BreathePeriodMs * (0.82 + 0.14 * lobe.Phase));
         breathe.IterationBehavior = AnimationIterationBehavior.Forever;
         visual.StartAnimation("Scale", breathe);
+        lobe.OffsetLoopActive = true;
+        lobe.ScaleLoopActive = true;
+    }
+
+    private bool TryGetMotionGeometry(
+        Lobe lobe,
+        MotionProfile profile,
+        out double baseX,
+        out double baseY,
+        out double amplitude,
+        out double breatheMin,
+        out double breatheMax)
+    {
+        var width = Bounds.Width;
+        var height = Bounds.Height;
+        if (width <= 0 || height <= 0)
+        {
+            baseX = baseY = amplitude = breatheMin = breatheMax = 0;
+            return false;
+        }
+
+        // Anchor the lobe's drift around the field centre using the short edge so wide windows retain
+        // one coherent pool instead of stretching the hues into a horizontal smear.
+        (baseX, baseY) = PresenceGeometry.AnchorSpread(lobe.AnchorX, lobe.AnchorY, width, height);
+        amplitude = profile.DriftAmp * Math.Min(width, height) * (0.80 + 0.16 * lobe.Phase);
+
+        var depth = lobe.Role == LobeRole.Core ? 1.18 : 1.0;
+        breatheMin = 1.0 - (1.0 - profile.BreatheMin) * depth;
+        breatheMax = 1.0 + (profile.BreatheMax - 1.0) * depth;
+        return true;
     }
 
     /// <summary>
@@ -817,6 +881,7 @@ public class StrataPresence : Panel, IDisposable
             lobe.Border.Opacity = 0;
             if (lobe.Visual is { } idle)
                 SettleScale(idle);
+            lobe.ScaleLoopActive = false;
             return;
         }
 
@@ -847,6 +912,7 @@ public class StrataPresence : Panel, IDisposable
             sc.Duration = TimeSpan.FromMilliseconds(periodMs);
             sc.IterationBehavior = AnimationIterationBehavior.Forever;
             visual.StartAnimation("Scale", sc);
+            lobe.ScaleLoopActive = true;
         }
     }
 
@@ -865,9 +931,8 @@ public class StrataPresence : Panel, IDisposable
     }
 
     /// <summary>
-    /// Drives the welcome/focal <see cref="LobeRole.Halo"/> lobe: when <see cref="Halo"/>
-    /// is on, a slow, gentle opacity breath makes the gathered light around the focal point
-    /// read as a living luminance; when off, the lobe rests fully transparent.
+    /// Drives the welcome/focal <see cref="LobeRole.Halo"/> lobe. At rest it remains a steady
+    /// luminance so an idle welcome screen does not keep the render thread presenting frames.
     /// </summary>
     private void UpdateHalo()
     {
@@ -876,7 +941,7 @@ public class StrataPresence : Panel, IDisposable
             return;
 
         var active = Halo;
-        // Already breathing — don't restart (avoids a hitch on resize / re-attach).
+        // Already active — don't restart (avoids a hitch on resize / re-attach).
         if (active && _haloActive)
             return;
 
@@ -896,7 +961,7 @@ public class StrataPresence : Panel, IDisposable
             var border = lobe.Border;
             var fadeCts = new System.Threading.CancellationTokenSource();
             _haloCts = fadeCts;
-            var haloHigh = Math.Clamp(0.205 * Luminance, 0, 1);
+            var haloHigh = Math.Clamp(0.1825 * Luminance, 0, 1);
             var fadeOut = new Avalonia.Animation.Animation
             {
                 Duration = TimeSpan.FromMilliseconds(1300),
@@ -927,37 +992,19 @@ public class StrataPresence : Panel, IDisposable
             _ = fadeOut.RunAsync(border, fadeCts.Token);
             if (lobe.Visual is { } idle)
                 SettleScale(idle);
+            lobe.ScaleLoopActive = false;
             return;
         }
 
-        // A calm "this is alive" luminance that gently swells in both brightness and size —
-        // never fully extinguished, never a hard pulse — so the focal mark (e.g. the Lumi
-        // icon on the welcome screen) reads as quietly breathing.
-        // The halo breath keeps a HIGH floor and a SMALL swing (0.16 → 0.205) so the welcome mark
-        // reads as a steady luminance that merely *shimmers* — never the ~2× opacity pump that made
-        // the breathing feel like a UI element beating. Scaled by the same master luminance as the
-        // ambient field, so the welcome mark's glow brightens in lock-step and stays tunable.
-        var haloLo = Math.Clamp(0.160 * Luminance, 0, 1);
-        var haloHi = Math.Clamp(0.205 * Luminance, 0, 1);
-        LifecycleOpacityPulse.SetFromOpacity(lobe.Border, haloLo);
-        LifecycleOpacityPulse.SetToOpacity(lobe.Border, haloHi);
-        LifecycleOpacityPulse.SetDuration(lobe.Border, TimeSpan.FromMilliseconds(6000));
-        LifecycleOpacityPulse.SetPeakAt(lobe.Border, 0.5);
-        LifecycleOpacityPulse.SetEasing(lobe.Border, LifecycleOpacityPulseEasing.SineEaseInOut);
-        LifecycleOpacityPulse.SetIsActive(lobe.Border, true);
+        // Preserve the welcome glow at the midpoint of the former breath, but keep it static.
+        lobe.Border.Opacity = Math.Clamp(0.1825 * Luminance, 0, 1);
 
         if (lobe.Visual is { } visual)
         {
-            var comp = visual.Compositor;
-            var sc = comp.CreateStableVector3KeyFrameAnimation();
-            sc.Target = "Scale";
-            sc.InsertKeyFrame(0f, new Vector3(0.99f, 0.99f, 1f));
-            sc.InsertKeyFrame(0.5f, new Vector3(1.03f, 1.03f, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
-            sc.InsertKeyFrame(1f, new Vector3(0.99f, 0.99f, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
-            sc.Duration = TimeSpan.FromMilliseconds(6000);
-            sc.IterationBehavior = AnimationIterationBehavior.Forever;
-            visual.StartAnimation("Scale", sc);
+            visual.StopAnimation("Scale");
+            visual.Scale = Vector3.One;
         }
+        lobe.ScaleLoopActive = false;
     }
 
     /// <summary>Soft deceleration for focus travel — the field moves off promptly then <i>settles</i>
@@ -1031,6 +1078,13 @@ public class StrataPresence : Panel, IDisposable
         }
         return sb.ToString();
     }
+
+    /// <summary>Test-only probe for render-thread loops that should be suspended at rest.</summary>
+    internal bool HasContinuousAnimationForTest =>
+        _lobes.Any(lobe =>
+            lobe.OffsetLoopActive ||
+            lobe.ScaleLoopActive ||
+            LifecycleOpacityPulse.IsRunning(lobe.Border));
 
     /// <summary>DEBUG-ONLY: the largest lobe diameter (px) currently laid out. A headless test asserts
     /// this stays within the surface's SHORT edge on a wide surface — the permanent guard against the
@@ -1535,16 +1589,10 @@ public class StrataPresence : Panel, IDisposable
 
         if (lobe.Visual is { } cv)
         {
-            // A slow, shallow shimmer so the parked pool reads as quietly alive, never a pump.
-            var sc = cv.Compositor.CreateStableVector3KeyFrameAnimation();
-            sc.Target = "Scale";
-            sc.InsertKeyFrame(0f, new Vector3(0.98f, 0.98f, 1f));
-            sc.InsertKeyFrame(0.5f, new Vector3(1.03f, 1.03f, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
-            sc.InsertKeyFrame(1f, new Vector3(0.98f, 0.98f, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
-            sc.Duration = TimeSpan.FromMilliseconds(7000);
-            sc.IterationBehavior = AnimationIterationBehavior.Forever;
-            cv.StartAnimation("Scale", sc);
+            cv.StopAnimation("Scale");
+            cv.Scale = Vector3.One;
         }
+        lobe.ScaleLoopActive = false;
 
         return true;
     }
