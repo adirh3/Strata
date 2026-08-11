@@ -17,15 +17,15 @@ namespace StrataTheme.Controls;
 /// A living, full-bleed ambient "presence" field designed to sit <b>behind</b> a
 /// canvas (e.g. a chat transcript) and make the surface feel alive. It renders a
 /// soft aurora of overlapping radial-gradient lobes (indigo / violet / rose).
-/// It settles into a static resting pose while idle, animates while Lumi is active,
-/// and reacts to <see cref="State"/> changes and one-shot <see cref="Pulse(PresencePulse)"/> events.
+/// Working states are static by default for efficiency, with optional continuous motion
+/// for users who explicitly prefer it. Finite focus transitions and one-shot
+/// <see cref="Pulse(PresencePulse)"/> events remain active in either mode.
 /// </summary>
 /// <remarks>
 /// <para>
-/// All continuous motion (breathe + drift) is driven by the Avalonia
-/// <b>Composition</b> API and therefore runs on the render thread — there is no
-/// per-frame UI-thread cost. State intensity is expressed through eased
-/// <see cref="Visual.Opacity"/> cross-fades on the lobes (cheap, infrequent).
+/// Motion is driven by the Avalonia <b>Composition</b> API and therefore runs on the
+/// render thread. State intensity is expressed through eased <see cref="Visual.Opacity"/>
+/// cross-fades on the lobes.
 /// </para>
 /// <para>The control is decorative only — it is hit-test invisible.</para>
 /// </remarks>
@@ -56,11 +56,16 @@ public class StrataPresence : Panel, IDisposable
     public static readonly StyledProperty<double> IntensityProperty =
         AvaloniaProperty.Register<StrataPresence, double>(nameof(Intensity), 1.0);
 
-    /// <summary>When true, the field gathers a soft, slowly breathing halo around the
+    /// <summary>When true, the field gathers a soft, steady halo around the
     /// current <see cref="FocusPoint"/> — a quiet "luminance" that makes a focal element
     /// (e.g. the Lumi mark on the welcome screen) feel alive. Independent of <see cref="State"/>.</summary>
     public static readonly StyledProperty<bool> HaloProperty =
         AvaloniaProperty.Register<StrataPresence, bool>(nameof(Halo));
+
+    /// <summary>Enables continuous drift and breathing while Lumi is thinking or streaming.
+    /// Disabled by default so working presence remains battery-friendly.</summary>
+    public static readonly StyledProperty<bool> AnimateWhileWorkingProperty =
+        AvaloniaProperty.Register<StrataPresence, bool>(nameof(AnimateWhileWorking));
 
     public PresenceState State
     {
@@ -98,6 +103,12 @@ public class StrataPresence : Panel, IDisposable
         set => SetValue(HaloProperty, value);
     }
 
+    public bool AnimateWhileWorking
+    {
+        get => GetValue(AnimateWhileWorkingProperty);
+        set => SetValue(AnimateWhileWorkingProperty, value);
+    }
+
     static StrataPresence()
     {
         StateProperty.Changed.AddClassHandler<StrataPresence>((p, _) => p.ApplyState());
@@ -117,6 +128,12 @@ public class StrataPresence : Panel, IDisposable
             p.UpdateHalo();
         });
         HaloProperty.Changed.AddClassHandler<StrataPresence>((p, _) => p.UpdateHalo());
+        AnimateWhileWorkingProperty.Changed.AddClassHandler<StrataPresence>((p, _) =>
+        {
+            p._motionDirty = true;
+            p._beaconState = (PresenceState)(-1);
+            p.ApplyState();
+        });
     }
 
     private enum LobeRole { Indigo, Violet, Rose, Core, Beacon, Pulse, Halo, Companion }
@@ -187,6 +204,7 @@ public class StrataPresence : Panel, IDisposable
     private bool _attached;
     private MotionLevel _motionLevel = (MotionLevel)(-1);
     private bool _motionDirty = true;
+    private bool _motionAnimated;
     // True only for the span of a resize-driven re-pin (ResyncFocus): makes ApplyFocus SNAP rather than
     // spring, so the controller's focus refinement during a continuous drag tracks the re-laid-out canvas
     // rigidly instead of springing (and micro-jittering) behind it. Structural placement on resize is
@@ -400,6 +418,7 @@ public class StrataPresence : Panel, IDisposable
         _attached = false;
         _ready = false;
         _motionLevel = (MotionLevel)(-1);
+        _motionAnimated = false;
         _beaconState = (PresenceState)(-1);
         _beaconIntensity = -1;
         _travelCts?.Cancel();
@@ -414,7 +433,7 @@ public class StrataPresence : Panel, IDisposable
         _companionNorm = null;
         if (Find(LobeRole.Companion)?.Border is { } companionBorder)
             companionBorder.Opacity = 0;
-        // Stop any running Forever composition animations while the visuals are still live.
+        // Stop any in-flight composition animations while the visuals are still live.
         // Avalonia detaches the compositor (nulling CompositionVisual) only AFTER this override
         // returns, so the stored visual refs are still valid here; a virtualized/Path-B detach
         // would otherwise leave them orphaned, ticking the render thread. Re-attach re-acquires
@@ -480,6 +499,8 @@ public class StrataPresence : Panel, IDisposable
         _ready = _selfVisual is not null;
         _motionDirty = true;
         _motionLevel = (MotionLevel)(-1);
+        _beaconState = (PresenceState)(-1);
+        _beaconIntensity = -1;
         SizeLobes(Bounds.Width, Bounds.Height);
         ApplyState();
         ApplyFocus(animate: false);
@@ -663,6 +684,7 @@ public class StrataPresence : Panel, IDisposable
         public required double BreatheMin { get; init; }
         public required double BreatheMax { get; init; }
         public required double BreathePeriodMs { get; init; }
+        public required double StaticScale { get; init; }
 
         /// <summary>How much wider-than-tall the ambient pool sits. Resting states laminate the field
         /// gently along the horizontal (so an idle chat reads as light pooling <i>along</i> the composer,
@@ -672,12 +694,13 @@ public class StrataPresence : Panel, IDisposable
 
     private static MotionProfile ProfileFor(MotionLevel level) => level switch
     {
-        // Calm defines the static resting shape. Engaged states animate with more energy, but the
-        // breathe amplitude stays small enough that it reads as ambient light, never a beating element.
+        // Every state has a static silhouette; the engaged profiles also carry the original motion
+        // parameters for users who explicitly enable live presence while working.
         MotionLevel.Calm => new MotionProfile
         {
             DriftAmp = 0.020, DriftPeriodMs = 32000,
             BreatheMin = 0.990, BreatheMax = 1.018, BreathePeriodMs = 12000,
+            StaticScale = 0.990,
             // Resting wide: an idle chat settles its pool into a broad horizontal wash that lights the
             // canvas BEHIND the composer along its width, rather than a tight centred dot. (At the
             // welcome mark the ambient field is dim and the Halo carries the glow, so this generous
@@ -688,12 +711,14 @@ public class StrataPresence : Panel, IDisposable
         {
             DriftAmp = 0.030, DriftPeriodMs = 20000,
             BreatheMin = 0.976, BreatheMax = 1.034, BreathePeriodMs = 7000,
+            StaticScale = 1.005,
             WidthBias = 1.08,
         },
         _ => new MotionProfile
         {
             DriftAmp = 0.046, DriftPeriodMs = 14000,
             BreatheMin = 0.962, BreatheMax = 1.052, BreathePeriodMs = 4600,
+            StaticScale = 1.007,
             WidthBias = 1.0,
         },
     };
@@ -711,10 +736,12 @@ public class StrataPresence : Panel, IDisposable
             _ => MotionLevel.Calm,
         };
 
-        if (!_motionDirty && level == _motionLevel)
+        var animate = AnimateWhileWorking && state is PresenceState.Thinking or PresenceState.Streaming;
+        if (!_motionDirty && level == _motionLevel && animate == _motionAnimated)
             return;
 
         _motionLevel = level;
+        _motionAnimated = animate;
         _motionDirty = false;
 
         var profile = ProfileFor(level);
@@ -723,14 +750,14 @@ public class StrataPresence : Panel, IDisposable
             if (lobe.Signal)
                 continue;
 
-            if (level != MotionLevel.Calm)
+            if (animate)
                 StartMotion(lobe, profile);
             else
-                SetRestingMotion(lobe, profile);
+                SetStaticMotion(lobe, profile);
         }
     }
 
-    private void SetRestingMotion(Lobe lobe, MotionProfile profile)
+    private void SetStaticMotion(Lobe lobe, MotionProfile profile)
     {
         if (lobe.Visual is not { } visual || !TryGetMotionGeometry(
                 lobe,
@@ -738,14 +765,14 @@ public class StrataPresence : Panel, IDisposable
                 out var baseX,
                 out var baseY,
                 out var amplitude,
-                out var breatheMin,
-                out var breatheMax))
+                out _,
+                out _,
+                out var staticScale))
         {
             return;
         }
 
         var offset = new Vector3((float)(baseX + amplitude), (float)baseY, 0);
-        var restingScale = breatheMin;
 
         visual.StopAnimation("Offset");
         visual.StopAnimation("Scale");
@@ -756,7 +783,7 @@ public class StrataPresence : Panel, IDisposable
         {
             Children =
             {
-                new ScaleTransform(restingScale * profile.WidthBias, restingScale),
+                new ScaleTransform(staticScale * profile.WidthBias, staticScale),
                 new TranslateTransform(offset.X, offset.Y),
             },
         };
@@ -771,7 +798,8 @@ public class StrataPresence : Panel, IDisposable
                 out var baseY,
                 out var amplitude,
                 out var breatheMin,
-                out var breatheMax))
+                out var breatheMax,
+                out _))
         {
             return;
         }
@@ -779,7 +807,6 @@ public class StrataPresence : Panel, IDisposable
         lobe.Border.RenderTransform = null;
         var comp = visual.Compositor;
 
-        // Seamless elliptical drift around the lobe's anchor.
         var drift = comp.CreateStableVector3KeyFrameAnimation();
         drift.Target = "Offset";
         drift.InsertKeyFrame(0.00f, new Vector3((float)(baseX + amplitude), (float)baseY, 0));
@@ -791,8 +818,6 @@ public class StrataPresence : Panel, IDisposable
         drift.IterationBehavior = AnimationIterationBehavior.Forever;
         visual.StartAnimation("Offset", drift);
 
-        // Heartbeat breathe. The core lobe breathes a touch deeper. A horizontal WidthBias laminates the
-        // resting pool along the composer/hero without disturbing the (uniform) breathe rhythm.
         var wb = profile.WidthBias;
         var breathe = comp.CreateStableVector3KeyFrameAnimation();
         breathe.Target = "Scale";
@@ -813,13 +838,14 @@ public class StrataPresence : Panel, IDisposable
         out double baseY,
         out double amplitude,
         out double breatheMin,
-        out double breatheMax)
+        out double breatheMax,
+        out double staticScale)
     {
         var width = Bounds.Width;
         var height = Bounds.Height;
         if (width <= 0 || height <= 0)
         {
-            baseX = baseY = amplitude = breatheMin = breatheMax = 0;
+            baseX = baseY = amplitude = breatheMin = breatheMax = staticScale = 0;
             return false;
         }
 
@@ -829,18 +855,15 @@ public class StrataPresence : Panel, IDisposable
         amplitude = profile.DriftAmp * Math.Min(width, height) * (0.80 + 0.16 * lobe.Phase);
 
         var depth = lobe.Role == LobeRole.Core ? 1.18 : 1.0;
-        breatheMin = 1.0 - (1.0 - profile.BreatheMin) * depth;
-        breatheMax = 1.0 + (profile.BreatheMax - 1.0) * depth;
+        breatheMin = 1.0 - ((1.0 - profile.BreatheMin) * depth);
+        breatheMax = 1.0 + ((profile.BreatheMax - 1.0) * depth);
+        staticScale = 1.0 + ((profile.StaticScale - 1.0) * depth);
         return true;
     }
 
     /// <summary>
-    /// Drives the <see cref="LobeRole.Beacon"/> "gaze pulse" — a living rhythm of light
-    /// gathered at the focal point that makes Lumi feel <i>engaged</i>. Tempo, colour and
-    /// brightness encode the moment: a calm accent pulse while thinking, a quicker, brighter
-    /// heartbeat while streaming, and a warm, clearly-insistent amber beckon when Lumi needs
-    /// the user (a pending question). It rests fully dark in every calm state, so the rhythm
-    /// only ever appears when there is genuinely something to draw the eye toward.
+    /// Drives the <see cref="LobeRole.Beacon"/> state marker. It remains static in efficient mode,
+    /// and restores the original heartbeat while working when live presence is enabled.
     /// </summary>
     private void UpdateBeacon(PresenceState state, double intensity)
     {
@@ -852,11 +875,6 @@ public class StrataPresence : Panel, IDisposable
         {
             PresenceState.Thinking => (true, "Color.AccentDefault", 0.070, 0.135, 0.975, 1.030, 2800.0),
             PresenceState.Streaming => (true, "Color.AccentDefault", 0.090, 0.175, 0.968, 1.040, 2000.0),
-            // Attention keeps the amber hue CONSTANT (a high opacity floor) and beckons by
-            // pulsing in SIZE rather than fading out — so the focal point reads unmistakably
-            // warm at every instant (never momentarily cool like a fading pulse would), while
-            // the deep size throb makes it breathe insistently. This is what turns "a question
-            // is waiting" into a felt, warm gather the eye is drawn to.
             PresenceState.Attention => (true, "Palette.Warning400", 0.235, 0.345, 0.94, 1.12, 2100.0),
             _ => (false, "Color.AccentDefault", 0.0, 0.0, 1.0, 1.0, 0.0),
         };
@@ -864,7 +882,7 @@ public class StrataPresence : Panel, IDisposable
         lo = Math.Clamp(lo * intensity, 0, 1);
         hi = Math.Clamp(hi * intensity, 0, 1);
 
-        // Already pulsing for this exact state — don't restart (avoids a hitch on resize).
+        // Already showing this exact state — avoid unnecessary brush/transform churn on resize.
         if (active && _beaconState == state && Math.Abs(_beaconIntensity - intensity) < 0.001)
             return;
 
@@ -879,6 +897,7 @@ public class StrataPresence : Panel, IDisposable
         if (!active)
         {
             lobe.Border.Opacity = 0;
+            lobe.Border.RenderTransform = null;
             if (lobe.Visual is { } idle)
                 SettleScale(idle);
             lobe.ScaleLoopActive = false;
@@ -888,10 +907,24 @@ public class StrataPresence : Panel, IDisposable
         if (this.TryFindResource(colorKey, ActualThemeVariant, out var value) && value is Color c)
             lobe.Border.Background = BuildGlow(c, 168, 60);
 
-        // Brightness throb on the compositor. Avalonia intentionally rejects RunAsync for an
-        // infinite animation ("Looping animations must not use the Run method"); the old fire-and-
-        // forget call faulted on every launch and the pulse never ran. This lifecycle-managed path
-        // starts only while attached/visible and stops cleanly on detach.
+        var animate = AnimateWhileWorking && state is PresenceState.Thinking or PresenceState.Streaming;
+        if (!animate)
+        {
+            LifecycleOpacityPulse.SetIsActive(lobe.Border, false);
+            lobe.Border.Opacity = (lo + hi) / 2.0;
+            var staticScale = (sMin + sMax) / 2.0;
+            lobe.Border.RenderTransformOrigin = RelativePoint.Center;
+            lobe.Border.RenderTransform = new ScaleTransform(staticScale, staticScale);
+            if (lobe.Visual is { } staticVisual)
+            {
+                staticVisual.StopAnimation("Scale");
+                staticVisual.Scale = Vector3.One;
+            }
+            lobe.ScaleLoopActive = false;
+            return;
+        }
+
+        lobe.Border.RenderTransform = null;
         LifecycleOpacityPulse.SetFromOpacity(lobe.Border, lo);
         LifecycleOpacityPulse.SetToOpacity(lobe.Border, hi);
         LifecycleOpacityPulse.SetDuration(lobe.Border, TimeSpan.FromMilliseconds(periodMs));
@@ -899,19 +932,17 @@ public class StrataPresence : Panel, IDisposable
         LifecycleOpacityPulse.SetEasing(lobe.Border, LifecycleOpacityPulseEasing.SineEaseInOut);
         LifecycleOpacityPulse.SetIsActive(lobe.Border, true);
 
-        // Size throb (render thread) — the light gently swells and contracts in time with the
-        // brightness, so the pulse reads as a living breath rather than a flat fade.
         if (lobe.Visual is { } visual)
         {
             var comp = visual.Compositor;
-            var sc = comp.CreateStableVector3KeyFrameAnimation();
-            sc.Target = "Scale";
-            sc.InsertKeyFrame(0f, new Vector3((float)sMin, (float)sMin, 1f));
-            sc.InsertKeyFrame(0.5f, new Vector3((float)sMax, (float)sMax, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
-            sc.InsertKeyFrame(1f, new Vector3((float)sMin, (float)sMin, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
-            sc.Duration = TimeSpan.FromMilliseconds(periodMs);
-            sc.IterationBehavior = AnimationIterationBehavior.Forever;
-            visual.StartAnimation("Scale", sc);
+            var scale = comp.CreateStableVector3KeyFrameAnimation();
+            scale.Target = "Scale";
+            scale.InsertKeyFrame(0f, new Vector3((float)sMin, (float)sMin, 1f));
+            scale.InsertKeyFrame(0.5f, new Vector3((float)sMax, (float)sMax, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
+            scale.InsertKeyFrame(1f, new Vector3((float)sMin, (float)sMin, 1f), new Avalonia.Animation.Easings.SineEaseInOut());
+            scale.Duration = TimeSpan.FromMilliseconds(periodMs);
+            scale.IterationBehavior = AnimationIterationBehavior.Forever;
+            visual.StartAnimation("Scale", scale);
             lobe.ScaleLoopActive = true;
         }
     }
@@ -992,7 +1023,6 @@ public class StrataPresence : Panel, IDisposable
             _ = fadeOut.RunAsync(border, fadeCts.Token);
             if (lobe.Visual is { } idle)
                 SettleScale(idle);
-            lobe.ScaleLoopActive = false;
             return;
         }
 
@@ -1004,7 +1034,6 @@ public class StrataPresence : Panel, IDisposable
             visual.StopAnimation("Scale");
             visual.Scale = Vector3.One;
         }
-        lobe.ScaleLoopActive = false;
     }
 
     /// <summary>Soft deceleration for focus travel — the field moves off promptly then <i>settles</i>
@@ -1079,12 +1108,15 @@ public class StrataPresence : Panel, IDisposable
         return sb.ToString();
     }
 
-    /// <summary>Test-only probe for render-thread loops that should be suspended at rest.</summary>
+    /// <summary>Test-only probe for the opt-in continuous working animations.</summary>
     internal bool HasContinuousAnimationForTest =>
         _lobes.Any(lobe =>
             lobe.OffsetLoopActive ||
             lobe.ScaleLoopActive ||
             LifecycleOpacityPulse.IsRunning(lobe.Border));
+
+    internal bool IsBeaconScaleLoopActiveForTest =>
+        Find(LobeRole.Beacon)?.ScaleLoopActive == true;
 
     /// <summary>DEBUG-ONLY: the largest lobe diameter (px) currently laid out. A headless test asserts
     /// this stays within the surface's SHORT edge on a wide surface — the permanent guard against the
@@ -1592,7 +1624,6 @@ public class StrataPresence : Panel, IDisposable
             cv.StopAnimation("Scale");
             cv.Scale = Vector3.One;
         }
-        lobe.ScaleLoopActive = false;
 
         return true;
     }
