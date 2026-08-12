@@ -240,8 +240,77 @@ public class StrataChatMessageTests
                 .Select(static item => item.Header?.ToString())
                 .ToArray();
             Assert.Contains("Copy message", headers);
+            Assert.Contains("Copy as Markdown", headers);
+            Assert.Contains("Copy as rich text", headers);
             Assert.Contains("Copy assistant turn", headers);
             Assert.DoesNotContain("Copy selected text", headers);
+        });
+    }
+
+    [Fact]
+    public async Task RebuildContextMenuItems_SelectionHidesWholeMessageFormats()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var menu = new ContextMenu();
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.Assistant,
+                Content = new SelectableTextBlock { Text = "Whole message text" }
+            };
+            SetPrivateField(message, "_contextMenu", menu);
+            SetPrivateField(message, "_contextMenuSelectionText", "selected text");
+
+            InvokePrivate(message, "RebuildContextMenuItems");
+
+            var headers = Assert
+                .IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource)
+                .OfType<MenuItem>()
+                .Select(static item => item.Header?.ToString())
+                .ToArray();
+            Assert.Contains("Copy selected text", headers);
+            Assert.DoesNotContain("Copy message", headers);
+            Assert.DoesNotContain("Copy as Markdown", headers);
+            Assert.DoesNotContain("Copy as rich text", headers);
+        });
+    }
+
+    [Fact]
+    public void CopyRequestedEventArgs_ExposeTheChosenFormat()
+    {
+        var args = new StrataCopyRequestedEventArgs(
+            StrataChatMessage.CopyRequestedEvent,
+            "**Lumi**",
+            isSelection: false,
+            StrataCopyFormat.RichText);
+
+        Assert.Equal(StrataCopyFormat.RichText, args.Format);
+    }
+
+    [Theory]
+    [InlineData("Copy as Markdown", StrataCopyFormat.Markdown)]
+    [InlineData("Copy as rich text", StrataCopyFormat.RichText)]
+    public async Task CopyFormatMenuItem_RaisesTheChosenFormat(string header, StrataCopyFormat expectedFormat)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var menu = new ContextMenu();
+            var message = new StrataChatMessage
+            {
+                Content = new StrataMarkdown { Markdown = "**Lumi**" }
+            };
+            StrataCopyFormat? observedFormat = null;
+            message.CopyRequested += (_, args) => observedFormat = args.Format;
+            SetPrivateField(message, "_contextMenu", menu);
+            InvokePrivate(message, "RebuildContextMenuItems");
+
+            var item = Assert
+                .IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource)
+                .OfType<MenuItem>()
+                .Single(menuItem => string.Equals(menuItem.Header?.ToString(), header, StringComparison.Ordinal));
+            item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+
+            Assert.Equal(expectedFormat, observedFormat);
         });
     }
 

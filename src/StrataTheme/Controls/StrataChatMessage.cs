@@ -31,6 +31,17 @@ public enum StrataChatRole
     Tool
 }
 
+/// <summary>The clipboard representation chosen for a chat message copy action.</summary>
+public enum StrataCopyFormat
+{
+    /// <summary>Plain clipboard text.</summary>
+    Text,
+    /// <summary>Markdown source plus a plain-text fallback.</summary>
+    Markdown,
+    /// <summary>Rendered HTML plus a plain-text fallback.</summary>
+    RichText,
+}
+
 /// <summary>Event arguments for <see cref="StrataChatMessage.EditConfirmed"/> carrying the edited text.</summary>
 public class StrataEditConfirmedEventArgs : RoutedEventArgs
 {
@@ -52,10 +63,18 @@ public class StrataCopyRequestedEventArgs : RoutedEventArgs
     /// <summary>True when the copy action targeted selected text instead of the whole message.</summary>
     public bool IsSelection { get; }
 
-    public StrataCopyRequestedEventArgs(RoutedEvent routedEvent, string text, bool isSelection) : base(routedEvent)
+    /// <summary>The clipboard representation chosen by the user.</summary>
+    public StrataCopyFormat Format { get; }
+
+    public StrataCopyRequestedEventArgs(
+        RoutedEvent routedEvent,
+        string text,
+        bool isSelection,
+        StrataCopyFormat format = StrataCopyFormat.Text) : base(routedEvent)
     {
         Text = text;
         IsSelection = isSelection;
+        Format = format;
     }
 }
 
@@ -567,7 +586,7 @@ public class StrataChatMessage : TemplatedControl
         if (e.Key == Key.C && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             e.Handled = true;
-            var copy = await CopyMessageTextAsync();
+            var copy = await CopyMessageTextAsync(StrataCopyFormat.Text);
             RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection));
             CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
         }
@@ -576,7 +595,7 @@ public class StrataChatMessage : TemplatedControl
     private async void OnCopyButtonClick(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        var copy = await CopyMessageTextAsync();
+        var copy = await CopyMessageTextAsync(StrataCopyFormat.Text);
         RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection));
         CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
     }
@@ -800,13 +819,27 @@ public class StrataChatMessage : TemplatedControl
             Header = hasSelection ? "Copy selected text" : "Copy message",
             Icon = CreateMenuIcon("\uE8C8")
         };
-        copyItem.Click += async (_, _) =>
-        {
-            var copy = await CopyMessageTextAsync();
-            RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection));
-            CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
-        };
+        copyItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.Text);
         items.Add(copyItem);
+
+        if (!hasSelection)
+        {
+            var markdownItem = new MenuItem
+            {
+                Header = "Copy as Markdown",
+                Icon = CreateMenuIcon("\uE8C8")
+            };
+            markdownItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.Markdown);
+            items.Add(markdownItem);
+
+            var richTextItem = new MenuItem
+            {
+                Header = "Copy as rich text",
+                Icon = CreateMenuIcon("\uE8C8")
+            };
+            richTextItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.RichText);
+            items.Add(richTextItem);
+        }
 
         if (!IsEditing && Role is StrataChatRole.Assistant or StrataChatRole.Tool)
         {
@@ -889,7 +922,14 @@ public class StrataChatMessage : TemplatedControl
 
     private readonly record struct MessageCopyResult(string Text, bool IsSelection);
 
-    private async Task<MessageCopyResult> CopyMessageTextAsync()
+    private async Task CopyMessageAndNotifyAsync(StrataCopyFormat format)
+    {
+        var copy = await CopyMessageTextAsync(format);
+        RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection, format));
+        CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
+    }
+
+    private async Task<MessageCopyResult> CopyMessageTextAsync(StrataCopyFormat format)
     {
         var copy = ExtractCopyText();
         var text = copy.Text;
@@ -899,8 +939,12 @@ public class StrataChatMessage : TemplatedControl
         var topLevel = TopLevel.GetTopLevel(this);
         if (topLevel?.Clipboard is not null)
         {
-            var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateText(text));
+            var data = format switch
+            {
+                StrataCopyFormat.Markdown => ChatClipboardData.CreateMarkdown(text),
+                StrataCopyFormat.RichText => ChatClipboardData.CreateRichText(text),
+                _ => ChatClipboardData.CreateText(text),
+            };
             await topLevel.Clipboard.SetDataAsync(data);
         }
 

@@ -3593,11 +3593,6 @@ public partial class StrataMarkdown : ContentControl
 
     private sealed class MarkdownTableView : Border
     {
-        private static readonly DataFormat<string> MarkdownClipboardFormat =
-            DataFormat.CreateStringPlatformFormat("text/markdown");
-        private static readonly DataFormat<string> HtmlClipboardFormat =
-            DataFormat.CreateStringPlatformFormat("text/html");
-
         private readonly Grid _grid;
         private readonly ScrollViewer _scrollViewer;
         private readonly TextBlock _copyLabel;
@@ -3847,11 +3842,9 @@ public partial class StrataMarkdown : ContentControl
                 var text = format == TableCopyFormat.Html
                     ? HtmlText
                     : MarkdownText;
-                var data = new DataTransfer();
-                data.Add(DataTransferItem.CreateText(text));
-                data.Add(DataTransferItem.Create(
-                    format == TableCopyFormat.Html ? HtmlClipboardFormat : MarkdownClipboardFormat,
-                    text));
+                var data = format == TableCopyFormat.Html
+                    ? ChatClipboardData.CreateHtml(text, text)
+                    : ChatClipboardData.CreateMarkdown(text);
                 await topLevel.Clipboard.SetDataAsync(data);
 
                 await ShowCopyStatusAsync("\uE73E");
