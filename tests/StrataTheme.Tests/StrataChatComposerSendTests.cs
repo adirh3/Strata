@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Windows.Input;
+using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using StrataTheme.Controls;
 
 namespace StrataTheme.Tests;
@@ -58,6 +60,68 @@ public class StrataChatComposerSendTests
 
             Assert.False(sendRequested);
             Assert.Equal(0, command.ExecuteCount);
+        });
+    }
+
+    [Fact]
+    public async Task HandleSendAction_WithExternalEditor_UsesPromptTextInsteadOfHiddenInput()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var command = new RecordingCommand();
+            var composer = new StrataChatComposer
+            {
+                PromptText = "native draft",
+                EditorContent = new RecordingEditor(),
+                SendCommand = command
+            };
+            typeof(StrataChatComposer)
+                .GetField("_input", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(composer, new TextBox { Text = "stale hidden text" });
+
+            InvokeHandleSendAction(composer);
+
+            Assert.Equal(1, command.ExecuteCount);
+            Assert.Equal("native draft", command.LastParameter);
+            Assert.Equal("native draft", composer.PromptText);
+        });
+    }
+
+    [Fact]
+    public async Task FocusInputAtEnd_WithExternalEditor_DelegatesToHost()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var editor = new RecordingEditor();
+            var composer = new StrataChatComposer { EditorContent = editor };
+
+            composer.FocusInputAtEnd();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, editor.FocusCount);
+        });
+    }
+
+    [Fact]
+    public async Task InsertTextAtSelection_WithExternalEditor_UsesExternalCaret()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var editor = new RecordingEditor { CaretIndex = 1 };
+            var composer = new StrataChatComposer
+            {
+                PromptText = "ab",
+                EditorContent = editor
+            };
+            typeof(StrataChatComposer)
+                .GetField("_input", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(composer, new TextBox { Text = "stale", CaretIndex = 5 });
+
+            composer.InsertTextAtSelection("X");
+
+            Assert.Equal("aXb", composer.PromptText);
+            Assert.Equal(2, editor.CaretIndex);
+            Assert.Equal(1, editor.FocusCount);
         });
     }
 
@@ -270,5 +334,19 @@ public class StrataChatComposerSendTests
             ExecuteCount++;
             LastParameter = parameter;
         }
+    }
+
+    private sealed class RecordingEditor : IStrataComposerEditor
+    {
+        public int FocusCount { get; private set; }
+        public int CaretIndex { get; set; }
+
+        public void FocusAt(int caretIndex)
+        {
+            CaretIndex = caretIndex;
+            FocusCount++;
+        }
+
+        public void FocusAtEnd() => FocusCount++;
     }
 }

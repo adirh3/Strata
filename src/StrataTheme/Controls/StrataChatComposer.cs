@@ -11,6 +11,7 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -42,6 +43,19 @@ public record StrataComposerChip(
 
 /// <summary>The kind of autocomplete entry or chip.</summary>
 public enum ChipKind { Agent, Skill, Mcp, Project, File }
+
+/// <summary>Optional editor contract for hosts that replace the templated Avalonia TextBox.</summary>
+public interface IStrataComposerEditor
+{
+    /// <summary>Current zero-based caret index in the editor text.</summary>
+    int CaretIndex { get; }
+
+    /// <summary>Focuses the editor and places its caret at the requested index.</summary>
+    void FocusAt(int caretIndex);
+
+    /// <summary>Focuses the editor and places its caret at the end of the prompt.</summary>
+    void FocusAtEnd();
+}
 
 /// <summary>Event arguments carrying a removed skill chip item.</summary>
 public class ComposerChipRemovedEventArgs : RoutedEventArgs
@@ -89,7 +103,8 @@ public class FileSelectedEventArgs : EventArgs
 ///                                SendRequested="OnSend"
 ///                                StopRequested="OnStop" /&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Input (TextBox), PART_SendButton (Button),
+/// <para><b>Template parts:</b> PART_Input (TextBox), PART_EditorContent (ContentPresenter),
+/// PART_SendButton (Button),
 /// PART_AttachButton (Button), PART_MentionButton (Button), PART_VoiceButton (Button),
 /// PART_ModelPickerButton (Button), PART_ModelPickerPopup (Popup),
 /// PART_ModelPickerList (StackPanel),
@@ -98,7 +113,8 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
-/// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :can-attach, :can-send-without-prompt,
+/// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :external-editor,
+/// :can-attach, :can-send-without-prompt,
 /// :can-voice, :editing, :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
 /// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
 /// </remarks>
@@ -133,6 +149,8 @@ public class StrataChatComposer : TemplatedControl
     private INotifyCollectionChanged? _subscribedSkillCollection;
     private INotifyCollectionChanged? _subscribedMcpCollection;
     private INotifyCollectionChanged? _subscribedAvailableMcpCollection;
+    private INotifyCollectionChanged? _subscribedAvailableFileCollection;
+    private bool _fileAutoCompleteRefreshQueued;
     private static readonly string[] DefaultModels = ["GPT-5.3-Codex", "GPT-4o", "o3"];
     private static readonly string[] DefaultQualityLevels = ["Medium", "High", "Extra High"];
 
@@ -300,6 +318,13 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Optional content for displaying pending file attachments inside the composer.</summary>
     public static readonly StyledProperty<object?> AttachmentContentProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(AttachmentContent));
+
+    /// <summary>
+    /// Optional replacement for the templated text editor. When present, the built-in TextBox is
+    /// hidden but remains bound so existing composer state and autocomplete plumbing stay intact.
+    /// </summary>
+    public static readonly StyledProperty<object?> EditorContentProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(EditorContent));
 
     /// <summary>
     /// Optional host content placed at the start of the toolbar row, before the built-in buttons.
@@ -523,6 +548,12 @@ public class StrataChatComposer : TemplatedControl
             c.Sync();
             c.AnimateSuggestionsIfNeeded();
         });
+        EditorContentProperty.Changed.AddClassHandler<StrataChatComposer>((c, e) =>
+        {
+            c.PseudoClasses.Set(":external-editor", e.NewValue is not null);
+            c.CloseAutoComplete();
+            c.UpdateAutoCompletePlacementTarget();
+        });
         SuggestionAProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
         {
             c.Sync();
@@ -544,21 +575,8 @@ public class StrataChatComposer : TemplatedControl
         SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
         McpItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnMcpItemsChanged());
         AvailableMcpsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnAvailableMcpsChanged());
-        AvailableFilesProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
-        {
-            // When file items are updated (consumer responded to FileQueryChanged),
-            // refresh the popup if # trigger is active
-            if (c._triggerChar == '#' && c._triggerIndex >= 0)
-            {
-                var text = c.PromptText ?? "";
-                var caret = c._input?.CaretIndex ?? 0;
-                if (c._triggerIndex < text.Length && caret <= text.Length && caret > c._triggerIndex)
-                {
-                    var query = text.Substring(c._triggerIndex + 1, caret - c._triggerIndex - 1);
-                    c.ShowAutoCompleteItems(query);
-                }
-            }
-        });
+        AvailableFilesProperty.Changed.AddClassHandler<StrataChatComposer>(
+            (c, _) => c.OnAvailableFilesChanged());
         ModelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => { c.EnsureSelectedValues(); c.RefreshModelPickerIfOpen(); });
         QualityLevelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => { c.EnsureSelectedValues(); c.RefreshModelPickerEffortIfOpen(); });
         SelectedModelProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.RefreshModelPickerSelectionIfOpen());
@@ -640,6 +658,7 @@ public class StrataChatComposer : TemplatedControl
     public string EditingSubmitLabel { get => GetValue(EditingSubmitLabelProperty); set => SetValue(EditingSubmitLabelProperty, value); }
     public object? StatusContent { get => GetValue(StatusContentProperty); set => SetValue(StatusContentProperty, value); }
     public object? AttachmentContent { get => GetValue(AttachmentContentProperty); set => SetValue(AttachmentContentProperty, value); }
+    public object? EditorContent { get => GetValue(EditorContentProperty); set => SetValue(EditorContentProperty, value); }
     public object? ToolbarContent { get => GetValue(ToolbarContentProperty); set => SetValue(ToolbarContentProperty, value); }
     public IEnumerable? ClipboardPasteInterceptFormats { get => GetValue(ClipboardPasteInterceptFormatsProperty); set => SetValue(ClipboardPasteInterceptFormatsProperty, value); }
 
@@ -684,6 +703,12 @@ public class StrataChatComposer : TemplatedControl
     public ICommand? ClipboardPasteCommand { get => GetValue(ClipboardPasteCommandProperty); set => SetValue(ClipboardPasteCommandProperty, value); }
     public object? ClipboardPasteCommandParameter { get => GetValue(ClipboardPasteCommandParameterProperty); set => SetValue(ClipboardPasteCommandParameterProperty, value); }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        OnAvailableFilesChanged();
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         if (_input is not null)
@@ -711,6 +736,12 @@ public class StrataChatComposer : TemplatedControl
             _subscribedAvailableMcpCollection.CollectionChanged -= OnAvailableMcpCollectionChanged;
             _subscribedAvailableMcpCollection = null;
         }
+        if (_subscribedAvailableFileCollection is not null)
+        {
+            _subscribedAvailableFileCollection.CollectionChanged -= OnAvailableFileCollectionChanged;
+            _subscribedAvailableFileCollection = null;
+        }
+        _fileAutoCompleteRefreshQueued = false;
 
         base.OnDetachedFromVisualTree(e);
     }
@@ -788,7 +819,7 @@ public class StrataChatComposer : TemplatedControl
         _autoCompleteScrollViewer = e.NameScope.Find<ScrollViewer>("PART_AutoCompleteScrollViewer");
         if (_autoCompletePopup is not null)
         {
-            _autoCompletePopup.PlacementTarget = _input;
+            UpdateAutoCompletePlacementTarget();
             _autoCompletePopup.Closed += OnAutoCompletePopupClosed;
         }
         RebuildSkillChips();
@@ -808,12 +839,24 @@ public class StrataChatComposer : TemplatedControl
     /// </summary>
     public void FocusInput()
     {
+        if (EditorContent is IStrataComposerEditor editor)
+        {
+            Dispatcher.UIThread.Post(editor.FocusAtEnd, DispatcherPriority.Loaded);
+            return;
+        }
+
         Dispatcher.UIThread.Post(() => _input?.Focus(), DispatcherPriority.Loaded);
     }
 
     /// <summary>Focuses the text input and places the caret at the end of the current prompt.</summary>
     public void FocusInputAtEnd()
     {
+        if (EditorContent is IStrataComposerEditor editor)
+        {
+            Dispatcher.UIThread.Post(editor.FocusAtEnd, DispatcherPriority.Loaded);
+            return;
+        }
+
         Dispatcher.UIThread.Post(() =>
         {
             if (_input is null)
@@ -854,6 +897,15 @@ public class StrataChatComposer : TemplatedControl
     {
         if (string.IsNullOrEmpty(text))
             return;
+
+        if (EditorContent is IStrataComposerEditor editor)
+        {
+            var current = PromptText ?? string.Empty;
+            var caret = Math.Clamp(editor.CaretIndex, 0, current.Length);
+            PromptText = current.Insert(caret, text);
+            editor.FocusAt(caret + text.Length);
+            return;
+        }
 
         if (_input is null)
         {
@@ -930,7 +982,7 @@ public class StrataChatComposer : TemplatedControl
 
     private string? CommitInputText()
     {
-        var text = _input?.Text ?? PromptText;
+        var text = EditorContent is null ? _input?.Text ?? PromptText : PromptText;
         if (!string.Equals(PromptText, text, StringComparison.Ordinal))
             PromptText = text;
         return text;
@@ -1171,13 +1223,39 @@ public class StrataChatComposer : TemplatedControl
 
     // ── Inline autocomplete ────────────────────────────────────────
 
+    private int GetEditorCaretIndex()
+    {
+        var textLength = PromptText?.Length ?? 0;
+        var caret = EditorContent is IStrataComposerEditor editor
+            ? editor.CaretIndex
+            : _input?.CaretIndex ?? textLength;
+        return Math.Clamp(caret, 0, textLength);
+    }
+
+    private void FocusEditorAt(int caretIndex)
+    {
+        var textLength = PromptText?.Length ?? 0;
+        var clamped = Math.Clamp(caretIndex, 0, textLength);
+        if (EditorContent is IStrataComposerEditor editor)
+        {
+            editor.FocusAt(clamped);
+            return;
+        }
+
+        if (_input is null)
+            return;
+        _input.CaretIndex = clamped;
+        _input.Focus();
+    }
+
     private void ShowMentionPopup()
     {
         RaiseEvent(new RoutedEventArgs(MentionRequestedEvent));
-        if (_input is null) return;
+        if (_input is null && EditorContent is not IStrataComposerEditor)
+            return;
 
         var text = PromptText ?? "";
-        var caret = _input.CaretIndex;
+        var caret = GetEditorCaretIndex();
         var prefix = caret > 0 && caret <= text.Length && text[caret - 1] is not (' ' or '\n' or '\r')
             ? " @" : "@";
 
@@ -1188,9 +1266,7 @@ public class StrataChatComposer : TemplatedControl
         var newCaret = caret + prefix.Length;
         Dispatcher.UIThread.Post(() =>
         {
-            if (_input is null) return;
-            _input.CaretIndex = newCaret;
-            _input.Focus();
+            FocusEditorAt(newCaret);
             _triggerIndex = newCaret - 1;
             _triggerChar = '@';
             ShowAutoCompleteItems("");
@@ -1199,11 +1275,15 @@ public class StrataChatComposer : TemplatedControl
 
     private void CheckAutoComplete()
     {
-        if (_suppressAutoComplete || _input is null || _autoCompletePopup is null)
+        if (_suppressAutoComplete
+            || _autoCompletePopup is null
+            || (_input is null && EditorContent is not IStrataComposerEditor))
+        {
             return;
+        }
 
         var text = PromptText ?? "";
-        var caret = _input.CaretIndex;
+        var caret = GetEditorCaretIndex();
 
         if (caret <= 0 || caret > text.Length)
         {
@@ -1348,19 +1428,30 @@ public class StrataChatComposer : TemplatedControl
         return StrataChatComposerSearch.ScoreChip(chip, query) > 0;
     }
 
-    private static string GetAutoCompleteHeader(ChipKind kind) => kind switch
+    private string GetAutoCompleteHeader(ChipKind kind)
     {
-        ChipKind.Agent => "Agents · Enter to select",
-        ChipKind.Skill => "Skills · Enter to add",
-        ChipKind.Project => "Projects · Enter to switch",
-        ChipKind.File => "Files · Enter to attach",
-        ChipKind.Mcp => "MCPs",
-        _ => "Suggestions",
-    };
+        var action = EditorContent is null ? "Enter" : "Tap";
+        return kind switch
+        {
+            ChipKind.Agent => $"Agents · {action} to select",
+            ChipKind.Skill => $"Skills · {action} to add",
+            ChipKind.Project => $"Projects · {action} to switch",
+            ChipKind.File => $"Files · {action} to attach",
+            ChipKind.Mcp => "MCPs",
+            _ => "Suggestions",
+        };
+    }
 
     private void PositionPopupAtTrigger()
     {
-        if (_autoCompletePopup is null || _input is null || _triggerIndex < 0)
+        if (_autoCompletePopup is null || _triggerIndex < 0)
+            return;
+        if (EditorContent is not null)
+        {
+            _autoCompletePopup.PlacementRect = default;
+            return;
+        }
+        if (_input is null)
             return;
 
         var presenter = _input.GetVisualDescendants()
@@ -1385,6 +1476,35 @@ public class StrataChatComposer : TemplatedControl
         }
     }
 
+    private void UpdateAutoCompletePlacementTarget()
+    {
+        if (_autoCompletePopup is null)
+            return;
+
+        var externalEditor = EditorContent as Control;
+        _autoCompletePopup.PlacementTarget = externalEditor ?? _input;
+        if (externalEditor is not null)
+        {
+            _autoCompletePopup.Placement = PlacementMode.Top;
+            _autoCompletePopup.PlacementConstraintAdjustment =
+                PopupPositionerConstraintAdjustment.ResizeY
+                | PopupPositionerConstraintAdjustment.SlideX;
+            _autoCompletePopup.VerticalOffset = -4;
+        }
+        else
+        {
+            _autoCompletePopup.Placement = PlacementMode.AnchorAndGravity;
+            _autoCompletePopup.PlacementConstraintAdjustment =
+                PopupPositionerConstraintAdjustment.FlipX
+                | PopupPositionerConstraintAdjustment.FlipY
+                | PopupPositionerConstraintAdjustment.SlideX
+                | PopupPositionerConstraintAdjustment.SlideY
+                | PopupPositionerConstraintAdjustment.ResizeX
+                | PopupPositionerConstraintAdjustment.ResizeY;
+            _autoCompletePopup.VerticalOffset = 0;
+        }
+    }
+
     private void CloseAutoComplete()
     {
         if (_autoCompletePopup is not null)
@@ -1400,8 +1520,14 @@ public class StrataChatComposer : TemplatedControl
 
         var (_, chip, kind) = _autoCompleteEntries[_autoCompleteSelectedIndex];
 
-        var text = PromptText ?? "";
-        var caret = _input?.CaretIndex ?? text.Length;
+        if (!TryGetActiveTriggerSpan(out var text, out var caret, out var removeLen))
+        {
+            CloseAutoComplete();
+            FocusEditorAt(GetEditorCaretIndex());
+            return;
+        }
+
+        var focusCaret = caret;
 
         if (kind == ChipKind.File)
         {
@@ -1410,16 +1536,11 @@ public class StrataChatComposer : TemplatedControl
             if (string.IsNullOrWhiteSpace(fileName))
                 fileName = chip.Name;
             var inlineRef = $"#{fileName} ";
-            if (_triggerIndex >= 0 && _triggerIndex < text.Length && caret <= text.Length)
-            {
-                var removeLen = caret - _triggerIndex;
-                _suppressAutoComplete = true;
-                text = text.Remove(_triggerIndex, removeLen).Insert(_triggerIndex, inlineRef);
-                PromptText = text;
-                if (_input is not null)
-                    _input.CaretIndex = _triggerIndex + inlineRef.Length;
-                _suppressAutoComplete = false;
-            }
+            _suppressAutoComplete = true;
+            text = text.Remove(_triggerIndex, removeLen).Insert(_triggerIndex, inlineRef);
+            PromptText = text;
+            focusCaret = _triggerIndex + inlineRef.Length;
+            _suppressAutoComplete = false;
 
             var filePath = !string.IsNullOrWhiteSpace(chip.Value) ? chip.Value : chip.Glyph;
             FileSelected?.Invoke(this, new FileSelectedEventArgs(filePath));
@@ -1427,18 +1548,13 @@ public class StrataChatComposer : TemplatedControl
         }
         else
         {
-            if (_triggerIndex >= 0 && _triggerIndex < text.Length && caret <= text.Length)
+            if (removeLen > 0)
             {
-                var removeLen = caret - _triggerIndex;
-                if (removeLen > 0)
-                {
-                    var restoreCaret = _triggerIndex;
-                    _suppressAutoComplete = true;
-                    PromptText = text.Remove(_triggerIndex, removeLen);
-                    if (_input is not null)
-                        _input.CaretIndex = restoreCaret;
-                    _suppressAutoComplete = false;
-                }
+                var restoreCaret = _triggerIndex;
+                _suppressAutoComplete = true;
+                PromptText = text.Remove(_triggerIndex, removeLen);
+                focusCaret = restoreCaret;
+                _suppressAutoComplete = false;
             }
 
             switch (kind)
@@ -1460,7 +1576,35 @@ public class StrataChatComposer : TemplatedControl
         }
 
         CloseAutoComplete();
-        _input?.Focus();
+        FocusEditorAt(focusCaret);
+    }
+
+    private bool TryGetActiveTriggerSpan(
+        out string text,
+        out int caret,
+        out int removeLength)
+    {
+        text = PromptText ?? "";
+        caret = GetEditorCaretIndex();
+        removeLength = 0;
+        if (_triggerIndex < 0
+            || _triggerIndex >= text.Length
+            || caret <= _triggerIndex
+            || caret > text.Length
+            || text[_triggerIndex] != _triggerChar
+            || (_triggerIndex > 0 && text[_triggerIndex - 1] is not (' ' or '\n' or '\r')))
+        {
+            return false;
+        }
+
+        var tokenEnd = _triggerIndex + 1;
+        while (tokenEnd < text.Length && text[tokenEnd] is not (' ' or '\n' or '\r'))
+            tokenEnd++;
+        if (caret != tokenEnd)
+            return false;
+
+        removeLength = caret - _triggerIndex;
+        return removeLength > 0;
     }
 
     private static bool MatchesSelection(StrataComposerChip chip, string? name, string? value) =>
@@ -2770,6 +2914,50 @@ public class StrataChatComposer : TemplatedControl
     private void OnAvailableMcpCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         Sync();
+    }
+
+    private void OnAvailableFilesChanged()
+    {
+        if (_subscribedAvailableFileCollection is not null)
+        {
+            _subscribedAvailableFileCollection.CollectionChanged -= OnAvailableFileCollectionChanged;
+            _subscribedAvailableFileCollection = null;
+        }
+
+        if (AvailableFiles is INotifyCollectionChanged ncc)
+        {
+            ncc.CollectionChanged += OnAvailableFileCollectionChanged;
+            _subscribedAvailableFileCollection = ncc;
+        }
+
+        RefreshFileAutoComplete();
+    }
+
+    private void OnAvailableFileCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (_fileAutoCompleteRefreshQueued)
+            return;
+
+        _fileAutoCompleteRefreshQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _fileAutoCompleteRefreshQueued = false;
+            RefreshFileAutoComplete();
+        }, DispatcherPriority.Background);
+    }
+
+    private void RefreshFileAutoComplete()
+    {
+        if (_triggerChar != '#' || _triggerIndex < 0)
+            return;
+
+        var text = PromptText ?? "";
+        var caret = GetEditorCaretIndex();
+        if (_triggerIndex < text.Length && caret <= text.Length && caret > _triggerIndex)
+        {
+            var query = text.Substring(_triggerIndex + 1, caret - _triggerIndex - 1);
+            ShowAutoCompleteItems(query);
+        }
     }
 
     private void RebuildSkillChips()

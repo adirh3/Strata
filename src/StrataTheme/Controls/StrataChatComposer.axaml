@@ -123,6 +123,11 @@
                            FontSize="{DynamicResource Font.SizeBody}"
                            CornerRadius="0"
                            MinWidth="0" />
+                  <ContentPresenter Name="PART_EditorContent"
+                                    Content="{TemplateBinding EditorContent}"
+                                    IsVisible="False"
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch" />
 
                   <!-- Inline autocomplete popup (anchored to TextBox via Panel) -->
                   <Popup Name="PART_AutoCompletePopup"
@@ -850,6 +855,14 @@
     <Setter Property="Padding" Value="18,11,18,4" />
     <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
     <Setter Property="textInput:TextInputOptions.ReturnKeyType" Value="Return" />
+  </Style>
+
+  <Style Selector="controls|StrataChatComposer:external-editor /template/ TextBox#PART_Input">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <Style Selector="controls|StrataChatComposer:external-editor /template/ ContentPresenter#PART_EditorContent">
+    <Setter Property="IsVisible" Value="True" />
   </Style>
 
   <Style Selector="controls|StrataChatComposer.mobile /template/ Grid#PART_Toolbar">
