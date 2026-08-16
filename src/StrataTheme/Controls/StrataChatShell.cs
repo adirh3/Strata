@@ -839,7 +839,7 @@ public class StrataChatShell : TemplatedControl
             {
                 foreach (var child in itemsHostPanel.Children)
                 {
-                    ApplyScrollingRenderHint(child, isScrolling);
+                    ReleaseScrollingRenderHint(child);
                     if (!TryApplyScrollingStateFlatScan(child, isScrolling))
                         ApplyScrollingStateRecursive(child, isScrolling);
                 }
@@ -852,7 +852,7 @@ public class StrataChatShell : TemplatedControl
         {
             foreach (var child in panel.Children)
             {
-                ApplyScrollingRenderHint(child, isScrolling);
+                ReleaseScrollingRenderHint(child);
                 if (!TryApplyScrollingStateFlatScan(child, isScrolling))
                     ApplyScrollingStateRecursive(child, isScrolling);
             }
@@ -862,35 +862,26 @@ public class StrataChatShell : TemplatedControl
         ApplyScrollingStateRecursive(Transcript, isScrolling);
     }
 
-    private static void ApplyScrollingRenderHint(Control container, bool isScrolling)
+    // NOTE: transcript containers must never be given a BitmapCache.
+    //
+    // Rasterizing each visible container into a cached bitmap while the transcript scrolls looks like
+    // a win, but on Windows every cached visual becomes a composition-level offscreen render target
+    // (Avalonia's ServerCompositionVisualCache -> CreateOffscreenRenderTarget). With the Skia OpenGL
+    // backend (ANGLE by default, and WGL) that lands in GlSkiaGpu.TryCreateSurface -> FboSkiaSurface,
+    // which allocates raw GL objects (texture + stencil renderbuffer) that are unbudgeted — invisible
+    // to SkiaOptions.MaxGpuResourceSizeBytes — and have no finalizer. The transcript re-sizes and
+    // re-hints its containers continuously while scrolling, so those surfaces churned faster than they
+    // were reclaimed and leaked GPU/committed memory at roughly 20 MB/s: a 3-minute scroll took the
+    // process from 14 MB to 3.8 GB of GPU memory with the managed heap completely flat. That is what
+    // eventually killed the app, either as an OutOfMemoryException on the compositor thread or as an
+    // access violation inside gr_direct_context_flush_and_submit once a GPU allocation failed.
+    //
+    // Measurement also showed the cache was never actually buying responsiveness: with it removed the
+    // transcript-scroll UI latency improved across the board (p95 44.0 -> 37.4 ms, p99 86.3 -> 68.2 ms,
+    // worst stall 785.8 -> 332.4 ms, jank frames 34 -> 14, freezes 9 -> 4). Scroll simplification is
+    // handled by StrataChatMessage.IsHostScrolling instead, which costs no GPU memory.
+    private static void ReleaseScrollingRenderHint(Control container)
     {
-        if (!container.IsVisible)
-        {
-            // An off-screen/collapsed container never needs a scroll rasterization cache. Release it
-            // unconditionally (even mid-scroll) so a container that scrolls out of view — or is about
-            // to be virtualized away — cannot retain a BitmapCache (a render-thread bitmap surface /
-            // large-object allocation) after it leaves the visible set.
-            if (container.CacheMode is not null)
-                container.CacheMode = null;
-
-            return;
-        }
-
-        if (isScrolling)
-        {
-            // Keep nested interactive controls (for example the expanded reasoning
-            // ScrollViewer inside StrataThink) hit-testable while the host transcript
-            // is scrolling. Message-level hover simplification still flows through
-            // StrataChatMessage.IsHostScrolling.
-            container.CacheMode ??= new BitmapCache
-            {
-                RenderAtScale = 1d,
-                SnapsToDevicePixels = true,
-                EnableClearType = true
-            };
-            return;
-        }
-
         if (container.CacheMode is not null)
             container.CacheMode = null;
     }
@@ -935,7 +926,7 @@ public class StrataChatShell : TemplatedControl
         {
             if (items[i] is Control control)
             {
-                ApplyScrollingRenderHint(control, isScrolling);
+                ReleaseScrollingRenderHint(control);
                 if (TryApplyScrollingStateFlatScan(control, isScrolling))
                     continue;
             }
