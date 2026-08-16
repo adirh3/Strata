@@ -1,0 +1,369 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls"
+        xmlns:sa="using:StrataTheme.Animation">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataAgentRun}" TargetType="controls:StrataAgentRun">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <Border Name="PART_FocusRing"
+                      CornerRadius="12"
+                      BorderThickness="2"
+                      BorderBrush="Transparent"
+                      Margin="-2"
+                      IsHitTestVisible="False" />
+
+              <Border Name="PART_Root"
+                      Background="{DynamicResource Brush.Surface0}"
+                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                      BorderThickness="1"
+                      CornerRadius="10"
+                      ClipToBounds="True">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
+                  </Transitions>
+                </Border.Transitions>
+
+                <StackPanel Spacing="0">
+                  <!-- Stratum accent line — Strata signature, breathes while the agent works -->
+                  <Border Name="PART_Stratum"
+                          Height="2"
+                          Background="{DynamicResource Brush.AccentGradient}"
+                          Opacity="0.75" />
+
+                  <Border Name="PART_Header"
+                          Padding="11,9"
+                          Background="Transparent">
+                    <Grid ColumnDefinitions="Auto,10,*,10,Auto" RowDefinitions="Auto,Auto,Auto">
+                      <!-- Agent avatar -->
+                      <Panel Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" VerticalAlignment="Top">
+                        <Border Name="PART_AvatarHalo"
+                                Width="30" Height="30"
+                                CornerRadius="11"
+                                Margin="-3"
+                                Opacity="0"
+                                Background="{TemplateBinding AccentBrush}" />
+                        <Border Name="PART_Avatar"
+                                Width="30" Height="30"
+                                CornerRadius="10"
+                                Background="{TemplateBinding AccentBrush}">
+                          <TextBlock Name="PART_AvatarGlyph"
+                                     Text="{TemplateBinding Initial}"
+                                     FontSize="13"
+                                     FontWeight="Bold"
+                                     Foreground="#FFFFFFFF"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center" />
+                        </Border>
+                      </Panel>
+
+                      <!-- Headline. In the default density the byline sits under it; the inline
+                           density folds the byline onto the same line so a delegated agent costs a
+                           single row in a busy transcript. -->
+                      <!-- DockPanel, not Grid: left-docked children are measured against the space
+                           that is actually left, so a long title trims instead of pushing the byline
+                           and the status pill past the card edge. Auto Grid columns never shrink. -->
+                      <DockPanel Grid.Row="0" Grid.Column="2" LastChildFill="False">
+                        <TextBlock DockPanel.Dock="Left"
+                                   Name="PART_Title"
+                                   Text="{TemplateBinding Title}"
+                                   FontSize="12.5"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock DockPanel.Dock="Left"
+                                   Name="PART_TitleSeparator"
+                                   Text="&#xB7;"
+                                   Margin="6,0"
+                                   FontSize="11"
+                                   Opacity="0.45"
+                                   VerticalAlignment="Center"
+                                   IsVisible="False"
+                                   Foreground="{DynamicResource Brush.TextTertiary}" />
+                        <TextBlock DockPanel.Dock="Left"
+                                   Name="PART_BylineInline"
+                                   Text="{Binding Byline, RelativeSource={RelativeSource TemplatedParent}}"
+                                   FontSize="10.5"
+                                   VerticalAlignment="Center"
+                                   IsVisible="False"
+                                   Foreground="{DynamicResource Brush.TextTertiary}"
+                                   TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
+
+                      <TextBlock Grid.Row="1" Grid.Column="2"
+                                 Name="PART_Byline"
+                                 Margin="0,2,0,0"
+                                 Text="{Binding Byline, RelativeSource={RelativeSource TemplatedParent}}"
+                                 FontSize="10.5"
+                                 Foreground="{DynamicResource Brush.TextTertiary}"
+                                 TextTrimming="CharacterEllipsis" />
+
+                      <!-- Action + status -->
+                      <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="4"
+                                  Orientation="Horizontal"
+                                  Spacing="7"
+                                  VerticalAlignment="Center">
+                        <ContentPresenter Name="PART_HeaderAction"
+                                          Content="{TemplateBinding HeaderAction}"
+                                          VerticalAlignment="Center"
+                                          IsVisible="{Binding HeaderAction, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                        <Border Name="PART_StatusPill"
+                                Padding="8,3"
+                                CornerRadius="999"
+                                Background="{DynamicResource Brush.Surface1}"
+                                VerticalAlignment="Center">
+                          <StackPanel Orientation="Horizontal" Spacing="5">
+                            <Border Name="PART_StateDot"
+                                    Width="6" Height="6"
+                                    CornerRadius="3"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource Brush.AccentDefault}" />
+                            <TextBlock Name="PART_StatusText"
+                                       Text="{Binding StatusText, RelativeSource={RelativeSource TemplatedParent}}"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}" />
+                            <TextBlock Name="PART_TimingText"
+                                       Text="{Binding TimingText, RelativeSource={RelativeSource TemplatedParent}}"
+                                       IsVisible="{Binding TimingText, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Opacity="0.7"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.TextSecondary}" />
+                          </StackPanel>
+                        </Border>
+                      </StackPanel>
+
+                      <!-- Live activity + progress rail -->
+                      <StackPanel Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3"
+                                  Name="PART_LiveRow"
+                                  Margin="0,8,0,0"
+                                  Spacing="7"
+                                  IsVisible="False">
+                        <DockPanel Name="PART_ActivityRow"
+                                   LastChildFill="True"
+                                   IsVisible="False">
+                          <Border Name="PART_ActivityDot"
+                                  DockPanel.Dock="Left"
+                                  Width="4" Height="4"
+                                  Margin="0,0,6,0"
+                                  CornerRadius="2"
+                                  VerticalAlignment="Center"
+                                  Background="{DynamicResource Brush.AccentDefault}" />
+                          <TextBlock Name="PART_ActivityText"
+                                     Text="{TemplateBinding Activity}"
+                                     FontSize="10.5"
+                                     VerticalAlignment="Center"
+                                     Foreground="{DynamicResource Brush.TextSecondary}"
+                                     TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+
+                        <ProgressBar Name="PART_Progress"
+                                     Height="3"
+                                     MinHeight="3"
+                                     CornerRadius="999"
+                                     Minimum="0"
+                                     Maximum="100"
+                                     Value="{TemplateBinding ProgressValue}" />
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </StackPanel>
+              </Border>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- ─── Structure ─── -->
+        <Style Selector="^:has-progress /template/ StackPanel#PART_LiveRow">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-activity /template/ DockPanel#PART_ActivityRow">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:progress-unknown /template/ ProgressBar#PART_Progress">
+          <Setter Property="IsIndeterminate" Value="True" />
+        </Style>
+
+        <!-- ─── Running ─── -->
+        <Style Selector="^:inprogress /template/ Border#PART_Root">
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+        </Style>
+        <Style Selector="^:inprogress /template/ Border#PART_Stratum">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.55" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.1" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
+        </Style>
+        <Style Selector="^:inprogress /template/ Border#PART_AvatarHalo">
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.34" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.06" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.5" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="SineEaseInOut" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
+        </Style>
+        <Style Selector="^:inprogress /template/ Border#PART_StatusPill">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+        </Style>
+        <Style Selector="^:inprogress /template/ TextBlock#PART_StatusText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^:inprogress /template/ TextBlock#PART_TimingText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^:inprogress /template/ Border#PART_StateDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.35" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:0.92" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="CompositorDefault" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
+        </Style>
+        <Style Selector="^:inprogress /template/ Border#PART_ActivityDot">
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.2" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.3" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="SineEaseInOut" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
+        </Style>
+
+        <!-- ─── Terminal states ─── -->
+        <Style Selector="^:completed /template/ Border#PART_Stratum">
+          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
+          <Setter Property="Opacity" Value="0.75" />
+        </Style>
+        <Style Selector="^:completed /template/ Border#PART_StateDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
+        </Style>
+        <Style Selector="^:completed /template/ TextBlock#PART_StatusText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+        </Style>
+
+        <Style Selector="^:failed /template/ Border#PART_Stratum">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+          <Setter Property="Opacity" Value="0.85" />
+        </Style>
+        <Style Selector="^:failed /template/ Border#PART_StateDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+        <Style Selector="^:failed /template/ Border#PART_StatusPill">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerSubtle}" />
+        </Style>
+        <Style Selector="^:failed /template/ TextBlock#PART_StatusText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+
+        <Style Selector="^:stopped /template/ Border#PART_Stratum">
+          <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
+          <Setter Property="Opacity" Value="0.6" />
+        </Style>
+        <Style Selector="^:stopped /template/ Border#PART_StateDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+        <Style Selector="^:stopped /template/ TextBlock#PART_StatusText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+
+        <!-- ─── Interaction ─── -->
+        <Style Selector="^:pointerover /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+          <Setter Property="BoxShadow" Value="0 2 10 0 #12000000" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+        </Style>
+
+        <!-- ─── Compact: dense rows (fan-out lanes, run indexes) ─── -->
+        <Style Selector="^.compact /template/ Border#PART_Root">
+          <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="^.compact /template/ Border#PART_Header">
+          <Setter Property="Padding" Value="9,7" />
+        </Style>
+        <Style Selector="^.compact /template/ Border#PART_Stratum">
+          <Setter Property="Height" Value="1.5" />
+        </Style>
+        <Style Selector="^.compact /template/ Border#PART_Avatar">
+          <Setter Property="Width" Value="24" />
+          <Setter Property="Height" Value="24" />
+          <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="^.compact /template/ Border#PART_AvatarHalo">
+          <Setter Property="Width" Value="24" />
+          <Setter Property="Height" Value="24" />
+          <Setter Property="CornerRadius" Value="9" />
+        </Style>
+        <Style Selector="^.compact /template/ TextBlock#PART_AvatarGlyph">
+          <Setter Property="FontSize" Value="11" />
+        </Style>
+        <Style Selector="^.compact /template/ TextBlock#PART_Title">
+          <Setter Property="FontSize" Value="11.5" />
+        </Style>
+        <Style Selector="^.compact /template/ TextBlock#PART_Byline">
+          <Setter Property="FontSize" Value="10" />
+        </Style>
+
+        <!-- ─── Inline: one row per agent, for dense transcripts ─── -->
+        <Style Selector="^.inline">
+          <!-- Hosted inside the row button that opens the run, so the card must not add a second,
+               inert tab stop of its own. -->
+          <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="^.inline /template/ Border#PART_Root">
+          <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="^.inline /template/ Border#PART_Header">
+          <Setter Property="Padding" Value="8,5" />
+        </Style>
+        <Style Selector="^.inline /template/ Border#PART_Stratum">
+          <Setter Property="Height" Value="0" />
+        </Style>
+        <Style Selector="^.inline /template/ Border#PART_Avatar">
+          <Setter Property="Width" Value="19" />
+          <Setter Property="Height" Value="19" />
+          <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="^.inline /template/ Border#PART_AvatarHalo">
+          <Setter Property="Width" Value="19" />
+          <Setter Property="Height" Value="19" />
+          <Setter Property="CornerRadius" Value="7" />
+          <Setter Property="Margin" Value="-2" />
+        </Style>
+        <Style Selector="^.inline /template/ TextBlock#PART_AvatarGlyph">
+          <Setter Property="FontSize" Value="9.5" />
+        </Style>
+        <Style Selector="^.inline /template/ TextBlock#PART_Title">
+          <Setter Property="FontSize" Value="11.5" />
+        </Style>
+        <!-- Identity folds onto the headline row; the stacked byline and the live rail are dropped. -->
+        <Style Selector="^.inline /template/ TextBlock#PART_Byline">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^.inline:has-byline /template/ TextBlock#PART_TitleSeparator">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^.inline:has-byline /template/ TextBlock#PART_BylineInline">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^.inline /template/ StackPanel#PART_LiveRow">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^.inline /template/ Border#PART_StatusPill">
+          <Setter Property="Padding" Value="7,2" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>
