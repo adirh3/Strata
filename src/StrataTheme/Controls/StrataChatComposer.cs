@@ -30,12 +30,14 @@ namespace StrataTheme.Controls;
 /// <param name="ErrorMessage">If set, the chip displays in an error state with this tooltip.</param>
 /// <param name="SecondaryText">Optional supporting text shown in richer autocomplete rows and used as a secondary search field.</param>
 /// <param name="Value">Optional backing value used when the display label differs from the payload.</param>
+/// <param name="SourceLabel">Optional short provenance hint (for example "Lumi", "Project" or "Plugin · foo") shown as a trailing badge in autocomplete rows.</param>
 public record StrataComposerChip(
     string Name,
     string Glyph = "✦",
     string? ErrorMessage = null,
     string? SecondaryText = null,
-    string? Value = null)
+    string? Value = null,
+    string? SourceLabel = null)
 {
     /// <summary>True when the chip has an error (e.g., MCP server failed to connect).</summary>
     public bool HasError => ErrorMessage is not null;
@@ -1851,7 +1853,7 @@ public class StrataChatComposer : TemplatedControl
     private static string? GetAutoCompleteTrailingText(StrataComposerChip chip, ChipKind kind)
     {
         if (kind != ChipKind.File)
-            return null;
+            return string.IsNullOrWhiteSpace(chip.SourceLabel) ? null : chip.SourceLabel;
 
         var extension = System.IO.Path.GetExtension(chip.Name).TrimStart('.');
         if (string.IsNullOrWhiteSpace(extension))
@@ -2098,6 +2100,21 @@ public class StrataChatComposer : TemplatedControl
                 DockPanel.SetDock(statusDot, Dock.Right);
             }
 
+            if (!string.IsNullOrWhiteSpace(chip.SourceLabel))
+            {
+                var sourceText = new TextBlock
+                {
+                    Text = chip.SourceLabel,
+                    FontSize = 10,
+                    Opacity = 0.55,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(8, 0, 0, 0)
+                };
+                dp.Children.Add(sourceText);
+                DockPanel.SetDock(sourceText, Dock.Right);
+            }
+
+            // Added last so LastChildFill gives the name the remaining width.
             dp.Children.Add(nameText);
 
             var outerPanel = new StackPanel { Spacing = 2 };
