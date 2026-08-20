@@ -37,7 +37,14 @@
                   <Border Name="PART_Stratum"
                           Height="2"
                           Background="{DynamicResource Brush.AccentGradient}"
-                          Opacity="0.75" />
+                          Opacity="0.75">
+                    <Border.Transitions>
+                      <Transitions>
+                        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.28" Easing="CubicEaseOut" />
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.28" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Border.Transitions>
+                  </Border>
 
                   <Border Name="PART_Header"
                           Padding="11,9"
@@ -121,18 +128,35 @@
                                 CornerRadius="999"
                                 Background="{DynamicResource Brush.Surface1}"
                                 VerticalAlignment="Center">
+                          <Border.Transitions>
+                            <Transitions>
+                              <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.28" Easing="CubicEaseOut" />
+                            </Transitions>
+                          </Border.Transitions>
                           <StackPanel Orientation="Horizontal" Spacing="5">
                             <Border Name="PART_StateDot"
                                     Width="6" Height="6"
                                     CornerRadius="3"
                                     VerticalAlignment="Center"
-                                    Background="{DynamicResource Brush.AccentDefault}" />
+                                    Background="{DynamicResource Brush.AccentDefault}">
+                              <Border.Transitions>
+                                <Transitions>
+                                  <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.28" Easing="CubicEaseOut" />
+                                </Transitions>
+                              </Border.Transitions>
+                            </Border>
                             <TextBlock Name="PART_StatusText"
                                        Text="{Binding StatusText, RelativeSource={RelativeSource TemplatedParent}}"
                                        FontSize="10"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center"
-                                       Foreground="{DynamicResource Brush.TextSecondary}" />
+                                       Foreground="{DynamicResource Brush.TextSecondary}">
+                              <TextBlock.Transitions>
+                                <Transitions>
+                                  <sa:PremultipliedBrushTransition Property="Foreground" Duration="0:0:0.28" Easing="CubicEaseOut" />
+                                </Transitions>
+                              </TextBlock.Transitions>
+                            </TextBlock>
                             <TextBlock Name="PART_TimingText"
                                        Text="{Binding TimingText, RelativeSource={RelativeSource TemplatedParent}}"
                                        IsVisible="{Binding TimingText, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
