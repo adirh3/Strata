@@ -227,6 +227,14 @@ public class StrataPresence : Panel, IDisposable
     // the last applied focus so only meaningful jumps (not micro-tracking) trigger the gesture.
     private System.Threading.CancellationTokenSource? _travelCts;
     private Point _lastSurgeFocus = new(0.5, 0.46);
+    // Same-state canvas hand-off: a finite focal glow. Repeated chat switches while it is settling
+    // coalesce into the gesture already in flight, avoiding a restart flash.
+    private double _handoffUntilMs;
+    private int _handoffCount;
+    private int _handoffGeneration;
+    private IDisposable? _handoffCleanup;
+    private System.Threading.CancellationTokenSource? _handoffCts;
+    private const double HandoffDurationMs = 1500.0;
 
     // Directional light origin (relative 0..1 inside every lobe). Leans the radial gradient's bright core
     // toward the edge the field hugs so the glow visibly casts the OTHER way (a low pool glows upward).
@@ -424,6 +432,7 @@ public class StrataPresence : Panel, IDisposable
         _travelCts?.Cancel();
         _travelCts = null;
         _lastSurgeFocus = new Point(0.5, 0.46);
+        CancelHandoff();
         _haloCts?.Cancel();
         _haloCts = null;
         _haloActive = false;
@@ -481,6 +490,7 @@ public class StrataPresence : Panel, IDisposable
         _travelCts?.Cancel();
         _haloCts?.Cancel();
         _companionCts?.Cancel();
+        CancelHandoff();
         GC.SuppressFinalize(this);
     }
 
@@ -1118,6 +1128,15 @@ public class StrataPresence : Panel, IDisposable
     internal bool IsBeaconScaleLoopActiveForTest =>
         Find(LobeRole.Beacon)?.ScaleLoopActive == true;
 
+    internal bool IsHandoffAnimationActiveForTest =>
+        _clock.Elapsed.TotalMilliseconds < _handoffUntilMs;
+
+    internal int HandoffCountForTest => _handoffCount;
+
+    /// <summary>Time left in the currently coalesced same-state hand-off, or zero at rest.</summary>
+    public TimeSpan HandoffRemaining => TimeSpan.FromMilliseconds(
+        Math.Max(0, _handoffUntilMs - _clock.Elapsed.TotalMilliseconds));
+
     /// <summary>DEBUG-ONLY: the largest lobe diameter (px) currently laid out. A headless test asserts
     /// this stays within the surface's SHORT edge on a wide surface — the permanent guard against the
     /// "lobes scale to the long edge" regression that made the field larger than the viewport (and so its
@@ -1423,6 +1442,13 @@ public class StrataPresence : Panel, IDisposable
     /// <summary>Fire a transient effect over the ambient field.</summary>
     public void Pulse(PresencePulse kind)
     {
+        if (kind != PresencePulse.Handoff)
+            CancelHandoff();
+        PulseCore(kind, System.Threading.CancellationToken.None);
+    }
+
+    private void PulseCore(PresencePulse kind, System.Threading.CancellationToken cancellationToken)
+    {
         var lobe = Find(LobeRole.Pulse);
         if (lobe is null)
             return;
@@ -1434,6 +1460,8 @@ public class StrataPresence : Panel, IDisposable
             PresencePulse.Awaken => ("Color.AccentDefault", (byte)160, (byte)60, 0.23, 0.90, 1.16, 1600.0),
             PresencePulse.Bloom => ("Palette.Success400", (byte)160, (byte)60, 0.26, 0.92, 1.18, 1550.0),
             PresencePulse.Ripple => ("Color.AccentDefault", (byte)165, (byte)62, 0.18, 0.94, 1.12, 900.0),
+            // Switching between canvases in the same state: a quiet focal glow, not field movement.
+            PresencePulse.Handoff => ("Color.AccentDefault", (byte)150, (byte)56, 0.155, 0.965, 1.10, HandoffDurationMs),
             // Settling into a chat: a soft, slow accent swell that rides the focus glide down from
             // the welcome mark, so opening a conversation reads as the presence *arriving* there.
             PresencePulse.Settle => ("Color.AccentDefault", (byte)146, (byte)54, 0.17, 0.95, 1.11, 1400.0),
@@ -1451,6 +1479,7 @@ public class StrataPresence : Panel, IDisposable
             lobe.Border.Background = BuildGlow(c, innerAlpha, midAlpha);
 
         // Opacity envelope (UI thread, one-shot, cheap).
+        var peakCue = kind == PresencePulse.Handoff ? 0.42d : 0.28d;
         var fade = new Avalonia.Animation.Animation
         {
             Duration = TimeSpan.FromMilliseconds(durationMs),
@@ -1465,7 +1494,7 @@ public class StrataPresence : Panel, IDisposable
                 },
                 new Avalonia.Animation.KeyFrame
                 {
-                    Cue = new Avalonia.Animation.Cue(0.28d),
+                    Cue = new Avalonia.Animation.Cue(peakCue),
                     Setters = { new Avalonia.Styling.Setter(OpacityProperty, peak) },
                 },
                 new Avalonia.Animation.KeyFrame
@@ -1475,7 +1504,7 @@ public class StrataPresence : Panel, IDisposable
                 },
             },
         };
-        _ = fade.RunAsync(lobe.Border);
+        _ = fade.RunAsync(lobe.Border, cancellationToken);
 
         // Expanding ring (render thread).
         if (lobe.Visual is { } visual)
@@ -1488,6 +1517,83 @@ public class StrataPresence : Panel, IDisposable
             scale.Duration = TimeSpan.FromMilliseconds(durationMs);
             scale.IterationBehavior = AnimationIterationBehavior.Count;
             visual.StartAnimation("Scale", scale);
+        }
+    }
+
+    /// <summary>
+    /// One-shot, directionless hand-off between two canvases whose ambient state is unchanged. A
+    /// localized glow softly blooms at the current focus point and dissolves back to rest, so switching
+    /// idle-to-idle or working-to-working still feels continuous without moving the whole field.
+    /// Calls made while a hand-off is already settling are coalesced into the gesture in flight.
+    /// </summary>
+    /// <returns><see langword="true"/> when a new hand-off started; otherwise <see langword="false"/>.</returns>
+    public bool Handoff()
+    {
+        if (!_ready || Find(LobeRole.Pulse) is not { } lobe)
+            return false;
+
+        var now = _clock.Elapsed.TotalMilliseconds;
+        if (now < _handoffUntilMs)
+            return false;
+
+        _handoffCleanup?.Dispose();
+        var generation = ++_handoffGeneration;
+        _handoffUntilMs = now + HandoffDurationMs;
+        _handoffCount++;
+
+        _handoffCts?.Cancel();
+        _handoffCts?.Dispose();
+        var handoffCts = new System.Threading.CancellationTokenSource();
+        _handoffCts = handoffCts;
+        lobe.Border.Opacity = 0;
+        if (lobe.Visual is { } pulseVisual)
+        {
+            pulseVisual.StopAnimation("Scale");
+            pulseVisual.Scale = Vector3.One;
+        }
+        PulseCore(PresencePulse.Handoff, handoffCts.Token);
+        _handoffCleanup = DispatcherTimer.RunOnce(
+            () =>
+            {
+                if (generation != _handoffGeneration)
+                    return;
+
+                _handoffCleanup = null;
+                _handoffUntilMs = 0;
+                if (ReferenceEquals(_handoffCts, handoffCts))
+                {
+                    _handoffCts = null;
+                    handoffCts.Dispose();
+                }
+            },
+            TimeSpan.FromMilliseconds(HandoffDurationMs + 40),
+            DispatcherPriority.Background);
+        return true;
+    }
+
+    /// <summary>Immediately stop and clear the coalesced same-state hand-off.</summary>
+    public void CancelHandoff()
+    {
+        var now = _clock.Elapsed.TotalMilliseconds;
+        if (_handoffCts is null && _handoffCleanup is null && now >= _handoffUntilMs)
+            return;
+
+        _handoffGeneration++;
+        _handoffCleanup?.Dispose();
+        _handoffCleanup = null;
+        _handoffUntilMs = 0;
+        _handoffCts?.Cancel();
+        _handoffCts?.Dispose();
+        _handoffCts = null;
+
+        if (Find(LobeRole.Pulse) is not { } lobe)
+            return;
+
+        lobe.Border.Opacity = 0;
+        if (lobe.Visual is { } visual)
+        {
+            visual.StopAnimation("Scale");
+            visual.Scale = Vector3.One;
         }
     }
 
@@ -1787,6 +1893,8 @@ public enum PresencePulse
     Bloom,
     /// <summary>A quick accent ping (e.g. a canvas split or an answered prompt).</summary>
     Ripple,
+    /// <summary>A quiet focal glow when switching between canvases in the same ambient state.</summary>
+    Handoff,
     /// <summary>A soft accent "arrival" swell when settling into an existing chat — the hand-off
     /// from the welcome mark down into a conversation.</summary>
     Settle,
