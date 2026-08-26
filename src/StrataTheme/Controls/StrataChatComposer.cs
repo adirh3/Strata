@@ -174,6 +174,29 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<IDataTemplate?> ModelItemTemplateProperty =
         AvaloniaProperty.Register<StrataChatComposer, IDataTemplate?>(nameof(ModelItemTemplate));
 
+    /// <summary>
+    /// Optional template for the collapsed model button, forwarded to
+    /// <see cref="StrataModelPicker.SelectedModelTemplate"/>. Falls back to
+    /// <see cref="ModelItemTemplate"/> when unset.
+    /// </summary>
+    public static readonly StyledProperty<IDataTemplate?> SelectedModelTemplateProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IDataTemplate?>(nameof(SelectedModelTemplate));
+
+    /// <summary>
+    /// Pin/unpin command forwarded to <see cref="StrataModelPicker.ModelPinCommand"/>. Invoked with the
+    /// row's item, which must implement <see cref="IStrataModelOption"/> for the pin to be rendered.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> ModelPinCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(ModelPinCommand));
+
+    /// <summary>Tooltip for an unpinned row's pin button, forwarded to <see cref="StrataModelPicker.PinToolTip"/>.</summary>
+    public static readonly StyledProperty<string?> ModelPinToolTipProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ModelPinToolTip));
+
+    /// <summary>Tooltip for a pinned row's pin button, forwarded to <see cref="StrataModelPicker.UnpinToolTip"/>.</summary>
+    public static readonly StyledProperty<string?> ModelUnpinToolTipProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ModelUnpinToolTip));
+
     /// <summary>Items source for the quality/effort selector ComboBox.</summary>
     public static readonly StyledProperty<IEnumerable?> QualityLevelsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(QualityLevels));
@@ -625,6 +648,11 @@ public class StrataChatComposer : TemplatedControl
     public IEnumerable? Models { get => GetValue(ModelsProperty); set => SetValue(ModelsProperty, value); }
     public object? SelectedModel { get => GetValue(SelectedModelProperty); set => SetValue(SelectedModelProperty, value); }
     public IDataTemplate? ModelItemTemplate { get => GetValue(ModelItemTemplateProperty); set => SetValue(ModelItemTemplateProperty, value); }
+    public IDataTemplate? SelectedModelTemplate { get => GetValue(SelectedModelTemplateProperty); set => SetValue(SelectedModelTemplateProperty, value); }
+    public ICommand? ModelPinCommand { get => GetValue(ModelPinCommandProperty); set => SetValue(ModelPinCommandProperty, value); }
+    public string? ModelPinToolTip { get => GetValue(ModelPinToolTipProperty); set => SetValue(ModelPinToolTipProperty, value); }
+    public string? ModelUnpinToolTip { get => GetValue(ModelUnpinToolTipProperty); set => SetValue(ModelUnpinToolTipProperty, value); }
+
     public IEnumerable? QualityLevels{ get => GetValue(QualityLevelsProperty); set => SetValue(QualityLevelsProperty, value); }
     public object? SelectedQuality { get => GetValue(SelectedQualityProperty); set => SetValue(SelectedQualityProperty, value); }
     public IEnumerable? ContextWindowTiers { get => GetValue(ContextWindowTiersProperty); set => SetValue(ContextWindowTiersProperty, value); }
