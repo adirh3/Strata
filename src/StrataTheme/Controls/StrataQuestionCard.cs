@@ -138,23 +138,8 @@ public class StrataQuestionCard : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (_freeTextSubmit is not null)
-            _freeTextSubmit.Click -= OnFreeTextSubmitClick;
-        if (_freeTextBox is not null)
-        {
-            _freeTextBox.KeyDown -= OnFreeTextKeyDown;
-            _freeTextBox.PropertyChanged -= OnFreeTextBoxPropertyChanged;
-        }
-        if (_multiSubmit is not null)
-            _multiSubmit.Click -= OnMultiSubmitClick;
-        if (_optionsPanel is not null)
-        {
-            foreach (var child in _optionsPanel.Children)
-            {
-                if (child is Button btn)
-                    btn.Click -= OnOptionClick;
-            }
-        }
+        // Keep handlers wired while detached. These controls are template children that share this
+        // control's lifetime, and a plain re-attach does not call OnApplyTemplate again.
         base.OnDetachedFromVisualTree(e);
     }
 
