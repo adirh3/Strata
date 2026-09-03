@@ -352,6 +352,13 @@ public class StrataChatComposer : TemplatedControl
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(EditorContent));
 
     /// <summary>
+    /// Places autocomplete above the editor without changing the editor implementation. Mobile
+    /// browser hosts use the built-in Avalonia TextBox but still need to stay clear of the keyboard.
+    /// </summary>
+    public static readonly StyledProperty<bool> PreferAutoCompleteAboveProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(PreferAutoCompleteAbove));
+
+    /// <summary>
     /// Optional host content placed at the start of the toolbar row, before the built-in buttons.
     ///
     /// <para>The built-in toolbar is a desktop shape: an inline model dropdown, a modes combo and
@@ -579,6 +586,8 @@ public class StrataChatComposer : TemplatedControl
             c.CloseAutoComplete();
             c.UpdateAutoCompletePlacementTarget();
         });
+        PreferAutoCompleteAboveProperty.Changed.AddClassHandler<StrataChatComposer>(
+            static (c, _) => c.UpdateAutoCompletePlacementTarget());
         SuggestionAProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
         {
             c.Sync();
@@ -689,6 +698,7 @@ public class StrataChatComposer : TemplatedControl
     public object? StatusContent { get => GetValue(StatusContentProperty); set => SetValue(StatusContentProperty, value); }
     public object? AttachmentContent { get => GetValue(AttachmentContentProperty); set => SetValue(AttachmentContentProperty, value); }
     public object? EditorContent { get => GetValue(EditorContentProperty); set => SetValue(EditorContentProperty, value); }
+    public bool PreferAutoCompleteAbove { get => GetValue(PreferAutoCompleteAboveProperty); set => SetValue(PreferAutoCompleteAboveProperty, value); }
     public object? ToolbarContent { get => GetValue(ToolbarContentProperty); set => SetValue(ToolbarContentProperty, value); }
     public IEnumerable? ClipboardPasteInterceptFormats { get => GetValue(ClipboardPasteInterceptFormatsProperty); set => SetValue(ClipboardPasteInterceptFormatsProperty, value); }
 
@@ -1476,7 +1486,7 @@ public class StrataChatComposer : TemplatedControl
     {
         if (_autoCompletePopup is null || _triggerIndex < 0)
             return;
-        if (EditorContent is not null)
+        if (EditorContent is not null || PreferAutoCompleteAbove)
         {
             _autoCompletePopup.PlacementRect = default;
             return;
@@ -1513,7 +1523,7 @@ public class StrataChatComposer : TemplatedControl
 
         var externalEditor = EditorContent as Control;
         _autoCompletePopup.PlacementTarget = externalEditor ?? _input;
-        if (externalEditor is not null)
+        if (externalEditor is not null || PreferAutoCompleteAbove)
         {
             _autoCompletePopup.Placement = PlacementMode.Top;
             _autoCompletePopup.PlacementConstraintAdjustment =

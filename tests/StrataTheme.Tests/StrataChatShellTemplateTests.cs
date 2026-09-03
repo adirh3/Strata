@@ -225,6 +225,36 @@ public sealed class StrataChatShellTemplateTests
     }
 
     [Fact]
+    public async Task ComposerDefaultEditor_CanPreferMobileAutocompleteAbove()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var composer = new StrataChatComposer
+            {
+                PreferAutoCompleteAbove = true,
+                PromptText = "@al",
+                AvailableAgents = new[]
+                {
+                    new StrataComposerChip("Alice", "A", Value: "alice")
+                }
+            };
+            var window = ShowComposer(composer);
+            InstallAutocompleteParts(composer);
+
+            Invoke(composer, "UpdateAutoCompletePlacementTarget");
+            Invoke(composer, "CheckAutoComplete");
+
+            var popup = GetPrivateField<Popup>(composer, "_autoCompletePopup");
+            Assert.Equal(PlacementMode.Top, popup.Placement);
+            Assert.Null(popup.PlacementRect);
+            Assert.False(
+                popup.PlacementConstraintAdjustment.HasFlag(
+                    PopupPositionerConstraintAdjustment.FlipY));
+            window.Close();
+        });
+    }
+
+    [Fact]
     public async Task ComposerExternalEditor_RefreshesAsyncFileSuggestionCollection()
     {
         await _fixture.Dispatch(() =>

@@ -24,6 +24,10 @@ internal readonly record struct MarkdownImageSource(
     Uri? RemoteUri,
     string? LocalPath);
 
+internal readonly record struct MarkdownImageDownload(
+    byte[] Content,
+    string ContentType);
+
 public partial class StrataMarkdown
 {
     private const long MaxMarkdownImageBytes = 20 * 1024 * 1024;
@@ -380,7 +384,9 @@ public partial class StrataMarkdown
         if (Uri.TryCreate(normalizedTarget, UriKind.Absolute, out var absoluteUri))
         {
             if (string.Equals(absoluteUri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(absoluteUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(absoluteUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+                || OperatingSystem.IsBrowser()
+                && string.Equals(absoluteUri.Scheme, "blob", StringComparison.OrdinalIgnoreCase))
             {
                 source = new MarkdownImageSource(
                     absoluteUri.AbsoluteUri,
@@ -447,6 +453,14 @@ public partial class StrataMarkdown
 
     private static HttpClient CreateMarkdownImageHttpClient()
     {
+        if (OperatingSystem.IsBrowser())
+        {
+            return new HttpClient
+            {
+                Timeout = Timeout.InfiniteTimeSpan,
+            };
+        }
+
         var client = new HttpClient(new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
@@ -616,8 +630,10 @@ public partial class StrataMarkdown
             || (int)statusCode >= 500;
     }
 
-    internal static string GetRemoteMarkdownImageHostKey(Uri uri) =>
-        $"{uri.Scheme.ToLowerInvariant()}://{uri.IdnHost.ToLowerInvariant()}:{uri.Port}";
+    internal static string? GetRemoteMarkdownImageHostKey(Uri uri) =>
+        string.Equals(uri.Scheme, "blob", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : $"{uri.Scheme.ToLowerInvariant()}://{uri.IdnHost.ToLowerInvariant()}:{uri.Port}";
 
     internal static TimeSpan GetRemoteMarkdownImageDelaySlice(TimeSpan delay) =>
         delay > MarkdownImageMaxDelaySlice ? MarkdownImageMaxDelaySlice : delay;
@@ -641,10 +657,15 @@ public partial class StrataMarkdown
         return MarkdownImageDefaultRateLimitCooldown;
     }
 
-    private static MarkdownImageHostLimiter GetRemoteMarkdownImageHostLimiter(Uri uri) =>
-        MarkdownImageHostLimiters.GetOrAdd(
-            GetRemoteMarkdownImageHostKey(uri),
-            static _ => new MarkdownImageHostLimiter());
+    private static MarkdownImageHostLimiter? GetRemoteMarkdownImageHostLimiter(Uri uri)
+    {
+        var hostKey = GetRemoteMarkdownImageHostKey(uri);
+        return hostKey is null
+            ? null
+            : MarkdownImageHostLimiters.GetOrAdd(
+                hostKey,
+                static _ => new MarkdownImageHostLimiter());
+    }
 
     private static async Task<MarkdownImageResponseLease> GetRemoteMarkdownImageResponseAsync(
         Uri initialUri,
@@ -657,7 +678,8 @@ public partial class StrataMarkdown
                 throw new HttpRequestException("Remote markdown images must resolve to a public internet address.");
 
             var hostLimiter = GetRemoteMarkdownImageHostLimiter(currentUri);
-            await hostLimiter.EnterAsync(cancellationToken).ConfigureAwait(false);
+            if (hostLimiter is not null)
+                await hostLimiter.EnterAsync(cancellationToken).ConfigureAwait(false);
             HttpResponseMessage? response = null;
 
             try
@@ -670,7 +692,7 @@ public partial class StrataMarkdown
 
                 var cooldown = GetRemoteMarkdownImageCooldown(response, DateTimeOffset.UtcNow);
                 if (cooldown > TimeSpan.Zero)
-                    hostLimiter.Delay(cooldown);
+                    hostLimiter?.Delay(cooldown);
 
                 if ((int)response.StatusCode is >= 300 and < 400
                     && response.Headers.Location is { } location)
@@ -681,7 +703,7 @@ public partial class StrataMarkdown
                     var nextUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
                     response.Dispose();
                     response = null;
-                    hostLimiter.Release();
+                    hostLimiter?.Release();
                     currentUri = nextUri;
                     continue;
                 }
@@ -691,12 +713,48 @@ public partial class StrataMarkdown
             catch
             {
                 response?.Dispose();
-                hostLimiter.Release();
+                hostLimiter?.Release();
                 throw;
             }
         }
 
         throw new HttpRequestException("Remote markdown image redirected too many times.");
+    }
+
+    internal static async Task<MarkdownImageDownload> DownloadPublicMarkdownImageAsync(
+        Uri remoteUri,
+        CancellationToken cancellationToken = default)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(MarkdownImageRequestTimeout);
+                using var lease = await GetRemoteMarkdownImageResponseAsync(remoteUri, timeout.Token)
+                    .ConfigureAwait(false);
+                lease.Response.EnsureSuccessStatusCode();
+                await using var source = await lease.Response.Content
+                    .ReadAsStreamAsync(timeout.Token)
+                    .ConfigureAwait(false);
+                using var imageData = await ReadMarkdownImageDataAsync(
+                        source,
+                        lease.Response.Content.Headers.ContentLength,
+                        timeout.Token)
+                    .ConfigureAwait(false);
+                using var decoded = DecodeMarkdownImage(imageData);
+                return new MarkdownImageDownload(
+                    imageData.ToArray(),
+                    lease.Response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream");
+            }
+            catch (Exception error) when (ShouldRetryRemoteMarkdownImageFailure(
+                       error,
+                       attempt,
+                       cancellationToken))
+            {
+                await Task.Delay(MarkdownImageRetryDelay, cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     private static async ValueTask<Stream> ConnectToPublicMarkdownImageHostAsync(
@@ -783,6 +841,9 @@ public partial class StrataMarkdown
         if (!IsAllowedRemoteMarkdownImageUri(uri))
             return false;
 
+        if (OperatingSystem.IsBrowser())
+            return true;
+
         try
         {
             await ResolvePublicRemoteImageAddressesAsync(uri.DnsSafeHost, cancellationToken)
@@ -797,10 +858,13 @@ public partial class StrataMarkdown
 
     private static bool IsAllowedRemoteMarkdownImageUri(Uri uri) =>
         (string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
-         || string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-        && !uri.IsLoopback
-        && string.IsNullOrEmpty(uri.UserInfo)
-        && !string.Equals(uri.DnsSafeHost, "localhost", StringComparison.OrdinalIgnoreCase);
+         || string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+         || OperatingSystem.IsBrowser()
+         && string.Equals(uri.Scheme, "blob", StringComparison.OrdinalIgnoreCase))
+        && (OperatingSystem.IsBrowser()
+            || !uri.IsLoopback
+            && string.IsNullOrEmpty(uri.UserInfo)
+            && !string.Equals(uri.DnsSafeHost, "localhost", StringComparison.OrdinalIgnoreCase));
 
     private static async Task<IPAddress[]> ResolvePublicRemoteImageAddressesAsync(
         string host,
@@ -1216,12 +1280,12 @@ public partial class StrataMarkdown
 
     private sealed class MarkdownImageResponseLease : IDisposable
     {
-        private readonly MarkdownImageHostLimiter _hostLimiter;
+        private readonly MarkdownImageHostLimiter? _hostLimiter;
         private int _disposed;
 
         public MarkdownImageResponseLease(
             HttpResponseMessage response,
-            MarkdownImageHostLimiter hostLimiter)
+            MarkdownImageHostLimiter? hostLimiter)
         {
             Response = response;
             _hostLimiter = hostLimiter;
@@ -1235,7 +1299,7 @@ public partial class StrataMarkdown
                 return;
 
             Response.Dispose();
-            _hostLimiter.Release();
+            _hostLimiter?.Release();
         }
     }
 

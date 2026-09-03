@@ -107,6 +107,13 @@ public sealed class StrataMarkdownImageTests
     }
 
     [Fact]
+    public void GetRemoteMarkdownImageHostKey_DoesNotThrottleBrowserBlobUrls()
+    {
+        Assert.Null(StrataMarkdown.GetRemoteMarkdownImageHostKey(
+            new Uri("blob:http://localhost/image-id")));
+    }
+
+    [Fact]
     public void GetRemoteMarkdownImageCooldown_UsesRetryAfter()
     {
         using var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
