@@ -1,0 +1,77 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Keep the base spinner's editing, validation, keyboard and repeat-button behavior. -->
+  <Style Selector="NumericUpDown">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlDefault}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+  </Style>
+
+  <Style Selector="NumericUpDown /template/ ButtonSpinner#PART_Spinner /template/ Border#border">
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="NumericUpDown:pointerover /template/ ButtonSpinner#PART_Spinner /template/ Border#border">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+  </Style>
+  <Style Selector="NumericUpDown:focus-within /template/ ButtonSpinner#PART_Spinner /template/ Border#border">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+  </Style>
+  <Style Selector="NumericUpDown:error /template/ ButtonSpinner#PART_Spinner /template/ Border#border">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderError}" />
+  </Style>
+  <Style Selector="NumericUpDown:disabled">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+  <!-- The outer spinner owns the outline; the embedded TextBox is a seamless editor. -->
+  <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox">
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Padding" Value="{DynamicResource Padding.ControlH}" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="BoxShadow" Value="none" />
+  </Style>
+  <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox /template/ Border#FocusAccentBar">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <Style Selector="NumericUpDown /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton">
+    <Setter Property="Width" Value="{DynamicResource Size.ControlHeightS}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="NumericUpDown /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="NumericUpDown /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+  </Style>
+  <Style Selector="NumericUpDown /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlPressed}" />
+  </Style>
+  <Style Selector="NumericUpDown /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton Path">
+    <Setter Property="Fill" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="NumericUpDown /template/ ButtonSpinner#PART_Spinner /template/ RepeatButton:disabled">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+</Styles>

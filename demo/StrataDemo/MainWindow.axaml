@@ -332,6 +332,15 @@
                   <TextBox PlaceholderText="{Binding Strings[DisabledInput]}" IsEnabled="False" Text="user@example.com" />
                 </StackPanel>
               </Grid>
+              <StackPanel Spacing="6">
+                <TextBlock Classes="caption" FontWeight="Medium" Text="{Binding Strings[NumericInput]}" />
+                <WrapPanel Orientation="Horizontal">
+                  <NumericUpDown x:Name="SampleNumericInput" Value="180" Minimum="1" Maximum="86400"
+                                 Increment="1" FormatString="0" Width="140" Margin="0,0,12,0" />
+                  <NumericUpDown Value="180" Minimum="1" Maximum="86400"
+                                 IsEnabled="False" Width="140" />
+                </WrapPanel>
+              </StackPanel>
             </StackPanel>
           </Border>
 
