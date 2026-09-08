@@ -591,6 +591,16 @@ public partial class StrataMarkdown : ContentControl
     {
         base.OnPropertyChanged(change);
 
+        if (change.Property == ImageBaseDirectoryProperty)
+        {
+            _previousBlocks.Clear();
+            _previousGroups.Clear();
+            _previousMarkdownNormalized = null;
+            _previousMarkdownLength = 0;
+            ScheduleRebuild();
+            return;
+        }
+
         if (string.Equals(change.Property.Name, nameof(FontSize), StringComparison.Ordinal))
         {
             // FontSize is an inherited property, so it re-resolves every time this control
@@ -1113,7 +1123,7 @@ public partial class StrataMarkdown : ContentControl
                 _tableKeysUsed.Add(MarkdownParser.GetTableCacheKey(block.Content));
                 break;
             case MdBlockKind.Image:
-                if (TryResolveMarkdownImageSource(block.Language, out var source))
+                if (TryResolveMarkdownImageSource(block.Language, out var source, ImageBaseDirectory))
                     _imageKeysUsed.Add(source.CacheKey);
                 break;
         }

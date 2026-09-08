@@ -46,6 +46,7 @@ public class StrataFileAttachment : TemplatedControl
 
     private Border? _root;
     private Button? _removeBtn;
+    private Button? _previewBtn;
     private Point? _pressOrigin;
 
     public static readonly StyledProperty<string> FileNameProperty =
@@ -69,6 +70,18 @@ public class StrataFileAttachment : TemplatedControl
     public static readonly StyledProperty<bool> IsCompactProperty =
         AvaloniaProperty.Register<StrataFileAttachment, bool>(nameof(IsCompact), false);
 
+    public static readonly StyledProperty<bool> CanPreviewProperty =
+        AvaloniaProperty.Register<StrataFileAttachment, bool>(nameof(CanPreview));
+
+    public static readonly StyledProperty<string> PreviewLabelProperty =
+        AvaloniaProperty.Register<StrataFileAttachment, string>(nameof(PreviewLabel), "Open preview");
+
+    public static readonly StyledProperty<bool> IsEditedProperty =
+        AvaloniaProperty.Register<StrataFileAttachment, bool>(nameof(IsEdited));
+
+    public static readonly StyledProperty<string> EditedLabelProperty =
+        AvaloniaProperty.Register<StrataFileAttachment, string>(nameof(EditedLabel), "Edited");
+
     public static readonly StyledProperty<double> ProgressProperty =
         AvaloniaProperty.Register<StrataFileAttachment, double>(nameof(Progress), 0);
 
@@ -84,11 +97,16 @@ public class StrataFileAttachment : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> OpenRequestedEvent =
         RoutedEvent.Register<StrataFileAttachment, RoutedEventArgs>(nameof(OpenRequested), RoutingStrategies.Bubble);
 
+    public static readonly RoutedEvent<RoutedEventArgs> PreviewRequestedEvent =
+        RoutedEvent.Register<StrataFileAttachment, RoutedEventArgs>(nameof(PreviewRequested), RoutingStrategies.Bubble);
+
     static StrataFileAttachment()
     {
         StatusProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
         IsRemovableProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
         IsCompactProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
+        IsEditedProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
+        EditedLabelProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
         IconImageProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateState());
         FileNameProperty.Changed.AddClassHandler<StrataFileAttachment>((c, _) => c.UpdateIconForExtension());
     }
@@ -135,6 +153,30 @@ public class StrataFileAttachment : TemplatedControl
         set => SetValue(IsCompactProperty, value);
     }
 
+    public bool CanPreview
+    {
+        get => GetValue(CanPreviewProperty);
+        set => SetValue(CanPreviewProperty, value);
+    }
+
+    public string PreviewLabel
+    {
+        get => GetValue(PreviewLabelProperty);
+        set => SetValue(PreviewLabelProperty, value);
+    }
+
+    public bool IsEdited
+    {
+        get => GetValue(IsEditedProperty);
+        set => SetValue(IsEditedProperty, value);
+    }
+
+    public string EditedLabel
+    {
+        get => GetValue(EditedLabelProperty);
+        set => SetValue(EditedLabelProperty, value);
+    }
+
     public double Progress
     {
         get => GetValue(ProgressProperty);
@@ -145,7 +187,7 @@ public class StrataFileAttachment : TemplatedControl
     {
         StrataAttachmentStatus.Pending => "Pending",
         StrataAttachmentStatus.Uploading => $"Uploading {Progress:0}%",
-        StrataAttachmentStatus.Completed => "Ready",
+        StrataAttachmentStatus.Completed => IsEdited ? EditedLabel : "Ready",
         StrataAttachmentStatus.Failed => "Failed",
         _ => ""
     };
@@ -168,6 +210,12 @@ public class StrataFileAttachment : TemplatedControl
         remove => RemoveHandler(OpenRequestedEvent, value);
     }
 
+    public event EventHandler<RoutedEventArgs>? PreviewRequested
+    {
+        add => AddHandler(PreviewRequestedEvent, value);
+        remove => RemoveHandler(PreviewRequestedEvent, value);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         if (_root is not null)
@@ -177,6 +225,8 @@ public class StrataFileAttachment : TemplatedControl
         }
         if (_removeBtn is not null)
             _removeBtn.Click -= OnRemoveButtonClick;
+        if (_previewBtn is not null)
+            _previewBtn.Click -= OnPreviewButtonClick;
 
         base.OnApplyTemplate(e);
 
@@ -190,6 +240,10 @@ public class StrataFileAttachment : TemplatedControl
         _removeBtn = e.NameScope.Find<Button>("PART_RemoveButton");
         if (_removeBtn is not null)
             _removeBtn.Click += OnRemoveButtonClick;
+
+        _previewBtn = e.NameScope.Find<Button>("PART_PreviewButton");
+        if (_previewBtn is not null)
+            _previewBtn.Click += OnPreviewButtonClick;
 
         UpdateState();
         UpdateIconForExtension();
@@ -229,6 +283,13 @@ public class StrataFileAttachment : TemplatedControl
         RaiseEvent(new RoutedEventArgs(RemoveRequestedEvent));
         if (RemoveCommand is { } cmd && cmd.CanExecute(null))
             cmd.Execute(null);
+    }
+
+    private void OnPreviewButtonClick(object? sender, RoutedEventArgs e)
+    {
+        _pressOrigin = null;
+        e.Handled = true;
+        RaiseEvent(new RoutedEventArgs(PreviewRequestedEvent));
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)

@@ -43,6 +43,100 @@ public sealed class StrataMarkdownImageTests
     public void TryResolveMarkdownImageSource_RejectsUnsupportedSchemes(string target)
     {
         Assert.False(StrataMarkdown.TryResolveMarkdownImageSource(target, out _));
+        Assert.False(StrataMarkdown.TryResolveMarkdownImageSource(target, out _, Path.GetTempPath()));
+    }
+
+    [Theory]
+    [InlineData("chart.png", "chart.png")]
+    [InlineData("images/chart.png", "images/chart.png")]
+    [InlineData("../chart.png", "../chart.png")]
+    [InlineData("chart%20one.png", "chart one.png")]
+    public void DocumentRelativeImagesUseTheirBaseDirectory(string target, string relativePath)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "strata-preview", "document");
+        Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(target, out var source, directory));
+        Assert.Equal(Path.GetFullPath(relativePath, directory), source.LocalPath);
+        Assert.Null(source.RemoteUri);
+    }
+
+    [Fact]
+    public void DocumentBaseDoesNotFallBackToTheWorkingDirectory()
+    {
+        var target = $"strata-preview-{Guid.NewGuid():N}.png";
+        var workingDirectoryImage = Path.Combine(Directory.GetCurrentDirectory(), target);
+        var documentDirectory = Path.Combine(Path.GetTempPath(), $"strata-preview-{Guid.NewGuid():N}");
+        File.WriteAllBytes(workingDirectoryImage, TinyPng);
+        try
+        {
+            Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(target, out var original));
+            Assert.Equal(workingDirectoryImage, original.LocalPath);
+            Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(target, out var source, documentDirectory));
+            Assert.Equal(Path.Combine(documentDirectory, target), source.LocalPath);
+            Assert.False(File.Exists(source.LocalPath));
+        }
+        finally
+        {
+            File.Delete(workingDirectoryImage);
+        }
+    }
+
+    [Fact]
+    public void DocumentBasePreservesAbsoluteAndRemoteImages()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "strata-preview", "document");
+        var absolutePath = Path.Combine(Path.GetTempPath(), "absolute-image.png");
+        foreach (var target in new[] { absolutePath, new Uri(absolutePath).AbsoluteUri, "https://example.com/image.png" })
+        {
+            Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(target, out var original));
+            Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(target, out var documentSource, directory));
+            Assert.Equal(original, documentSource);
+        }
+        Assert.False(StrataMarkdown.TryResolveMarkdownImageSource("file://attacker/share/image.png", out _, directory));
+        Assert.False(StrataMarkdown.TryResolveMarkdownImageSource(@"\\attacker\share\image.png", out _, directory));
+    }
+
+    [Fact]
+    public async Task ChangingDocumentBaseRebuildsImagesWithoutChangingMarkdown()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"strata-document-images-{Guid.NewGuid():N}");
+        var first = Directory.CreateDirectory(Path.Combine(root, "first")).FullName;
+        var second = Directory.CreateDirectory(Path.Combine(root, "second")).FullName;
+        var firstImage = Path.Combine(first, "chart.png");
+        var secondImage = Path.Combine(second, "chart.png");
+        File.WriteAllBytes(firstImage, TinyPng);
+        File.WriteAllBytes(secondImage, TinyPng);
+        try
+        {
+            await _fixture.Dispatch(() =>
+            {
+                var markdown = new StrataMarkdown
+                {
+                    ImageBaseDirectory = first,
+                    Markdown = "![Chart](chart.png)\n\nInline ![Chart](chart.png) example."
+                };
+                var window = new Window { Content = markdown };
+                try
+                {
+                    window.Show();
+                    InvokeMarkdownRebuild(markdown);
+                    var firstEntry = GetCachedImageEntry(markdown, firstImage);
+                    markdown.ImageBaseDirectory = second;
+                    InvokeMarkdownRebuild(markdown);
+                    var secondEntry = GetCachedImageEntry(markdown, secondImage);
+                    Assert.NotSame(firstEntry, secondEntry);
+                    InvokeMarkdownRebuild(markdown);
+                    Assert.Same(secondEntry, GetCachedImageEntry(markdown, secondImage));
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]

@@ -5,6 +5,8 @@
 
   <Styles.Resources>
     <ResourceDictionary>
+      <StreamGeometry x:Key="Icon.FilePreview">M6 2H3.5A1.5 1.5 0 0 0 2 3.5V6M10 2h2.5A1.5 1.5 0 0 1 14 3.5V6M14 10v2.5a1.5 1.5 0 0 1-1.5 1.5H10M6 14H3.5A1.5 1.5 0 0 1 2 12.5V10</StreamGeometry>
+
       <ControlTheme x:Key="{x:Type controls:StrataFileAttachment}" TargetType="controls:StrataFileAttachment">
         <Setter Property="Focusable" Value="True" />
         <Setter Property="HorizontalAlignment" Value="Left" />
@@ -51,7 +53,7 @@
                     </Border.Transitions>
                   </Border>
 
-                  <Grid Name="PART_ContentGrid" ColumnDefinitions="Auto,6,*,4,Auto" Margin="10,7,6,7">
+                  <Grid Name="PART_ContentGrid" ColumnDefinitions="Auto,6,*,4,Auto,Auto,Auto" Margin="10,7,6,7">
                     <!-- Icon -->
                     <Border Name="PART_IconBox" Grid.Column="0"
                             Width="28" Height="28"
@@ -96,9 +98,33 @@
                       </StackPanel>
                     </StackPanel>
 
+                    <Border Name="PART_PreviewDivider" Grid.Column="4"
+                            IsVisible="{TemplateBinding CanPreview}" IsHitTestVisible="False"
+                            Width="1" Height="20" Margin="4,0,3,0" VerticalAlignment="Center"
+                            Background="{DynamicResource Brush.BorderDefault}" Opacity="0.6" />
+                    <Button Name="PART_PreviewButton"
+                            Classes="file-preview-action"
+                            Grid.Column="5"
+                            IsVisible="{TemplateBinding CanPreview}"
+                            Width="30" Height="28" MinWidth="0" MinHeight="0"
+                            Padding="6" Margin="0"
+                            VerticalAlignment="Center"
+                            Background="Transparent" BorderThickness="0"
+                            Cursor="Hand"
+                            AutomationProperties.Name="{TemplateBinding PreviewLabel}"
+                            ToolTip.Tip="{TemplateBinding PreviewLabel}">
+                      <Viewbox Width="16" Height="16">
+                        <Canvas Width="16" Height="16" IsHitTestVisible="False">
+                          <Path Data="{DynamicResource Icon.FilePreview}"
+                                StrokeThickness="1.4" StrokeLineCap="Round"
+                                Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </Canvas>
+                      </Viewbox>
+                    </Button>
+
                     <!-- Remove button -->
                     <Button Name="PART_RemoveButton"
-                            Grid.Column="4"
+                            Grid.Column="6"
                             IsVisible="False"
                             Width="22" Height="22"
                             Padding="0"
@@ -226,8 +252,6 @@
           <Setter Property="FontSize" Value="10" />
         </Style>
         <Style Selector="^:compact /template/ TextBlock#PART_FileName">
-          <Setter Property="FontSize" Value="11.5" />
-          <Setter Property="FontWeight" Value="Medium" />
           <Setter Property="MaxWidth" Value="140" />
         </Style>
         <Style Selector="^:compact /template/ StackPanel#PART_MetaRow">
@@ -245,4 +269,30 @@
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
+
+  <Style Selector="Button.file-preview-action">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="Button.file-preview-action /template/ Border#PART_Surface">
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="Button.file-preview-action /template/ Border#PART_Aurora">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="Button.file-preview-action:pointerover, Button.file-preview-action:focus-visible">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="Button.file-preview-action:pointerover /template/ Border#PART_Surface, Button.file-preview-action:focus-visible /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="Button.file-preview-action:pressed /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
 </Styles>

@@ -30,6 +30,19 @@ internal readonly record struct MarkdownImageDownload(
 
 public partial class StrataMarkdown
 {
+    /// <summary>
+    /// Optional absolute directory for document-relative images. Null preserves chat image resolution.
+    /// </summary>
+    public static readonly StyledProperty<string?> ImageBaseDirectoryProperty =
+        AvaloniaProperty.Register<StrataMarkdown, string?>(nameof(ImageBaseDirectory),
+            validate: directory => directory is null || Path.IsPathFullyQualified(directory));
+
+    public string? ImageBaseDirectory
+    {
+        get => GetValue(ImageBaseDirectoryProperty);
+        set => SetValue(ImageBaseDirectoryProperty, value);
+    }
+
     private const long MaxMarkdownImageBytes = 20 * 1024 * 1024;
     private const double MaxMarkdownImageWidth = 640;
     private const double MaxMarkdownImageHeight = 480;
@@ -107,7 +120,7 @@ public partial class StrataMarkdown
         double maxWidth,
         double maxHeight)
     {
-        if (!TryResolveMarkdownImageSource(imageTarget, out var source))
+        if (!TryResolveMarkdownImageSource(imageTarget, out var source, ImageBaseDirectory))
             return null;
 
         _imageKeysUsed.Add(source.CacheKey);
@@ -343,7 +356,7 @@ public partial class StrataMarkdown
                 return;
 
             var target = text[(bracketClose + 2)..parenClose];
-            if (TryResolveMarkdownImageSource(target, out var source))
+            if (TryResolveMarkdownImageSource(target, out var source, ImageBaseDirectory))
                 _imageKeysUsed.Add(source.CacheKey);
 
             pos = parenClose + 1;
@@ -352,7 +365,8 @@ public partial class StrataMarkdown
 
     internal static bool TryResolveMarkdownImageSource(
         string imageTarget,
-        out MarkdownImageSource source)
+        out MarkdownImageSource source,
+        string? imageBaseDirectory = null)
     {
         var normalizedTarget = NormalizeLinkTarget(imageTarget);
         if (normalizedTarget.Length >= 2
@@ -414,9 +428,14 @@ public partial class StrataMarkdown
                 source = CreateLocalMarkdownImageSource(fullPath);
                 return true;
             }
+
+            source = default;
+            return false;
         }
 
-        var resolvedPath = ResolveLocalPath(normalizedTarget);
+        var resolvedPath = imageBaseDirectory is null
+            ? ResolveLocalPath(normalizedTarget)
+            : Path.GetFullPath(Uri.UnescapeDataString(normalizedTarget), imageBaseDirectory);
         if (!string.IsNullOrWhiteSpace(resolvedPath))
         {
             var fullPath = Path.GetFullPath(resolvedPath);
