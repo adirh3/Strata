@@ -5,52 +5,59 @@
     <ResourceDictionary>
       <ControlTheme x:Key="{x:Type controls:StrataMermaid}" TargetType="controls:StrataMermaid">
         <Setter Property="FlowDirection" Value="LeftToRight" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Top" />
         <Setter Property="Template">
           <ControlTemplate>
-            <Panel ClipToBounds="True">
-              <Panel Name="PART_DiagramHost" />
-
-              <!-- Zoom toolbar -->
-              <Border Name="PART_ZoomBar"
-                      HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                      Margin="0,0,8,8"
-                      Background="{DynamicResource Brush.Surface1}"
-                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                      BorderThickness="1" CornerRadius="6"
-                      Padding="2"
-                      Opacity="0"
-                      IsHitTestVisible="True">
-                <Border.Transitions>
-                  <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
-                  </Transitions>
-                </Border.Transitions>
-                <StackPanel Orientation="Horizontal" Spacing="1">
-                  <Button Name="PART_ZoomOut" Width="28" Height="28"
-                          Padding="0" Background="Transparent"
-                          BorderThickness="0" CornerRadius="4"
-                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                          Foreground="{DynamicResource Brush.TextSecondary}"
-                          FontSize="14" Content="−" />
-                  <TextBlock Name="PART_ZoomLabel" Width="38"
-                             TextAlignment="Center" VerticalAlignment="Center"
-                             Foreground="{DynamicResource Brush.TextTertiary}"
-                             FontSize="10" Text="100%" />
-                  <Button Name="PART_ZoomIn" Width="28" Height="28"
-                          Padding="0" Background="Transparent"
-                          BorderThickness="0" CornerRadius="4"
-                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                          Foreground="{DynamicResource Brush.TextSecondary}"
-                          FontSize="14" Content="+" />
-                  <Button Name="PART_ZoomReset" Width="28" Height="28"
-                          Padding="0" Background="Transparent"
-                          BorderThickness="0" CornerRadius="4"
-                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                          Foreground="{DynamicResource Brush.TextSecondary}"
-                          FontSize="11" Content="⊙" />
-                </StackPanel>
-              </Border>
-            </Panel>
+            <Border ClipToBounds="True">
+              <Grid RowDefinitions="*,Auto" ClipToBounds="True">
+                <Panel Name="PART_DiagramHost" Background="Transparent" />
+                <Border Name="PART_ZoomBar" Grid.Row="1"
+                        Background="Transparent" Padding="0,4">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                      <Button Name="PART_ZoomOut" Width="28" Height="28"
+                              ToolTip.Tip="Zoom out (-)" AutomationProperties.Name="Zoom out"
+                              Padding="0" Background="Transparent"
+                              BorderThickness="0" CornerRadius="4"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                              Foreground="{DynamicResource Brush.TextSecondary}"
+                              FontSize="14" Content="−" />
+                      <Button Name="PART_ActualSize" Width="46" Height="28"
+                              ToolTip.Tip="Actual size (100%)" AutomationProperties.Name="Actual size"
+                              Padding="0" Background="Transparent" BorderThickness="0" CornerRadius="4"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <TextBlock Name="PART_ZoomLabel" Text="100%" FontSize="11"
+                                   Foreground="{DynamicResource Brush.TextSecondary}" />
+                      </Button>
+                      <Button Name="PART_ZoomIn" Width="28" Height="28"
+                              ToolTip.Tip="Zoom in (+)" AutomationProperties.Name="Zoom in"
+                              Padding="0" Background="Transparent"
+                              BorderThickness="0" CornerRadius="4"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                              Foreground="{DynamicResource Brush.TextSecondary}"
+                              FontSize="14" Content="+" />
+                      <Button Name="PART_ZoomReset" MinWidth="36" Height="28"
+                              ToolTip.Tip="Fit entire diagram (Home)" AutomationProperties.Name="Fit diagram"
+                              Padding="6,0" Background="Transparent"
+                              BorderThickness="0" CornerRadius="4"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                              Foreground="{DynamicResource Brush.TextSecondary}"
+                              FontSize="11" Content="Fit" />
+                      <Button Name="PART_Expand" Width="28" Height="28"
+                              ToolTip.Tip="Full screen" AutomationProperties.Name="Full screen"
+                              Padding="0" Background="Transparent"
+                              BorderThickness="0" CornerRadius="4"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                              Foreground="{DynamicResource Brush.TextSecondary}">
+                        <PathIcon Width="14" Height="14"
+                                  Data="M0,0 H5 V2 H2 V5 H0 Z M9,0 H14 V5 H12 V2 H9 Z M14,9 V14 H9 V12 H12 V9 Z M5,14 H0 V9 H2 V12 H5 Z" />
+                      </Button>
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </Grid>
+            </Border>
           </ControlTemplate>
         </Setter>
       </ControlTheme>

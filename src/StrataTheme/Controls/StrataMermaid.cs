@@ -4,12 +4,16 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
@@ -29,15 +33,24 @@ namespace StrataTheme.Controls;
 ///   <item><c>timeline</c> — chronological event sequences with sections.</item>
 ///   <item><c>quadrantChart</c> — 2×2 quadrant scatter plots with labeled axes.</item>
 /// </list>
-/// <para><b>Template parts:</b> PART_DiagramHost (Panel).</para>
+/// <para><b>Template parts:</b> PART_DiagramHost (Panel), PART_ZoomBar (Border),
+/// PART_ZoomIn, PART_ZoomOut, PART_ZoomReset, PART_ActualSize, PART_Expand (Button),
+/// PART_ZoomLabel (TextBlock).</para>
+/// <para>Drag anywhere to pan. Use the toolbar or Ctrl/Cmd+wheel to zoom,
+/// Home to fit, and Escape to close the full-window viewer.</para>
 /// </remarks>
 public class StrataMermaid : TemplatedControl
 {
     private Panel? _host;
     private MermaidCanvas? _canvas;
-    private Border? _zoomBar;
-    private Button? _zoomIn, _zoomOut, _zoomReset;
+    private Button? _zoomIn, _zoomOut, _zoomReset, _actualSize, _expand;
     private TextBlock? _zoomLabel;
+    private OverlayLayer? _expandedLayer;
+    private Border? _expandedOverlay;
+    private StrataMermaid? _expandedDiagram, _expandedOwner;
+    private IInputElement? _previousFocus;
+    private Window? _expandedWindow;
+    private WindowState _previousWindowState;
 
     /// <summary>Identifies the <see cref="Source"/> styled property.</summary>
     public static readonly StyledProperty<string?> SourceProperty =
@@ -62,27 +75,130 @@ public class StrataMermaid : TemplatedControl
         if (_zoomIn is not null) _zoomIn.Click -= OnZoomIn;
         if (_zoomOut is not null) _zoomOut.Click -= OnZoomOut;
         if (_zoomReset is not null) _zoomReset.Click -= OnZoomReset;
+        if (_actualSize is not null) _actualSize.Click -= OnActualSize;
+        if (_expand is not null) _expand.Click -= OnExpand;
+        if (_canvas is not null) _host?.Children.Remove(_canvas);
 
         _host = e.NameScope.Find<Panel>("PART_DiagramHost");
-        _zoomBar = e.NameScope.Find<Border>("PART_ZoomBar");
         _zoomIn = e.NameScope.Find<Button>("PART_ZoomIn");
         _zoomOut = e.NameScope.Find<Button>("PART_ZoomOut");
         _zoomReset = e.NameScope.Find<Button>("PART_ZoomReset");
         _zoomLabel = e.NameScope.Find<TextBlock>("PART_ZoomLabel");
+        _actualSize = e.NameScope.Find<Button>("PART_ActualSize");
+        _expand = e.NameScope.Find<Button>("PART_Expand");
 
         if (_zoomIn is not null) _zoomIn.Click += OnZoomIn;
         if (_zoomOut is not null) _zoomOut.Click += OnZoomOut;
         if (_zoomReset is not null) _zoomReset.Click += OnZoomReset;
+        if (_actualSize is not null) _actualSize.Click += OnActualSize;
+        if (_expand is not null)
+        {
+            _expand.Click += OnExpand;
+            if (_expandedOwner is not null)
+            {
+                _expand.Content = new PathIcon
+                {
+                    Width = 14, Height = 14,
+                    Data = Geometry.Parse("M1,0 L7,6 L13,0 L14,1 L8,7 L14,13 L13,14 L7,8 L1,14 L0,13 L6,7 L0,1 Z")
+                };
+                ToolTip.SetTip(_expand, "Close full screen (Esc)");
+                AutomationProperties.SetName(_expand, "Close full screen");
+            }
+        }
 
         if (_host is not null)
         {
             _canvas = new MermaidCanvas(this)
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Top,
+                VerticalAlignment = VerticalAlignment.Stretch,
             };
             _host.Children.Add(_canvas);
         }
+    }
+
+    private void OnActualSize(object? sender, RoutedEventArgs e) => _canvas?.ActualSize();
+
+    private void OnExpand(object? sender, RoutedEventArgs e)
+    {
+        if (_expandedOwner is not null)
+        {
+            _expandedOwner.CloseExpandedView();
+            return;
+        }
+        if (_expandedOverlay is not null) return;
+        var layer = OverlayLayer.GetOverlayLayer(this);
+        if (layer is null)
+        {
+            Avalonia.Logging.Logger.TryGet(Avalonia.Logging.LogEventLevel.Warning, "Control")
+                ?.Log(this, "The diagram viewer requires a top-level overlay layer.");
+            return;
+        }
+
+        _previousFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+        _expandedLayer = layer;
+        _expandedDiagram = new StrataMermaid
+        {
+            Name = "ExpandedMermaid",
+            Source = Source,
+            Theme = Theme,
+            Margin = new Thickness(16),
+            VerticalAlignment = VerticalAlignment.Stretch,
+            _expandedOwner = this
+        };
+        _expandedOverlay = new Border
+        {
+            Name = "MermaidFullScreen",
+            Background = ResolveBrush("Brush.Background", Color.Parse("#161616")),
+            Child = new ThemeVariantScope { RequestedThemeVariant = ActualThemeVariant, Child = _expandedDiagram },
+            ZIndex = int.MaxValue
+        };
+        _expandedOverlay.Bind(WidthProperty, new Binding("Bounds.Width") { Source = layer });
+        _expandedOverlay.Bind(HeightProperty, new Binding("Bounds.Height") { Source = layer });
+        KeyboardNavigation.SetTabNavigation(_expandedOverlay, KeyboardNavigationMode.Cycle);
+        _expandedOverlay.AddHandler(KeyDownEvent, OnExpandedKeyDown, RoutingStrategies.Tunnel);
+        layer.Children.Add(_expandedOverlay);
+        if (TopLevel.GetTopLevel(this) is Window window)
+        {
+            _expandedWindow = window;
+            _previousWindowState = window.WindowState;
+            window.WindowState = WindowState.FullScreen;
+        }
+        Dispatcher.UIThread.Post(() => _expandedDiagram?._canvas?.Focus(), DispatcherPriority.Loaded);
+    }
+
+    private void OnExpandedKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        CloseExpandedView();
+        e.Handled = true;
+    }
+
+    private void CloseExpandedView(bool restoreFocus = true)
+    {
+        var overlay = _expandedOverlay;
+        if (overlay is null) return;
+        _expandedOverlay = null;
+        overlay.RemoveHandler(KeyDownEvent, OnExpandedKeyDown);
+        _expandedLayer?.Children.Remove(overlay);
+        overlay.Child = null;
+        _expandedLayer = null;
+        _expandedDiagram = null;
+        if (_expandedWindow is { } window)
+        {
+            _expandedWindow = null;
+            if (window.WindowState == WindowState.FullScreen)
+                window.WindowState = _previousWindowState;
+        }
+        var focus = _previousFocus;
+        _previousFocus = null;
+        if (restoreFocus) focus?.Focus();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        CloseExpandedView(restoreFocus: false);
+        base.OnDetachedFromVisualTree(e);
     }
 
     private void OnZoomIn(object? s, Avalonia.Interactivity.RoutedEventArgs e)
@@ -108,8 +224,6 @@ public class StrataMermaid : TemplatedControl
         if (_zoomLabel is null || _canvas is null) return;
         var pct = (int)Math.Round(_canvas.EffectiveScale * 100);
         _zoomLabel.Text = $"{pct}%";
-        if (_zoomBar is not null)
-            _zoomBar.Opacity = Math.Abs(_canvas.EffectiveScale - 1.0) > 0.01 || _canvas.HasPan ? 1.0 : 0.0;
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -121,6 +235,7 @@ public class StrataMermaid : TemplatedControl
 
     private void Invalidate()
     {
+        if (_expandedDiagram is not null) _expandedDiagram.Source = Source;
         if (_canvas is null) return;
         _canvas.Reparse();
         _canvas.InvalidateMeasure();
@@ -145,7 +260,7 @@ public class StrataMermaid : TemplatedControl
 
     private sealed class FNode
     {
-        public string Id = "", Text = "";
+        public string Id = "", Text = "", DisplayText = "";
         public NShape Shape;
         public double X, Y, W, H;
         public int Rank;
@@ -169,6 +284,7 @@ public class StrataMermaid : TemplatedControl
     {
         public string Id = "";
         public string Title = "";
+        public FSubgraph? Parent;
         public List<string> NodeOrder = new();
         public HashSet<string> NodeSet = new(StringComparer.Ordinal);
 
@@ -298,15 +414,18 @@ public class StrataMermaid : TemplatedControl
         private readonly List<QdPoint> _qdPoints = new();
 
         private double _layW, _layH;
+        private Rect _contentBounds;
         private bool _parsed;
-        private double _baseScale = 1.0;
 
         // Pan & zoom
+        private enum ViewMode { Readable, Fit, Custom }
+        private ViewMode _viewMode;
         private double _userZoom = 1.0;
         private double _panX, _panY;
         private bool _isPanning;
         private Point _panStart;
         private double _panStartX, _panStartY;
+        private IPointer? _panPointer;
 
         // Entrance animation
         private double _animProgress = 1.0;
@@ -329,35 +448,57 @@ public class StrataMermaid : TemplatedControl
         {
             _owner = owner;
             ClipToBounds = true;
+            Focusable = true;
+            Cursor = new Cursor(StandardCursorType.Hand);
+            _viewMode = owner._expandedOwner is null ? ViewMode.Readable : ViewMode.Fit;
+            AutomationProperties.SetName(this, "Diagram canvas");
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             _animTimer?.Stop();
+            _panPointer?.Capture(null);
             base.OnDetachedFromVisualTree(e);
         }
 
         internal double UserZoom => _userZoom;
-        internal double EffectiveScale => _baseScale * _userZoom;
+        internal double EffectiveScale => _userZoom;
         internal bool HasPan => Math.Abs(_panX) > 1 || Math.Abs(_panY) > 1;
 
-        internal void ZoomBy(double factor)
+        internal void ZoomBy(double factor, Point? anchor = null)
         {
-            _userZoom = Math.Clamp(_userZoom * factor, 0.5, 4.0);
+            var point = anchor ?? new Point(Bounds.Width / 2, Bounds.Height / 2);
+            var before = ViewOrigin(_userZoom);
+            var contentPoint = (point - before) / _userZoom;
+            _userZoom = Math.Clamp(_userZoom * factor, Math.Min(0.1, FitScale(Bounds.Size)), 4.0);
+            _viewMode = ViewMode.Custom;
+            var after = ViewOrigin(_userZoom);
+            _panX += point.X - (after.X + contentPoint.X * _userZoom);
+            _panY += point.Y - (after.Y + contentPoint.Y * _userZoom);
+            _owner.UpdateZoomLabel();
             InvalidateVisual();
         }
 
         internal void ResetView()
         {
-            _userZoom = 1.0;
+            _viewMode = ViewMode.Fit;
             _panX = _panY = 0;
+            ApplyView(Bounds.Size);
+        }
+
+        internal void ActualSize()
+        {
+            _viewMode = ViewMode.Custom;
+            _userZoom = 1;
+            _panX = _panY = 0;
+            _owner.UpdateZoomLabel();
             InvalidateVisual();
         }
 
         internal void Reparse()
         {
             _parsed = false;
-            _userZoom = 1.0;
+            _viewMode = _owner._expandedOwner is null ? ViewMode.Readable : ViewMode.Fit;
             _panX = _panY = 0;
             StartEntranceAnimation();
         }
@@ -398,6 +539,7 @@ public class StrataMermaid : TemplatedControl
             var props = e.GetCurrentPoint(this).Properties;
             if (props.IsLeftButtonPressed)
             {
+                Focus();
                 if (e.ClickCount == 2)
                 {
                     ResetView();
@@ -407,6 +549,7 @@ public class StrataMermaid : TemplatedControl
                 }
 
                 _isPanning = true;
+                _panPointer = e.Pointer;
                 _panStart = e.GetPosition(this);
                 _panStartX = _panX;
                 _panStartY = _panY;
@@ -432,34 +575,116 @@ public class StrataMermaid : TemplatedControl
         {
             if (_isPanning)
             {
-                _isPanning = false;
                 e.Pointer.Capture(null);
-                Cursor = null;
                 _owner.UpdateZoomLabel();
                 e.Handled = true;
             }
+        }
+
+        protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+        {
+            _isPanning = false;
+            _panPointer = null;
+            Cursor = new Cursor(StandardCursorType.Hand);
+            base.OnPointerCaptureLost(e);
+        }
+
+        protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+        {
+            var command = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+            if ((e.KeyModifiers & command) != 0)
+            {
+                ZoomBy(Math.Pow(1.15, e.Delta.Y), e.GetPosition(this));
+                e.Handled = true;
+            }
+            else if ((e.KeyModifiers & KeyModifiers.Shift) != 0 || Math.Abs(e.Delta.X) > 0)
+            {
+                _panX += (e.Delta.X != 0 ? e.Delta.X : e.Delta.Y) * 40;
+                InvalidateVisual();
+                e.Handled = true;
+            }
+            else
+                base.OnPointerWheelChanged(e);
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Key.Add:
+                case Key.OemPlus: ZoomBy(1.25); break;
+                case Key.Subtract:
+                case Key.OemMinus: ZoomBy(0.8); break;
+                case Key.Home: ResetView(); break;
+                case Key.D0:
+                case Key.NumPad0: ActualSize(); break;
+                case Key.Left: _panX += 40; break;
+                case Key.Right: _panX -= 40; break;
+                case Key.Up: _panY += 40; break;
+                case Key.Down: _panY -= 40; break;
+                default: base.OnKeyDown(e); return;
+            }
+            e.Handled = true;
+            InvalidateVisual();
         }
 
         // ── MEASURE ────────────────────────────────────────────
 
         protected override Size MeasureOverride(Size available)
         {
-            var w = double.IsInfinity(available.Width) ? 600 : Math.Max(280, available.Width);
+            var w = double.IsInfinity(available.Width) ? 600 : Math.Max(1, available.Width);
 
             if (!_parsed) DoParse();
 
             ComputeLayout(w);
+            _contentBounds = new Rect(0, 0, _layW, _layH);
+            if (_kind == DiagramKind.Flowchart)
+            {
+                RouteFlowEdges();
+                foreach (var edge in _fEdges)
+                {
+                    foreach (var point in edge.Route)
+                        _contentBounds = _contentBounds.Union(new Rect(point.X - 2, point.Y - 2, 4, 4));
+                    if (!string.IsNullOrWhiteSpace(edge.Label))
+                    {
+                        var label = Txt(edge.Label, FsSmall);
+                        _contentBounds = _contentBounds.Union(new Rect(
+                            edge.LabelAt.X - label.Width / 2 - 6, edge.LabelAt.Y - label.Height / 2 - 2,
+                            label.Width + 12, label.Height + 4));
+                    }
+                }
+            }
 
-            _baseScale = 1.0;
-            if (_layW + Pad * 2 > w && _layW > 0)
-                _baseScale = (w - 12) / (_layW + Pad * 2);
-
-            _owner.UpdateZoomLabel();
-
-            return new Size(
-                Math.Min(w, _layW + Pad * 2),
-                Math.Max(140, (_layH + Pad * 2) * _baseScale));
+            var height = _owner._expandedOwner is not null && double.IsFinite(available.Height)
+                ? available.Height
+                : Math.Clamp(_contentBounds.Height * ReadableScale(w) + Pad * 2, 180, 480);
+            return new Size(w, height);
         }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            ApplyView(finalSize);
+            return finalSize;
+        }
+
+        private double ReadableScale(double width) =>
+            Math.Clamp((width - Pad * 2) / Math.Max(1, _contentBounds.Width), 0.85, 1);
+
+        private double FitScale(Size size) => Math.Clamp(Math.Min(
+            (size.Width - Pad * 2) / Math.Max(1, _contentBounds.Width),
+            (size.Height - Pad * 2) / Math.Max(1, _contentBounds.Height)), 0.001, 1);
+
+        private void ApplyView(Size size)
+        {
+            if (_viewMode == ViewMode.Fit) _userZoom = FitScale(size);
+            else if (_viewMode == ViewMode.Readable) _userZoom = ReadableScale(size.Width);
+            _owner.UpdateZoomLabel();
+            InvalidateVisual();
+        }
+
+        private Point ViewOrigin(double scale) => new(
+            Math.Max(Pad, (Bounds.Width - _contentBounds.Width * scale) / 2) - _contentBounds.X * scale + _panX,
+            Math.Max(Pad, (Bounds.Height - _contentBounds.Height * scale) / 2) - _contentBounds.Y * scale + _panY);
 
         // ── PARSING ────────────────────────────────────────────
 
@@ -590,7 +815,10 @@ public class StrataMermaid : TemplatedControl
                     if (string.IsNullOrWhiteSpace(sgId))
                         sgId = $"_sg{subgraphOrder.Count}";
 
-                    subgraphStack.Push(GetOrCreateSubgraph(sgId, sgTitle));
+                    var group = GetOrCreateSubgraph(sgId, sgTitle);
+                    if (subgraphStack.TryPeek(out var parent) && !ReferenceEquals(group, parent))
+                        group.Parent ??= parent;
+                    subgraphStack.Push(group);
                     continue;
                 }
 
@@ -1142,8 +1370,8 @@ public class StrataMermaid : TemplatedControl
             // Measure
             foreach (var n in _fNodes.Values)
             {
-                n.Text = WrapNodeText(n.Text, Fs, maxNodeTextWidth);
-                var lines = n.Text.Split('\n');
+                n.DisplayText = WrapNodeText(n.Text, Fs, maxNodeTextWidth);
+                var lines = n.DisplayText.Split('\n');
                 var maxLineW = 0.0;
                 foreach (var line in lines)
                 {
@@ -1265,6 +1493,7 @@ public class StrataMermaid : TemplatedControl
         {
             public FSubgraph? Subgraph;
             public List<FNode> Nodes = new();
+            public List<Cluster> Children = new();
             public int Rank;
             public double X, Y, W, H; // content origin + content size (absolute after arrange)
         }
@@ -1275,36 +1504,48 @@ public class StrataMermaid : TemplatedControl
         // rank layout whose subgraph bounding boxes overlap and stretch into a tall ribbon.
         private void LayoutFlowClustered(double availW)
         {
+            foreach (var group in _fSubgraphs) group.Box = default;
+            LayoutClusterLevel(null, _fNodes.Values.ToList(), availW);
+            NormalizeFlowLayout();
+        }
+
+        private List<Cluster> LayoutClusterLevel(FSubgraph? parent, List<FNode> nodes, double availW)
+        {
             var clusters = new List<Cluster>();
             var nodeCluster = new Dictionary<string, int>(StringComparer.Ordinal);
+            var members = new HashSet<string>(nodes.Select(node => node.Id), StringComparer.Ordinal);
 
-            for (int s = 0; s < _fSubgraphs.Count; s++)
+            foreach (var group in _fSubgraphs.Where(group => ReferenceEquals(group.Parent, parent)))
             {
-                var c = new Cluster { Subgraph = _fSubgraphs[s] };
-                foreach (var id in _fSubgraphs[s].NodeOrder)
+                var c = new Cluster { Subgraph = group };
+                foreach (var id in group.NodeOrder)
                 {
-                    if (!_fNodes.TryGetValue(id, out var n) || nodeCluster.ContainsKey(id)) continue;
+                    if (!members.Contains(id) || !_fNodes.TryGetValue(id, out var n) || nodeCluster.ContainsKey(id)) continue;
                     nodeCluster[id] = clusters.Count;
                     c.Nodes.Add(n);
                 }
                 if (c.Nodes.Count > 0) clusters.Add(c);
             }
 
-            foreach (var n in _fNodes.Values)
+            foreach (var n in nodes)
             {
                 if (nodeCluster.ContainsKey(n.Id)) continue;
                 nodeCluster[n.Id] = clusters.Count;
                 clusters.Add(new Cluster { Nodes = { n } });
             }
 
-            if (clusters.Count == 0) { _layW = _layH = 0; return; }
+            if (clusters.Count == 0) return clusters;
 
             RankClusters(clusters, nodeCluster);
             MinimizeClusterCrossings(clusters);
 
             var targetInner = Math.Clamp(availW - Pad * 2 - SgPad * 2, 200, 760);
             foreach (var c in clusters)
+            {
                 LayoutClusterMembers(c, targetInner);
+                if (c.Subgraph is not null)
+                    c.W = Math.Max(c.W, Txt(c.Subgraph.Title, FsSmall, weight: FontWeight.SemiBold).Width);
+            }
 
             ArrangeClusterBands(clusters, availW);
 
@@ -1315,7 +1556,30 @@ public class StrataMermaid : TemplatedControl
                                           c.W + SgPad * 2, c.H + SgPad * 2 + SgTitleH);
             }
 
-            NormalizeFlowLayout();
+            return clusters;
+        }
+
+        private static Rect ClusterBounds(Cluster cluster) => cluster.Subgraph?.Box ??
+            new Rect(cluster.X, cluster.Y, cluster.W, cluster.H);
+
+        private static void OffsetCluster(Cluster cluster, double x, double y)
+        {
+            foreach (var node in cluster.Nodes)
+            {
+                node.X += x;
+                node.Y += y;
+                node.Rank = cluster.Rank;
+            }
+            OffsetFrames(cluster);
+
+            void OffsetFrames(Cluster current)
+            {
+                current.X += x;
+                current.Y += y;
+                if (current.Subgraph is { } group && group.Box.Width > 0)
+                    group.Box = group.Box.Translate(new Vector(x, y));
+                foreach (var child in current.Children) OffsetFrames(child);
+            }
         }
 
         // Rank clusters by inter-cluster dependency depth (cycle-safe longest path).
@@ -1534,6 +1798,18 @@ public class StrataMermaid : TemplatedControl
         // mostly straight instead of looping siblings around a single shared row.
         private void LayoutClusterMembers(Cluster c, double targetInner)
         {
+            if (c.Subgraph is not null && _fSubgraphs.Any(group => ReferenceEquals(group.Parent, c.Subgraph)))
+            {
+                // Lay out sibling groups together, then reserve their full frames inside the parent.
+                c.Children = LayoutClusterLevel(c.Subgraph, c.Nodes, targetInner);
+                var bounds = ClusterBounds(c.Children[0]);
+                foreach (var child in c.Children.Skip(1)) bounds = bounds.Union(ClusterBounds(child));
+                foreach (var child in c.Children) OffsetCluster(child, -bounds.X, -bounds.Y);
+                c.W = bounds.Width;
+                c.H = bounds.Height;
+                return;
+            }
+
             const double gap = 18;
             const double rankGap = 30;
 
@@ -1627,8 +1903,7 @@ public class StrataMermaid : TemplatedControl
                         {
                             var ox = x + BoxPadX(c);
                             var oy = y + (rowH - OuterH(c)) / 2 + BoxPadY(c);
-                            foreach (var n in c.Nodes) { n.X += ox; n.Y += oy; n.Rank = c.Rank; }
-                            c.X = ox; c.Y = oy;
+                            OffsetCluster(c, ox, oy);
                             x += OuterW(c) + clusterGap;
                         }
                         y += rowH + bandGap;
@@ -1647,8 +1922,7 @@ public class StrataMermaid : TemplatedControl
                     {
                         var ox = x + (bandW - OuterW(c)) / 2 + BoxPadX(c);
                         var oy = y + BoxPadY(c);
-                        foreach (var n in c.Nodes) { n.X += ox; n.Y += oy; n.Rank = c.Rank; }
-                        c.X = ox; c.Y = oy;
+                        OffsetCluster(c, ox, oy);
                         y += OuterH(c) + clusterGap;
                     }
                     x += bandW + bandGap;
@@ -2159,6 +2433,8 @@ public class StrataMermaid : TemplatedControl
         public override void Render(DrawingContext ctx)
         {
             var b = Bounds;
+            // A custom-drawn control is otherwise hit-testable only over painted shapes.
+            ctx.DrawRectangle(Brushes.Transparent, null, new Rect(b.Size));
             if (b.Width < 20 || b.Height < 20) return;
 
             if (_layW < 1 && _layH < 1) return;
@@ -2173,11 +2449,10 @@ public class StrataMermaid : TemplatedControl
                 ? 0.96 + 0.04 * _animProgress
                 : 1.0;
 
-            var effScale = _baseScale * _userZoom * animScale;
-
-            var contentW = _layW;
-            var ox = (b.Width - contentW * effScale) / 2 + _panX;
-            var oy = Pad * effScale + _panY;
+            var effScale = _userZoom * animScale;
+            var origin = ViewOrigin(effScale);
+            var ox = origin.X;
+            var oy = origin.Y;
 
             // Animation: slide up slightly
             if (_animating || _animProgress < 1.0)
@@ -2236,8 +2511,6 @@ public class StrataMermaid : TemplatedControl
                     ctx.DrawRectangle(sgFill, sgPen, sg.Box, 8, 8);
                 }
             }
-
-            RouteFlowEdges();
 
             // Draw edges first (behind nodes)
             foreach (var e in _fEdges)
@@ -2303,7 +2576,7 @@ public class StrataMermaid : TemplatedControl
                     ctx.DrawRectangle(accent, null, barRect, 1, 1);
                 }
 
-                var ft = Txt(n.Text, Fs, text);
+                var ft = Txt(n.DisplayText, Fs, text);
                 ctx.DrawText(ft, new Point(rect.Center.X - ft.Width / 2, rect.Center.Y - ft.Height / 2));
             }
 
@@ -3336,10 +3609,8 @@ public class StrataMermaid : TemplatedControl
         {
             const double laneStep = 8.0;
 
-            // Forward edges: group by the inter-band channel (rounded mid coordinate) and spread their
-            // jog lanes around the channel centre. Rank-skipping edges are handled separately below so
-            // they don't run straight down a column occupied by an intermediate-rank node.
-            var forward = live.Where(e => IsForward(e) && !IsLongForward(e)).ToList();
+            // Lay short connections first, then route obstructed connections around intermediate nodes.
+            var forward = live.Where(IsForward).ToList();
             var fGroups = forward.GroupBy(e => (int)Math.Round(MidAlong(e) / 14.0));
             foreach (var g in fGroups)
             {
@@ -3354,13 +3625,13 @@ public class StrataMermaid : TemplatedControl
 
             // Rank-skipping forward edges: route each around the nodes in the intermediate rank(s)
             // through its own clear lane. Index per side so several don't stack on the same line.
-            var longForward = live.Where(IsLongForward).ToList();
+            var longForward = forward.Where(RouteCrossesNode).ToList();
             int longBeforeIdx = 0, longAfterIdx = 0;
             foreach (var e in longForward.OrderBy(MidAlong))
                 BuildLongForwardRoute(e, LongTargetIsBefore(e) ? longBeforeIdx++ : longAfterIdx++);
 
             // Same-rank edges: lane between the facing sides.
-            var side = live.Where(IsSide).ToList();
+            var side = live.Where(e => IsSide(e) && !IsBack(e)).ToList();
             var sGroups = side.GroupBy(e => (int)Math.Round(MidAlong(e) / 14.0));
             foreach (var g in sGroups)
             {
@@ -3414,9 +3685,10 @@ public class StrataMermaid : TemplatedControl
         {
             var f = e.FromPort;
             var t = e.ToPort;
-            if (!_ltr)
+            if (e.ExitSide is FSide.Top or FSide.Bottom)
             {
-                lane = Math.Clamp(lane, Math.Min(f.Y, t.Y) + 4, Math.Max(f.Y, t.Y) - 4);
+                var inset = Math.Min(4, Math.Abs(f.Y - t.Y) / 2);
+                lane = Math.Clamp(lane, Math.Min(f.Y, t.Y) + inset, Math.Max(f.Y, t.Y) - inset);
                 if (Math.Abs(f.X - t.X) < 1.5)
                     e.Route = new List<Point> { f, t };
                 else
@@ -3424,7 +3696,8 @@ public class StrataMermaid : TemplatedControl
             }
             else
             {
-                lane = Math.Clamp(lane, Math.Min(f.X, t.X) + 4, Math.Max(f.X, t.X) - 4);
+                var inset = Math.Min(4, Math.Abs(f.X - t.X) / 2);
+                lane = Math.Clamp(lane, Math.Min(f.X, t.X) + inset, Math.Max(f.X, t.X) - inset);
                 if (Math.Abs(f.Y - t.Y) < 1.5)
                     e.Route = new List<Point> { f, t };
                 else
@@ -3433,16 +3706,29 @@ public class StrataMermaid : TemplatedControl
             e.LabelAt = LongestSegMid(e.Route);
         }
 
-        // A forward edge that skips one or more ranks (TB: source two-plus rows above target) would,
-        // with the plain forward route, run straight down the source or target column and pass *behind*
-        // whatever node occupies the intermediate rank. Treat those like dagre's virtual-node edges:
-        // detect them by rank span so they can be lifted into their own obstacle-free lane.
-        private bool IsLongForward(FEdge e)
+        private bool RouteCrossesNode(FEdge edge)
         {
-            if (_fSubgraphs.Count > 0) return false; // clustered (architecture) layout routes its own way
-            if (!IsForward(e)) return false;
-            if (!_fNodes.TryGetValue(e.From, out var s) || !_fNodes.TryGetValue(e.To, out var t)) return false;
-            return Math.Abs(t.Rank - s.Rank) > 1;
+            foreach (var node in _fNodes.Values)
+            {
+                if (node.Id == edge.From || node.Id == edge.To) continue;
+                var box = new Rect(node.X, node.Y, node.W, node.H).Inflate(4);
+                for (var i = 1; i < edge.Route.Count; i++)
+                {
+                    var a = edge.Route[i - 1];
+                    var b = edge.Route[i];
+                    if (Math.Abs(a.X - b.X) < 0.01)
+                    {
+                        if (a.X > box.Left && a.X < box.Right &&
+                            Math.Max(a.Y, b.Y) > box.Top && Math.Min(a.Y, b.Y) < box.Bottom)
+                            return true;
+                    }
+                    else if (Math.Abs(a.Y - b.Y) < 0.01 &&
+                             a.Y > box.Top && a.Y < box.Bottom &&
+                             Math.Max(a.X, b.X) > box.Left && Math.Min(a.X, b.X) < box.Right)
+                        return true;
+                }
+            }
+            return false;
         }
 
         // True when the long edge's target sits before its source on the cross axis (left for TB, up for
@@ -3465,8 +3751,10 @@ public class StrataMermaid : TemplatedControl
             var f = e.FromPort;
             var tp = e.ToPort;
             const double margin = 14, step = 14;
-            int loR = Math.Min(s.Rank, t.Rank), hiR = Math.Max(s.Rank, t.Rank);
-            var inter = _fNodes.Values.Where(n => n.Rank > loR && n.Rank < hiR).ToList();
+            // Cluster rank alone is not enough: a target cluster can contain several internal rows.
+            var inter = _fNodes.Values.Where(n => n.Id != s.Id && n.Id != t.Id && (_ltr
+                ? n.X < t.X && n.X + n.W > s.X + s.W
+                : n.Y < t.Y && n.Y + n.H > s.Y + s.H)).ToList();
 
             if (!_ltr)
             {
