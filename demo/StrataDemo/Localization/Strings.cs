@@ -50,6 +50,8 @@ public sealed class Strings
         {
             // App chrome
             ["AppTitle"] = "Strata UI – Design System Preview",
+            ["DiffViewer"] = "Shared diff viewer",
+            ["DiffViewer.Subtitle"] = "Syntax-highlighted source, old/new line numbers, and hunk navigation for desktop and mobile.",
             ["DesignSystem"] = "Design System",
             ["Pages"] = "PAGES",
 
@@ -365,6 +367,8 @@ public sealed class Strings
         {
             // App chrome
             ["AppTitle"] = "Strata UI – תצוגה מקדימה של מערכת העיצוב",
+            ["DiffViewer"] = "תצוגת שינויים משותפת",
+            ["DiffViewer.Subtitle"] = "הדגשת תחביר, מספרי שורות ישנים וחדשים וניווט בין שינויים במחשב ובנייד.",
             ["DesignSystem"] = "מערכת עיצוב",
             ["Pages"] = "עמודים",
 

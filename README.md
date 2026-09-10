@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.17" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.18" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -36,6 +36,20 @@ Or, if published as a NuGet package:
 > **Note:** `SimpleTheme` provides base templates for controls that Strata does not fully re-template. Strata's styles layer on top and override all visual properties.
 
 ---
+
+## Shared code diffs
+
+`StrataDiffView` renders unified Git patches, snapshots, or captured edits with change colors,
+old/new line numbers and hunk navigation. Desktop uses TextMate grammars; Android and WebAssembly
+use native-free lexical highlighting for keywords, strings, numbers, comments and type names.
+Set `TouchMode="True"` and `CodeFontSize="14"` for touch-sized navigation and scroll-safe code.
+
+```xml
+<sc:StrataDiffView UnifiedDiffText="{Binding DiffText}" FilePath="{Binding FilePath}"
+                   TouchMode="True" CodeFontSize="14" />
+```
+
+The parser/models live in `StrataTheme.Diff`; applications do not need their own copy.
 
 ## Theme Variants
 

@@ -7,7 +7,7 @@
 
     <!-- NuGet metadata -->
     <PackageId>StrataUI.Theme</PackageId>
-    <Version>0.3.17</Version>
+    <Version>0.3.18</Version>
     <Authors>StrataUI</Authors>
     <Description>A modern, token-driven Avalonia theme for professional desktop applications.</Description>
     <PackageTags>avalonia;theme;ui;desktop</PackageTags>
@@ -29,7 +29,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="**\*.axaml" />
+    <!-- The self-contained diff UserControl is already included by Avalonia's default XAML items. -->
+    <AvaloniaResource Include="**\*.axaml" Exclude="Controls\StrataDiffView.axaml" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1040,6 +1040,16 @@
             </StackPanel>
           </Border>
 
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <TextBlock Classes="subtitle" Text="{Binding Strings[DiffViewer]}" />
+              <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                         Text="{Binding Strings[DiffViewer.Subtitle]}" />
+              <sc:StrataDiffView x:Name="SharedDiffDemo" Height="320" FilePath="Greeting.cs"
+                                UnifiedDiffText="@@ -1 +1,2 @@&#x0a;-var message = &quot;Hello&quot;;&#x0a;+var message = &quot;Hello, Lumi&quot;;&#x0a;+return message;" />
+            </StackPanel>
+          </Border>
+
           <!-- ── Mermaid Diagrams via StrataMarkdown ── -->
           <Border Classes="strata-card" Padding="24,20">
             <StackPanel Spacing="14">

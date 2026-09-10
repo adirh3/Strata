@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sc="using:StrataTheme.Controls"
+             x:Class="StrataTheme.Controls.StrataDiffView"
+             x:Name="DiffRoot"
+             x:CompileBindings="True">
+
+  <Panel>
+    <DockPanel>
+      <!-- Navigation bar -->
+      <Border DockPanel.Dock="Top" Padding="8,6" Background="{DynamicResource Brush.SurfaceCard}">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <TextBlock x:Name="ChangeCountText" Classes="caption" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Brush.TextTertiary}" Margin="0,0,4,0" />
+            <Button x:Name="PrevChangeBtn" Classes="subtle" Padding="4,2" MinHeight="0" Height="24"
+                    Width="24" ToolTip.Tip="Previous change" Cursor="Hand">
+              <PathIcon Data="M2 8 L7 3 L12 8 L10.6 9.4 L7 5.8 L3.4 9.4 Z"
+                        Width="12" Height="12" />
+            </Button>
+            <Button x:Name="NextChangeBtn" Classes="subtle" Padding="4,2" MinHeight="0" Height="24"
+                    Width="24" ToolTip.Tip="Next change" Cursor="Hand">
+              <PathIcon Data="M2 3 L7 8 L12 3 L10.6 1.6 L7 5.2 L3.4 1.6 Z"
+                        Width="12" Height="12" />
+            </Button>
+          </StackPanel>
+          <TextBlock x:Name="StatsText" Classes="caption" VerticalAlignment="Center"
+                     Foreground="{DynamicResource Brush.TextSecondary}" />
+        </DockPanel>
+      </Border>
+
+      <!-- Diff content -->
+      <ScrollViewer x:Name="DiffScroller" FlowDirection="LeftToRight"
+                    HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <StackPanel x:Name="DiffContent" Margin="0,4" />
+      </ScrollViewer>
+    </DockPanel>
+
+    <!-- Centered loading overlay -->
+    <Panel x:Name="LoadingOverlay" IsVisible="False" IsHitTestVisible="False">
+      <sc:StrataTypingIndicator x:Name="LoadingIndicator" Label="Loading diff…"
+                                IsActive="{Binding #DiffRoot.IsRendering}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Panel>
+  </Panel>
+
+</UserControl>
