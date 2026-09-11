@@ -48,7 +48,7 @@
 
                   <!-- Label -->
                   <TextBlock Text="{TemplateBinding Label}"
-                           Grid.Column="4"
+                             Grid.Column="4"
                              FontSize="{DynamicResource Font.SizeCaption}"
                              FontWeight="SemiBold"
                              Foreground="{DynamicResource Brush.TextTertiary}"
