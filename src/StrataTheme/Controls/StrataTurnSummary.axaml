@@ -18,23 +18,9 @@
                       CornerRadius="{DynamicResource Radius.Base}"
                       Padding="4,5,8,5">
 
-                <Grid ColumnDefinitions="Auto,6,Auto,6,*">
-                  <PathIcon Name="PART_Chevron"
-                            Width="8" Height="8"
-                            Data="M 2,0 L 7,5 L 2,10 Z"
-                            Foreground="{DynamicResource Brush.TextTertiary}"
-                            VerticalAlignment="Center"
-                            RenderTransformOrigin="0.5,0.5"
-                            RenderTransform="rotate(0deg)">
-                    <PathIcon.Transitions>
-                      <Transitions>
-                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" />
-                      </Transitions>
-                    </PathIcon.Transitions>
-                  </PathIcon>
+                <Grid ColumnDefinitions="Auto,6,*">
                   <!-- Status dot -->
                   <Border Name="PART_Dot"
-                          Grid.Column="2"
                           Width="6" Height="6"
                           CornerRadius="3"
                           VerticalAlignment="Center"
@@ -48,7 +34,7 @@
 
                   <!-- Label -->
                   <TextBlock Text="{TemplateBinding Label}"
-                             Grid.Column="4"
+                             Grid.Column="2"
                              FontSize="{DynamicResource Font.SizeCaption}"
                              FontWeight="SemiBold"
                              Foreground="{DynamicResource Brush.TextTertiary}"
@@ -91,9 +77,6 @@
         </Setter>
 
         <!-- Expanded state -->
-        <Style Selector="^:expanded /template/ PathIcon#PART_Chevron">
-          <Setter Property="RenderTransform" Value="rotate(90deg)" />
-        </Style>
         <Style Selector="^:expanded /template/ Border#PART_ContentHost">
           <Setter Property="IsVisible" Value="True" />
           <Setter Property="MaxHeight" Value="4000" />

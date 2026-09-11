@@ -10,7 +10,7 @@ namespace StrataTheme.Controls;
 /// <summary>
 /// A lightweight, borderless disclosure that collapses completed AI turn blocks
 /// (tool-call groups and reasoning traces) into a single summary line.
-/// Collapsed: a thin inline row with status dot, label, and chevron.
+/// Collapsed: a thin inline row with status dot and label.
 /// Expanded: the original blocks slide in beneath a subtle left accent bar.
 /// </summary>
 /// <remarks>
@@ -25,7 +25,7 @@ namespace StrataTheme.Controls;
 ///     &lt;/controls:StrataTurnSummary.Content&gt;
 /// &lt;/controls:StrataTurnSummary&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Header (Border), PART_Chevron (PathIcon).</para>
+/// <para><b>Template parts:</b> PART_Header (Border).</para>
 /// <para><b>Pseudo-classes:</b> :expanded, :has-failures.</para>
 /// </remarks>
 public class StrataTurnSummary : TemplatedControl
