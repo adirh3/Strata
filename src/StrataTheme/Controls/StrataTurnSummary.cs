@@ -25,7 +25,7 @@ namespace StrataTheme.Controls;
 ///     &lt;/controls:StrataTurnSummary.Content&gt;
 /// &lt;/controls:StrataTurnSummary&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Header (Border), PART_Chevron (TextBlock).</para>
+/// <para><b>Template parts:</b> PART_Header (Border), PART_Chevron (PathIcon).</para>
 /// <para><b>Pseudo-classes:</b> :expanded, :has-failures.</para>
 /// </remarks>
 public class StrataTurnSummary : TemplatedControl
