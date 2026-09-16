@@ -145,6 +145,7 @@
                   <!-- Inline autocomplete popup (anchored to TextBox via Panel) -->
                   <Popup Name="PART_AutoCompletePopup"
                          IsLightDismissEnabled="True"
+                         OverlayDismissEventPassThrough="True"
                          Placement="AnchorAndGravity"
                          PlacementAnchor="BottomLeft"
                          PlacementGravity="BottomRight"
