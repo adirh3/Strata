@@ -46,6 +46,7 @@ public enum StrataCardStatus
 /// </remarks>
 public class StrataCard : TemplatedControl
 {
+    private readonly TapReleaseHandler _tapHandler;
     public static readonly StyledProperty<object?> HeaderProperty =
         AvaloniaProperty.Register<StrataCard, object?>(nameof(Header));
 
@@ -108,27 +109,9 @@ public class StrataCard : TemplatedControl
         UpdatePseudoClasses();
     }
 
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    public StrataCard()
     {
-        base.OnPointerPressed(e);
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            return;
-
-        PseudoClasses.Set(":pressed", true);
-        e.Handled = true;
-        IsExpanded = !IsExpanded;
-    }
-
-    protected override void OnPointerReleased(PointerReleasedEventArgs e)
-    {
-        base.OnPointerReleased(e);
-        PseudoClasses.Set(":pressed", false);
-    }
-
-    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
-    {
-        base.OnPointerCaptureLost(e);
-        PseudoClasses.Set(":pressed", false);
+        _tapHandler = new TapReleaseHandler(this, () => SetCurrentValue(IsExpandedProperty, !IsExpanded));
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -137,7 +120,7 @@ public class StrataCard : TemplatedControl
         if (e.Key is Key.Enter or Key.Space)
         {
             e.Handled = true;
-            IsExpanded = !IsExpanded;
+            SetCurrentValue(IsExpandedProperty, !IsExpanded);
         }
     }
 
@@ -160,4 +143,3 @@ public class StrataCard : TemplatedControl
         label.Text = StatusText ?? (Status != StrataCardStatus.None ? Status.ToString() : null);
     }
 }
-

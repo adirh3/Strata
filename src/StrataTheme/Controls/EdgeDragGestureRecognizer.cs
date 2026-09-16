@@ -62,7 +62,7 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
     public bool CanOpenFromAnywhere { get; set; }
 
     /// <summary>Movement required for an opening swipe that begins outside the edge gutter.</summary>
-    public double AnywhereThreshold { get; set; } = 6;
+    public double AnywhereThreshold { get; set; } = 4;
 
     /// <summary>
     /// Movement required before the drag is claimed, in DIPs. Below
@@ -125,9 +125,10 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
                 return;
 
             _startedOutsideGutter = !withinGutter;
-            if (_startedOutsideGutter)
-                _horizontalScrollOwner = FindHorizontalScrollOwner(e.Source as Visual, target);
         }
+
+        if (IsOpen || _startedOutsideGutter)
+            _horizontalScrollOwner = FindHorizontalScrollOwner(e.Source as Visual, target);
 
         _pointer = e.Pointer;
         _origin = point;
@@ -164,10 +165,7 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
             }
 
             var openingDistance = dx * (IsRightToLeft ? -1 : 1);
-            if (!IsOpen
-                && _startedOutsideGutter
-                && openingDistance > 0
-                && CanHorizontalScrollOwnerConsumeOpeningGesture())
+            if (Math.Abs(dx) > 0 && CanHorizontalScrollOwnerConsumeGesture(dx))
             {
                 Abandon();
                 return;
@@ -185,9 +183,8 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
 
             _dragging = true;
 
-            // Start measuring from the threshold rather than the touch-down point, so the panel
-            // does not jump by Threshold on the first frame.
-            _last = new Point(_origin.X + Math.Sign(dx) * threshold, point.Y);
+            // Once intent is clear, include the initial travel so the surface catches up to the finger.
+            _last = _origin;
             if (captureWhenClaimed)
                 Capture(e.Pointer);
         }
@@ -264,7 +261,7 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
         _horizontalScrollOwner = null;
     }
 
-    private bool CanHorizontalScrollOwnerConsumeOpeningGesture()
+    private bool CanHorizontalScrollOwnerConsumeGesture(double delta)
     {
         if (_horizontalScrollOwner is not { } scrollPresenter)
             return false;
@@ -274,7 +271,7 @@ public sealed class EdgeDragGestureRecognizer : GestureRecognizer
             scrollPresenter.Extent,
             scrollPresenter.Viewport,
             scrollPresenter.FlowDirection,
-            IsRightToLeft);
+            drawerIsRightToLeft: delta < 0);
     }
 
     internal static bool CanHorizontalScrollConsumeOpeningGesture(

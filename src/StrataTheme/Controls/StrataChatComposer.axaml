@@ -34,6 +34,10 @@
               <StackPanel>
 
                 <!-- Agent & skill chips -->
+                <ScrollViewer Name="PART_ContextScroll"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Disabled"
+                              IsScrollChainingEnabled="False">
                 <WrapPanel Name="PART_ChipsRow"
                            Orientation="Horizontal"
                            Margin="12,10,12,2">
@@ -43,29 +47,33 @@
                           Padding="8,4,4,4"
                           Margin="0,0,6,4"
                           Background="{DynamicResource Brush.AccentSubtle}">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                      <TextBlock Text="{TemplateBinding AgentGlyph}"
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4">
+                      <Border Name="PART_AgentChipSurface" Grid.ColumnSpan="3"
+                              IsVisible="False" IsHitTestVisible="False" />
+                      <TextBlock Name="PART_AgentGlyph" Text="{TemplateBinding AgentGlyph}"
                                  FontSize="{DynamicResource Font.SizeCaption}"
                                  Foreground="{DynamicResource Brush.AccentDefault}"
                                  VerticalAlignment="Center" />
-                      <TextBlock Text="{TemplateBinding AgentName}"
+                      <TextBlock Name="PART_AgentName" Grid.Column="1" Text="{TemplateBinding AgentName}"
                                  FontSize="{DynamicResource Font.SizeCaption}"
                                  FontWeight="SemiBold"
                                  Foreground="{DynamicResource Brush.AccentDefault}"
+                                 TextTrimming="CharacterEllipsis"
                                  VerticalAlignment="Center" />
-                      <Button Name="PART_AgentRemoveButton"
+                      <Button Name="PART_AgentRemoveButton" Grid.Column="2"
                               Classes="subtle"
+                              AutomationProperties.Name="Remove agent"
                               Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}"
                               Padding="0" MinHeight="0" MinWidth="0"
                               CornerRadius="8"
                               VerticalAlignment="Center"
                               Cursor="Hand">
-                        <TextBlock Text="×" FontSize="{DynamicResource Font.SizeCaption}"
+                        <TextBlock Name="PART_AgentRemoveGlyph" Text="×" FontSize="{DynamicResource Font.SizeCaption}"
                                    Foreground="{DynamicResource Brush.AccentDefault}"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center" />
                       </Button>
-                    </StackPanel>
+                    </Grid>
                   </Border>
                   <!-- Project chip (hidden via :has-project pseudo-class) -->
                   <Border Name="PART_ProjectChip"
@@ -75,40 +83,45 @@
                           Background="{DynamicResource Brush.Surface2}"
                           BorderBrush="{DynamicResource Brush.BorderSubtle}"
                           BorderThickness="1">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                      <TextBlock Text="📁"
-                                 FontSize="{DynamicResource Font.SizeCaption}"
-                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                 VerticalAlignment="Center" />
-                      <TextBlock Text="{TemplateBinding ProjectName}"
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                      <Border Name="PART_ProjectChipSurface" Grid.ColumnSpan="3"
+                              IsVisible="False" IsHitTestVisible="False" />
+                      <PathIcon Name="PART_ProjectIcon" Width="14" Height="14"
+                                Foreground="{DynamicResource Brush.TextSecondary}"
+                                VerticalAlignment="Center"
+                                Data="M3 5h6l2 2h10v12H3V5zm2 2v10h14V9h-9L8 7H5z" />
+                      <TextBlock Name="PART_ProjectName" Grid.Column="1" Text="{TemplateBinding ProjectName}"
                                  FontSize="{DynamicResource Font.SizeCaption}"
                                  FontWeight="Medium"
                                  Foreground="{DynamicResource Brush.TextPrimary}"
+                                 TextTrimming="CharacterEllipsis"
                                  VerticalAlignment="Center" />
-                      <Button Name="PART_ProjectRemoveButton"
+                      <Button Name="PART_ProjectRemoveButton" Grid.Column="2"
                               Classes="subtle"
+                              AutomationProperties.Name="Remove project"
                               Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}"
                               Padding="0" MinHeight="0" MinWidth="0"
                               CornerRadius="8"
                               VerticalAlignment="Center"
                               Cursor="Hand">
-                        <TextBlock Text="×" FontSize="{DynamicResource Font.SizeCaption}"
-                                   Foreground="{DynamicResource Brush.TextTertiary}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
+                        <PathIcon Width="10" Height="10" Foreground="{DynamicResource Brush.TextTertiary}"
+                                  Data="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                       </Button>
-                    </StackPanel>
+                    </Grid>
                   </Border>
                   <!-- Skill chips are appended here programmatically -->
                 </WrapPanel>
+                </ScrollViewer>
 
                 <!-- Inline attachment chips (above the text input) -->
                 <ContentPresenter Name="PART_AttachmentContent"
                                   Content="{TemplateBinding AttachmentContent}"
                                   Margin="8,4,8,0" />
 
+                <controls:ComposerLayoutPanel Name="PART_ComposerLayout">
+                <StackPanel Name="PART_EditorArea">
                 <!-- Text input -->
-                <Panel>
+                <Panel Name="PART_InputPanel">
                   <TextBox Name="PART_Input"
                            Classes="composer-embed"
                            Text="{Binding PromptText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
@@ -158,13 +171,19 @@
                 <!-- Optional status content (e.g. coding toolbar) -->
                 <ContentPresenter Name="PART_StatusContent"
                                   Content="{TemplateBinding StatusContent}"
+                                  IsVisible="{TemplateBinding StatusContent, Converter={x:Static ObjectConverters.IsNotNull}}"
                                   Margin="10,2,10,0" />
+                </StackPanel>
 
                 <!-- Toolbar row -->
-                <Grid Name="PART_Toolbar" Margin="8,4,8,8" ColumnDefinitions="*,Auto">
+                <Grid Name="PART_Toolbar" Margin="8,4,8,8" ColumnDefinitions="Auto,*,Auto">
+                  <ContentPresenter Name="PART_LeadingContent" Grid.Column="0"
+                                    Content="{TemplateBinding LeadingContent}"
+                                    IsVisible="{TemplateBinding LeadingContent, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                    VerticalAlignment="Bottom" />
 
                   <!-- Left: attach + selectors + chips (wrap to stay responsive) -->
-                  <WrapPanel Grid.Column="0"
+                  <WrapPanel Name="PART_SecondaryActions" Grid.Column="1"
                              Orientation="Horizontal"
                              Margin="0,0,8,0"
                              VerticalAlignment="Bottom">
@@ -344,7 +363,7 @@
                       </WrapPanel>
 
                   <!-- Right: voice + send -->
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom" Margin="0,0,0,6">
+                  <StackPanel Name="PART_PrimaryActions" Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom" Margin="0,0,0,6">
                     <Button Name="PART_VoiceButton"
                             Classes="subtle"
                             Width="{DynamicResource Size.ControlHeightS}" Height="{DynamicResource Size.ControlHeightS}"
@@ -384,14 +403,14 @@
                                 Stretch="Uniform"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                Fill="{TemplateBinding Foreground}"
+                                Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                 Data="M8,1.5 L13,6.5 H10.2 V14.5 H5.8 V6.5 H3 Z" />
                           <Path Name="PART_StopIcon"
                                 IsVisible="False"
                                 Stretch="Uniform"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                Fill="{TemplateBinding Foreground}"
+                                Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                 Data="M4.5,4.5 H11.5 V11.5 H4.5 Z" />
                           <Canvas Name="PART_StopSendIcon"
                                   IsVisible="False"
@@ -409,6 +428,7 @@
                     </Button>
                   </StackPanel>
                 </Grid>
+                </controls:ComposerLayoutPanel>
               </StackPanel>
             </Border>
           </ControlTemplate>
@@ -702,6 +722,10 @@
   </Style>
 
   <!-- Programmatic skill chip styles -->
+  <Style Selector="Border.composer-chip-surface">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
   <Style Selector="Border.composer-skill-chip">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
@@ -846,7 +870,8 @@
        ═══════════════════════════════════════════════════════════════════════════════════════════ -->
 
   <Style Selector="controls|StrataChatComposer.mobile /template/ Border#PART_Root">
-    <Setter Property="CornerRadius" Value="26" />
+    <Setter Property="CornerRadius" Value="24" />
+    <Setter Property="Padding" Value="2" />
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="BoxShadow" Value="none" />
@@ -854,9 +879,10 @@
 
   <!-- The input is the point of the control, so it gets real height and body-sized text. -->
   <Style Selector="controls|StrataChatComposer.mobile /template/ TextBox#PART_Input">
-    <Setter Property="MinHeight" Value="42" />
-    <Setter Property="MaxHeight" Value="132" />
-    <Setter Property="Padding" Value="18,11,18,4" />
+    <Setter Property="MinHeight" Value="48" />
+    <Setter Property="MaxHeight" Value="176" />
+    <Setter Property="Padding" Value="12,10,12,10" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
     <Setter Property="textInput:TextInputOptions.ReturnKeyType" Value="Return" />
   </Style>
@@ -869,8 +895,46 @@
     <Setter Property="IsVisible" Value="True" />
   </Style>
 
+  <Style Selector="controls|StrataChatComposer:external-editor:editor-content-hidden /template/ ContentPresenter#PART_EditorContent">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:external-editor:editor-content-hidden /template/ TextBox#PART_Input">
+    <Setter Property="IsVisible" Value="True" />
+    <Setter Property="IsReadOnly" Value="True" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Focusable" Value="False" />
+  </Style>
+
   <Style Selector="controls|StrataChatComposer.mobile /template/ Grid#PART_Toolbar">
-    <Setter Property="Margin" Value="8,0,8,8" />
+    <Setter Property="Margin" Value="0" />
+  </Style>
+
+  <Style Selector="controls|StrataChatComposer.mobile /template/ StackPanel#PART_PrimaryActions">
+    <Setter Property="Margin" Value="0" />
+  </Style>
+
+  <Style Selector="controls|StrataChatComposer.mobile /template/ ContentPresenter#PART_LeadingContent">
+    <Setter Property="Margin" Value="0" />
+  </Style>
+
+  <Style Selector="controls|StrataChatComposer.mobile /template/ ScrollViewer#PART_ContextScroll">
+    <Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
+  </Style>
+
+  <Style Selector="controls|StrataChatComposer.mobile /template/ ContentPresenter#PART_AttachmentContent">
+    <Setter Property="Margin" Value="8,0,8,0" />
+  </Style>
+
+  <Style Selector="controls|StrataChatComposer.mobile /template/ controls|ComposerLayoutPanel">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Expansion" Duration="0:0:0.28" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="controls|StrataChatComposer.mobile:compact /template/ controls|ComposerLayoutPanel">
+    <Setter Property="Expansion" Value="0" />
   </Style>
 
   <!-- Round, finger-sized action buttons instead of 28dp squares. -->
@@ -899,6 +963,16 @@
   </Style>
   <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_SendButton:pressed">
     <Setter Property="RenderTransform" Value="translateY(0px) scale(0.92)" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_SendButton /template/ Panel">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+    <Setter Property="Margin" Value="5" />
+    <Setter Property="BoxShadow" Value="none" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_SendButton /template/ Border#PART_FocusRing">
+    <Setter Property="Margin" Value="3" />
   </Style>
 
   <!--

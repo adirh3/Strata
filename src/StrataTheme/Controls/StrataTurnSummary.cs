@@ -30,7 +30,7 @@ namespace StrataTheme.Controls;
 /// </remarks>
 public class StrataTurnSummary : TemplatedControl
 {
-    private Border? _header;
+    private TapReleaseHandler? _tapHandler;
     private object? _displayedContent;
 
     public static readonly StyledProperty<string> LabelProperty =
@@ -72,26 +72,16 @@ public class StrataTurnSummary : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
-        if (_header is not null)
-            _header.PointerPressed -= OnHeaderPointerPressed;
+        _tapHandler?.Dispose();
+        _tapHandler = null;
 
         base.OnApplyTemplate(e);
 
-        _header = e.NameScope.Find<Border>("PART_Header");
-        if (_header is not null)
-            _header.PointerPressed += OnHeaderPointerPressed;
+        if (e.NameScope.Find<Border>("PART_Header") is { } header)
+            _tapHandler = new TapReleaseHandler(header, () => SetCurrentValue(IsExpandedProperty, !IsExpanded));
 
         UpdateDisplayedContent();
         UpdatePseudoClasses();
-    }
-
-    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs pe)
-    {
-        if (pe.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            IsExpanded = !IsExpanded;
-            pe.Handled = true;
-        }
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -99,7 +89,7 @@ public class StrataTurnSummary : TemplatedControl
         base.OnKeyDown(e);
         if (e.Key is Key.Enter or Key.Space)
         {
-            IsExpanded = !IsExpanded;
+            SetCurrentValue(IsExpandedProperty, !IsExpanded);
             e.Handled = true;
         }
     }

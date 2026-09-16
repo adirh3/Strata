@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using StrataTheme.Controls;
 
 namespace StrataTheme.Tests;
@@ -43,7 +44,7 @@ public sealed class EdgeDragGestureRecognizerTests
             Release(recognizer, target, nextOwner, new Point(45, 40), 2_030);
             nextOwner.Capture(null);
 
-            Assert.Equal([20d, 15d], deltas);
+            Assert.Equal([30d, 25d], deltas);
             Assert.Equal(2, endedCount);
 
             window.Close();
@@ -122,7 +123,7 @@ public sealed class EdgeDragGestureRecognizerTests
             Release(recognizer, target, pointer, new Point(250, 40), 1_030);
             pointer.Capture(null);
 
-            Assert.Equal([20d], deltas);
+            Assert.Equal([30d], deltas);
             window.Close();
         });
     }
@@ -185,7 +186,7 @@ public sealed class EdgeDragGestureRecognizerTests
             Release(recognizer, target, pointer, new Point(80, 40), 1_120);
             pointer.Capture(null);
 
-            Assert.Equal([5d, 45d], deltas);
+            Assert.Equal([15d, 45d], deltas);
             Assert.True(velocity > 2_000);
             window.Close();
         });
@@ -226,7 +227,7 @@ public sealed class EdgeDragGestureRecognizerTests
     [Fact]
     public void FullSurfaceThresholdClaimsHorizontalIntentBeforeOrdinaryScroll()
     {
-        Assert.Equal(6, new EdgeDragGestureRecognizer().AnywhereThreshold);
+        Assert.Equal(4, new EdgeDragGestureRecognizer().AnywhereThreshold);
     }
 
     [Fact]
@@ -280,8 +281,10 @@ public sealed class EdgeDragGestureRecognizerTests
         });
     }
 
-    [Fact]
-    public async Task FullSurfaceOpeningSwipeYieldsToOffsetHorizontalScrollViewer()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FullSurfaceSwipeYieldsToOffsetHorizontalScrollViewer(bool drawerIsOpen)
     {
         await _fixture.Dispatch(() =>
         {
@@ -299,7 +302,8 @@ public sealed class EdgeDragGestureRecognizerTests
             };
             var recognizer = new EdgeDragGestureRecognizer
             {
-                CanOpenFromAnywhere = true
+                CanOpenFromAnywhere = true,
+                IsOpen = drawerIsOpen
             };
             var target = new Border
             {
@@ -327,13 +331,59 @@ public sealed class EdgeDragGestureRecognizerTests
 
             var pointer = CreatePointer(PointerType.Touch, isPrimary: true);
             RaisePress(scrollContent, target, pointer, new Point(150, 100), 1_000);
-            RaiseMove(scrollContent, target, pointer, new Point(157, 102), 1_016);
+            var end = new Point(drawerIsOpen ? 143 : 157, 102);
+            RaiseMove(scrollContent, target, pointer, end, 1_016);
 
             Assert.Equal(0, dragCount);
             Assert.Null(pointer.Captured);
 
-            RaiseRelease(scrollContent, target, pointer, new Point(157, 102), 1_032);
+            RaiseRelease(scrollContent, target, pointer, end, 1_032);
             window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task ScrimWaitsForATapAndAllowsTheClosingSurfaceToTrackTheFinger()
+    {
+        await _fixture.Dispatch(async () =>
+        {
+            var drawer = new StrataNavigationDrawer
+            {
+                IsOpen = true, PanelWidth = 160, Panel = new Border(), Content = new Border()
+            };
+            var window = new Window { Width = 360, Height = 700 };
+            window.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+            });
+            window.Content = drawer;
+            try
+            {
+                window.Show();
+                drawer.ApplyTemplate();
+                Dispatcher.UIThread.RunJobs();
+                var scrim = drawer.GetVisualDescendants().OfType<Border>()
+                    .Single(border => border.Name == "PART_Scrim");
+                var pointer = CreatePointer(PointerType.Touch, isPrimary: true);
+                RaisePress(scrim, drawer, pointer, new Point(260, 200), 1_000);
+                Assert.True(drawer.IsOpen);
+                RaiseMove(scrim, drawer, pointer, new Point(245, 200), 1_016);
+                Assert.Equal(1 - 15d / 160, drawer.Progress, precision: 4);
+                // Captured releases are delivered directly to the recognizer by Avalonia.
+                Release(drawer.GestureRecognizers.OfType<EdgeDragGestureRecognizer>().Single(),
+                    drawer, pointer, new Point(245, 200), 1_300);
+                Assert.True(drawer.IsOpen);
+                pointer.Capture(null);
+                await Task.Delay(220);
+                Assert.True(drawer.IsOpen);
+
+                pointer = CreatePointer(PointerType.Touch, isPrimary: true);
+                RaisePress(scrim, drawer, pointer, new Point(260, 200), 2_000);
+                Assert.True(drawer.IsOpen);
+                RaiseRelease(scrim, drawer, pointer, new Point(260, 200), 2_016);
+                Assert.False(drawer.IsOpen);
+            }
+            finally { window.Close(); }
         });
     }
 

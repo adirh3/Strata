@@ -12,6 +12,7 @@
   <Styles.Resources>
     <ResourceDictionary>
       <ControlTheme x:Key="{x:Type controls:StrataChatShell}" TargetType="controls:StrataChatShell">
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
         <Setter Property="Template">
           <ControlTemplate>
             <Border Name="PART_Root"
@@ -96,7 +97,7 @@
                          Explicit BringIntoView() calls (search highlight, reasoning reveal) are
                          unaffected by this flag and still scroll as intended. -->
                     <ScrollViewer Name="PART_TranscriptScroll"
-                                  VerticalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}"
                                   HorizontalScrollBarVisibility="Disabled"
                                   IsScrollChainingEnabled="False"
                                   BringIntoViewOnFocusChange="False">

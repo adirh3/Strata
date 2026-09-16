@@ -26,7 +26,7 @@
                 </Transitions>
               </Border.Transitions>
 
-              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="4">
                   <Border Name="PART_Dot1"
                           Width="5" Height="5" CornerRadius="2.5"
@@ -39,10 +39,11 @@
                           Background="{DynamicResource Brush.AccentDefault}" />
                 </StackPanel>
 
-                <TextBlock Text="{TemplateBinding Label}"
+                <TextBlock Grid.Column="1" Text="{TemplateBinding Label}"
+                           TextTrimming="CharacterEllipsis"
                            FontSize="12"
                            Foreground="{DynamicResource Brush.TextSecondary}" />
-              </StackPanel>
+              </Grid>
             </Border>
           </ControlTemplate>
         </Setter>

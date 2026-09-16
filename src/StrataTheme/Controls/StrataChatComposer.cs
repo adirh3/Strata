@@ -115,7 +115,7 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
-/// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :external-editor,
+/// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :external-editor, :editor-content-hidden, :compact,
 /// :can-attach, :can-send-without-prompt,
 /// :can-voice, :editing, :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
 /// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
@@ -352,6 +352,21 @@ public class StrataChatComposer : TemplatedControl
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(EditorContent));
 
     /// <summary>
+    /// Temporarily hides a host-supplied editor while retaining a read-only rendering of the draft.
+    /// The editor instance stays attached so native input can resume without recreation.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsEditorContentVisibleProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsEditorContentVisible), true);
+
+    /// <summary>
+    /// Presents the mobile composer as a single input row, retaining context chips and Send/Stop.
+    /// Hosts control this presentation state from their editor's focus, including native input.
+    /// The default desktop presentation is unchanged.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsCompactProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(IsCompact));
+
+    /// <summary>
     /// Places autocomplete above the editor without changing the editor implementation. Mobile
     /// browser hosts use the built-in Avalonia TextBox but still need to stay clear of the keyboard.
     /// </summary>
@@ -368,6 +383,10 @@ public class StrataChatComposer : TemplatedControl
     /// </summary>
     public static readonly StyledProperty<object?> ToolbarContentProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(ToolbarContent));
+
+    /// <summary>Optional leading action, retained alongside Send in the compact mobile layout.</summary>
+    public static readonly StyledProperty<object?> LeadingContentProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(LeadingContent));
 
     /// <summary>
     /// Additional clipboard data formats the host wants to handle itself before
@@ -568,6 +587,8 @@ public class StrataChatComposer : TemplatedControl
             Dispatcher.UIThread.Post(() => c.CheckAutoComplete(), DispatcherPriority.Input);
         });
         IsBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        IsCompactProperty.Changed.AddClassHandler<StrataChatComposer>(
+            static (c, _) => c.PseudoClasses.Set(":compact", c.IsCompact));
         IsEditingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SteerWhileBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SendWithEnterProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
@@ -585,6 +606,12 @@ public class StrataChatComposer : TemplatedControl
             c.PseudoClasses.Set(":external-editor", e.NewValue is not null);
             c.CloseAutoComplete();
             c.UpdateAutoCompletePlacementTarget();
+        });
+        IsEditorContentVisibleProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
+        {
+            c.PseudoClasses.Set(":editor-content-hidden", !c.IsEditorContentVisible);
+            if (!c.IsEditorContentVisible)
+                c.CloseAutoComplete();
         });
         PreferAutoCompleteAboveProperty.Changed.AddClassHandler<StrataChatComposer>(
             static (c, _) => c.UpdateAutoCompletePlacementTarget());
@@ -698,8 +725,11 @@ public class StrataChatComposer : TemplatedControl
     public object? StatusContent { get => GetValue(StatusContentProperty); set => SetValue(StatusContentProperty, value); }
     public object? AttachmentContent { get => GetValue(AttachmentContentProperty); set => SetValue(AttachmentContentProperty, value); }
     public object? EditorContent { get => GetValue(EditorContentProperty); set => SetValue(EditorContentProperty, value); }
+    public bool IsEditorContentVisible { get => GetValue(IsEditorContentVisibleProperty); set => SetValue(IsEditorContentVisibleProperty, value); }
+    public bool IsCompact { get => GetValue(IsCompactProperty); set => SetValue(IsCompactProperty, value); }
     public bool PreferAutoCompleteAbove { get => GetValue(PreferAutoCompleteAboveProperty); set => SetValue(PreferAutoCompleteAboveProperty, value); }
     public object? ToolbarContent { get => GetValue(ToolbarContentProperty); set => SetValue(ToolbarContentProperty, value); }
+    public object? LeadingContent { get => GetValue(LeadingContentProperty); set => SetValue(LeadingContentProperty, value); }
     public IEnumerable? ClipboardPasteInterceptFormats { get => GetValue(ClipboardPasteInterceptFormatsProperty); set => SetValue(ClipboardPasteInterceptFormatsProperty, value); }
 
     /// <summary>
@@ -1317,6 +1347,7 @@ public class StrataChatComposer : TemplatedControl
     {
         if (_suppressAutoComplete
             || _autoCompletePopup is null
+            || (EditorContent is not null && !IsEditorContentVisible)
             || (_input is null && EditorContent is not IStrataComposerEditor))
         {
             return;
@@ -3043,7 +3074,7 @@ public class StrataChatComposer : TemplatedControl
         glyphText.Classes.Add("chip-glyph");
         if (hasError) glyphText.Classes.Add("chip-error");
 
-        var nameText = new TextBlock { Text = name };
+        var nameText = new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis };
         nameText.Classes.Add("chip-name");
         if (hasError) nameText.Classes.Add("chip-error");
 
@@ -3062,6 +3093,7 @@ public class StrataChatComposer : TemplatedControl
         };
         removeBtn.Classes.Add("subtle");
         removeBtn.Classes.Add("chip-remove");
+        Avalonia.Automation.AutomationProperties.SetName(removeBtn, $"Remove {name}");
 
         var capturedItem = item;
         removeBtn.Click += (_, _) =>
@@ -3075,11 +3107,17 @@ public class StrataChatComposer : TemplatedControl
                 CommandHelper.Execute(McpRemovedCommand, McpRemovedCommandParameter ?? chipName);
         };
 
-        var panel = new StackPanel
+        var panel = new Grid
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 4
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+            ColumnSpacing = 4
         };
+        var surface = new Border { IsHitTestVisible = false };
+        surface.Classes.Add("composer-chip-surface");
+        Grid.SetColumnSpan(surface, 3);
+        Grid.SetColumn(nameText, 1);
+        Grid.SetColumn(removeBtn, 2);
+        panel.Children.Add(surface);
         panel.Children.Add(glyphText);
         panel.Children.Add(nameText);
         panel.Children.Add(removeBtn);

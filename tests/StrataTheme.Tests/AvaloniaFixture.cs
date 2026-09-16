@@ -27,6 +27,13 @@ public sealed class AvaloniaFixture : IDisposable
         return _session.Dispatch(action, cancellationToken);
     }
 
+    public Task Dispatch(Func<Task> action, CancellationToken cancellationToken = default) =>
+        _session.Dispatch<bool>(async () =>
+        {
+            await action();
+            return true;
+        }, cancellationToken);
+
     public void Dispose()
     {
         try

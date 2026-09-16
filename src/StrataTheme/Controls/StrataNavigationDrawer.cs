@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
@@ -7,8 +8,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Threading;
-using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
@@ -21,9 +20,9 @@ namespace StrataTheme.Controls;
 /// finish the movement is the whole difference between "a sidebar on a phone" and a navigation
 /// drawer.</para>
 ///
-/// <para>Layout is deliberately not a <c>Panel</c> with a translated child: the panel is offset via
-/// its own <see cref="Visual.RenderTransform"/> so that dragging never invalidates layout, which is
-/// what keeps the movement smooth while a large chat transcript is mounted behind it.</para>
+/// <para>The panel uses a stable <see cref="Visual.RenderTransform"/>. Modal content stays in
+/// place; a docked host can follow <see cref="Progress"/> to resize its live content beside the
+/// panel. Both gestures and button settles publish the same continuous progress.</para>
 /// </summary>
 /// <remarks>
 /// Template parts: <c>PART_Scrim</c> (dim layer, fades with progress), <c>PART_Panel</c> (the
@@ -48,9 +47,13 @@ public class StrataNavigationDrawer : ContentControl
     public static readonly StyledProperty<double> PanelWidthProperty =
         AvaloniaProperty.Register<StrataNavigationDrawer, double>(nameof(PanelWidth), 320d);
 
-    /// <summary>Whether dragging is available at all. False when the drawer is docked open.</summary>
+    /// <summary>Whether dragging is available. Disable while another modal owns the pointer.</summary>
     public static readonly StyledProperty<bool> IsDragEnabledProperty =
         AvaloniaProperty.Register<StrataNavigationDrawer, bool>(nameof(IsDragEnabled), true);
+
+    /// <summary>Whether the drawer dims and blocks the content. False for a docked layout.</summary>
+    public static readonly StyledProperty<bool> IsModalProperty =
+        AvaloniaProperty.Register<StrataNavigationDrawer, bool>(nameof(IsModal), true);
 
     /// <summary>Whether a closed drawer can be opened by a horizontal swipe from anywhere.</summary>
     public static readonly StyledProperty<bool> CanOpenFromAnywhereProperty =
@@ -71,20 +74,24 @@ public class StrataNavigationDrawer : ContentControl
     /// <summary>Velocity past which a flick decides the outcome regardless of position, DIPs/second.</summary>
     private const double FlingVelocity = 420;
 
-    /// <summary>Position past which a release settles open, as a fraction of the panel width.</summary>
+    /// <summary>Fallback position for a drag interrupted by a layout or input-mode change.</summary>
     private const double SettleFraction = 0.5;
 
-    private static readonly TimeSpan SettleDuration = TimeSpan.FromMilliseconds(220);
+    private const double CommitDistance = 32;
 
     private readonly EdgeDragGestureRecognizer _drag = new();
     private Border? _scrim;
+    private TapReleaseHandler? _scrimTap;
     private ContentPresenter? _panel;
+    private readonly TranslateTransform _panelTransform = new();
     private double _progress;
     private bool _dragging;
-    private DispatcherTimer? _settleTimer;
+    private int _settleVersion;
     private double _settleFrom;
     private double _settleTo;
-    private DateTime _settleStart;
+    private long _settleStart;
+    private double _settleDurationMs;
+    private double _dragStartProgress;
     private readonly IEasing _settleEasing = new CubicEaseOut();
 
     public StrataNavigationDrawer()
@@ -130,6 +137,12 @@ public class StrataNavigationDrawer : ContentControl
         set => SetValue(CanOpenFromAnywhereProperty, value);
     }
 
+    public bool IsModal
+    {
+        get => GetValue(IsModalProperty);
+        set => SetValue(IsModalProperty, value);
+    }
+
     public double ScrimOpacity
     {
         get => GetValue(ScrimOpacityProperty);
@@ -146,16 +159,18 @@ public class StrataNavigationDrawer : ContentControl
     {
         base.OnApplyTemplate(e);
 
-        if (_scrim is not null)
-            _scrim.PointerPressed -= OnScrimPressed;
+        _scrimTap?.Dispose();
 
         _scrim = e.NameScope.Find<Border>("PART_Scrim");
         _panel = e.NameScope.Find<ContentPresenter>("PART_Panel");
+        if (_panel is not null)
+            _panel.RenderTransform = _panelTransform;
         UpdateDirection();
 
         if (_scrim is not null)
-            _scrim.PointerPressed += OnScrimPressed;
+            _scrimTap = new TapReleaseHandler(_scrim, () => SetCurrentValue(IsOpenProperty, false));
 
+        StopSettle();
         ApplyProgress(IsOpen ? 1 : 0, animate: false);
     }
 
@@ -182,12 +197,12 @@ public class StrataNavigationDrawer : ContentControl
             }
             else
             {
-                var settleOpen = _progress >= SettleFraction;
+                var settleOpen = _dragging ? _progress >= SettleFraction : IsOpen;
                 _drag.Cancel();
                 _dragging = false;
                 PseudoClasses.Set(":dragging", false);
+                SetCurrentValue(IsOpenProperty, settleOpen);
                 AnimateTo(settleOpen ? 1 : 0);
-                IsOpen = settleOpen;
             }
         }
         else if (change.Property == CanOpenFromAnywhereProperty)
@@ -195,14 +210,14 @@ public class StrataNavigationDrawer : ContentControl
             _drag.CanOpenFromAnywhere = CanOpenFromAnywhere;
         }
 
-        else if (change.Property == PanelWidthProperty)
+        else if (change.Property == PanelWidthProperty || change.Property == IsModalProperty)
         {
-            ApplyProgress(_progress, animate: false);
+            ResetMotionForLayout();
         }
         else if (change.Property == FlowDirectionProperty)
         {
             UpdateDirection();
-            ApplyProgress(_progress, animate: false);
+            ResetMotionForLayout();
         }
     }
 
@@ -216,17 +231,24 @@ public class StrataNavigationDrawer : ContentControl
         base.OnDetachedFromVisualTree(e);
     }
 
-    private void OnScrimPressed(object? sender, PointerPressedEventArgs e)
+    private void ResetMotionForLayout()
     {
-        IsOpen = false;
-        e.Handled = true;
+        StopSettle();
+        _drag.Cancel();
+        _dragging = false;
+        PseudoClasses.Set(":dragging", false);
+        ApplyProgress(IsOpen ? 1 : 0, animate: false);
     }
 
     private void OnDrag(object? sender, EdgeDragEventArgs e)
     {
-        StopSettle();
-        _dragging = true;
-        PseudoClasses.Set(":dragging", true);
+        if (!_dragging)
+        {
+            StopSettle();
+            _dragStartProgress = _progress;
+            _dragging = true;
+            PseudoClasses.Set(":dragging", true);
+        }
 
         var width = Math.Max(1, PanelWidth);
         ApplyProgress(Math.Clamp(_progress + e.Delta / width, 0, 1), animate: false);
@@ -235,26 +257,26 @@ public class StrataNavigationDrawer : ContentControl
 
     private void OnDragEnded(object? sender, EdgeDragEndedEventArgs e)
     {
-        _dragging = false;
-        PseudoClasses.Set(":dragging", false);
-
-        // A deliberate flick beats position: releasing at 20% while still moving right clearly
-        // means "open", and requiring the user to drag past halfway would feel unresponsive.
+        // A short deliberate stroke commits; small accidental drifts return to their starting side.
+        var distance = (_progress - _dragStartProgress) * Math.Max(1, PanelWidth);
         var open = Math.Abs(e.Velocity) > FlingVelocity
             ? e.Velocity > 0
-            : _progress >= SettleFraction;
+            : Math.Abs(distance) + 0.5 >= Math.Min(CommitDistance, PanelWidth * 0.25)
+                ? distance > 0
+                : _dragStartProgress >= SettleFraction;
 
+        // Keep the drag guard until the two-way state is written, so this starts only one settle.
+        SetCurrentValue(IsOpenProperty, open);
+        _dragging = false;
+        PseudoClasses.Set(":dragging", false);
         AnimateTo(open ? 1 : 0);
-
-        // Write back after deciding, so the property change handler does not re-drive the animation.
-        IsOpen = open;
         e.Handled = true;
     }
 
     private void AnimateTo(double target)
     {
         StopSettle();
-        if (Math.Abs(_progress - target) < 0.001)
+        if (TopLevel.GetTopLevel(this) is not { } topLevel || Math.Abs(_progress - target) < 0.001)
         {
             ApplyProgress(target, animate: false);
             return;
@@ -262,33 +284,30 @@ public class StrataNavigationDrawer : ContentControl
 
         _settleFrom = _progress;
         _settleTo = target;
-        _settleStart = DateTime.UtcNow;
+        _settleStart = Stopwatch.GetTimestamp();
+        _settleDurationMs = 80 + 100 * Math.Abs(target - _progress);
 
-        if (_settleTimer is null)
-        {
-            _settleTimer = new DispatcherTimer(DispatcherPriority.Render)
-            {
-                Interval = TimeSpan.FromMilliseconds(8)
-            };
-            _settleTimer.Tick += OnSettleTick;
-        }
-
-        _settleTimer.Start();
+        // Keep progress and its final transform in the frame being composed, not a competing timer.
+        var version = _settleVersion;
+        topLevel.RequestAnimationFrame(_ => OnSettleFrame(topLevel, version));
     }
 
-    private void OnSettleTick(object? sender, EventArgs e)
+    private void OnSettleFrame(TopLevel topLevel, int version)
     {
-        var elapsed = DateTime.UtcNow - _settleStart;
-        var t = Math.Clamp(elapsed.TotalMilliseconds / SettleDuration.TotalMilliseconds, 0, 1);
+        if (version != _settleVersion)
+            return;
+
+        var elapsed = Stopwatch.GetElapsedTime(_settleStart);
+        var t = Math.Clamp(elapsed.TotalMilliseconds / _settleDurationMs, 0, 1);
         var eased = _settleEasing.Ease(t);
 
         ApplyProgress(_settleFrom + (_settleTo - _settleFrom) * eased, animate: false);
 
-        if (t >= 1)
-            StopSettle();
+        if (t < 1)
+            topLevel.RequestAnimationFrame(_ => OnSettleFrame(topLevel, version));
     }
 
-    private void StopSettle() => _settleTimer?.Stop();
+    private void StopSettle() => _settleVersion++;
 
     private void ApplyProgress(double progress, bool animate)
     {
@@ -298,8 +317,12 @@ public class StrataNavigationDrawer : ContentControl
         {
             var width = Math.Max(1, PanelWidth);
             var direction = FlowDirection == Avalonia.Media.FlowDirection.RightToLeft ? 1 : -1;
-            _panel.RenderTransform = new TranslateTransform(direction * width * (1 - progress), 0);
-            _panel.IsVisible = progress > 0.001;
+            _panelTransform.X = direction * width * (1 - progress);
+            _panel.Opacity = progress > 0.001 ? 1 : 0;
+            _panel.IsHitTestVisible = progress > 0.001;
+            _panel.IsEnabled = progress > 0.001;
+            // Android can retain the previous composed frame when only the mutable transform changes.
+            _panel.InvalidateVisual();
         }
 
         if (_scrim is not null)
@@ -307,8 +330,8 @@ public class StrataNavigationDrawer : ContentControl
             _scrim.Opacity = ScrimOpacity * progress;
 
             // The scrim must not swallow taps meant for the conversation while it is invisible.
-            _scrim.IsVisible = progress > 0.001;
-            _scrim.IsHitTestVisible = progress > 0.5;
+            _scrim.IsVisible = IsModal && progress > 0.001;
+            _scrim.IsHitTestVisible = IsModal && progress > 0.001;
         }
 
         PseudoClasses.Set(":open", progress > 0.999);

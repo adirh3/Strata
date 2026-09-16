@@ -925,6 +925,10 @@ public class StrataModelPicker : TemplatedControl
         _ => 11
     };
 
+    /// <summary>Returns the desktop catalog's provider/group label for a model ID.</summary>
+    public static string GetModelProviderLabel(string modelId) =>
+        GetModelGroupLabel(GetModelGroup(modelId));
+
     private static string GetModelGroup(string modelId)
     {
         var lower = modelId.ToLowerInvariant();

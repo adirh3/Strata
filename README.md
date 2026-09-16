@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.18" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.27" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -50,6 +50,48 @@ Set `TouchMode="True"` and `CodeFontSize="14"` for touch-sized navigation and sc
 ```
 
 The parser/models live in `StrataTheme.Diff`; applications do not need their own copy.
+
+## Mobile composer
+
+`StrataChatComposer` with `Classes="mobile"` supports an optional `IsCompact` presentation.
+Set it only for an unfocused, empty draft, then clear it on input focus or when draft content
+is present. The layout smoothly unfolds from one row into an editor above the secondary tools;
+it does not clip or replace the editor. `LeadingContent` supplies a persistent leading action
+such as attachment, alongside the always-available Send/Stop action. Existing `ToolbarContent`
+remains the secondary tools area. Selected context and attachments stay visible in either state.
+Mobile context chips use one horizontally scrollable row so extra skills do not crowd the editor.
+Keep multiline drafts expanded when focus leaves. Native hosts should release actual input
+focus on keyboard dismissal, not merely change this presentation property.
+`IsCompact` defaults to `false`; desktop layout remains expanded.
+
+When native editor content cannot sit underneath an overlay, set `IsEditorContentVisible`
+to `false`. The composer keeps the host instance and shows the bound draft in its read-only
+Avalonia editor instead; restore the property when native input can be presented again.
+
+The transcript in `StrataChatShell` respects the standard attached
+`ScrollViewer.VerticalScrollBarVisibility` property. It defaults to `Auto`; use `Hidden`
+for a touch canvas without rails while keeping scrolling enabled.
+
+`StrataPresence.SplitToIsland(point, followFieldHeight: false)` anchors a companion light
+to both coordinates of a floating surface, such as a translucent composer. The existing
+one-argument overload keeps desktop side islands level with the main presence field.
+
+## Responsive navigation and sheets
+
+`StrataNavigationDrawer` uses one measured panel for touch tracking, button toggles and interrupted
+animations. `IsModal` defaults to `true`; set it to `false` for a docked layout that should not dim
+or block the conversation. A docked host can follow `Progress` to move and resize its conversation
+alongside the pane, keeping the released area filled during gestures and button animation.
+`CanOpenFromAnywhere` enables chat-area
+swipes while preserving vertical scrolling, editable text and consumable horizontal scrolling.
+Scrim taps dismiss on release so they do not interrupt a closing swipe.
+
+`StrataBottomSheet.SheetMargin` insets only the sheet, leaving the scrim edge-to-edge. Include
+the host's safe-area and keyboard insets in that margin instead of padding the entire overlay.
+The grip and title share a touch-sized drag surface; release either settles back or continues
+the exit from the current finger position. `IsPresented` and the bubbling `PresentationChanged`
+event keep native overlays behind the sheet until its exit finishes. A zero margin preserves
+the edge-attached layout.
 
 ## Theme Variants
 

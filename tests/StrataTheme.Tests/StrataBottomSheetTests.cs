@@ -31,7 +31,7 @@ public sealed class StrataBottomSheetTests
             var pointer = BeginDrag(handlePart, bottomSheet, fromY: 100, toY: 140);
             AssertDragTransform(sheetPart, expectedY: 40, styledTransform);
 
-            Release(handlePart, bottomSheet, pointer, new Point(10, 140), 1_030);
+            Release(handlePart, bottomSheet, pointer, new Point(10, 140), 1_300);
 
             Assert.True(bottomSheet.IsOpen);
             Assert.Null(pointer.Captured);
@@ -295,9 +295,9 @@ public sealed class StrataBottomSheetTests
     }
 
     [Fact]
-    public async Task ProductionThemeDirectDragMovesTheSheetWithoutTheSettlementTransition()
+    public async Task ProductionThemeDragAndDismissContinueFromTheFingerWithoutSnapping()
     {
-        await _fixture.Dispatch(() =>
+        await _fixture.Dispatch(async () =>
         {
             var bottomSheet = new StrataBottomSheet
             {
@@ -318,19 +318,26 @@ public sealed class StrataBottomSheetTests
             window.Show();
             bottomSheet.ApplyTemplate();
             Dispatcher.UIThread.RunJobs();
+            await Task.Delay(260);
             var (sheetPart, handlePart) = FindParts(bottomSheet);
             var motionPart = bottomSheet.GetVisualDescendants()
                 .OfType<Border>()
                 .Single(border => border.Name == "PART_SheetMotion");
-            var settlementTransform = motionPart.RenderTransform;
-
             var pointer = BeginDrag(handlePart, bottomSheet, fromY: 100, toY: 145);
 
-            var directTransform = Assert.IsType<TranslateTransform>(sheetPart.RenderTransform);
+            var directTransform = Assert.IsType<TranslateTransform>(motionPart.RenderTransform);
             Assert.Equal(45, directTransform.Y, precision: 3);
-            Assert.Same(settlementTransform, motionPart.RenderTransform);
+            Assert.Null(motionPart.Transitions);
+            Assert.Null(sheetPart.RenderTransform);
+            Move(handlePart, bottomSheet, pointer, new Point(10, 180), 1_040);
+            Assert.Same(directTransform, motionPart.RenderTransform);
+            Assert.Equal(80, directTransform.Y, precision: 3);
 
-            Release(handlePart, bottomSheet, pointer, new Point(10, 145), 2_000);
+            Release(handlePart, bottomSheet, pointer, new Point(10, 180), 2_000);
+            Assert.False(bottomSheet.IsOpen);
+            Assert.Equal(80, motionPart.RenderTransform!.Value.M32, precision: 2);
+            await Task.Delay(200);
+            Assert.Equal(0, motionPart.Opacity);
             window.Close();
         });
     }

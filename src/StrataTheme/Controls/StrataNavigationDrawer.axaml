@@ -17,11 +17,11 @@
     <ResourceDictionary>
       <ControlTheme x:Key="{x:Type controls:StrataNavigationDrawer}"
                     TargetType="controls:StrataNavigationDrawer">
+        <Setter Property="ClipToBounds" Value="True" />
         <Setter Property="Template">
           <ControlTemplate>
             <Panel>
-              <!-- Host content sits underneath and is never moved: shifting the conversation with
-                   the drawer would re-layout the transcript on every frame of the drag. -->
+              <!-- Modal content stays underneath; a docked host uses Progress for its live inset. -->
               <ContentPresenter Name="PART_ContentPresenter"
                                 Content="{TemplateBinding Content}"
                                 ContentTemplate="{TemplateBinding ContentTemplate}" />
@@ -31,13 +31,14 @@
                       Opacity="0"
                       IsVisible="False" />
 
-              <!-- Offset by RenderTransform from code-behind, so the drag costs no layout pass. -->
+              <!-- Keep the bounded panel measured while closed, so the first drag is not a layout stall. -->
               <ContentPresenter Name="PART_Panel"
                                 HorizontalAlignment="Left"
                                 Width="{TemplateBinding PanelWidth}"
                                 Content="{TemplateBinding Panel}"
                                 ContentTemplate="{TemplateBinding PanelTemplate}"
-                                IsVisible="False" />
+                                Opacity="0"
+                                IsHitTestVisible="False" />
             </Panel>
           </ControlTemplate>
         </Setter>

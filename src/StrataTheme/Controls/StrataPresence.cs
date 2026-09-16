@@ -221,6 +221,7 @@ public class StrataPresence : Panel, IDisposable
     // and re-applying focus eases the companion host toward this via its implicit Offset animation, so
     // its split travel is smooth and re-aimable without ever restarting an in-flight key-frame slide.
     private Point? _companionNorm;
+    private bool _companionFollowsFieldHeight = true;
     // Travel "gaze" surge: while resting (Idle/Dormant) there is no beacon heartbeat, so a meaningful
     // focus move would glide invisibly. We briefly bloom the focal Beacon along the glide so the eye is
     // led to the new spot — a subtle, alive "look here" that dissolves on arrival. _lastSurgeFocus tracks
@@ -1215,10 +1216,11 @@ public class StrataPresence : Panel, IDisposable
                 var (hx, hy) = PresenceGeometry.FieldOffset(fp.X, fp.Y, FieldCenterFollow, reach, w, h);
                 return new Vector3((float)(originX + hx), (float)(originY + hy), 0f);
             }
-            // Split SIDE-BY-SIDE: take the island's HORIZONTAL position, but place it at the SAME vertical
-            // level as the main field (the focus Y damped by the field-centre follow). So the light reads
-            // as one pool cleaving into two LEVEL pools, not one drifting up/down to the island's height.
-            var (cx, _) = PresenceGeometry.CompanionOffset(norm.X, 0.5, w, h);
+            // Side islands stay level with the main field by default; floating surfaces can use their
+            // own vertical anchor without changing the desktop split behavior.
+            var (cx, cy) = PresenceGeometry.CompanionOffset(norm.X, norm.Y, w, h);
+            if (!_companionFollowsFieldHeight)
+                return new Vector3((float)(originX + cx), (float)(originY + cy), 0f);
             var (_, levelY) = PresenceGeometry.FieldOffset(fp.X, fp.Y, FieldCenterFollow, reach, w, h);
             return new Vector3((float)(originX + cx), (float)(originY + levelY), 0f);
         }
@@ -1701,7 +1703,13 @@ public class StrataPresence : Panel, IDisposable
     /// Pair with <see cref="Emit"/>(Right) for the "field surges toward the seam, then a companion
     /// separates and travels into the island" gesture; close it with <see cref="Merge"/>.
     /// </summary>
-    public bool SplitToIsland(Point islandPoint)
+    public bool SplitToIsland(Point islandPoint) => SplitToIsland(islandPoint, followFieldHeight: true);
+
+    /// <summary>
+    /// Parks the companion at an island. Set <paramref name="followFieldHeight"/> false for a
+    /// vertically anchored surface such as a floating composer; side islands remain level by default.
+    /// </summary>
+    public bool SplitToIsland(Point islandPoint, bool followFieldHeight)
     {
         if (!_ready)
             return false;
@@ -1712,7 +1720,11 @@ public class StrataPresence : Panel, IDisposable
         // Hand the travel to the velocity-preserving spring (via ApplyFocus): it eases the companion host
         // from its live position AND momentum out to the island anchor (and re-aims smoothly if the island
         // later moves or another opens), sampled onto the render thread.
+        var anchorChanged = _companionNorm != islandPoint || _companionFollowsFieldHeight != followFieldHeight;
         _companionNorm = islandPoint;
+        _companionFollowsFieldHeight = followFieldHeight;
+        if (!followFieldHeight && anchorChanged)
+            InvalidateArrange();
         ApplyFocus();
 
         // Already parked at an island — this is just a re-aim, so don't re-bloom.

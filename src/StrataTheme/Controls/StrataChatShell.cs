@@ -726,6 +726,20 @@ public class StrataChatShell : TemplatedControl
             return;
 
         UpdateScrollToBottomButtonVisibility();
+        // The initial Render/Loaded landing can precede markdown measurement or a composer's
+        // height transition. Follow the resulting geometry even if Offset did not change, and
+        // do not mistake a viewport expansion's upward clamp for the reader leaving the tail.
+        // Real upward input has already left follow mode and invalidated queued generations.
+        if (IsFollowingTail
+            && (Math.Abs(e.ExtentDelta.Y) > UserScrollDeltaThreshold
+                || Math.Abs(e.ViewportDelta.Y) > UserScrollDeltaThreshold))
+        {
+            if (CurrentDistanceFromBottom > ChatScrollPolicy.FractionalEpsilon)
+                NotifyTranscriptLayoutChanged();
+            RaiseTranscriptViewportChanged();
+            return;
+        }
+
         if (_isProgrammaticScroll)
         {
             RaiseTranscriptViewportChanged();
@@ -739,13 +753,6 @@ public class StrataChatShell : TemplatedControl
         // Ignore extent-driven anchor shifts caused by streaming/layout growth.
         if (IsLikelyLayoutDrivenOffsetChange(e, offsetDeltaY))
             return;
-
-        if (IsFollowingTail && Math.Abs(e.ExtentDelta.Y) > UserScrollDeltaThreshold)
-        {
-            NotifyTranscriptLayoutChanged();
-            RaiseTranscriptViewportChanged();
-            return;
-        }
 
         MarkTranscriptScrollingActive();
         _scrollPolicy.OnUserScroll(CaptureMetrics(), e.OffsetDelta.Y);
