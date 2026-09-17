@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.29" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.30" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -43,6 +43,8 @@ Or, if published as a NuGet package:
 old/new line numbers and hunk navigation. Desktop uses TextMate grammars; Android and WebAssembly
 use native-free lexical highlighting for keywords, strings, numbers, comments and type names.
 Set `TouchMode="True"` and `CodeFontSize="14"` for touch-sized navigation and scroll-safe code.
+Touch panning clamps each axis independently, so minor finger drift at the top or bottom
+does not block horizontal scrolling through long lines.
 
 ```xml
 <sc:StrataDiffView UnifiedDiffText="{Binding DiffText}" FilePath="{Binding FilePath}"

@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sc="using:StrataTheme.Controls"
+             xmlns:gestures="using:Avalonia.Input.GestureRecognizers"
              x:Class="StrataTheme.Controls.StrataDiffView"
              x:Name="DiffRoot"
              x:CompileBindings="True">
@@ -32,7 +33,16 @@
       <!-- Diff content -->
       <ScrollViewer x:Name="DiffScroller" FlowDirection="LeftToRight"
                     HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-        <StackPanel x:Name="DiffContent" Margin="0,4" />
+        <StackPanel x:Name="DiffContent" Margin="0,4">
+          <!-- Let the viewport clamp each axis independently. The presenter's default recognizer
+               rejects a diagonal gesture when its other axis is already at a scroll boundary. -->
+          <StackPanel.GestureRecognizers>
+            <gestures:ScrollGestureRecognizer
+                CanHorizontallyScroll="{Binding #DiffRoot.TouchMode}"
+                CanVerticallyScroll="{Binding #DiffRoot.TouchMode}"
+                IsScrollInertiaEnabled="{Binding #DiffScroller.(ScrollViewer.IsScrollInertiaEnabled)}" />
+          </StackPanel.GestureRecognizers>
+        </StackPanel>
       </ScrollViewer>
     </DockPanel>
 

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Input.GestureRecognizers;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -84,6 +85,13 @@ public sealed class StrataDiffViewTests(AvaloniaFixture fixture)
                 Assert.True(next.IsEnabled);
                 next.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 Assert.Contains("/", view.FindControl<TextBlock>("ChangeCountText")!.Text);
+                var pan = Assert.Single(view.FindControl<StackPanel>("DiffContent")!
+                    .GestureRecognizers.OfType<ScrollGestureRecognizer>());
+                Assert.True(pan.CanHorizontallyScroll);
+                Assert.True(pan.CanVerticallyScroll);
+                view.TouchMode = false;
+                Assert.False(pan.CanHorizontallyScroll);
+                Assert.False(pan.CanVerticallyScroll);
             }
             finally
             {
