@@ -25,8 +25,9 @@ namespace StrataTheme.Controls;
 ///     &lt;/controls:StrataThink.Content&gt;
 /// &lt;/controls:StrataThink&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Dot (Border), PART_Pill (Border), PART_HeaderRow (StackPanel).</para>
-/// <para><b>Pseudo-classes:</b> :active.</para>
+/// <para><b>Template parts:</b> PART_Dot (Border), PART_Pill (Border), PART_HeaderRow (Grid),
+/// PART_PreviewHost (ContentPresenter).</para>
+/// <para><b>Pseudo-classes:</b> :active, :activity, :preview, :has-meta, :has-progress, :complete.</para>
 /// </remarks>
 public class StrataThink : TemplatedControl
 {
@@ -41,6 +42,7 @@ public class StrataThink : TemplatedControl
     private bool _initialWidthTransitionSuppressed;
     private bool _isUserInteractionExpand;
     private object? _displayedContent;
+    private object? _displayedPreviewContent;
 
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<StrataThink, string>(nameof(Label), "Thinking\u2026");
@@ -61,6 +63,18 @@ public class StrataThink : TemplatedControl
         AvaloniaProperty.Register<StrataThink, object?>(nameof(HeaderExtra));
 
     /// <summary>
+    /// Optional lightweight activity preview shown below the header while active and collapsed.
+    /// Supplying a preview gives the active or expanded control a responsive card layout.
+    /// Finished, collapsed controls retain the compact pill presentation.
+    /// </summary>
+    public static readonly StyledProperty<object?> PreviewContentProperty =
+        AvaloniaProperty.Register<StrataThink, object?>(nameof(PreviewContent));
+
+    public static readonly DirectProperty<StrataThink, object?> DisplayedPreviewContentProperty =
+        AvaloniaProperty.RegisterDirect<StrataThink, object?>(
+            nameof(DisplayedPreviewContent), control => control.DisplayedPreviewContent);
+
+    /// <summary>
     /// Optional progress percentage (0-100) shown as a compact progress line under the header.
     /// Set to a negative value to hide.
     /// </summary>
@@ -76,11 +90,11 @@ public class StrataThink : TemplatedControl
 
     static StrataThink()
     {
-        IsActiveProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdatePseudoClasses());
+        IsActiveProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdateActivityPresentation());
+        PreviewContentProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdateActivityPresentation());
         IsExpandedProperty.Changed.AddClassHandler<StrataThink>((t, _) =>
         {
-            t.UpdateDisplayedContent();
-            t.ApplyWidthForState();
+            t.UpdateActivityPresentation();
             t.OnIsExpandedChanged();
         });
         ContentProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdateDisplayedContent());
@@ -102,9 +116,20 @@ public class StrataThink : TemplatedControl
         private set => SetAndRaise(DisplayedContentProperty, ref _displayedContent, value);
     }
     public object? HeaderExtra { get => GetValue(HeaderExtraProperty); set => SetValue(HeaderExtraProperty, value); }
+    /// <summary>Gets or sets the compact running-activity preview; see <see cref="PreviewContentProperty"/>.</summary>
+    public object? PreviewContent { get => GetValue(PreviewContentProperty); set => SetValue(PreviewContentProperty, value); }
+    /// <summary>The preview currently hosted by the template, or null when expanded or inactive.</summary>
+    public object? DisplayedPreviewContent
+    {
+        get => _displayedPreviewContent;
+        private set => SetAndRaise(DisplayedPreviewContentProperty, ref _displayedPreviewContent, value);
+    }
     public double ProgressValue { get => GetValue(ProgressValueProperty); set => SetValue(ProgressValueProperty, value); }
     public bool IsExpanded { get => GetValue(IsExpandedProperty); set => SetValue(IsExpandedProperty, value); }
     public bool IsActive { get => GetValue(IsActiveProperty); set => SetValue(IsActiveProperty, value); }
+
+    private bool HasActivityPresentation => PreviewContent is not null && (IsActive || IsExpanded);
+    private bool UsesCardWidth => IsExpanded || HasActivityPresentation;
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -125,7 +150,7 @@ public class StrataThink : TemplatedControl
         if (_pill is not null)
             _pill.PointerPressed += OnPillPointerPressed;
 
-        if (_pill is not null && !IsExpanded)
+        if (_pill is not null && !UsesCardWidth)
         {
             // Seed with a safe compact width so first paint is never full-width.
             _pill.Width = 56;
@@ -210,7 +235,14 @@ public class StrataThink : TemplatedControl
 
     private void UpdatePseudoClasses()
     {
+        if (_headerRow is Grid { ColumnDefinitions.Count: > 2 } headerGrid)
+            headerGrid.ColumnDefinitions[2].Width = HasActivityPresentation
+                ? new GridLength(1, GridUnitType.Star)
+                : GridLength.Auto;
+
         PseudoClasses.Set(":active", IsActive);
+        PseudoClasses.Set(":activity", HasActivityPresentation);
+        PseudoClasses.Set(":preview", PreviewContent is not null && IsActive && !IsExpanded);
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Meta));
         PseudoClasses.Set(":has-progress", ProgressValue >= 0);
         PseudoClasses.Set(":complete", ProgressValue >= 99.999);
@@ -219,6 +251,14 @@ public class StrataThink : TemplatedControl
     private void UpdateDisplayedContent()
     {
         DisplayedContent = IsExpanded ? Content : null;
+        DisplayedPreviewContent = IsActive && !IsExpanded ? PreviewContent : null;
+    }
+
+    private void UpdateActivityPresentation()
+    {
+        UpdateDisplayedContent();
+        UpdatePseudoClasses();
+        ApplyWidthForState();
     }
 
     private void OnIsExpandedChanged()
@@ -248,22 +288,17 @@ public class StrataThink : TemplatedControl
     }
 
     private void OnParentSizeChanged(object? sender, SizeChangedEventArgs e)
-    {
-        if (IsExpanded)
-            ApplyExpandedWidth();
-        else
-            ApplyCollapsedWidth();
-    }
+        => ApplyWidthForState();
 
     private void OnLayoutUpdated(object? sender, EventArgs e)
     {
-        if (IsExpanded)
+        if (UsesCardWidth)
             ApplyExpandedWidth();
     }
 
     private void ApplyWidthForState()
     {
-        if (IsExpanded)
+        if (UsesCardWidth)
         {
             ApplyExpandedWidth();
             return;
@@ -274,7 +309,7 @@ public class StrataThink : TemplatedControl
 
     private void ApplyCollapsedWidth()
     {
-        if (_pill is null || _headerRow is null || IsExpanded)
+        if (_pill is null || _headerRow is null || UsesCardWidth)
             return;
 
         _headerRow.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));

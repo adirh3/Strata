@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.28" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.29" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -50,6 +50,27 @@ Set `TouchMode="True"` and `CodeFontSize="14"` for touch-sized navigation and sc
 ```
 
 The parser/models live in `StrataTheme.Diff`; applications do not need their own copy.
+
+## Running activity previews
+
+`StrataThink.PreviewContent` displays lightweight activity rows below the progress header
+while `IsActive` is true and the card is collapsed. Clicking the header or pressing Enter/Space
+replaces the preview with the full `Content`. Finishing returns a collapsed card to its compact
+pill; reasoning controls without a preview are unchanged. Preview and detail content are only
+hosted while visible. Set `MaxWidth` to bound the responsive card in a transcript column.
+
+```xml
+<sc:StrataThink Label="{Binding Label}" Meta="{Binding Meta}"
+                IsActive="{Binding IsActive}" IsExpanded="{Binding IsExpanded}"
+                ProgressValue="{Binding ProgressValue}" MaxWidth="560">
+  <sc:StrataThink.PreviewContent>
+    <ItemsControl ItemsSource="{Binding ActivityPreview}" />
+  </sc:StrataThink.PreviewContent>
+  <sc:StrataThink.Content>
+    <ItemsControl ItemsSource="{Binding AllOperations}" />
+  </sc:StrataThink.Content>
+</sc:StrataThink>
+```
 
 ## Mobile composer
 

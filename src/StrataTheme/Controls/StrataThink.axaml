@@ -32,7 +32,7 @@
                 <!-- Clickable header region — only this area toggles expand/collapse -->
                 <Border Name="PART_Header" Background="Transparent" Cursor="Hand">
                   <StackPanel Spacing="0">
-                    <Grid Name="PART_HeaderRow" ColumnDefinitions="Auto,6,Auto,8,Auto,4,Auto" VerticalAlignment="Center">
+                    <Grid Name="PART_HeaderRow" ColumnDefinitions="Auto,6,Auto,8,Auto,4,Auto,Auto" VerticalAlignment="Center">
                       <Border Name="PART_Dot"
                               Width="6" Height="6"
                               CornerRadius="3"
@@ -43,7 +43,8 @@
                           </Transitions>
                         </Border.Transitions>
                       </Border>
-                      <TextBlock Text="{TemplateBinding Label}"
+                      <TextBlock Name="PART_LabelText"
+                                 Text="{TemplateBinding Label}"
                                  Grid.Column="2"
                                  FontSize="{DynamicResource Font.SizeCaption}"
                                  FontWeight="SemiBold"
@@ -65,6 +66,20 @@
                       <ContentPresenter Grid.Column="6"
                                         Content="{TemplateBinding HeaderExtra}"
                                         VerticalAlignment="Center" />
+                      <PathIcon Name="PART_ExpandIcon"
+                                Grid.Column="7"
+                                IsVisible="False"
+                                Width="10" Height="10" Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Foreground="{DynamicResource Brush.TextTertiary}"
+                                Data="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"
+                                RenderTransformOrigin="50%,50%">
+                        <PathIcon.Transitions>
+                          <Transitions>
+                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" />
+                          </Transitions>
+                        </PathIcon.Transitions>
+                      </PathIcon>
                     </Grid>
 
                     <Border Name="PART_ProgressHost"
@@ -78,6 +93,12 @@
                     </Border>
                   </StackPanel>
                 </Border>
+
+                <ContentPresenter Name="PART_PreviewHost"
+                                  Content="{TemplateBinding DisplayedPreviewContent}"
+                                  IsVisible="False"
+                                  Margin="0,12,0,0"
+                                  HorizontalContentAlignment="Stretch" />
 
                 <!-- Content area — animated MaxHeight reveal, no inner ScrollViewer -->
                 <Border Name="PART_ContentHost"
@@ -163,6 +184,50 @@
 
         <Style Selector="^:focus-visible /template/ Border#PART_Pill">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <!-- Activity previews use a quiet card, without changing ordinary reasoning pills. -->
+        <Style Selector="^:activity /template/ Border#PART_Pill">
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface0}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+          <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
+          <Setter Property="Padding" Value="{DynamicResource Padding.Section}" />
+          <Setter Property="BoxShadow" Value="none" />
+          <Setter Property="RenderTransform" Value="none" />
+        </Style>
+        <Style Selector="^:activity /template/ Border#PART_Pill:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.Surface0}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+          <Setter Property="BoxShadow" Value="none" />
+        </Style>
+        <Style Selector="^:activity:focus-visible /template/ Border#PART_Pill">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^:activity /template/ TextBlock#PART_LabelText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+          <Setter Property="MaxWidth" Value="Infinity" />
+          <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="^:activity /template/ TextBlock#PART_MetaText">
+          <Setter Property="FontWeight" Value="Normal" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+          <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="^:activity /template/ Border#PART_ProgressHost">
+          <Setter Property="Margin" Value="0,10,0,0" />
+        </Style>
+        <Style Selector="^:activity /template/ ProgressBar#PART_Progress">
+          <Setter Property="Height" Value="2" />
+        </Style>
+        <Style Selector="^:activity /template/ PathIcon#PART_ExpandIcon">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="RenderTransform" Value="rotate(0deg)" />
+        </Style>
+        <Style Selector="^:activity[IsExpanded=True] /template/ PathIcon#PART_ExpandIcon">
+          <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+        <Style Selector="^:preview /template/ ContentPresenter#PART_PreviewHost">
+          <Setter Property="IsVisible" Value="True" />
         </Style>
       </ControlTheme>
     </ResourceDictionary>

@@ -338,6 +338,12 @@ public sealed class Strings
             ["Chat.MixedRtlLead"] = "שלום אני adir. זה משפט בדיקה ראשון כדי לוודא שהיישור פועל נכון גם כשיש מילים באנגלית באמצע. עכשיו נוסיף עוד משפט בעברית עם timestamp 09:57 ו-reference לקובץ docs/guide.md.",
             ["Chat.MixedLtrLead"] = "hello I am אדיר. This is the first verification sentence to confirm alignment stays left even when Hebrew appears inline. Next sentence adds more English context with incident IR-4471 and deployment notes.",
 
+            ["Think.Working"] = "Working\u2026",
+            ["Think.Progress"] = "1/3 done \u00b7 2 running",
+            ["Think.ReadFiles"] = "Reading project files",
+            ["Think.CheckTests"] = "Checking focused tests",
+            ["Think.Details"] = "Full operation details replace the live preview when expanded. Collapse to return to the running activity rows.",
+
             // Chat Performance
             ["ChatPerf.Title"] = "Chat Performance Lab",
             ["ChatPerf.Subtitle"] = "Automated stress benchmark for chat scrolling and streaming frame-time stability.",
@@ -656,6 +662,12 @@ public sealed class Strings
             ["Chat.MixedLtrLead"] = "hello I am אדיר. This is the first verification sentence to confirm alignment stays left even when Hebrew appears inline. Next sentence adds more English context with incident IR-4471 and deployment notes.",
 
             // Chat Performance
+            ["Think.Working"] = "עובד\u2026",
+            ["Think.Progress"] = "1/3 הושלמו \u00b7 2 בריצה",
+            ["Think.ReadFiles"] = "קורא את קובצי הפרויקט",
+            ["Think.CheckTests"] = "בודק את הבדיקות הממוקדות",
+            ["Think.Details"] = "פרטי הפעולות המלאים מחליפים את התצוגה המקדימה בעת הרחבה. צמצמו כדי לחזור לשורות הפעילות.",
+
             ["ChatPerf.Title"] = "מעבדת ביצועי צ׳אט",
             ["ChatPerf.Subtitle"] = "בדיקת עומס אוטומטית לגלילה וסטרימינג בצ׳אט עם יציבות זמני פריים.",
             ["ChatPerf.Presence"] = "מעבדת ביצועים",

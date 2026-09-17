@@ -1865,6 +1865,21 @@ async def analyze_incident(report):
                                Text="Evaluated three remediation strategies: memory uplift, GC tuning, and horizontal scaling. Selected GC tuning based on cost-efficiency and turnaround time. Confidence: 78%." />
                   </sc:StrataThink.Content>
                 </sc:StrataThink>
+                <sc:StrataThink x:Name="ActivityThinkDemo"
+                                Label="{Binding Strings[Think.Working]}"
+                                Meta="{Binding Strings[Think.Progress]}"
+                                IsActive="True" ProgressValue="33" MaxWidth="480">
+                  <sc:StrataThink.PreviewContent>
+                    <StackPanel Spacing="{DynamicResource Space.S}">
+                      <TextBlock Classes="caption" Text="{Binding Strings[Think.ReadFiles]}" />
+                      <TextBlock Classes="caption" Text="{Binding Strings[Think.CheckTests]}" />
+                    </StackPanel>
+                  </sc:StrataThink.PreviewContent>
+                  <sc:StrataThink.Content>
+                    <TextBlock Classes="secondary" TextWrapping="Wrap"
+                               Text="{Binding Strings[Think.Details]}" />
+                  </sc:StrataThink.Content>
+                </sc:StrataThink>
               </StackPanel>
             </StackPanel>
           </Border>
