@@ -113,7 +113,7 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_ActionA (Button), PART_ActionB (Button), PART_ActionC (Button),
 /// PART_ChipsRow (WrapPanel), PART_AgentChip (Border),
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
-/// PART_ProjectRemoveButton (Button), PART_AutoCompletePopup (Popup),
+/// PART_ProjectRemoveButton (Button), PART_FocusLine (Border), PART_FocusSweep (Border), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :external-editor, :editor-content-hidden, :compact,
 /// :can-attach, :can-send-without-prompt,

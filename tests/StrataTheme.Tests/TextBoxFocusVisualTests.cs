@@ -89,9 +89,14 @@ public sealed class TextBoxFocusVisualTests
             var composerAccent = composerEditor.GetVisualDescendants()
                 .OfType<Border>()
                 .Single(border => border.Name == "FocusAccentBar");
-            Assert.Equal(2, composerAccent.Height);
-            Assert.Equal(new Thickness(0), composerAccent.BorderThickness);
-            Assert.Equal(Avalonia.Layout.VerticalAlignment.Bottom, composerAccent.VerticalAlignment);
+            Assert.False(composerAccent.IsVisible);
+            var composerLine = composer.GetVisualDescendants()
+                .OfType<Border>()
+                .Single(border => border.Name == "PART_FocusLine");
+            Assert.Equal(2, composerLine.Height);
+            Assert.Equal(new Thickness(14, 0), composerLine.Margin);
+            Assert.Equal(new Thickness(0), composerLine.BorderThickness);
+            Assert.Equal(Avalonia.Layout.VerticalAlignment.Bottom, composerLine.VerticalAlignment);
 
             var messageEditor = window.GetVisualDescendants()
                 .OfType<TextBox>()

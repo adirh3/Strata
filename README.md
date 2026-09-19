@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.30" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.31" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -73,6 +73,19 @@ hosted while visible. Set `MaxWidth` to bound the responsive card in a transcrip
   </sc:StrataThink.Content>
 </sc:StrataThink>
 ```
+
+## Composer focus and entrance motion
+
+`StrataChatComposer` keeps the thin Stratum gradient under its input, without a gradient border
+around the composer. On focus, the line draws from left to right over 400 ms; a contrasting,
+feathered highlight then keeps travelling along it while focused. Motion does not change layout.
+The sweep stops when focus leaves, the composer is hidden, or it detaches. Apply
+`Classes="motion-disabled"` to show the static focus line immediately without either animation.
+
+`StrataTheme.Animation.SlideFadeEntrance.Play(host)` gives an attached, visible entrance host
+a short rise and fade without animating its layout. Call it only for newly presented content,
+not recycled history. The helper owns the host's opacity, render transform and transitions;
+use a dedicated host when content already animates those properties.
 
 ## Mobile composer
 

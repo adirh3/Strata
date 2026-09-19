@@ -142,6 +142,38 @@
                                     HorizontalAlignment="Stretch"
                                     VerticalAlignment="Stretch" />
 
+                  <Border Name="PART_FocusLine"
+                          Height="2"
+                          Margin="14,0"
+                          VerticalAlignment="Bottom"
+                          CornerRadius="1"
+                          Background="{DynamicResource Brush.StratumLine}"
+                          ClipToBounds="True"
+                          Opacity="0"
+                          RenderTransformOrigin="0%,50%"
+                          RenderTransform="scaleX(0)"
+                          IsHitTestVisible="False">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.4" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Border.Transitions>
+                    <Border Name="PART_FocusSweep"
+                            Width="160"
+                            HorizontalAlignment="Left"
+                            Opacity="0.6"
+                            IsVisible="False">
+                      <Border.Background>
+                        <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                          <GradientStop Offset="0" Color="#00FFFFFF" />
+                          <GradientStop Offset="0.5" Color="{DynamicResource Color.TextOnAccent}" />
+                          <GradientStop Offset="1" Color="#00FFFFFF" />
+                        </LinearGradientBrush>
+                      </Border.Background>
+                    </Border>
+                  </Border>
+
                   <!-- Inline autocomplete popup (anchored to TextBox via Panel) -->
                   <Popup Name="PART_AutoCompletePopup"
                          IsLightDismissEnabled="True"
@@ -445,6 +477,22 @@
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
           <Setter Property="BoxShadow" Value="0 0 0 1 #28818CF8, 0 2 8 0 #11000000" />
         </Style>
+        <Style Selector="^:focus-within /template/ Border#PART_FocusLine">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="scaleX(1)" />
+        </Style>
+        <Style Selector="^:focus-within /template/ Border#PART_FocusSweep">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="sa:LifecycleOffsetSweep.Duration" Value="0:0:2" />
+          <Setter Property="sa:LifecycleOffsetSweep.IsActive" Value="True" />
+        </Style>
+        <Style Selector="^.motion-disabled /template/ Border#PART_FocusLine">
+          <Setter Property="Transitions" Value="{x:Null}" />
+        </Style>
+        <Style Selector="^.motion-disabled /template/ Border#PART_FocusSweep">
+          <Setter Property="IsVisible" Value="False" />
+          <Setter Property="sa:LifecycleOffsetSweep.IsActive" Value="False" />
+        </Style>
 
         <!-- Send button hover/press -->
         <Style Selector="^ /template/ Button#PART_SendButton:pointerover">
@@ -656,13 +704,8 @@
     <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
   </Style>
   <Style Selector="TextBox.composer-embed /template/ Border#FocusAccentBar">
-    <Setter Property="Height" Value="2" />
-    <Setter Property="Margin" Value="14,0" />
-    <Setter Property="VerticalAlignment" Value="Bottom" />
-    <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="CornerRadius" Value="1" />
-    <Setter Property="Background" Value="{DynamicResource Brush.StratumLine}" />
-    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="IsVisible" Value="False" />
+    <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="False" />
   </Style>
 
   <Style Selector="ComboBox.composer-select /template/ Border#Border">
