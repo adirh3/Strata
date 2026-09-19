@@ -162,7 +162,7 @@
                     <Border Name="PART_FocusSweep"
                             Width="160"
                             HorizontalAlignment="Left"
-                            Opacity="0.6"
+                            Opacity="0"
                             IsVisible="False">
                       <Border.Background>
                         <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
@@ -484,14 +484,12 @@
         <Style Selector="^:focus-within /template/ Border#PART_FocusSweep">
           <Setter Property="IsVisible" Value="True" />
           <Setter Property="sa:LifecycleOffsetSweep.Duration" Value="0:0:2" />
-          <Setter Property="sa:LifecycleOffsetSweep.IsActive" Value="True" />
         </Style>
         <Style Selector="^.motion-disabled /template/ Border#PART_FocusLine">
           <Setter Property="Transitions" Value="{x:Null}" />
         </Style>
         <Style Selector="^.motion-disabled /template/ Border#PART_FocusSweep">
           <Setter Property="IsVisible" Value="False" />
-          <Setter Property="sa:LifecycleOffsetSweep.IsActive" Value="False" />
         </Style>
 
         <!-- Send button hover/press -->

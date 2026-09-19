@@ -21,6 +21,7 @@ using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using StrataTheme.Animation;
 
 namespace StrataTheme.Controls;
 
@@ -123,6 +124,10 @@ public class FileSelectedEventArgs : EventArgs
 public class StrataChatComposer : TemplatedControl
 {
     private TextBox? _input;
+    private Border? _focusSweep;
+    private readonly EffectiveVisibilityObserver _focusSweepVisibility;
+    private IDisposable? _focusSweepTimer;
+    private bool _focusSweepPlayed;
     private Button? _sendButton;
     private WrapPanel? _chipsRow;
     private Popup? _autoCompletePopup;
@@ -569,6 +574,8 @@ public class StrataChatComposer : TemplatedControl
 
     static StrataChatComposer()
     {
+        IsKeyboardFocusWithinProperty.Changed.AddClassHandler<StrataChatComposer>(
+            static (c, _) => c.UpdateFocusSweep());
         PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, e) =>
         {
             // Clamp selection to new text length to prevent Avalonia crash in
@@ -649,6 +656,9 @@ public class StrataChatComposer : TemplatedControl
 
     public StrataChatComposer()
     {
+        _focusSweepVisibility = new EffectiveVisibilityObserver(this, UpdateFocusSweep);
+        Classes.CollectionChanged += (_, _) => UpdateFocusSweep();
+
         if (Models is null)
             Models = DefaultModels;
 
@@ -776,11 +786,17 @@ public class StrataChatComposer : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _focusSweepVisibility.Subscribe();
         OnAvailableFilesChanged();
+        UpdateFocusSweep();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _focusSweepVisibility.Unsubscribe();
+        StopFocusSweep();
+        _focusSweepPlayed = false;
+
         if (_input is not null)
         {
             _input.RemoveHandler(KeyDownEvent, OnInputKeyDown);
@@ -818,6 +834,9 @@ public class StrataChatComposer : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        StopFocusSweep();
+        _focusSweepPlayed = false;
+
         if (_input is not null)
         {
             _input.RemoveHandler(KeyDownEvent, OnInputKeyDown);
@@ -828,6 +847,7 @@ public class StrataChatComposer : TemplatedControl
 
         base.OnApplyTemplate(e);
         _input = e.NameScope.Find<TextBox>("PART_Input");
+        _focusSweep = e.NameScope.Find<Border>("PART_FocusSweep");
         _sendButton = e.NameScope.Find<Button>("PART_SendButton");
         if (_input is not null)
         {
@@ -902,6 +922,58 @@ public class StrataChatComposer : TemplatedControl
         _hadSuggestions = HasAnySuggestions();
         EnsureSelectedValues();
         Sync();
+        UpdateFocusSweep();
+    }
+
+    private bool CanAnimateFocusSweep =>
+        _focusSweep is not null
+        && this.IsAttachedToVisualTree()
+        && IsEffectivelyVisible
+        && IsKeyboardFocusWithin
+        && !Classes.Contains("motion-disabled");
+
+    private void UpdateFocusSweep()
+    {
+        if (!CanAnimateFocusSweep)
+        {
+            StopFocusSweep();
+            _focusSweepPlayed = false;
+            return;
+        }
+
+        if (_focusSweepPlayed)
+            return;
+
+        _focusSweepPlayed = true;
+        // Match the focus line's draw transition before starting the highlight.
+        _focusSweepTimer = DispatcherTimer.RunOnce(
+            StartFocusSweep, TimeSpan.FromMilliseconds(400), DispatcherPriority.Render);
+    }
+
+    private void StartFocusSweep()
+    {
+        _focusSweepTimer = null;
+        if (!CanAnimateFocusSweep || _focusSweep is not { } sweep)
+        {
+            UpdateFocusSweep();
+            return;
+        }
+
+        sweep.SetCurrentValue(OpacityProperty, 0.6d);
+        LifecycleOffsetSweep.SetIsActive(sweep, true);
+        _focusSweepTimer = DispatcherTimer.RunOnce(
+            StopFocusSweep, LifecycleOffsetSweep.GetDuration(sweep), DispatcherPriority.Render);
+    }
+
+    private void StopFocusSweep()
+    {
+        _focusSweepTimer?.Dispose();
+        _focusSweepTimer = null;
+        if (_focusSweep is not { } sweep)
+            return;
+
+        sweep.SetCurrentValue(OpacityProperty, 0d);
+        LifecycleOffsetSweep.SetIsActive(sweep, false);
     }
 
     /// <summary>
