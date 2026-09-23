@@ -33,7 +33,7 @@
               </StackPanel>
 
               <!-- Read mode: content + side action bar -->
-              <Grid Name="PART_BubbleRow" ColumnDefinitions="Auto,*,Auto">
+              <Grid Name="PART_BubbleRow" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto">
                 <Border Name="PART_Bubble"
                         Grid.Column="1"
                         Background="Transparent"

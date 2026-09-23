@@ -25,7 +25,6 @@
                       BorderThickness="1"
                       CornerRadius="8"
                       ClipToBounds="True"
-                      Cursor="Hand"
                       RenderTransformOrigin="0.5,0.5"
                       RenderTransform="scale(1)">
                 <Border.Transitions>
@@ -81,19 +80,45 @@
                                    TextTrimming="CharacterEllipsis" />
                       </StackPanel>
 
-                      <!-- Status pill -->
-                      <Border Name="PART_StatusPill"
-                              Grid.Column="4"
-                              Padding="7,2"
-                              CornerRadius="999"
-                              Background="{DynamicResource Brush.AccentSubtle}"
-                              VerticalAlignment="Center"
-                              IsVisible="False">
-                        <TextBlock Name="PART_StatusLabel"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brush.AccentDefault}" />
-                      </Border>
+                      <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                  Spacing="{DynamicResource Space.XS}" VerticalAlignment="Center">
+                        <!-- Status pill -->
+                        <Border Name="PART_StatusPill"
+                                Padding="7,2"
+                                CornerRadius="999"
+                                Background="{DynamicResource Brush.AccentSubtle}"
+                                VerticalAlignment="Center"
+                                IsVisible="False">
+                          <TextBlock Name="PART_StatusLabel"
+                                     FontSize="10"
+                                     FontWeight="SemiBold"
+                                     Foreground="{DynamicResource Brush.AccentDefault}" />
+                        </Border>
+                        <Button Name="PART_CopyButton" Classes="subtle"
+                                IsVisible="{TemplateBinding CanCopy}"
+                                ToolTip.Tip="{TemplateBinding CopyLabel}"
+                                AutomationProperties.Name="{TemplateBinding CopyLabel}"
+                                Width="{DynamicResource Size.ControlHeightS}"
+                                MinHeight="{DynamicResource Size.ControlHeightS}"
+                                Padding="0">
+                          <Path Width="{DynamicResource Size.IconS}" Height="{DynamicResource Size.IconS}"
+                                Stretch="Uniform" Stroke="{DynamicResource Brush.TextSecondary}"
+                                StrokeThickness="1.5"
+                                Data="M5,4 H13 V14 H5 Z M3,10 H1 V1 H10 V2" />
+                        </Button>
+                        <Button Name="PART_ExpandButton" Classes="subtle"
+                                ToolTip.Tip="Toggle card details"
+                                AutomationProperties.Name="Toggle card details"
+                                Width="{DynamicResource Size.ControlHeightS}"
+                                MinHeight="{DynamicResource Size.ControlHeightS}"
+                                Padding="0">
+                          <Path Name="PART_Chevron"
+                                Width="{DynamicResource Size.IconS}" Height="{DynamicResource Size.IconS}"
+                                Stretch="Uniform" Stroke="{DynamicResource Brush.TextSecondary}"
+                                StrokeThickness="1.5" Data="M1,3 L6,8 L11,3"
+                                RenderTransformOrigin="0.5,0.5" />
+                        </Button>
+                      </StackPanel>
                     </Grid>
                   </Border>
 
@@ -155,6 +180,15 @@
         </Style>
         <Style Selector="^:expanded /template/ Border#PART_Stratum">
           <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:expanded /template/ Path#PART_Chevron">
+          <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+        <Style Selector="^:has-detail /template/ Border#PART_Header">
+          <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="^:not(:has-detail) /template/ Button#PART_ExpandButton">
+          <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:expanded /template/ Border#PART_SummaryHost">
           <Setter Property="Opacity" Value="0" />
