@@ -139,4 +139,35 @@
     <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
   </Style>
 
+  <!-- Line focus: the composer's Strata line in place of the outline and halo. The field keeps its
+       resting surface, and focus draws one gradient line along its bottom edge, growing from the
+       leading edge. For search boxes and fields that sit on their own surface. -->
+  <Style Selector="TextBox.line-focus:pointerover /template/ Border#PART_Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+  </Style>
+  <Style Selector="TextBox.line-focus:focus-within /template/ Border#PART_Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+  <Style Selector="TextBox.line-focus /template/ Border#FocusAccentBar">
+    <Setter Property="Height" Value="2" />
+    <Setter Property="Margin" Value="12,0" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+    <Setter Property="CornerRadius" Value="1" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="{DynamicResource Brush.StratumLine}" />
+    <Setter Property="RenderTransformOrigin" Value="0%,50%" />
+    <Setter Property="RenderTransform" Value="scaleX(0)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.4" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TextBox.line-focus:focus-within /template/ Border#FocusAccentBar">
+    <Setter Property="RenderTransform" Value="scaleX(1)" />
+    <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="False" />
+  </Style>
+
 </Styles>

@@ -16,13 +16,15 @@ public static class SlideFadeEntrance
     /// <summary>
     /// Plays a short rise and fade on a host whose opacity, transform and transitions are owned
     /// by the entrance. Repeated calls replace the previous motion; detaching leaves the final state.
+    /// A <paramref name="delay"/> holds the host hidden first, so a group of hosts can cascade in.
     /// </summary>
-    public static void Play(Control host, double offsetY = 12, TimeSpan? duration = null)
+    public static void Play(Control host, double offsetY = 12, TimeSpan? duration = null, TimeSpan? delay = null)
     {
         if (!host.IsAttachedToVisualTree() || !host.IsEffectivelyVisible)
             return;
 
         var motionDuration = duration ?? TimeSpan.FromMilliseconds(260);
+        var motionDelay = delay ?? TimeSpan.Zero;
         host.Transitions = null;
         host.SetCurrentValue(Visual.OpacityProperty, 0d);
         host.SetCurrentValue(Visual.RenderTransformProperty,
@@ -34,12 +36,14 @@ public static class SlideFadeEntrance
             {
                 Property = Visual.OpacityProperty,
                 Duration = motionDuration * 0.7,
+                Delay = motionDelay,
                 Easing = new CubicEaseOut(),
             },
             new TransformOperationsTransition
             {
                 Property = Visual.RenderTransformProperty,
                 Duration = motionDuration,
+                Delay = motionDelay,
                 Easing = new CubicEaseOut(),
             },
         };
