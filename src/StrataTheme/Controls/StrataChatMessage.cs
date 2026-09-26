@@ -175,6 +175,10 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<bool> IsEditableProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsEditable), true);
 
+    /// <summary>Whether the Retry button is available for assistant and tool messages.</summary>
+    public static readonly StyledProperty<bool> CanRegenerateProperty =
+        AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(CanRegenerate), true);
+
     /// <summary>Whether the message is currently in inline-edit mode.</summary>
     public static readonly StyledProperty<bool> IsEditingProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsEditing));
@@ -280,6 +284,7 @@ public class StrataChatMessage : TemplatedControl
         IsStreamingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStreamingChanged());
         IsEditingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditingChanged());
         IsEditableProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditableChanged());
+        CanRegenerateProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.UpdateActionBarLayout());
         IsHostScrollingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnHostScrollingChanged());
         AuthorProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnMetaChanged());
         TimestampProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnMetaChanged());
@@ -323,6 +328,7 @@ public class StrataChatMessage : TemplatedControl
     public object? Content { get => GetValue(ContentProperty); set => SetValue(ContentProperty, value); }
     public bool IsStreaming { get => GetValue(IsStreamingProperty); set => SetValue(IsStreamingProperty, value); }
     public bool IsEditable { get => GetValue(IsEditableProperty); set => SetValue(IsEditableProperty, value); }
+    public bool CanRegenerate { get => GetValue(CanRegenerateProperty); set => SetValue(CanRegenerateProperty, value); }
     public bool IsEditing { get => GetValue(IsEditingProperty); set => SetValue(IsEditingProperty, value); }
     public bool UseInlineEdit { get => GetValue(UseInlineEditProperty); set => SetValue(UseInlineEditProperty, value); }
     public string? EditText { get => GetValue(EditTextProperty); set => SetValue(EditTextProperty, value); }
@@ -583,7 +589,8 @@ public class StrataChatMessage : TemplatedControl
     {
         base.OnKeyDown(e);
 
-        if (e.Key == Key.C && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        var commandModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        if (!e.Handled && e.Key == Key.C && e.KeyModifiers == commandModifier)
         {
             e.Handled = true;
             var copy = await CopyMessageTextAsync(StrataCopyFormat.Text);
@@ -1326,7 +1333,8 @@ public class StrataChatMessage : TemplatedControl
     {
         var canShowActions = !IsEditing && !IsHostScrolling && Role != StrataChatRole.System;
         var showEdit = canShowActions && IsEditable;
-        var showRetry = canShowActions && !IsStreaming && Role is StrataChatRole.Assistant or StrataChatRole.Tool;
+        var showRetry = canShowActions && CanRegenerate && !IsStreaming &&
+                        Role is StrataChatRole.Assistant or StrataChatRole.Tool;
 
         // Skip DOM updates when values haven't changed
         if (!force && showEdit == _cachedEditVisible && showRetry == _cachedRetryVisible)

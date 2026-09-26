@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.32" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.33" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -73,6 +73,19 @@ hosted while visible. Set `MaxWidth` to bound the responsive card in a transcrip
   </sc:StrataThink.Content>
 </sc:StrataThink>
 ```
+
+## Selectable chat cards
+
+Markdown `card` blocks have selectable titles and an always-visible **Copy card** action.
+Copy includes the title, summary and details, including collapsed details, without the JSON
+wrapper; inline Markdown and link destinations are preserved. General `StrataCard` controls
+can opt in with `CanCopy="True"` and localize the tooltip/accessibility name with `CopyLabel`.
+Only the header background or chevron toggles details, so selecting text or following a link
+does not expand or collapse the card. The card and chevron support Enter/Space.
+Chat-message copy uses Cmd+C on macOS and Ctrl+C elsewhere, without replacing a text control's
+handled selection-copy action. Existing Markdown/rich-text copy formats are unchanged.
+Hosts without a retry action can set `StrataChatMessage.CanRegenerate="False"`; it defaults
+to `True` to preserve existing toolbars.
 
 ## Composer focus and entrance motion
 

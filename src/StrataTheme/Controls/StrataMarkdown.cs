@@ -3066,11 +3066,12 @@ public partial class StrataMarkdown : ContentControl
             var ctrl = new StrataCard
             {
                 Margin = new Thickness(0, 4, 0, 4),
+                CanCopy = true,
             };
 
             if (!string.IsNullOrWhiteSpace(header))
             {
-                ctrl.Header = new TextBlock
+                ctrl.Header = new SelectableTextBlock
                 {
                     Text = header,
                     FontWeight = FontWeight.SemiBold,
