@@ -63,6 +63,16 @@
                     </DockPanel>
                   </Border>
 
+                  <!-- Pinned footer (actions) — only shown when DialogFooter is set -->
+                  <Border Name="PART_Footer"
+                          DockPanel.Dock="Bottom"
+                          Padding="20,12,20,14"
+                          BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                          BorderThickness="0,1,0,0"
+                          IsVisible="{TemplateBinding DialogFooter, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <ContentPresenter Content="{TemplateBinding DialogFooter}" />
+                  </Border>
+
                   <!-- Content area with scroll -->
                   <ScrollViewer VerticalScrollBarVisibility="Auto"
                                 HorizontalScrollBarVisibility="Disabled">
