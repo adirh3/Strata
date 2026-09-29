@@ -8,6 +8,8 @@
        Text-first message layout with inline edit support.
        Hover shows Copy | Edit | Retry toolbar.
        Edit mode swaps content for a TextBox with Save/Cancel.
+       CanReply adds a hover Reply action beside the meta row, a Reply
+       context-menu item, and a floating Reply pill over selected text.
        ═══════════════════════════════════════════════════════════════ -->
 
   <Styles.Resources>
@@ -30,6 +32,34 @@
                 <TextBlock Text="{TemplateBinding Timestamp}"
                            FontSize="11"
                            Foreground="{DynamicResource Brush.TextTertiary}" />
+                <!-- Reply affordance (hosts opt in with CanReply). Negative margins keep the row height
+                     unchanged, so revealing it never shifts the message. -->
+                <Button Name="PART_ReplyButton"
+                        Classes="subtle strata-message-reply"
+                        IsVisible="False"
+                        Opacity="0"
+                        IsHitTestVisible="False"
+                        Margin="2,-3,0,-3"
+                        Padding="6,1,7,1"
+                        MinHeight="0"
+                        MinWidth="0"
+                        CornerRadius="{DynamicResource Radius.Full}"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="{TemplateBinding ReplyLabel}">
+                  <Button.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.15" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Button.Transitions>
+                  <StackPanel Orientation="Horizontal" Spacing="4">
+                    <PathIcon Width="10" Height="10"
+                              VerticalAlignment="Center"
+                              Data="{x:Static controls:StrataChatMessage.ReplyIconGeometry}" />
+                    <TextBlock Text="{TemplateBinding ReplyLabel}"
+                               FontSize="11"
+                               VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
               </StackPanel>
 
               <!-- Read mode: content + side action bar -->
@@ -218,6 +248,32 @@
         <Style Selector="^:has-meta /template/ StackPanel#PART_MetaRow">
           <Setter Property="IsVisible" Value="True" />
         </Style>
+
+        <!-- ══ Reply affordance ══
+             Mounted only for messages that can be replied to; revealed on hover/focus and pinned
+             (accented) while the host composes a reply to this message. -->
+        <Style Selector="^:can-reply /template/ Button#PART_ReplyButton">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:can-reply:pointerover /template/ Button#PART_ReplyButton">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="^:can-reply:focus-within /template/ Button#PART_ReplyButton">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="^:can-reply:reply-source /template/ Button#PART_ReplyButton">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="^:can-reply:host-scrolling /template/ Button#PART_ReplyButton">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="^:can-reply:editing /template/ Button#PART_ReplyButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
         <Style Selector="^:assistant:has-status /template/ DockPanel#PART_FooterRow">
           <Setter Property="IsVisible" Value="True" />
         </Style>
@@ -379,6 +435,66 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
+  </Style>
+
+  <!-- Message reply affordance: quiet at rest, accent on hover and while this message is the reply target. -->
+  <Style Selector="Button.strata-message-reply PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="Button.strata-message-reply TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="Button.strata-message-reply:pointerover PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="Button.strata-message-reply:pointerover TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataChatMessage:reply-source /template/ Button.strata-message-reply PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataChatMessage:reply-source /template/ Button.strata-message-reply TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataChatMessage:reply-source /template/ Button.strata-message-reply /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+
+  <!-- Floating "Reply" pill shown above a text selection inside a repliable message. An accent pill,
+       so it reads as the invitation to act on the selection rather than as a passive tooltip. -->
+  <Style Selector="Button.strata-selection-reply">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Full}" />
+    <Setter Property="Padding" Value="10,5,12,5" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.strata-selection-reply /template/ Border#PART_Surface">
+    <Setter Property="BoxShadow" Value="0 6 18 0 #33000000, 0 1 3 0 #22000000" />
+  </Style>
+  <Style Selector="Button.strata-selection-reply /template/ Border#PART_Aurora">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="Button.strata-selection-reply:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BoxShadow" Value="0 8 22 0 #3D000000, 0 1 3 0 #22000000" />
+  </Style>
+  <Style Selector="Button.strata-selection-reply:pressed /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientPressed}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.strata-selection-reply PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+  </Style>
+  <Style Selector="Button.strata-selection-reply TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
 </Styles>

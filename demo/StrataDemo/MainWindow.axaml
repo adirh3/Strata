@@ -1429,11 +1429,14 @@
                                    Text="{Binding Strings[Chat.ShellUser]}" />
                       </sc:StrataChatMessage.Content>
                     </sc:StrataChatMessage>
-                    <sc:StrataChatMessage Role="Assistant" Author="Strata" Timestamp="09:49" StatusText="grounded">
+                    <sc:StrataChatMessage Role="Assistant" Author="Strata" Timestamp="09:49" StatusText="grounded"
+                                          CanReply="True"
+                                          ReplyLabel="{Binding Strings[Chat.Reply]}"
+                                          ReplySelectionLabel="{Binding Strings[Chat.ReplyToSelection]}">
                       <sc:StrataChatMessage.Content>
-                        <TextBlock TextWrapping="Wrap" FontSize="13"
-                                   Foreground="{DynamicResource Brush.TextPrimary}"
-                                   Text="{Binding Strings[Chat.ShellAssistant]}" />
+                        <SelectableTextBlock TextWrapping="Wrap" FontSize="13"
+                                             Foreground="{DynamicResource Brush.TextPrimary}"
+                                             Text="{Binding Strings[Chat.ShellAssistant]}" />
                       </sc:StrataChatMessage.Content>
                     </sc:StrataChatMessage>
                     <sc:StrataTypingIndicator IsActive="True" Label="{Binding Strings[Chat.ShellTyping]}" />

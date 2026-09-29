@@ -1,9 +1,12 @@
 using System.Reflection;
 using System.Windows.Input;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -287,6 +290,231 @@ public class StrataChatMessageTests
         Assert.Equal(StrataCopyFormat.RichText, args.Format);
     }
 
+    [Fact]
+    public async Task RebuildContextMenuItems_CanReplyOffersReplyFirst_ForTheWholeMessage()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var menu = new ContextMenu();
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.Assistant,
+                CanReply = true,
+                Content = new SelectableTextBlock { Text = "Whole message text" }
+            };
+            StrataReplyRequestedEventArgs? request = null;
+            message.ReplyRequested += (_, args) => request = args;
+            SetPrivateField(message, "_contextMenu", menu);
+
+            InvokePrivate(message, "RebuildContextMenuItems");
+
+            var items = Assert.IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource).ToArray();
+            var reply = Assert.IsType<MenuItem>(items[0]);
+            Assert.Equal("Reply", reply.Header?.ToString());
+            Assert.IsType<Separator>(items[1]);
+
+            reply.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+
+            Assert.NotNull(request);
+            Assert.False(request!.IsSelection);
+            Assert.Equal("Whole message text", request.Text);
+            Assert.Same(message, request.Source);
+        });
+    }
+
+    [Fact]
+    public async Task RebuildContextMenuItems_CanReplyWithSelection_RepliesToTheSelection()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var menu = new ContextMenu();
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.Assistant,
+                CanReply = true,
+                ReplySelectionLabel = "Ask about this",
+                Content = new SelectableTextBlock { Text = "Whole message text" }
+            };
+            StrataReplyRequestedEventArgs? request = null;
+            message.ReplyRequested += (_, args) => request = args;
+            SetPrivateField(message, "_contextMenu", menu);
+            SetPrivateField(message, "_contextMenuSelectionText", "message");
+
+            InvokePrivate(message, "RebuildContextMenuItems");
+
+            var reply = Assert.IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource).OfType<MenuItem>().First();
+            Assert.Equal("Ask about this", reply.Header?.ToString());
+
+            reply.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+
+            Assert.NotNull(request);
+            Assert.True(request!.IsSelection);
+            Assert.Equal("message", request.Text);
+        });
+    }
+
+    [Fact]
+    public async Task RebuildContextMenuItems_WithoutCanReply_OffersNoReply()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var menu = new ContextMenu();
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.Assistant,
+                Content = new SelectableTextBlock { Text = "Whole message text" }
+            };
+            SetPrivateField(message, "_contextMenu", menu);
+
+            InvokePrivate(message, "RebuildContextMenuItems");
+
+            var headers = Assert
+                .IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource)
+                .OfType<MenuItem>()
+                .Select(static item => item.Header?.ToString())
+                .ToArray();
+            Assert.DoesNotContain("Reply", headers);
+            Assert.DoesNotContain("Reply to selection", headers);
+        });
+    }
+
+    [Fact]
+    public async Task ReplyButton_RaisesAWholeMessageReply()
+    {
+        var request = await _fixture.Dispatch(() =>
+        {
+            var message = new StrataChatMessage
+            {
+                Template = BuildChatMessageTemplate(),
+                Role = StrataChatRole.Assistant,
+                CanReply = true,
+                Content = new TextBlock { Text = "Answer" }
+            };
+            StrataReplyRequestedEventArgs? raised = null;
+            message.ReplyRequested += (_, args) => raised = args;
+            var window = new Window { Width = 420, Height = 260, Content = message };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Click(FindButton(message, "PART_ReplyButton"));
+
+            window.Close();
+            return raised;
+        });
+
+        Assert.NotNull(request);
+        Assert.False(request!.IsSelection);
+        Assert.Equal("Answer", request.Text);
+    }
+
+    /// <summary>
+    /// A message that cannot be replied to shows no Reply affordance and never floats the selection
+    /// pill: selecting its text stays plain text selection. (Opening the pill needs a popup host this
+    /// headless app lacks, so select, press and dismiss are covered through the real view by Lumi's
+    /// headless ChatView tests.)
+    /// </summary>
+    [Fact]
+    public async Task SelectingText_WithoutCanReply_OffersNoReplyAffordance()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var (window, message, text) = ShowSelectableMessage("Hello brave new world", canReply: false);
+            Assert.False(FindButton(message, "PART_ReplyButton").IsVisible);
+
+            DragSelect(window, text, from: 6, to: 11);
+
+            Assert.Equal("brave", text.SelectedText);
+            Assert.Null(SelectionReplyPopup(message));
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task CanReply_RevealsTheReplyActionInTheRealTemplate()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var (window, message, _) = ShowSelectableMessage("Hello", canReply: true);
+
+            Assert.True(FindButton(message, "PART_ReplyButton").IsVisible);
+            Assert.Contains(":can-reply", message.Classes);
+
+            message.IsReplySource = true;
+            Assert.Contains(":reply-source", message.Classes);
+            window.Close();
+        });
+    }
+
+    private static (Window Window, StrataChatMessage Message, SelectableTextBlock Text) ShowSelectableMessage(
+        string content,
+        bool canReply)
+    {
+        var text = new SelectableTextBlock { Text = content, FontSize = 16 };
+        var message = new StrataChatMessage
+        {
+            Role = StrataChatRole.Assistant,
+            Author = "Strata",
+            CanReply = canReply,
+            Content = text
+        };
+        // The real theme, so the message gets its actual template. Styles go in before the content
+        // so the control theme resolves when the message attaches.
+        var window = new Window { Width = 480, Height = 240 };
+        window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+        {
+            Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+        });
+        window.Content = message;
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        message.ApplyTemplate();
+        Dispatcher.UIThread.RunJobs();
+        return (window, message, text);
+    }
+
+    private static void DragSelect(Window window, SelectableTextBlock text, int from, int to)
+    {
+        Point PointAt(int index)
+        {
+            var caret = text.TextLayout.HitTestTextPosition(index);
+            return text.TranslatePoint(new Point(caret.X + 0.5, caret.Center.Y), window)!.Value;
+        }
+
+        var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        text.RaiseEvent(new PointerPressedEventArgs(
+            text,
+            pointer,
+            window,
+            PointAt(from),
+            0,
+            new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed),
+            KeyModifiers.None));
+        text.RaiseEvent(new PointerEventArgs(
+            InputElement.PointerMovedEvent,
+            text,
+            pointer,
+            window,
+            PointAt(to),
+            1,
+            new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.Other),
+            KeyModifiers.None));
+        text.RaiseEvent(new PointerReleasedEventArgs(
+            text,
+            pointer,
+            window,
+            PointAt(to),
+            2,
+            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+            KeyModifiers.None,
+            MouseButton.Left));
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    private static Popup? SelectionReplyPopup(StrataChatMessage message) =>
+        typeof(StrataChatMessage)
+            .GetField("_selectionReplyPopup", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(message) as Popup;
+
     [Theory]
     [InlineData("Copy as Markdown", StrataCopyFormat.Markdown)]
     [InlineData("Copy as rich text", StrataCopyFormat.RichText)]
@@ -515,6 +743,7 @@ public class StrataChatMessageTests
             var cancelButton = new Button { Name = "PART_CancelButton" };
             var editSeparator = new Border { Name = "PART_EditSep" };
             var regenerateSeparator = new Border { Name = "PART_RegenerateSep" };
+            var replyButton = new Button { Name = "PART_ReplyButton" };
 
             actionLayer.Child = new StackPanel
             {
@@ -551,11 +780,13 @@ public class StrataChatMessageTests
             scope.Register("PART_CancelButton", cancelButton);
             scope.Register("PART_EditSep", editSeparator);
             scope.Register("PART_RegenerateSep", regenerateSeparator);
+            scope.Register("PART_ReplyButton", replyButton);
 
             return new StackPanel
             {
                 Children =
                 {
+                    replyButton,
                     streamBar,
                     bubble,
                     actionLayer,
