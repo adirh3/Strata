@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 
 namespace StrataTheme.Controls;
 
@@ -41,12 +42,18 @@ public enum StrataCardStatus
 /// </code>
 /// <para><b>Template parts:</b> PART_Root (Border), PART_FocusRing (Border),
 /// PART_Stratum (Border), PART_StatusDot (Border), PART_StatusPill (Border),
-/// PART_Detail (Border).</para>
-/// <para><b>Pseudo-classes:</b> :expanded, :info, :success, :warning, :error, :has-footer.</para>
+/// PART_Detail (Border), PART_Header (Border), PART_ExpandButton (Button),
+/// PART_CopyButton (Button).</para>
+/// <para><b>Pseudo-classes:</b> :expanded, :info, :success, :warning, :error, :has-footer, :has-detail.</para>
+/// <para>Only the header and disclosure button toggle details; content remains selectable.
+/// Set <see cref="CanCopy"/> to offer an always-visible copy action.</para>
 /// </remarks>
 public class StrataCard : TemplatedControl
 {
-    private readonly TapReleaseHandler _tapHandler;
+    private TapReleaseHandler? _tapHandler;
+    private Button? _copyButton;
+    private Button? _expandButton;
+
     public static readonly StyledProperty<object?> HeaderProperty =
         AvaloniaProperty.Register<StrataCard, object?>(nameof(Header));
 
@@ -71,11 +78,20 @@ public class StrataCard : TemplatedControl
     public static readonly StyledProperty<string?> StatusTextProperty =
         AvaloniaProperty.Register<StrataCard, string?>(nameof(StatusText));
 
+    /// <summary>Enables the header's copy action. Defaults to false.</summary>
+    public static readonly StyledProperty<bool> CanCopyProperty =
+        AvaloniaProperty.Register<StrataCard, bool>(nameof(CanCopy));
+
+    /// <summary>Localizable tooltip and accessible name for the copy action.</summary>
+    public static readonly StyledProperty<string> CopyLabelProperty =
+        AvaloniaProperty.Register<StrataCard, string>(nameof(CopyLabel), "Copy card");
+
     static StrataCard()
     {
         IsExpandedProperty.Changed.AddClassHandler<StrataCard>((c, _) => c.UpdatePseudoClasses());
         StatusProperty.Changed.AddClassHandler<StrataCard>((c, _) => c.UpdatePseudoClasses());
         FooterProperty.Changed.AddClassHandler<StrataCard>((c, _) => c.UpdatePseudoClasses());
+        DetailProperty.Changed.AddClassHandler<StrataCard>((c, _) => c.UpdatePseudoClasses());
     }
 
     /// <summary>Gets or sets the header content (title).</summary>
@@ -102,25 +118,68 @@ public class StrataCard : TemplatedControl
     /// <summary>Gets or sets the label shown in the status pill badge.</summary>
     public string? StatusText { get => GetValue(StatusTextProperty); set => SetValue(StatusTextProperty, value); }
 
+    /// <summary>Gets or sets whether a persistent copy button appears in the header.</summary>
+    public bool CanCopy { get => GetValue(CanCopyProperty); set => SetValue(CanCopyProperty, value); }
+
+    /// <summary>Gets or sets the copy button's tooltip and accessible name.</summary>
+    public string CopyLabel { get => GetValue(CopyLabelProperty); set => SetValue(CopyLabelProperty, value); }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        _tapHandler?.Dispose();
+        _tapHandler = null;
+        if (_copyButton is not null) _copyButton.Click -= OnCopyClick;
+        if (_expandButton is not null) _expandButton.Click -= OnExpandClick;
+
         base.OnApplyTemplate(e);
+        if (e.NameScope.Find<Border>("PART_Header") is { } header)
+            _tapHandler = new TapReleaseHandler(header, ToggleDetails);
+
+        _copyButton = e.NameScope.Find<Button>("PART_CopyButton");
+        _expandButton = e.NameScope.Find<Button>("PART_ExpandButton");
+        if (_copyButton is not null) _copyButton.Click += OnCopyClick;
+        if (_expandButton is not null) _expandButton.Click += OnExpandClick;
+
         SyncStatusLabel(e);
         UpdatePseudoClasses();
     }
 
-    public StrataCard()
+    private bool HasDetails => Detail is not null || Footer is not null;
+
+    private void ToggleDetails()
     {
-        _tapHandler = new TapReleaseHandler(this, () => SetCurrentValue(IsExpandedProperty, !IsExpanded));
+        if (HasDetails)
+            SetCurrentValue(IsExpandedProperty, !IsExpanded);
+    }
+
+    private void OnExpandClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        ToggleDetails();
+    }
+
+    private async void OnCopyClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (!CanCopy || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+            return;
+
+        // Read the content properties, including collapsed details, rather than template chrome.
+        // Markdown children retain their source formatting and link destinations.
+        var text = ChatContentExtractor.ExtractText(new[] { Header, Subtitle, Summary, Detail, Footer }).Trim();
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        await clipboard.SetDataAsync(ChatClipboardData.CreateText(text));
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key is Key.Enter or Key.Space)
+        if (!e.Handled && ReferenceEquals(e.Source, this) && HasDetails && e.Key is Key.Enter or Key.Space)
         {
             e.Handled = true;
-            SetCurrentValue(IsExpandedProperty, !IsExpanded);
+            ToggleDetails();
         }
     }
 
@@ -132,6 +191,7 @@ public class StrataCard : TemplatedControl
         PseudoClasses.Set(":warning", Status == StrataCardStatus.Warning);
         PseudoClasses.Set(":error", Status == StrataCardStatus.Error);
         PseudoClasses.Set(":has-footer", Footer is not null);
+        PseudoClasses.Set(":has-detail", HasDetails);
     }
 
     private void SyncStatusLabel(TemplateAppliedEventArgs e)

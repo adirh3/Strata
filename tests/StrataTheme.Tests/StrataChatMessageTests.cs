@@ -287,6 +287,85 @@ public class StrataChatMessageTests
         Assert.Equal(StrataCopyFormat.RichText, args.Format);
     }
 
+    [Fact]
+    public Task CanRegenerate_ControlsRetryButtonAndSeparatorAcrossStreamingChanges() =>
+        _fixture.Dispatch(() =>
+        {
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.Assistant,
+                Template = BuildChatMessageTemplate()
+            };
+            var window = new Window { Content = message };
+            try
+            {
+                window.Show();
+                message.ApplyTemplate();
+                var retry = FindButton(message, "PART_RegenerateButton");
+                var separator = message.GetVisualDescendants().OfType<Border>()
+                    .Single(border => border.Name == "PART_RegenerateSep");
+                Assert.True(message.CanRegenerate);
+                Assert.True(retry.IsVisible);
+                Assert.True(separator.IsVisible);
+
+                message.CanRegenerate = false;
+                message.IsStreaming = true;
+                message.IsStreaming = false;
+                Assert.False(retry.IsVisible);
+                Assert.False(separator.IsVisible);
+
+                message.CanRegenerate = true;
+                Assert.True(retry.IsVisible);
+                Assert.True(separator.IsVisible);
+            }
+            finally { window.Close(); }
+        });
+
+    [Fact]
+    public Task KeyboardCopy_UsesNativeCommandModifier() =>
+        _fixture.Dispatch(() =>
+        {
+            var message = new KeyboardMessage { Content = new StrataMarkdown { Markdown = "**Whole message**" } };
+            StrataCopyRequestedEventArgs? copied = null;
+            message.CopyRequested += (_, args) => copied = args;
+            var key = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.C,
+                KeyModifiers = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control
+            };
+
+            message.SendKey(key);
+
+            Assert.True(key.Handled);
+            Assert.NotNull(copied);
+            Assert.Equal("**Whole message**", copied.Text);
+            Assert.False(copied.IsSelection);
+        });
+
+    [Fact]
+    public Task KeyboardCopy_AlreadyHandledByChildDoesNotCopyMessage() =>
+        _fixture.Dispatch(() =>
+        {
+            var message = new KeyboardMessage { Content = "Whole message" };
+            var copies = 0;
+            message.CopyRequested += (_, _) => copies++;
+            message.SendKey(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.C,
+                KeyModifiers = KeyModifiers.Control,
+                Handled = true
+            });
+
+            Assert.Equal(0, copies);
+        });
+
+    private sealed class KeyboardMessage : StrataChatMessage
+    {
+        public void SendKey(KeyEventArgs e) => OnKeyDown(e);
+    }
+
     [Theory]
     [InlineData("Copy as Markdown", StrataCopyFormat.Markdown)]
     [InlineData("Copy as rich text", StrataCopyFormat.RichText)]
