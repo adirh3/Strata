@@ -344,13 +344,10 @@ public sealed class StrataMarkdownImageTests
     public async Task AppendFormattedInlines_ReplacesImagePlaceholderWithLoadedImage()
     {
         var path = CreateTempPng();
-        Window? window = null;
-        Image? image = null;
-        StackPanel? loadingContent = null;
 
         try
         {
-            await _fixture.Dispatch(() =>
+            await _fixture.Dispatch(async () =>
             {
                 var markdown = new StrataMarkdown();
                 var textBlock = new SelectableTextBlock
@@ -366,35 +363,41 @@ public sealed class StrataMarkdownImageTests
                 var container = Assert.Single(textBlock.Inlines!.OfType<InlineUIContainer>());
                 var frame = Assert.IsType<Border>(container.Child);
                 var content = Assert.IsType<Grid>(frame.Child);
-                image = Assert.Single(content.Children.OfType<Image>());
-                loadingContent = Assert.Single(content.Children.OfType<StackPanel>());
+                var image = Assert.Single(content.Children.OfType<Image>());
+                var loadingContent = Assert.Single(content.Children.OfType<StackPanel>());
                 var progress = Assert.Single(loadingContent.Children.OfType<ProgressBar>());
                 Assert.True(progress.IsIndeterminate);
 
-                window = new Window
+                var window = new Window
                 {
                     Width = 520,
                     Height = 220,
                     Content = textBlock,
                 };
-                window.Show();
+
+                try
+                {
+                    window.Show();
+
+                    var loaded = false;
+                    for (var attempt = 0; attempt < 100 && !loaded; attempt++)
+                    {
+                        loaded = image.Source is not null;
+                        if (!loaded)
+                            await Task.Delay(20);
+                    }
+
+                    Assert.True(loaded, "The inline markdown image did not finish loading.");
+                    Assert.False(loadingContent.IsVisible);
+                }
+                finally
+                {
+                    window.Close();
+                }
             });
-
-            var loaded = false;
-            for (var attempt = 0; attempt < 100 && !loaded; attempt++)
-            {
-                loaded = await _fixture.Dispatch(() => image?.Source is not null);
-                if (!loaded)
-                    await Task.Delay(20);
-            }
-
-            Assert.True(loaded, "The inline markdown image did not finish loading.");
-            Assert.False(await _fixture.Dispatch(() => loadingContent!.IsVisible));
         }
         finally
         {
-            if (window is not null)
-                await _fixture.Dispatch(window.Close);
             File.Delete(path);
         }
     }
