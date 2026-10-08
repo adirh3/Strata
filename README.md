@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.33" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.34" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -36,6 +36,13 @@ Or, if published as a NuGet package:
 > **Note:** `SimpleTheme` provides base templates for controls that Strata does not fully re-template. Strata's styles layer on top and override all visual properties.
 
 ---
+
+## Question input state
+
+`StrataQuestionCard.HasInput` is a read-only property indicating that the card contains
+free text or selected options. Hosts can bind it `OneWayToSource` to protect unsubmitted
+answers when navigating or applying an update. It reports input independently of
+`IsAnswered`; hosts should ignore confirmed answers when checking for unsent work.
 
 ## Shared code diffs
 
