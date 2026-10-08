@@ -34,6 +34,11 @@ public class StrataQuestionCard : TemplatedControl
     private Button? _freeTextSubmit;
     private Button? _multiSubmit;
     private readonly HashSet<string> _selectedOptions = new();
+    private bool _hasInput;
+
+    public static readonly DirectProperty<StrataQuestionCard, bool> HasInputProperty =
+        AvaloniaProperty.RegisterDirect<StrataQuestionCard, bool>(
+            nameof(HasInput), card => card.HasInput);
 
     public static readonly StyledProperty<string?> QuestionProperty =
         AvaloniaProperty.Register<StrataQuestionCard, string?>(nameof(Question));
@@ -99,6 +104,9 @@ public class StrataQuestionCard : TemplatedControl
     /// <summary>Whether the question has expired (session stopped or user moved on).</summary>
     public bool IsExpired { get => GetValue(IsExpiredProperty); set => SetValue(IsExpiredProperty, value); }
 
+    /// <summary>Whether the card contains free text or selected options.</summary>
+    public bool HasInput => _hasInput;
+
     /// <summary>Raised when the user selects an option or submits free text.</summary>
     public event EventHandler<string>? AnswerSubmitted;
 
@@ -148,9 +156,9 @@ public class StrataQuestionCard : TemplatedControl
         if (_freeTextBox is not null)
         {
             _freeTextBox.PropertyChanged -= OnFreeTextBoxPropertyChanged;
-            if (AllowMultiSelect)
-                _freeTextBox.PropertyChanged += OnFreeTextBoxPropertyChanged;
+            _freeTextBox.PropertyChanged += OnFreeTextBoxPropertyChanged;
         }
+        UpdateMultiSubmitVisibility();
     }
 
     private void OnFreeTextBoxPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -246,6 +254,8 @@ public class StrataQuestionCard : TemplatedControl
 
     private void UpdateMultiSubmitVisibility()
     {
+        SetAndRaise(HasInputProperty, ref _hasInput,
+            _selectedOptions.Count > 0 || !string.IsNullOrEmpty(_freeTextBox?.Text));
         if (_multiSubmit is not null)
             _multiSubmit.IsVisible = AllowMultiSelect && (_selectedOptions.Count > 0 || HasPendingFreeText) && !IsAnswered;
     }

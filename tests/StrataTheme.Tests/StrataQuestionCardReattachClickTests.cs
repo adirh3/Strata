@@ -85,4 +85,52 @@ public class StrataQuestionCardReattachClickTests
         Assert.True(result.IsAnswered);
         Assert.Equal("Blue", result.SubmittedAnswer);
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HasInputTracksFreeTextAndSelectedOptions(bool multiSelect)
+    {
+        var result = await _fixture.Dispatch(() =>
+        {
+            var card = new StrataQuestionCard
+            {
+                Template = BuildQuestionTemplate(),
+                OptionsList = ["Red", "Blue"],
+                AllowFreeText = true,
+                AllowMultiSelect = multiSelect
+            };
+            var window = new Window { Width = 400, Height = 300, Content = card };
+            window.Show();
+            card.ApplyTemplate();
+            Dispatcher.UIThread.RunJobs();
+            var input = card.GetVisualDescendants().OfType<TextBox>().Single();
+            var empty = card.HasInput;
+            input.Text = "My own answer";
+            var typed = card.HasInput;
+            input.Text = "";
+            var cleared = card.HasInput;
+            var selected = false;
+            var deselected = false;
+            if (multiSelect)
+            {
+                var button = Option(card, "Red");
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                selected = card.HasInput;
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                deselected = card.HasInput;
+            }
+            window.Close();
+            return (empty, typed, cleared, selected, deselected);
+        });
+
+        Assert.False(result.empty);
+        Assert.True(result.typed);
+        Assert.False(result.cleared);
+        if (multiSelect)
+        {
+            Assert.True(result.selected);
+            Assert.False(result.deselected);
+        }
+    }
 }
