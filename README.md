@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.36" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.37" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -116,6 +116,12 @@ change layout. The sweep and its pending timers stop on blur, hiding, or detachm
 a short rise and fade without animating its layout. Call it only for newly presented content,
 not recycled history. The helper owns the host's opacity, render transform and transitions;
 use a dedicated host when content already animates those properties.
+
+For content that can contend with loading or streaming work, use
+`SlideFadeEntrance.PlayComposited(host)`. Its fade and translation run on the render thread
+without changing the logical effective viewport or scroll anchors. The queued start joins
+the next composition commit after binding/layout. `StopComposited(host)` cancels it;
+hiding, detaching and completion also release the animation. Existing `Play` behavior is unchanged.
 
 ## Mobile composer
 

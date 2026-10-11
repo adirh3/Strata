@@ -18,6 +18,75 @@ public sealed class AnimationLifecycleTests
     public AnimationLifecycleTests(AvaloniaFixture fixture) => _fixture = fixture;
 
     [Fact]
+    public async Task CompositedEntranceCancelsQueuedReplayAndReleasesHiddenOrDetachedHosts()
+    {
+        await _fixture.Dispatch(async () =>
+        {
+            var target = new Border { Width = 80, Height = 40 };
+            var parent = new Border { Child = target };
+            var window = new Window { Width = 200, Height = 160, Content = parent };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                SlideFadeEntrance.PlayComposited(target, duration: TimeSpan.FromMilliseconds(40));
+                SlideFadeEntrance.StopComposited(target);
+                SlideFadeEntrance.PlayComposited(target, duration: TimeSpan.FromMilliseconds(500));
+                using (window.CaptureRenderedFrame())
+                    Dispatcher.UIThread.RunJobs();
+                await Task.Delay(80);
+                Assert.True(SlideFadeEntrance.IsCompositedRunning(target));
+                Assert.Equal(1, target.Opacity);
+                Assert.Equal(0, target.RenderTransform!.Value.M32);
+
+                parent.IsVisible = false;
+                Assert.False(SlideFadeEntrance.IsCompositedRunning(target));
+                parent.IsVisible = true;
+                SlideFadeEntrance.PlayComposited(target);
+                parent.Child = null;
+                Assert.False(SlideFadeEntrance.IsCompositedRunning(target));
+                using (window.CaptureRenderedFrame())
+                    Dispatcher.UIThread.RunJobs();
+                Assert.False(SlideFadeEntrance.IsCompositedRunning(target));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task CompositedEntranceCompletesAtRestAndDoesNotMoveMeasuredLayout()
+    {
+        await _fixture.Dispatch(async () =>
+        {
+            var target = new Border { Width = 80, Height = 40 };
+            var window = new Window { Width = 200, Height = 160, Content = target };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var bounds = target.Bounds;
+                SlideFadeEntrance.PlayComposited(target, offsetY: 16,
+                    duration: TimeSpan.FromMilliseconds(80));
+                using (window.CaptureRenderedFrame())
+                    Dispatcher.UIThread.RunJobs();
+                await Task.Delay(160);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(SlideFadeEntrance.IsCompositedRunning(target));
+                Assert.Equal(bounds, target.Bounds);
+                Assert.Equal(1, target.Opacity);
+                Assert.Equal(default, ElementComposition.GetElementVisual(target)!.Translation);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public async Task LifecycleOpacityPulse_FollowsAttachVisibilityStateAndReattach()
     {
         var result = await _fixture.Dispatch(() =>

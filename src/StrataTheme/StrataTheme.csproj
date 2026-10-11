@@ -7,7 +7,7 @@
 
     <!-- NuGet metadata -->
     <PackageId>StrataUI.Theme</PackageId>
-    <Version>0.3.36</Version>
+    <Version>0.3.37</Version>
     <Authors>StrataUI</Authors>
     <Description>A modern, token-driven Avalonia theme for professional desktop applications.</Description>
     <PackageTags>avalonia;theme;ui;desktop</PackageTags>
@@ -20,6 +20,7 @@
     <InternalsVisibleTo Include="StrataTheme.Tests" />
     <InternalsVisibleTo Include="Lumi" />
     <InternalsVisibleTo Include="Lumi.Tests" />
+    <InternalsVisibleTo Include="Lumi.Mobile.Tests" />
   </ItemGroup>
 
   <ItemGroup>
