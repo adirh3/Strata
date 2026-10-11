@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.37" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.39" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -36,6 +36,14 @@ Or, if published as a NuGet package:
 > **Note:** `SimpleTheme` provides base templates for controls that Strata does not fully re-template. Strata's styles layer on top and override all visual properties.
 
 ---
+
+## Model picker provider groups
+
+Rich model items implementing `IStrataModelOption` may supply `ProviderName` to
+group rows by the host's provider or account. `ModelId` stays the selection value,
+and pinned items still appear first. Leaving `ProviderName` unset preserves the
+existing model-id grouping. Use `ModelItemTemplate` for clean model names and
+badges without encoding provider information in the model identifier.
 
 ## Message sharing
 

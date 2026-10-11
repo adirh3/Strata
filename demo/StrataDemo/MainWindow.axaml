@@ -1400,7 +1400,7 @@
 
               <sc:StrataChatComposer x:Name="DemoComposer"
                                     Placeholder="{Binding Strings[Chat.Placeholder2]}"
-                                    Models="{Binding AiModels}"
+                                    Models="{Binding ProviderModels}"
                                     SelectedModel="GPT-5.3-Codex"
                                     QualityLevels="{Binding AiQualityLevels}"
                                     SelectedQuality="Extra High"
@@ -1411,7 +1411,13 @@
                                     AvailableSkills="{Binding AvailableSkills}"
                                     SuggestionA="{Binding Strings[Chat.SuggestionA]}"
                                     SuggestionB="{Binding Strings[Chat.SuggestionB]}"
-                                    SuggestionC="{Binding Strings[Chat.SuggestionC]}" />
+                                    SuggestionC="{Binding Strings[Chat.SuggestionC]}">
+                <sc:StrataChatComposer.ModelItemTemplate>
+                  <DataTemplate x:DataType="local:DemoProviderModel">
+                    <TextBlock Text="{Binding Name}" />
+                  </DataTemplate>
+                </sc:StrataChatComposer.ModelItemTemplate>
+              </sc:StrataChatComposer>
             </StackPanel>
           </Border>
 

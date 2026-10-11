@@ -20,4 +20,8 @@ public interface IStrataModelOption
 
     /// <summary>True when the item should be listed in the picker's pinned section.</summary>
     bool IsPinned { get; }
+
+    /// <summary>Optional host-supplied provider/account label. When unset, grouping is derived
+    /// from the model id as before.</summary>
+    string? ProviderName => null;
 }

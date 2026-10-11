@@ -60,6 +60,7 @@ public class StrataModelPicker : TemplatedControl
 
     /// <summary>Synthetic group the pinned section is listed under, ahead of every provider group.</summary>
     private const string PinnedGroup = "\u0000pinned";
+    private const string ProviderGroupPrefix = "\u0000provider:";
 
     public static readonly StyledProperty<IEnumerable?> ModelsProperty =
         AvaloniaProperty.Register<StrataModelPicker, IEnumerable?>(nameof(Models));
@@ -392,7 +393,8 @@ public class StrataModelPicker : TemplatedControl
     {
         if (sender is not IStrataModelOption
             || (!string.IsNullOrEmpty(e.PropertyName)
-                && e.PropertyName != nameof(IStrataModelOption.IsPinned)))
+                && e.PropertyName != nameof(IStrataModelOption.IsPinned)
+                && e.PropertyName != nameof(IStrataModelOption.ProviderName)))
         {
             return;
         }
@@ -571,7 +573,11 @@ public class StrataModelPicker : TemplatedControl
             {
                 var modelId = ResolveModelId(model);
                 var isPinned = model is IStrataModelOption { IsPinned: true };
-                return new ModelPickerRowData(model, modelId, isPinned ? PinnedGroup : GetModelGroup(modelId), isPinned, index);
+                var providerGroup = model is IStrataModelOption { ProviderName: { } providerName }
+                    && !string.IsNullOrWhiteSpace(providerName)
+                    ? ProviderGroupPrefix + providerName
+                    : GetModelGroup(modelId);
+                return new ModelPickerRowData(model, modelId, isPinned ? PinnedGroup : providerGroup, isPinned, index);
             })
             .ToList();
 
@@ -945,7 +951,9 @@ public class StrataModelPicker : TemplatedControl
         return "other";
     }
 
-    private static string GetModelGroupLabel(string group) => group switch
+    private static string GetModelGroupLabel(string group) => group.StartsWith(ProviderGroupPrefix, StringComparison.Ordinal)
+        ? group[ProviderGroupPrefix.Length..].ToUpperInvariant()
+        : group switch
     {
         PinnedGroup => "PINNED",
         "claude" => "ANTHROPIC",

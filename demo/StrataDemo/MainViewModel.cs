@@ -7,6 +7,11 @@ using StrataTheme.Controls;
 
 namespace StrataDemo;
 
+public sealed record DemoProviderModel(string ModelId, string Name, string ProviderName) : IStrataModelOption
+{
+    public bool IsPinned => false;
+}
+
 public class MainViewModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -129,6 +134,14 @@ public class MainViewModel : INotifyPropertyChanged
         "High",
         "Extra High"
     };
+
+    public IReadOnlyList<DemoProviderModel> ProviderModels { get; } =
+    [
+        new("GPT-5.3-Codex", "GPT 5.3 Codex", "GitHub Copilot"),
+        new("openrouter/gpt-5.3", "GPT 5.3", "OpenRouter"),
+        new("openrouter/claude-opus-4.6", "Claude Opus 4.6", "OpenRouter"),
+        new("local/qwen3", "Qwen 3", "Local models")
+    ];
 
     public ObservableCollection<StrataComposerChip> AiSkills { get; } = new()
     {
