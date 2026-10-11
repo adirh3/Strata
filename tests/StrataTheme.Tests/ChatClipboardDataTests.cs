@@ -49,6 +49,17 @@ public class ChatClipboardDataTests
     }
 
     [Fact]
+    public void ToHtmlFragment_KeepsInteractiveFencesAsCode()
+    {
+        const string markdown = "Your list:\n\n```checklist\n{\"id\":\"prep\",\"title\":\"Prep\",\"items\":[{\"id\":\"milk\",\"label\":\"Milk\"}]}\n```";
+
+        var html = MarkdownClipboardFormatter.ToHtmlFragment(markdown);
+
+        Assert.Contains("<pre", html);
+        Assert.Contains("Milk", html);
+    }
+
+    [Fact]
     public void ToHtmlFragment_PreservesWindowsPaths()
     {
         const string markdown = @"Open C:\Temp\file.txt, \\server\share, and C:\repo\.git\config";

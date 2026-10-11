@@ -185,6 +185,7 @@ internal static class MarkdownClipboardFormatter
                 case MdBlockKind.Comparison:
                 case MdBlockKind.Card:
                 case MdBlockKind.Sources:
+                case MdBlockKind.Interactive:
                     AppendCodeBlockHtml(builder, block.Content, block.Language);
                     break;
             }

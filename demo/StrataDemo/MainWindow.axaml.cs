@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeInteractiveResponses();
 
         SizeChanged += (_, args) => UpdateResponsiveClasses(args.NewSize.Width);
         Opened += (_, _) => UpdateResponsiveClasses(Bounds.Width);

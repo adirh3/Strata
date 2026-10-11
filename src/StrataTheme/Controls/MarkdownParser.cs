@@ -23,6 +23,7 @@ public enum MdBlockKind
     Sources,
     Blockquote,
     TaskItem,
+    Interactive,
 }
 
 /// <summary>
@@ -447,6 +448,7 @@ public sealed class MarkdownParser
         if (language.Equals("comparison", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Comparison;
         if (language.Equals("card", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Card;
         if (language.Equals("sources", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Sources;
+        if (InteractiveDefinition.IsSupported(language)) return MdBlockKind.Interactive;
         return MdBlockKind.CodeBlock;
     }
 

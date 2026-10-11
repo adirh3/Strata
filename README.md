@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.39" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.40" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -69,6 +69,69 @@ Set `TimestampToolTip` to the full date/time while keeping `Timestamp` short. Ho
 localize `CopyLabel`, `CopySelectionLabel`, `CopyMarkdownLabel`, `CopyRichTextLabel`,
 `CopyTurnLabel`, `CopiedLabel`, and `MoreActionsLabel`, alongside the existing reply/fork labels.
 Disable Edit and Retry when the host does not implement those actions.
+
+## Native interactive responses
+
+`StrataActionReceipt` presents the user's action as a compact, right-aligned bubble in the user
+message color: an action icon (`Action`: use, compare, submit, remaining, assumptions, discuss),
+title, and summary. Inputs are a frozen `Detail` string, realized only when the disclosure opens;
+"Key: value" paragraphs render as an aligned table and other paragraphs as titled prose. A quiet
+meta row beneath the bubble shows lifecycle status (hidden once `Status` is `ReplyReady`) and a
+**Show original** link. `SourceRequested` is a navigation event, never an agent/tool invocation.
+`TouchMode` provides touch-sized actions.
+
+For a pending input tool, set `StrataInteractiveBlock.InputStatus` to `Waiting`, `Submitted`,
+`Canceled`, or `Expired` and acknowledge `Requested` through `Completion`. Waiting forms and
+shortlists use the same controls with an accent stratum line and a **Needs your input** pill, but
+submit to the existing task; `cancel` ends the request. Submitted input collapses to a one-line
+summary with a **Sent** pill and an inputs disclosure; expired input keeps a summary of its draft
+without dispatching new work. Ordinary answer widgets leave `InputStatus` null.
+
+`StrataMarkdown` recognizes closed JSON fences named `form`, `checklist`, `results`, `calculator`,
+and `quiz`. It creates `StrataInteractiveBlock` controls using validated native
+definitions. Partial streaming fences stay inactive; invalid completed definitions report an
+error with their original source. Definitions never execute scripts, arbitrary formulas, or tool
+commands. Stable `id` values must be unique within an answer.
+
+Hosts bind `InteractionStates` (`IReadOnlyDictionary<string,string>`), `InteractionLanguage`,
+`InteractionsHosted`, and `CanSubmitInteractions`. Set `InteractionTouchMode` for 48-DIP controls
+and bottom-sheet date/selection pickers; `StrataInteractiveBlock.ClosePicker()` closes an open sheet
+for system back navigation. `StrataInteractiveBlock.Requested` bubbles both local state edits
+(`Action == null`; typed text and numbers once editing ends, other choices immediately) and
+explicit submissions. Persist state with the owning message,
+not only a render cache; acknowledge requests with `Completion` (`Task<InteractiveActionResult>`).
+Use `InteractiveSubmission.Build` to produce a validated user request for the existing agent flow.
+Buttons are not authority to run commands or bypass permission gates.
+
+```xml
+<sc:StrataMarkdown Markdown="{Binding Answer}"
+                  InteractionStates="{Binding InteractionStates}"
+                  InteractionsHosted="True"
+                  CanSubmitInteractions="{Binding IsReady}"
+                  InteractionLanguage="en"
+                  IsInline="True" />
+```
+
+Standalone `StrataInteractiveBlock` exposes `Definition`, `StateJson`, `Language`, `TouchMode`,
+`IsHosted`, and `CanSubmit`. The AI Controls demo shows every type, the input-request states, and
+an action receipt. Hosts with native overlays can observe `PickerPresentationChangedEvent` for the
+picker lifetime. `InteractionPickerHost` / `PickerHost` lets a host keep sheets inside its local
+device/modal layer instead of using the top-level overlay.
+
+Every block shares one card language built from Strata tokens: an icon tile and title, optional
+description, a meta pill (progress ring, question position, or request state), the body, and one
+action row with a short status beside it. Forms render short option sets as chips, numbers with
+an inline unit or currency symbol, and dates as an input-styled calendar button. Checklists use
+round indicators, optional per-item `meta`, and `numbered` step guides that highlight the next
+step. Choices are selectable cards. Quizzes use lettered options with correct/incorrect states.
+
+The bounded calculator templates are `bill-split`, `savings`, `servings`, `budget`, and `loan`.
+Each leads with a headline metric; budgets and loans add a proportional allocation bar, savings a
+growth chart, and servings an ingredient table with kitchen fractions. `InteractiveFormat`
+presents money from the definition's currency code without converting it. They update locally
+and use the same numeric contract on every platform. Forms, checklists, result selection, quiz
+feedback, and calculator edits retain their state during streaming append and history
+reattachment. Hosts own persisted state and action errors.
 
 ## Question input state
 

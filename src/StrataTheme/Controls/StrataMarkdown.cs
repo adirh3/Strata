@@ -235,6 +235,7 @@ public partial class StrataMarkdown : ContentControl
         FlowDirectionProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         EnableAppendTailParsingProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         StreamingRebuildThrottleMsProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
+        InitializeInteractionProperties();
     }
 
     public static StrataMarkdownDiagnosticsSnapshot CaptureDiagnostics() => new(
@@ -304,6 +305,9 @@ public partial class StrataMarkdown : ContentControl
         _sourcesKeysUsed.Clear();
         _tableCache.Clear();
         _tableKeysUsed.Clear();
+        _interactionCache.Clear();
+        _interactionKeysUsed.Clear();
+        _interactionIdsUsed.Clear();
         ClearImageCache();
         _imageKeysUsed.Clear();
 
@@ -558,6 +562,7 @@ public partial class StrataMarkdown : ContentControl
 
     public StrataMarkdown()
     {
+        AddHandler(StrataInteractiveBlock.RequestedEvent, OnInteractiveRequest);
         System.Threading.Interlocked.Increment(ref _diagnosticInstanceCount);
 
         _title = new TextBlock();
@@ -686,6 +691,8 @@ public partial class StrataMarkdown : ContentControl
         try
         {
             _bodyFontSize = GetBodyFontSize();
+            _interactionKeysUsed.Clear();
+            _interactionIdsUsed.Clear();
             _chartKeysUsed.Clear();
             _diagramKeysUsed.Clear();
             _confidenceKeysUsed.Clear();
@@ -1059,6 +1066,8 @@ public partial class StrataMarkdown : ContentControl
     {
         _contentHost.Children.Clear();
         _linkRuns.Clear();
+        // Every group is created again below, so interaction ids claimed earlier in this pass are released.
+        _interactionIdsUsed.Clear();
         foreach (var group in groups)
         {
             var control = group.Count > 1
@@ -1088,6 +1097,9 @@ public partial class StrataMarkdown : ContentControl
         {
             case MdBlockKind.Chart:
                 _chartKeysUsed.Add(block.Content.Trim());
+                break;
+            case MdBlockKind.Interactive:
+                TrackInteraction(block);
                 break;
             case MdBlockKind.Mermaid:
                 var trimmed = block.Content.Trim();
@@ -1152,6 +1164,7 @@ public partial class StrataMarkdown : ContentControl
             MdBlockKind.Comparison => CreateComparisonControl(block.Content, block.IsClosed),
             MdBlockKind.Card => CreateCardControl(block.Content, block.IsClosed),
             MdBlockKind.Sources => CreateSourcesControl(block.Content, block.IsClosed),
+            MdBlockKind.Interactive => CreateInteractiveControl(block),
             _ => new Border(),
         };
     }
@@ -1165,6 +1178,7 @@ public partial class StrataMarkdown : ContentControl
         EvictFromCache(_cardCache, _cardKeysUsed);
         EvictFromCache(_sourcesCache, _sourcesKeysUsed);
         EvictFromCache(_tableCache, _tableKeysUsed);
+        EvictFromCache(_interactionCache, _interactionKeysUsed);
         EvictStaleImageCache();
     }
 

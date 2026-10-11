@@ -1226,6 +1226,17 @@
           </Border>
 
           <!-- ── StrataChatMessage ── -->
+          <Border Classes="strata-card" Padding="{DynamicResource Padding.Card}">
+            <StackPanel Spacing="{DynamicResource Space.L}">
+              <TextBlock Classes="subtitle" Text="{Binding Strings[Interactive.Title]}" />
+              <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding Strings[Interactive.Description]}" />
+              <StackPanel x:Name="InteractiveResponseSamples" Spacing="{DynamicResource Space.L}" />
+              <TextBlock Classes="caption" Text="{Binding Strings[Interactive.Receipt]}" />
+              <TextBox x:Name="InteractiveResponseReceipt" IsReadOnly="True"
+                       AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="180" />
+            </StackPanel>
+          </Border>
+
           <Border Classes="strata-card" Padding="24,20">
             <StackPanel Spacing="14">
               <StackPanel Spacing="3">
