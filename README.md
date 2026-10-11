@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.41" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.42" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -36,6 +36,23 @@ Or, if published as a NuGet package:
 > **Note:** `SimpleTheme` provides base templates for controls that Strata does not fully re-template. Strata's styles layer on top and override all visual properties.
 
 ---
+
+## Popup motion
+
+Strata popups share one render-thread scale/fade lifecycle: 220 ms to open and
+150 ms to close, without overshoot or entrance replays after layout/style changes.
+Combo boxes expand from their placement target's center and height; menus, flyouts,
+submenus and tooltips use the nearest placement anchor (the pointer for context menus).
+Origins are resolved after layout, including inherited transforms and display scaling.
+An entrance stays pending until asynchronously populated content has a non-zero layout.
+Closing immediately disables popup input, finishes the exit before releasing the host,
+and a quick reopen continues from the current animated state instead of snapping.
+
+`PopupAnimationHelper.EnableOpenAnimation` opts into expansion and takes precedence
+over `EnableOverlayAnimation`, which the theme enables for other popups. Existing
+`OverlayAnimationHelper.AnimateOpen` presenter styles use the same lifecycle, not a
+second animation. To opt out, set both popup properties and the presenter's
+`AnimateOpen` property to `False`.
 
 ## Model picker provider groups
 

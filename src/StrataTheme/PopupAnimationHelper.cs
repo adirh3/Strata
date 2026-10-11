@@ -1,19 +1,31 @@
 using System;
-using System.Numerics;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using Avalonia;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
+using Avalonia.LogicalTree;
 using Avalonia.Rendering.Composition;
+using Avalonia.Rendering.Composition.Animations;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using StrataTheme.Animation;
 
 namespace StrataTheme;
 
 /// <summary>
-/// Attached property that enables Composition API expand animation on popup open.
-/// Inspired by Blast's ImplicitAnimationsExtension — the only reliable way to
-/// animate popups in Avalonia (PopupRoot lives in a separate visual tree).
+/// Placement-aware, render-thread open and close animations for native and overlay popups.
+/// Expansion takes precedence when both attached animation properties are enabled.
 /// </summary>
 public static class PopupAnimationHelper
 {
+    private static readonly ConditionalWeakTable<Popup, PopupMotion> Motions = new();
+    private static readonly Vector3D RestingScale = new(1, 1, 1);
+    internal static readonly TimeSpan OpenDuration = TimeSpan.FromMilliseconds(220);
+    internal static readonly TimeSpan CloseDuration = TimeSpan.FromMilliseconds(150);
+
     public static readonly AttachedProperty<bool> EnableOpenAnimationProperty =
         AvaloniaProperty.RegisterAttached<Popup, bool>(
             "EnableOpenAnimation", typeof(PopupAnimationHelper));
@@ -24,8 +36,8 @@ public static class PopupAnimationHelper
 
     static PopupAnimationHelper()
     {
-        EnableOpenAnimationProperty.Changed.AddClassHandler<Popup>(OnEnableOpenAnimationChanged);
-        EnableOverlayAnimationProperty.Changed.AddClassHandler<Popup>(OnEnableOverlayAnimationChanged);
+        EnableOpenAnimationProperty.Changed.AddClassHandler<Popup>((popup, _) => Update(popup));
+        EnableOverlayAnimationProperty.Changed.AddClassHandler<Popup>((popup, _) => Update(popup));
     }
 
     public static bool GetEnableOpenAnimation(Popup popup) =>
@@ -40,121 +52,350 @@ public static class PopupAnimationHelper
     public static void SetEnableOverlayAnimation(Popup popup, bool value) =>
         popup.SetValue(EnableOverlayAnimationProperty, value);
 
-    private static void OnEnableOpenAnimationChanged(Popup popup, AvaloniaPropertyChangedEventArgs e)
+    internal static void RegisterOverlay(Control control)
     {
-        // Always unsubscribe first to prevent accumulating duplicate handlers
-        // when the property is set to true multiple times (e.g. style re-evaluation).
-        popup.Opened -= OnPopupOpened;
-
-        if (e.NewValue is true)
-            popup.Opened += OnPopupOpened;
-    }
-
-    private static void OnEnableOverlayAnimationChanged(Popup popup, AvaloniaPropertyChangedEventArgs e)
-    {
-        popup.Opened -= OnPopupOpenedOverlay;
-
-        if (e.NewValue is true)
-            popup.Opened += OnPopupOpenedOverlay;
-    }
-
-    private static void OnPopupOpened(object? sender, EventArgs e)
-    {
-        if (sender is not Popup { Child: Control popupChild } popup)
+        if (control.FindLogicalAncestorOfType<Popup>() is not { } popup)
             return;
-
-        var visual = ElementComposition.GetElementVisual(popupChild);
-        if (visual is null)
-            return;
-
-        var compositor = visual.Compositor;
-
-        var bounds = popupChild.Bounds;
-        var w = bounds.Width > 0 ? bounds.Width : popupChild.DesiredSize.Width;
-        var h = bounds.Height > 0 ? bounds.Height : popupChild.DesiredSize.Height;
-
-        // Anchor the scale origin at the placement target (e.g. the ComboBox)
-        // so the popup appears to expand directly from the control that opened it.
-        float centerX = (float)(w / 2f);
-        float centerY = (float)(h / 2f);
-
-        if (popup.PlacementTarget is Visual target)
+        if (control is PopupRoot or OverlayPopupHost)
         {
-            try
-            {
-                var targetCenter = new Point(target.Bounds.Width / 2, target.Bounds.Height / 2);
-                var targetScreen = target.PointToScreen(targetCenter);
-                var childScreen = popupChild.PointToScreen(new Point(0, 0));
-                var scaling = TopLevel.GetTopLevel(popupChild)?.RenderScaling ?? 1.0;
+            // Popup bypasses normal control styling; its laid-out host supplies the theme default.
+            if (OverlayAnimationHelper.GetAnimateOpen(control) &&
+                !popup.IsSet(EnableOverlayAnimationProperty))
+                SetEnableOverlayAnimation(popup, true);
+            return;
+        }
+        var motion = Motions.GetValue(popup, static owner => new PopupMotion(owner));
+        motion.Presenter = control;
+        Update(popup);
+    }
 
-                centerX = (float)((targetScreen.X - childScreen.X) / scaling);
-                centerY = (float)((targetScreen.Y - childScreen.Y) / scaling);
-            }
-            catch
+    internal static int GetOpenAnimationCount(Popup popup) =>
+        Motions.TryGetValue(popup, out var motion) ? motion.OpenAnimationCount : 0;
+
+    private static void Update(Popup popup)
+    {
+        if (!Motions.TryGetValue(popup, out var motion))
+        {
+            if (!GetEnableOpenAnimation(popup) && !GetEnableOverlayAnimation(popup))
+                return;
+            motion = Motions.GetValue(popup, static owner => new PopupMotion(owner));
+        }
+
+        if (!motion.IsEnabled)
+        {
+            Motions.Remove(popup);
+            motion.Dispose();
+        }
+        else
+            motion.EnsureOpen();
+    }
+
+    // Avalonia 12's cancellable Popup.Closing event is internal. Typed access keeps the
+    // actual host alive for its exit without replacing popups, bindings or focus ownership.
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "add_Closing")]
+    private static extern void AddClosing(Popup popup, EventHandler<CancelEventArgs> handler);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "remove_Closing")]
+    private static extern void RemoveClosing(Popup popup, EventHandler<CancelEventArgs> handler);
+
+    private sealed class PopupMotion : IDisposable
+    {
+        private readonly Popup _popup;
+        private Control? _child;
+        private Control? _target;
+        private CompositionVisual? _visual;
+        private EffectiveVisibilityObserver? _targetVisibility;
+        private IDisposable? _opacityHold;
+        private IDisposable? _hitTestHold;
+        private IDisposable? _enabledHold;
+        private IDisposable? _closeTimer;
+        private Vector3D _collapsedScale;
+        private float _restingOpacity;
+        private bool _openingPending;
+        private bool _compositionQueued;
+        private bool _resuming;
+        private bool _closing;
+        private bool _allowClose;
+        private bool _disposed;
+        private int _version;
+
+        public PopupMotion(Popup popup)
+        {
+            _popup = popup;
+            popup.Opened += OnOpened;
+            popup.Closed += OnClosed;
+            popup.PropertyChanged += OnPopupPropertyChanged;
+            AddClosing(popup, OnClosing);
+        }
+
+        public Control? Presenter { get; set; }
+        public int OpenAnimationCount { get; private set; }
+        public bool IsEnabled => GetEnableOpenAnimation(_popup) ||
+            GetEnableOverlayAnimation(_popup) ||
+            (Presenter is { } presenter && OverlayAnimationHelper.GetAnimateOpen(presenter));
+
+        public void EnsureOpen()
+        {
+            if (_disposed || !IsEnabled || !_popup.IsOpen ||
+                _popup.Child is not { } child || !child.IsAttachedToVisualTree())
+                return;
+            if (_child is not null && !_closing)
+                return;
+
+            _resuming = _closing;
+            _closing = false;
+            _closeTimer?.Dispose();
+            _closeTimer = null;
+            RestoreInput();
+            if (_child is null)
             {
-                // Fallback to geometric center
+                _child = child;
+                _restingOpacity = (float)child.Opacity;
+                child.DetachedFromVisualTree += OnDetached;
+                _opacityHold = child.SetValue(Visual.OpacityProperty, 0d, BindingPriority.Animation);
+                _target = _popup.PlacementTarget ?? _popup.TemplatedParent as Control ??
+                    _popup.Parent as Control;
+                if (_target is { } target)
+                {
+                    _targetVisibility = new EffectiveVisibilityObserver(target, () =>
+                    {
+                        if (!target.IsEffectivelyVisible)
+                            CloseImmediately();
+                    });
+                    _targetVisibility.Subscribe();
+                }
+            }
+            _openingPending = true;
+            _compositionQueued = false;
+            var version = ++_version;
+            child.Loaded += OnReady;
+            child.LayoutUpdated += OnLayoutUpdated;
+            Dispatcher.UIThread.Post(() => QueueOpen(version), DispatcherPriority.Loaded);
+        }
+
+        private void OnOpened(object? sender, EventArgs e) => EnsureOpen();
+        private void OnClosed(object? sender, EventArgs e) => Reset();
+        private void OnDetached(object? sender, VisualTreeAttachmentEventArgs e) => Reset();
+        private void OnReady(object? sender, EventArgs e) => QueueOpen(_version);
+        private void OnLayoutUpdated(object? sender, EventArgs e) => QueueOpen(_version);
+
+        private void OnPopupPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == Popup.IsOpenProperty && _popup.IsOpen && _closing)
+                EnsureOpen();
+            else if (e.Property == Popup.PlacementTargetProperty && _closing &&
+                _popup.PlacementTarget is { } target && !ReferenceEquals(target, _target))
+                CloseImmediately();
+            else if (e.Property == Popup.ChildProperty && !ReferenceEquals(_child, _popup.Child))
+            {
+                Reset();
+                Dispatcher.UIThread.Post(EnsureOpen, DispatcherPriority.Loaded);
             }
         }
 
-        visual.CenterPoint = new Vector3(centerX, centerY, 0f);
+        private void QueueOpen(int version)
+        {
+            if (!CanOpen(version) || _compositionQueued)
+                return;
+            var compositor = ElementComposition.GetElementVisual(_child!)?.Compositor ??
+                (_target is not null ? ElementComposition.GetElementVisual(_target)?.Compositor : null);
+            if (compositor is null)
+                return;
+            _compositionQueued = true;
+            compositor.RequestCompositionUpdate(() => StartOpen(version));
+        }
 
-        var scaleAnim = compositor.CreateStableVector3KeyFrameAnimation();
-        scaleAnim.Target = "Scale";
-        scaleAnim.InsertKeyFrame(0f, new Vector3(1f, 0f, 1f));
-        scaleAnim.InsertKeyFrame(1f, new Vector3(1f));
-        scaleAnim.Duration = TimeSpan.FromMilliseconds(200);
+        private bool CanOpen(int version) => !_disposed && version == _version &&
+            _openingPending && !_closing && IsEnabled && _popup.IsOpen &&
+            _child is { } child && child.IsAttachedToVisualTree();
 
-        var opacityAnim = compositor.CreateStableScalarKeyFrameAnimation();
-        opacityAnim.Target = "Opacity";
-        opacityAnim.InsertKeyFrame(0f, 0f);
-        opacityAnim.InsertKeyFrame(0.3f, 1f);
-        opacityAnim.InsertKeyFrame(1f, 1f);
-        opacityAnim.Duration = TimeSpan.FromMilliseconds(200);
+        private void StartOpen(int version)
+        {
+            if (!CanOpen(version))
+                return;
+            _compositionQueued = false;
+            var child = _child!;
+            if (child.Bounds.Width <= 0 || child.Bounds.Height <= 0)
+                return;
+            if (ElementComposition.GetElementVisual(child) is not { } visual)
+            {
+                QueueOpen(version);
+                return;
+            }
+            StopWaitingForLayout();
+            _opacityHold?.Dispose();
+            _opacityHold = null;
+            _visual = visual;
+            UpdateOrigin(child, visual);
+            visual.Scale = RestingScale;
+            visual.Opacity = _restingOpacity;
+            Play(opening: true, initial: !_resuming);
+            OpenAnimationCount++;
+        }
 
-        var group = compositor.CreateAnimationGroup();
-        group.Add(scaleAnim);
-        group.Add(opacityAnim);
+        private void UpdateOrigin(Control child, CompositionVisual visual)
+        {
+            var width = child.Bounds.Width;
+            var height = child.Bounds.Height;
+            var center = new Point(width / 2, height / 2);
+            var targetHeight = height * 0.12;
+            if (_popup.Placement == PlacementMode.Pointer)
+                center = default;
+            else if (_target is { } target && target.IsAttachedToVisualTree())
+            {
+                center = child.PointToClient(target.PointToScreen(
+                    new Point(target.Bounds.Width / 2, target.Bounds.Height / 2)));
+                var top = child.PointToClient(target.PointToScreen(default));
+                var bottom = child.PointToClient(target.PointToScreen(new Point(0, target.Bounds.Height)));
+                targetHeight = Math.Abs(bottom.Y - top.Y);
+            }
 
-        visual.StartAnimationGroup(group);
-    }
+            if (!GetEnableOpenAnimation(_popup))
+                center = new Point(Math.Clamp(center.X, 0, width), Math.Clamp(center.Y, 0, height));
+            visual.CenterPoint = new Vector3D(center.X, center.Y, 0);
+            _collapsedScale = GetEnableOpenAnimation(_popup)
+                ? new Vector3D(1, Math.Clamp(targetHeight / height, 0.12, 0.85), 1)
+                : new Vector3D(0.96, 0.96, 1);
+        }
 
-    private static void OnPopupOpenedOverlay(object? sender, EventArgs e)
-    {
-        if (sender is not Popup { Child: Control popupChild })
-            return;
+        private void OnClosing(object? sender, CancelEventArgs e)
+        {
+            if (_allowClose || _disposed || e.Cancel || _child is null)
+                return;
+            if (_visual is null || !_child.IsAttachedToVisualTree() ||
+                _target is { IsEffectivelyVisible: false })
+            {
+                Reset();
+                return;
+            }
 
-        var visual = ElementComposition.GetElementVisual(popupChild);
-        if (visual is null)
-            return;
+            e.Cancel = true;
+            if (_closing)
+                return;
+            _closing = true;
+            StopWaitingForLayout();
+            var version = ++_version;
+            _hitTestHold = _child.SetValue(Control.IsHitTestVisibleProperty, false, BindingPriority.Animation);
+            _enabledHold = _child.SetValue(Control.IsEnabledProperty, false, BindingPriority.Animation);
+            _popup.SetCurrentValue(Popup.IsOpenProperty, false);
+            _visual.Compositor.RequestCompositionUpdate(() =>
+            {
+                if (_disposed || version != _version || !_closing)
+                    return;
+                UpdateOrigin(_child!, _visual!);
+                Play(opening: false);
+                _closeTimer = DispatcherTimer.RunOnce(() =>
+                {
+                    if (version == _version && _closing)
+                        CloseImmediately();
+                }, CloseDuration, DispatcherPriority.Normal);
+            });
+        }
 
-        var compositor = visual.Compositor;
+        private void Play(bool opening, bool initial = false)
+        {
+            var visual = _visual!;
+            var easing = opening ? (Easing)new CubicEaseOut() : new CubicEaseIn();
+            var duration = opening ? OpenDuration : CloseDuration;
+            var scale = visual.Compositor.CreateStableVector3DKeyFrameAnimation();
+            scale.Target = nameof(CompositionVisual.Scale);
+            scale.Duration = duration;
+            scale.StopBehavior = AnimationStopBehavior.SetToFinalValue;
+            var opacity = visual.Compositor.CreateStableScalarKeyFrameAnimation();
+            opacity.Target = nameof(CompositionVisual.Opacity);
+            opacity.Duration = duration;
+            opacity.StopBehavior = AnimationStopBehavior.SetToFinalValue;
+            if (initial)
+            {
+                scale.InsertKeyFrame(0, _collapsedScale, easing);
+                opacity.InsertKeyFrame(0, 0, easing);
+            }
+            else
+            {
+                // StartingValue is sampled on the render thread, including interrupted motion.
+                scale.InsertExpressionKeyFrame(0, "this.StartingValue", easing);
+                opacity.InsertExpressionKeyFrame(0, "this.StartingValue", easing);
+            }
+            scale.InsertKeyFrame(1, opening ? RestingScale : _collapsedScale, easing);
+            opacity.InsertKeyFrame(1, opening ? _restingOpacity : 0, easing);
+            var group = visual.Compositor.CreateAnimationGroup();
+            group.Add(scale);
+            group.Add(opacity);
+            visual.StartAnimationGroup(group);
+        }
 
-        var bounds = popupChild.Bounds;
-        var w = bounds.Width > 0 ? bounds.Width : popupChild.DesiredSize.Width;
+        private void CloseImmediately()
+        {
+            _allowClose = true;
+            try
+            {
+                _popup.Close();
+            }
+            finally
+            {
+                _allowClose = false;
+                Reset();
+            }
+        }
 
-        var h = bounds.Height > 0 ? bounds.Height : popupChild.DesiredSize.Height;
+        private void StopWaitingForLayout()
+        {
+            _openingPending = false;
+            _compositionQueued = false;
+            if (_child is not null)
+            {
+                _child.Loaded -= OnReady;
+                _child.LayoutUpdated -= OnLayoutUpdated;
+            }
+        }
 
-        // Scale from center for a clean, uniform expansion
-        visual.CenterPoint = new Vector3((float)(w / 2f), (float)(h / 2f), 0f);
+        private void RestoreInput()
+        {
+            _hitTestHold?.Dispose();
+            _hitTestHold = null;
+            _enabledHold?.Dispose();
+            _enabledHold = null;
+        }
 
-        var scaleAnim = compositor.CreateStableVector3KeyFrameAnimation();
-        scaleAnim.Target = "Scale";
-        scaleAnim.InsertKeyFrame(0f, new Vector3(0.88f, 0.88f, 1f));
-        scaleAnim.InsertKeyFrame(0.55f, new Vector3(1.006f, 1.006f, 1f));
-        scaleAnim.InsertKeyFrame(1f, new Vector3(1f));
-        scaleAnim.Duration = TimeSpan.FromMilliseconds(300);
+        private void Reset()
+        {
+            _version++;
+            StopWaitingForLayout();
+            _closeTimer?.Dispose();
+            _closeTimer = null;
+            _opacityHold?.Dispose();
+            _opacityHold = null;
+            _targetVisibility?.Dispose();
+            _targetVisibility = null;
+            RestoreInput();
+            if (_visual is not null)
+            {
+                _visual.StopAnimation(nameof(CompositionVisual.Scale));
+                _visual.StopAnimation(nameof(CompositionVisual.Opacity));
+                _visual.Scale = RestingScale;
+                _visual.Opacity = _restingOpacity;
+                _visual.CenterPoint = default;
+                _visual = null;
+            }
+            if (_child is not null)
+            {
+                _child.DetachedFromVisualTree -= OnDetached;
+                _child = null;
+            }
+            _target = null;
+            _closing = false;
+        }
 
-        var opacityAnim = compositor.CreateStableScalarKeyFrameAnimation();
-        opacityAnim.Target = "Opacity";
-        opacityAnim.InsertKeyFrame(0f, 0f);
-        opacityAnim.InsertKeyFrame(0.4f, 1f);
-        opacityAnim.InsertKeyFrame(1f, 1f);
-        opacityAnim.Duration = TimeSpan.FromMilliseconds(300);
-
-        var group = compositor.CreateAnimationGroup();
-        group.Add(scaleAnim);
-        group.Add(opacityAnim);
-
-        visual.StartAnimationGroup(group);
+        public void Dispose()
+        {
+            _disposed = true;
+            if (_closing)
+                CloseImmediately();
+            Reset();
+            _popup.Opened -= OnOpened;
+            _popup.Closed -= OnClosed;
+            _popup.PropertyChanged -= OnPopupPropertyChanged;
+            RemoveClosing(_popup, OnClosing);
+        }
     }
 }
