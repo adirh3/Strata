@@ -482,17 +482,6 @@ public class StrataChatMessage : TemplatedControl
     public static Geometry ReplyIconGeometry { get; } = Geometry.Parse(
         "M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z");
 
-    public static Geometry CopyIconGeometry { get; } = Geometry.Parse(
-        "M8 7h12v15H8V7zm2 2v11h8V9h-8zM4 2h12v2H6v12H4V2z");
-    public static Geometry CheckIconGeometry { get; } = Geometry.Parse(
-        "M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z");
-    public static Geometry EditIconGeometry { get; } = Geometry.Parse(
-        "M3 17.3V21h3.7L17.8 9.9l-3.7-3.7L3 17.3zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.7 3.7L20.7 7z");
-    public static Geometry RetryIconGeometry { get; } = Geometry.Parse(
-        "M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.7-4.2L13 11h8V3l-3.3 3.3z");
-    public static Geometry MoreIconGeometry { get; } = Geometry.Parse(
-        "M4 10a2 2 0 1 0 0 4a2 2 0 1 0 0-4zM12 10a2 2 0 1 0 0 4a2 2 0 1 0 0-4zM20 10a2 2 0 1 0 0 4a2 2 0 1 0 0-4z");
-
     /// <summary>
     /// Gets or sets whether the containing chat shell is currently scrolling.
     /// </summary>
@@ -1908,7 +1897,8 @@ public class StrataChatMessage : TemplatedControl
         {
             if (_actionLayer.Parent is Panel previous)
                 previous.Children.Remove(_actionLayer);
-            target.Children.Add(_actionLayer);
+            // Assistant actions lead the footer, so they keep their place whatever the caption's length.
+            target.Children.Insert(target == _headerRow ? 0 : target.Children.Count, _actionLayer);
         }
 
         if (_root is not null)

@@ -47,10 +47,13 @@ streaming or being edited. It never copies, sends or executes content itself.
 
 ## Message action strip
 
-Assistant `StrataChatMessage` actions share a wrapping footer with the author/model caption below the answer.
-Copy, Share (`CanShare`), Reply (`CanReply`), Edit (`IsEditable`), Retry (`CanRegenerate`), and the overflow menu
-stay discoverable in a quiet footer without resizing the message content. User-message side actions
-retain their hover, keyboard-focus, and touch-tap reveal behavior.
+A finished assistant `StrataChatMessage` ends with a quiet footer: icon-only actions first, then the
+author/model caption and time, wrapping on narrow widths without resizing the answer. Copy, Reply
+(`CanReply`), Share (`CanShare`), Edit (`IsEditable`), Retry (`CanRegenerate`), and the overflow menu share
+one outline-icon style, with each label provided as a tooltip and accessible name. Their hover and focus chrome
+stays inside the message, which clips to its bounds; the footer appears once streaming ends and stays steady
+while the shell scrolls.
+User-message side actions retain their labelled hover, keyboard-focus, and touch-tap reveal behavior.
 The overflow menu reuses the message context menu, including formatted copy and optional
 branching (`CanFork`). Copy briefly shows a confirmation checkmark.
 

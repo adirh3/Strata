@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using StrataTheme.Controls;
+using Path = Avalonia.Controls.Shapes.Path;
 
 namespace StrataTheme.Tests;
 
@@ -479,11 +480,17 @@ public class StrataChatMessageTests
         {
             var (window, message, _) = ShowSelectableMessage("Hello", canReply: true);
 
-            Assert.True(FindButton(message, "PART_ReplyButton").IsVisible);
+            var reply = FindButton(message, "PART_ReplyButton");
+            var glyph = reply.GetVisualDescendants().OfType<Path>().Single(path => path.IsVisible);
+            Assert.True(reply.IsVisible);
             Assert.Contains(":can-reply", message.Classes);
+            Assert.Same(reply.Foreground, glyph.Stroke);
 
             message.IsReplySource = true;
             Assert.Contains(":reply-source", message.Classes);
+            Assert.True(message.TryFindResource("Brush.AccentDefault", message.ActualThemeVariant, out var accent));
+            Assert.Same(accent, reply.Foreground);
+            Assert.Same(accent, glyph.Stroke);
             window.Close();
         });
     }
@@ -513,24 +520,29 @@ public class StrataChatMessageTests
             var timestamp = message.GetVisualDescendants().OfType<TextBlock>()
                 .Single(block => block.Name == "PART_Timestamp");
             Assert.Same(header, actions.Parent);
+            Assert.Same(actions, header.Children[0]);
             Assert.True(actions.IsVisualAncestorOf(FindButton(message, "PART_ShareButton")));
             Assert.Equal(message.TimestampToolTip, ToolTip.GetTip(timestamp));
             Assert.Equal(message.Bounds.Width, bubble.Bounds.Width);
             var bubbleEnd = bubble.TranslatePoint(default, message)!.Value.Y + bubble.Bounds.Height;
             Assert.True(header.TranslatePoint(default, message)!.Value.Y >= bubbleEnd);
-            Assert.True(actions.TranslatePoint(default, message)!.Value.Y >= timestamp.Bounds.Height);
+            var actionsEnd = actions.TranslatePoint(default, message)!.Value.Y + actions.Bounds.Height;
+            Assert.True(timestamp.TranslatePoint(default, message)!.Value.Y >= actionsEnd);
+            Assert.True(message.ClipToBounds);
             var initialHeight = message.Bounds.Height;
 
             message.AreActionsRevealed = true;
             window.UpdateLayout();
             Assert.True(actions.IsHitTestVisible);
             Assert.Equal(initialHeight, message.Bounds.Height);
+            var messageArea = new Rect(message.Bounds.Size);
             foreach (var button in actions.GetVisualDescendants().OfType<Button>().Where(button => button.IsVisible))
             {
-                var origin = button.TranslatePoint(default, message)!.Value;
-                Assert.InRange(origin.X, 0, message.Bounds.Width);
-                Assert.True(origin.X + button.Bounds.Width <= message.Bounds.Width,
-                    $"{button.Name} ends at {origin.X + button.Bounds.Width}, message width is {message.Bounds.Width}.");
+                Assert.Single(button.GetVisualDescendants().OfType<Path>(), path => path.IsVisible);
+                // The message clips to its bounds, so each action's outermost chrome must fit inside it.
+                var ring = button.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "PART_FocusRing");
+                var chrome = new Rect(ring.TranslatePoint(default, message)!.Value, ring.Bounds.Size);
+                Assert.True(messageArea.Contains(chrome), $"{button.Name} chrome {chrome} is clipped to {messageArea}.");
             }
 
             message.Role = StrataChatRole.User;
@@ -538,6 +550,34 @@ public class StrataChatMessageTests
             Assert.Equal("PART_BubbleRow", Assert.IsType<Grid>(actions.Parent).Name);
             Assert.True(header.TranslatePoint(default, message)!.Value.Y < bubble.TranslatePoint(default, message)!.Value.Y);
             Assert.False(FindButton(message, "PART_MoreButton").IsVisible);
+            Assert.DoesNotContain(actions.GetVisualDescendants().OfType<Path>(), path => path.IsVisible);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task AssistantFooter_ArrivesWithTheFinishedAnswerAndStaysPutWhileScrolling()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var (window, message, _) = ShowSelectableMessage("Answer", canReply: true);
+            var header = message.GetVisualDescendants().OfType<WrapPanel>()
+                .Single(panel => panel.Name == "PART_HeaderRow");
+            var actions = message.GetVisualDescendants().OfType<Border>()
+                .Single(border => border.Name == "PART_ActionLayer");
+
+            message.IsStreaming = true;
+            Assert.False(header.IsVisible);
+            message.IsStreaming = false;
+            Assert.True(header.IsVisible);
+
+            message.IsHostScrolling = true;
+            Assert.True(actions.IsHitTestVisible);
+            message.Role = StrataChatRole.User;
+            message.AreActionsRevealed = true;
+            Assert.False(actions.IsHitTestVisible);
+            message.IsHostScrolling = false;
+            Assert.True(actions.IsHitTestVisible);
             window.Close();
         });
     }
