@@ -1231,7 +1231,7 @@
               <StackPanel Spacing="3">
                 <TextBlock Classes="subtitle" Text="StrataChatMessage" />
                 <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
-                           Text="Text-first messages with inline edit. Hover to see Copy | Edit | Retry toolbar. Click Edit to enter edit mode with Save/Cancel." />
+                           Text="{Binding Strings[Chat.MessageActionsDescription]}" />
               </StackPanel>
 
               <StackPanel Spacing="6">
@@ -1262,8 +1262,20 @@
                 </sc:StrataChatMessage>
 
                 <!-- Assistant -->
-                <sc:StrataChatMessage Role="Assistant" IsEditable="True" Author="Strata" Timestamp="09:42" StatusText="grounded"
-                                      CanShare="True" ShareLabel="{Binding Strings[Chat.Share]}">
+                <sc:StrataChatMessage Name="ChatActionStripDemo" Role="Assistant" IsEditable="True"
+                                      Author="Strata" Timestamp="09:42" StatusText="grounded"
+                                      TimestampToolTip="{Binding Strings[Chat.TimestampFull]}"
+                                      CanShare="True" ShareLabel="{Binding Strings[Chat.Share]}"
+                                      CanReply="True" CanFork="True"
+                                      ReplyLabel="{Binding Strings[Chat.Reply]}"
+                                      ReplySelectionLabel="{Binding Strings[Chat.ReplyToSelection]}"
+                                      CopyLabel="{Binding Strings[Chat.CopyMessage]}"
+                                      CopySelectionLabel="{Binding Strings[Chat.CopySelection]}"
+                                      CopyMarkdownLabel="{Binding Strings[Chat.CopyMarkdown]}"
+                                      CopyRichTextLabel="{Binding Strings[Chat.CopyRichText]}"
+                                      CopyTurnLabel="{Binding Strings[Chat.CopyTurn]}"
+                                      CopiedLabel="{Binding Strings[Chat.Copied]}"
+                                      MoreActionsLabel="{Binding Strings[Chat.MoreActions]}">
                   <sc:StrataChatMessage.Content>
                     <SelectableTextBlock TextWrapping="Wrap" FontSize="13"
                                          Foreground="{DynamicResource Brush.TextPrimary}"

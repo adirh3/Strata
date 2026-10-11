@@ -488,6 +488,78 @@ public class StrataChatMessageTests
         });
     }
 
+    [Fact]
+    public async Task AssistantActions_WrapBelowTheAnswerWithoutReducingItsWidth()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var (window, message, _) = ShowSelectableMessage("A full-width answer.", canReply: true);
+            message.Author = "An intentionally long assistant model caption";
+            message.Timestamp = "09:42";
+            message.TimestampToolTip = "Sunday, October 11, 2026 09:42:00 (+03:00)";
+            message.CanShare = true;
+            message.ShareLabel = "Share prompt";
+            // Mock headless glyphs are wider; Lumi's Skia-backed test covers the 300px footer.
+            window.Width = 360;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            var header = message.GetVisualDescendants().OfType<WrapPanel>()
+                .Single(panel => panel.Name == "PART_HeaderRow");
+            var actions = message.GetVisualDescendants().OfType<Border>()
+                .Single(border => border.Name == "PART_ActionLayer");
+            var bubble = message.GetVisualDescendants().OfType<Border>()
+                .Single(border => border.Name == "PART_Bubble");
+            var timestamp = message.GetVisualDescendants().OfType<TextBlock>()
+                .Single(block => block.Name == "PART_Timestamp");
+            Assert.Same(header, actions.Parent);
+            Assert.True(actions.IsVisualAncestorOf(FindButton(message, "PART_ShareButton")));
+            Assert.Equal(message.TimestampToolTip, ToolTip.GetTip(timestamp));
+            Assert.Equal(message.Bounds.Width, bubble.Bounds.Width);
+            var bubbleEnd = bubble.TranslatePoint(default, message)!.Value.Y + bubble.Bounds.Height;
+            Assert.True(header.TranslatePoint(default, message)!.Value.Y >= bubbleEnd);
+            Assert.True(actions.TranslatePoint(default, message)!.Value.Y >= timestamp.Bounds.Height);
+            var initialHeight = message.Bounds.Height;
+
+            message.AreActionsRevealed = true;
+            window.UpdateLayout();
+            Assert.True(actions.IsHitTestVisible);
+            Assert.Equal(initialHeight, message.Bounds.Height);
+            foreach (var button in actions.GetVisualDescendants().OfType<Button>().Where(button => button.IsVisible))
+            {
+                var origin = button.TranslatePoint(default, message)!.Value;
+                Assert.InRange(origin.X, 0, message.Bounds.Width);
+                Assert.True(origin.X + button.Bounds.Width <= message.Bounds.Width,
+                    $"{button.Name} ends at {origin.X + button.Bounds.Width}, message width is {message.Bounds.Width}.");
+            }
+
+            message.Role = StrataChatRole.User;
+            window.UpdateLayout();
+            Assert.Equal("PART_BubbleRow", Assert.IsType<Grid>(actions.Parent).Name);
+            Assert.True(header.TranslatePoint(default, message)!.Value.Y < bubble.TranslatePoint(default, message)!.Value.Y);
+            Assert.False(FindButton(message, "PART_MoreButton").IsVisible);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Retry_IsHiddenWhenUnsupportedOrStreaming()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var (window, message, _) = ShowSelectableMessage("Answer", canReply: true);
+            var retry = FindButton(message, "PART_RegenerateButton");
+            Assert.True(retry.IsVisible);
+            message.CanRegenerate = false;
+            Assert.False(retry.IsVisible);
+            message.CanRegenerate = true;
+            Assert.True(retry.IsVisible);
+            message.IsStreaming = true;
+            Assert.False(retry.IsVisible);
+            window.Close();
+        });
+    }
+
     private static (Window Window, StrataChatMessage Message, SelectableTextBlock Text) ShowSelectableMessage(
         string content,
         bool canReply)

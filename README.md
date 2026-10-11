@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.35" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.36" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -39,11 +39,25 @@ Or, if published as a NuGet package:
 
 ## Message sharing
 
-Set `StrataChatMessage.CanShare="True"` to offer a metadata-row and context-menu
+Set `StrataChatMessage.CanShare="True"` to offer an action-strip and context-menu
 share action. Localize `ShareLabel` in the host and handle the bubbling
 `ShareRequested` event to choose what sharing means for your application.
 The action is opt-in, keyboard accessible, and unavailable while the message is
 streaming or being edited. It never copies, sends or executes content itself.
+
+## Message action strip
+
+Assistant `StrataChatMessage` actions share a wrapping footer with the author/model caption below the answer.
+Copy, Share (`CanShare`), Reply (`CanReply`), Edit (`IsEditable`), Retry (`CanRegenerate`), and the overflow menu
+stay discoverable in a quiet footer without resizing the message content. User-message side actions
+retain their hover, keyboard-focus, and touch-tap reveal behavior.
+The overflow menu reuses the message context menu, including formatted copy and optional
+branching (`CanFork`). Copy briefly shows a confirmation checkmark.
+
+Set `TimestampToolTip` to the full date/time while keeping `Timestamp` short. Hosts can
+localize `CopyLabel`, `CopySelectionLabel`, `CopyMarkdownLabel`, `CopyRichTextLabel`,
+`CopyTurnLabel`, `CopiedLabel`, and `MoreActionsLabel`, alongside the existing reply/fork labels.
+Disable Edit and Retry when the host does not implement those actions.
 
 ## Question input state
 

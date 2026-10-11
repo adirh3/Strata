@@ -6,9 +6,10 @@
   <!-- ═══════════════════════════════════════════════════════════════
        StrataChatMessage
        Text-first message layout with inline edit support.
-       Hover shows Copy | Edit | Retry toolbar.
+       Assistant actions sit beside the model in a wrapping strip below the answer.
+       Assistant actions remain discoverable in the footer without shifting content.
        Edit mode swaps content for a TextBox with Save/Cancel.
-       CanReply adds a hover Reply action beside the meta row, a Reply
+       CanReply adds a Reply action beside the meta row, a Reply
        context-menu item, and a floating Reply pill over selected text.
        ═══════════════════════════════════════════════════════════════ -->
 
@@ -20,57 +21,26 @@
           <ControlTemplate>
             <StackPanel Name="PART_Root" Spacing="0" Background="Transparent">
 
-              <!-- Optional metadata row -->
-              <StackPanel Name="PART_MetaRow" IsVisible="False" Orientation="Horizontal" Spacing="6" Margin="0,0,0,2">
-                <TextBlock Text="{TemplateBinding Author}"
-                           FontSize="11"
-                           FontWeight="SemiBold"
-                           Foreground="{DynamicResource Brush.TextTertiary}" />
-                <TextBlock Text="·"
-                           FontSize="11"
-                           Foreground="{DynamicResource Brush.TextTertiary}" />
-                <TextBlock Text="{TemplateBinding Timestamp}"
-                           FontSize="11"
-                           Foreground="{DynamicResource Brush.TextTertiary}" />
-                <!-- Reply affordance (hosts opt in with CanReply). Negative margins keep the row height
-                     unchanged, so revealing it never shifts the message. -->
-                <Button Name="PART_ReplyButton"
-                        Classes="subtle strata-message-reply"
-                        IsVisible="False"
-                        Opacity="0"
-                        IsHitTestVisible="False"
-                        Margin="2,-3,0,-3"
-                        Padding="6,1,7,1"
-                        MinHeight="0"
-                        MinWidth="0"
-                        CornerRadius="{DynamicResource Radius.Full}"
-                        VerticalAlignment="Center"
-                        AutomationProperties.Name="{TemplateBinding ReplyLabel}">
-                  <Button.Transitions>
-                    <Transitions>
-                      <DoubleTransition Property="Opacity" Duration="0:0:0.15" Easing="CubicEaseOut" />
-                    </Transitions>
-                  </Button.Transitions>
-                  <StackPanel Orientation="Horizontal" Spacing="4">
-                    <PathIcon Width="10" Height="10"
-                              VerticalAlignment="Center"
-                              Data="{x:Static controls:StrataChatMessage.ReplyIconGeometry}" />
-                    <TextBlock Text="{TemplateBinding ReplyLabel}"
-                               FontSize="11"
-                               VerticalAlignment="Center" />
-                  </StackPanel>
-                </Button>
-                <Button Name="PART_ShareButton" Classes="subtle" IsVisible="False"
-                        Margin="2,-3,0,-3" Padding="7,1" MinHeight="0" MinWidth="0"
-                        CornerRadius="{DynamicResource Radius.Full}" VerticalAlignment="Center"
-                        AutomationProperties.Name="{TemplateBinding ShareLabel}">
-                  <StackPanel Orientation="Horizontal" Spacing="4">
-                    <PathIcon Width="10" Height="10"
-                              Data="{x:Static controls:StrataChatMessage.ShareIconGeometry}" />
-                    <TextBlock Text="{TemplateBinding ShareLabel}" FontSize="11" VerticalAlignment="Center" />
-                  </StackPanel>
-                </Button>
-              </StackPanel>
+              <WrapPanel Name="PART_HeaderRow" Orientation="Horizontal" Margin="0,0,0,2">
+                <Grid Name="PART_MetaRow" IsVisible="False" ColumnDefinitions="Auto,Auto,*"
+                      VerticalAlignment="Center">
+                  <TextBlock Name="PART_Author" Grid.Column="0" Text="{TemplateBinding Author}"
+                             MaxWidth="240" TextTrimming="CharacterEllipsis"
+                             ToolTip.Tip="{TemplateBinding Author}"
+                             FontSize="11"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource Brush.TextTertiary}" />
+                  <TextBlock Name="PART_MetaSeparator" Grid.Column="1" Text="·" Margin="6,0"
+                             IsVisible="False"
+                             FontSize="11"
+                             Foreground="{DynamicResource Brush.TextTertiary}" />
+                  <TextBlock Name="PART_Timestamp" Grid.Column="2" Text="{TemplateBinding Timestamp}"
+                             ToolTip.Tip="{TemplateBinding TimestampToolTip}"
+                             ToolTip.ShowDelay="350"
+                             FontSize="11"
+                             Foreground="{DynamicResource Brush.TextTertiary}" />
+                </Grid>
+              </WrapPanel>
 
               <!-- Read mode: content + side action bar -->
               <Grid Name="PART_BubbleRow" ColumnDefinitions="Auto,*,Auto">
@@ -96,7 +66,7 @@
                                     TextBlock.TextWrapping="Wrap" />
                 </Border>
 
-                <!-- Action toolbar: sits beside the bubble (col 2 = right for assistant, col 0 = left for user) -->
+                <!-- Assistant actions move into the metadata footer; user actions remain beside the bubble. -->
                 <Border Name="PART_ActionLayer"
                         Grid.Column="2"
                         VerticalAlignment="Center"
@@ -113,30 +83,82 @@
                   <StackPanel Name="PART_ActionBar"
                               Orientation="Horizontal"
                               Spacing="0">
-                    <Border Background="{DynamicResource Brush.Surface1}"
+                    <Border Name="PART_ActionSurface" Background="{DynamicResource Brush.Surface1}"
                             BorderBrush="{DynamicResource Brush.BorderSubtle}"
                             BorderThickness="1"
                             CornerRadius="6"
                             Padding="2,1">
                       <StackPanel Orientation="Horizontal" Spacing="0">
-                        <Button Name="PART_CopyButton" Classes="subtle"
-                                Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                          <TextBlock Text="Copy message" FontSize="11"
-                                     Foreground="{DynamicResource Brush.TextTertiary}" />
+                        <Button Name="PART_CopyButton" Classes="subtle strata-message-action"
+                                Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4"
+                                ToolTip.Tip="{TemplateBinding CopyLabel}"
+                                AutomationProperties.Name="{TemplateBinding CopyLabel}">
+                          <StackPanel Orientation="Horizontal">
+                            <PathIcon Name="PART_CopyIcon" IsVisible="False"
+                                      Width="{DynamicResource Size.IconS}" Height="{DynamicResource Size.IconS}"
+                                      Data="{x:Static controls:StrataChatMessage.CopyIconGeometry}" />
+                            <PathIcon Name="PART_CopiedIcon" IsVisible="False"
+                                      Width="{DynamicResource Size.IconS}" Height="{DynamicResource Size.IconS}"
+                                      Data="{x:Static controls:StrataChatMessage.CheckIconGeometry}" />
+                            <TextBlock Name="PART_CopyLabel" Text="{TemplateBinding CopyLabel}" FontSize="11"
+                                       Foreground="{DynamicResource Brush.TextTertiary}" />
+                          </StackPanel>
+                        </Button>
+                        <Button Name="PART_ShareButton" Classes="subtle strata-message-share"
+                                IsVisible="False" Padding="8,0" MinHeight="0" MinWidth="0"
+                                Height="{DynamicResource Size.ControlHeightS}"
+                                CornerRadius="{DynamicResource Radius.Base}"
+                                Foreground="{DynamicResource Brush.TextTertiary}"
+                                ToolTip.Tip="{TemplateBinding ShareLabel}"
+                                AutomationProperties.Name="{TemplateBinding ShareLabel}">
+                          <StackPanel Orientation="Horizontal" Spacing="4">
+                            <PathIcon Width="{DynamicResource Size.IconS}" Height="{DynamicResource Size.IconS}"
+                                      Data="{x:Static controls:StrataChatMessage.ShareIconGeometry}" />
+                            <TextBlock Text="{TemplateBinding ShareLabel}" FontSize="11" VerticalAlignment="Center" />
+                          </StackPanel>
+                        </Button>
+                        <Button Name="PART_ReplyButton" Classes="subtle strata-message-action strata-message-reply"
+                                IsVisible="False" Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4"
+                                ToolTip.Tip="{TemplateBinding ReplyLabel}"
+                                AutomationProperties.Name="{TemplateBinding ReplyLabel}">
+                          <StackPanel Orientation="Horizontal" Spacing="4">
+                            <PathIcon Width="{DynamicResource Size.IconS}" Height="{DynamicResource Size.IconS}"
+                                      Data="{x:Static controls:StrataChatMessage.ReplyIconGeometry}" />
+                            <TextBlock Name="PART_ReplyLabel" Text="{TemplateBinding ReplyLabel}" FontSize="11" />
+                          </StackPanel>
                         </Button>
                         <Border Name="PART_EditSep" Width="1" Margin="2,3"
                                 Background="{DynamicResource Brush.BorderSubtle}" />
-                        <Button Name="PART_EditButton" Classes="subtle"
-                                Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                          <TextBlock Text="Edit" FontSize="11"
-                                     Foreground="{DynamicResource Brush.TextTertiary}" />
+                        <Button Name="PART_EditButton" Classes="subtle strata-message-action"
+                                Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4"
+                                ToolTip.Tip="Edit" AutomationProperties.Name="Edit">
+                          <StackPanel Orientation="Horizontal">
+                            <PathIcon Name="PART_EditIcon" IsVisible="False"
+                                      Width="{DynamicResource Size.IconS}" Height="{DynamicResource Size.IconS}"
+                                      Data="{x:Static controls:StrataChatMessage.EditIconGeometry}" />
+                            <TextBlock Name="PART_EditLabel" Text="Edit" FontSize="11"
+                                       Foreground="{DynamicResource Brush.TextTertiary}" />
+                          </StackPanel>
                         </Button>
                         <Border Name="PART_RegenerateSep" Width="1" Margin="2,3"
                                 Background="{DynamicResource Brush.BorderSubtle}" />
-                        <Button Name="PART_RegenerateButton" Classes="subtle"
-                                Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4">
-                          <TextBlock Text="Retry" FontSize="11"
-                                     Foreground="{DynamicResource Brush.TextTertiary}" />
+                        <Button Name="PART_RegenerateButton" Classes="subtle strata-message-action"
+                                Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4"
+                                ToolTip.Tip="Retry" AutomationProperties.Name="Retry">
+                          <StackPanel Orientation="Horizontal">
+                            <PathIcon Name="PART_RetryIcon" IsVisible="False"
+                                      Width="{DynamicResource Size.IconS}" Height="{DynamicResource Size.IconS}"
+                                      Data="{x:Static controls:StrataChatMessage.RetryIconGeometry}" />
+                            <TextBlock Name="PART_RetryLabel" Text="Retry" FontSize="11"
+                                       Foreground="{DynamicResource Brush.TextTertiary}" />
+                          </StackPanel>
+                        </Button>
+                        <Button Name="PART_MoreButton" Classes="subtle strata-message-action"
+                                IsVisible="False" Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4"
+                                ToolTip.Tip="{TemplateBinding MoreActionsLabel}"
+                                AutomationProperties.Name="{TemplateBinding MoreActionsLabel}">
+                          <PathIcon Width="{DynamicResource Size.IconS}" Height="{DynamicResource Size.IconS}"
+                                    Data="{x:Static controls:StrataChatMessage.MoreIconGeometry}" />
                         </Button>
                       </StackPanel>
                     </Border>
@@ -255,36 +277,21 @@
         </Style>
 
         <!-- Meta + status visibility -->
-        <Style Selector="^:has-meta /template/ StackPanel#PART_MetaRow">
+        <Style Selector="^:has-meta /template/ Grid#PART_MetaRow">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-author:has-timestamp /template/ TextBlock#PART_MetaSeparator">
           <Setter Property="IsVisible" Value="True" />
         </Style>
 
-        <!-- ══ Reply affordance ══
-             Mounted only for messages that can be replied to; revealed on hover/focus and pinned
-             (accented) while the host composes a reply to this message. -->
+        <!-- Reply is opt-in and accented while the host composes a reply to this message. -->
         <Style Selector="^:can-reply /template/ Button#PART_ReplyButton">
           <Setter Property="IsVisible" Value="True" />
-        </Style>
-        <Style Selector="^:can-reply:pointerover /template/ Button#PART_ReplyButton">
-          <Setter Property="Opacity" Value="1" />
-          <Setter Property="IsHitTestVisible" Value="True" />
-        </Style>
-        <Style Selector="^:can-reply:focus-within /template/ Button#PART_ReplyButton">
-          <Setter Property="Opacity" Value="1" />
-          <Setter Property="IsHitTestVisible" Value="True" />
-        </Style>
-        <Style Selector="^:can-reply:reply-source /template/ Button#PART_ReplyButton">
-          <Setter Property="Opacity" Value="1" />
-          <Setter Property="IsHitTestVisible" Value="True" />
-        </Style>
-        <Style Selector="^:can-reply:host-scrolling /template/ Button#PART_ReplyButton">
-          <Setter Property="Opacity" Value="0" />
-          <Setter Property="IsHitTestVisible" Value="False" />
         </Style>
         <Style Selector="^:can-reply:editing /template/ Button#PART_ReplyButton">
           <Setter Property="IsVisible" Value="False" />
         </Style>
-        <Style Selector="^:can-share /template/ StackPanel#PART_MetaRow">
+        <Style Selector="^:can-share /template/ Grid#PART_MetaRow">
           <Setter Property="IsVisible" Value="True" />
         </Style>
         <Style Selector="^:can-share /template/ Button#PART_ShareButton">
@@ -351,6 +358,61 @@
         <Style Selector="^:assistant /template/ Border#PART_Bubble">
           <Setter Property="Padding" Value="0,6,0,4" />
         </Style>
+        <Style Selector="^:assistant /template/ WrapPanel#PART_HeaderRow">
+          <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightS}" />
+          <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+        <Style Selector="^:assistant /template/ TextBlock#PART_Timestamp">
+          <Setter Property="Grid.Column" Value="0" />
+        </Style>
+        <Style Selector="^:assistant /template/ TextBlock#PART_Author">
+          <Setter Property="Grid.Column" Value="2" />
+        </Style>
+        <Style Selector="^:assistant /template/ Border#PART_ActionLayer">
+          <Setter Property="Margin" Value="8,0,0,0" />
+          <Setter Property="RenderTransform" Value="translateX(0)" />
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="^:assistant /template/ Border#PART_ActionSurface">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="BorderThickness" Value="0" />
+          <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="^:assistant /template/ Button.strata-message-action">
+          <Setter Property="Width" Value="{DynamicResource Size.ControlHeightS}" />
+          <Setter Property="Height" Value="{DynamicResource Size.ControlHeightS}" />
+          <Setter Property="Padding" Value="0" />
+          <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+        <Style Selector="^:assistant /template/ Button.strata-message-action:pointerover">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:assistant /template/ TextBlock#PART_CopyLabel,
+                         ^:assistant /template/ TextBlock#PART_ReplyLabel,
+                         ^:assistant /template/ TextBlock#PART_EditLabel,
+                         ^:assistant /template/ TextBlock#PART_RetryLabel,
+                         ^:assistant /template/ Border#PART_EditSep,
+                         ^:assistant /template/ Border#PART_RegenerateSep">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:assistant /template/ PathIcon#PART_CopyIcon,
+                         ^:assistant /template/ PathIcon#PART_EditIcon,
+                         ^:assistant /template/ PathIcon#PART_RetryIcon,
+                         ^:assistant /template/ Button#PART_MoreButton">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:assistant:copied /template/ PathIcon#PART_CopyIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:assistant:copied /template/ PathIcon#PART_CopiedIcon">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+        </Style>
+        <Style Selector="^:copied /template/ Button#PART_CopyButton">
+          <Setter Property="ToolTip.Tip" Value="{Binding CopiedLabel, RelativeSource={RelativeSource TemplatedParent}}" />
+        </Style>
 
         <!-- ══ USER: right-aligned subtle pill ══ -->
         <Style Selector="^:user">
@@ -362,10 +424,10 @@
           <Setter Property="Padding" Value="16,10,16,10" />
           <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
-        <Style Selector="^:user /template/ StackPanel#PART_MetaRow">
+        <Style Selector="^:user /template/ WrapPanel#PART_HeaderRow">
           <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
-        <Style Selector="^:user /template/ StackPanel#PART_MetaRow TextBlock">
+        <Style Selector="^:user /template/ Grid#PART_MetaRow TextBlock">
           <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
         </Style>
         <Style Selector="^:user /template/ Border#PART_ActionLayer">
@@ -415,6 +477,12 @@
         </Style>
         <!-- Touch has no hover: a tap sets :actions-revealed so the bar is reachable by finger. -->
         <Style Selector="^:actions-revealed /template/ Border#PART_ActionLayer">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="IsHitTestVisible" Value="True" />
+          <Setter Property="RenderTransform" Value="translateX(0)" />
+        </Style>
+        <Style Selector="^:menu-open /template/ Border#PART_ActionLayer,
+                         ^:reply-source /template/ Border#PART_ActionLayer">
           <Setter Property="Opacity" Value="1" />
           <Setter Property="IsHitTestVisible" Value="True" />
           <Setter Property="RenderTransform" Value="translateX(0)" />

@@ -100,7 +100,7 @@ public class StrataReplyRequestedEventArgs : RoutedEventArgs
 }
 
 /// <summary>
-/// A chat message bubble with role-dependent styling, hover toolbar (Copy / Edit / Retry),
+/// A chat message bubble with role-dependent styling, an assistant action footer and user hover toolbar,
 /// inline edit mode, and streaming indicator. Supports any content (text, markdown, controls).
 /// </summary>
 /// <remarks>
@@ -117,9 +117,10 @@ public class StrataReplyRequestedEventArgs : RoutedEventArgs
 /// <para><b>Template parts:</b> PART_Bubble (Border), PART_EditArea (Border), PART_EditBox (TextBox),
 /// PART_StreamBar (Border), PART_ActionBar (StackPanel), PART_CopyButton (Button),
 /// PART_EditButton (Button), PART_RegenerateButton (Button), PART_SaveButton (Button), PART_CancelButton (Button),
-/// PART_ReplyButton (Button, optional).</para>
+/// PART_ReplyButton (Button, optional), PART_ShareButton (Button, optional), PART_MoreButton (Button, optional),
+/// PART_HeaderRow (WrapPanel), PART_BubbleRow (Grid), PART_Timestamp (TextBlock).</para>
 /// <para><b>Pseudo-classes:</b> :assistant, :user, :system, :tool, :streaming, :editing, :editable, :host-scrolling,
-/// :has-meta, :has-status, :can-reply, :reply-source.</para>
+/// :has-meta, :has-author, :has-timestamp, :has-status, :can-reply, :can-share, :reply-source, :menu-open, :copied.</para>
 /// <para><b>Replies:</b> when <see cref="CanReply"/> is set the message offers a Reply action beside its meta
 /// row, a Reply item in its context menu, and a floating Reply pill over selected text. All three raise
 /// <see cref="ReplyRequested"/>; the host decides what replying means.</para>
@@ -131,6 +132,9 @@ public class StrataChatMessage : TemplatedControl
     private Border? _streamBar;
     private Border? _bubble;
     private Border? _actionLayer;
+    private StackPanel? _root;
+    private WrapPanel? _headerRow;
+    private Grid? _bubbleRow;
     private Border? _editArea;
     private Border? _editSeparator;
     private Border? _retrySeparator;
@@ -141,8 +145,9 @@ public class StrataChatMessage : TemplatedControl
     private Button? _retryButton;
     private Button? _saveButton;
     private Button? _cancelButton;
+    private Button? _moreButton;
+    private IDisposable? _copyFeedbackReset;
     private ContextMenu? _contextMenu;
-    private Control? _actionLayerChild;
     private Control? _editAreaChild;
     private readonly HashSet<TextBlock> _observedTextBlocks = new();
     private readonly HashSet<StrataMarkdown> _observedMarkdownControls = new();
@@ -196,6 +201,10 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<string> TimestampProperty =
         AvaloniaProperty.Register<StrataChatMessage, string>(nameof(Timestamp), string.Empty);
 
+    /// <summary>Full date and time shown when hovering over the timestamp.</summary>
+    public static readonly StyledProperty<string?> TimestampToolTipProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string?>(nameof(TimestampToolTip));
+
     /// <summary>Status text shown below assistant messages (e.g. "Took 1.2 s").</summary>
     public static readonly StyledProperty<string> StatusTextProperty =
         AvaloniaProperty.Register<StrataChatMessage, string>(nameof(StatusText), string.Empty);
@@ -211,6 +220,28 @@ public class StrataChatMessage : TemplatedControl
     /// <summary>Whether the Edit button appears in the hover toolbar.</summary>
     public static readonly StyledProperty<bool> IsEditableProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsEditable), true);
+
+    /// <summary>Whether the host supports retrying this message.</summary>
+    public static readonly StyledProperty<bool> CanRegenerateProperty =
+        AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(CanRegenerate), true);
+
+    /// <summary>Localized labels for the copy actions and their confirmation.</summary>
+    public static readonly StyledProperty<string> CopyLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyLabel), "Copy message");
+    public static readonly StyledProperty<string> CopySelectionLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopySelectionLabel), "Copy selected text");
+    public static readonly StyledProperty<string> CopyMarkdownLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyMarkdownLabel), "Copy as Markdown");
+    public static readonly StyledProperty<string> CopyRichTextLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyRichTextLabel), "Copy as rich text");
+    public static readonly StyledProperty<string> CopyTurnLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyTurnLabel), "Copy assistant turn");
+    public static readonly StyledProperty<string> CopiedLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopiedLabel), "Copied");
+
+    /// <summary>Localized accessible label for the overflow menu.</summary>
+    public static readonly StyledProperty<string> MoreActionsLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(MoreActionsLabel), "More actions");
 
     /// <summary>Whether the message is currently in inline-edit mode.</summary>
     public static readonly StyledProperty<bool> IsEditingProperty =
@@ -367,6 +398,12 @@ public class StrataChatMessage : TemplatedControl
         IsStreamingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnStreamingChanged());
         IsEditingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditingChanged());
         IsEditableProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnEditableChanged());
+        CanRegenerateProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.UpdateActionBarLayout());
+        CopyLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
+        CopySelectionLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
+        CopyMarkdownLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
+        CopyRichTextLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
+        CopyTurnLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         IsHostScrollingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnHostScrollingChanged());
         AuthorProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnMetaChanged());
         TimestampProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnMetaChanged());
@@ -414,10 +451,19 @@ public class StrataChatMessage : TemplatedControl
     public StrataChatRole Role { get => GetValue(RoleProperty); set => SetValue(RoleProperty, value); }
     public string Author { get => GetValue(AuthorProperty); set => SetValue(AuthorProperty, value); }
     public string Timestamp { get => GetValue(TimestampProperty); set => SetValue(TimestampProperty, value); }
+    public string? TimestampToolTip { get => GetValue(TimestampToolTipProperty); set => SetValue(TimestampToolTipProperty, value); }
     public string StatusText { get => GetValue(StatusTextProperty); set => SetValue(StatusTextProperty, value); }
     public object? Content { get => GetValue(ContentProperty); set => SetValue(ContentProperty, value); }
     public bool IsStreaming { get => GetValue(IsStreamingProperty); set => SetValue(IsStreamingProperty, value); }
     public bool IsEditable { get => GetValue(IsEditableProperty); set => SetValue(IsEditableProperty, value); }
+    public bool CanRegenerate { get => GetValue(CanRegenerateProperty); set => SetValue(CanRegenerateProperty, value); }
+    public string CopyLabel { get => GetValue(CopyLabelProperty); set => SetValue(CopyLabelProperty, value); }
+    public string CopySelectionLabel { get => GetValue(CopySelectionLabelProperty); set => SetValue(CopySelectionLabelProperty, value); }
+    public string CopyMarkdownLabel { get => GetValue(CopyMarkdownLabelProperty); set => SetValue(CopyMarkdownLabelProperty, value); }
+    public string CopyRichTextLabel { get => GetValue(CopyRichTextLabelProperty); set => SetValue(CopyRichTextLabelProperty, value); }
+    public string CopyTurnLabel { get => GetValue(CopyTurnLabelProperty); set => SetValue(CopyTurnLabelProperty, value); }
+    public string CopiedLabel { get => GetValue(CopiedLabelProperty); set => SetValue(CopiedLabelProperty, value); }
+    public string MoreActionsLabel { get => GetValue(MoreActionsLabelProperty); set => SetValue(MoreActionsLabelProperty, value); }
     public bool IsEditing { get => GetValue(IsEditingProperty); set => SetValue(IsEditingProperty, value); }
     public bool UseInlineEdit { get => GetValue(UseInlineEditProperty); set => SetValue(UseInlineEditProperty, value); }
     public string? EditText { get => GetValue(EditTextProperty); set => SetValue(EditTextProperty, value); }
@@ -435,6 +481,17 @@ public class StrataChatMessage : TemplatedControl
     /// </summary>
     public static Geometry ReplyIconGeometry { get; } = Geometry.Parse(
         "M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z");
+
+    public static Geometry CopyIconGeometry { get; } = Geometry.Parse(
+        "M8 7h12v15H8V7zm2 2v11h8V9h-8zM4 2h12v2H6v12H4V2z");
+    public static Geometry CheckIconGeometry { get; } = Geometry.Parse(
+        "M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z");
+    public static Geometry EditIconGeometry { get; } = Geometry.Parse(
+        "M3 17.3V21h3.7L17.8 9.9l-3.7-3.7L3 17.3zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.7 3.7L20.7 7z");
+    public static Geometry RetryIconGeometry { get; } = Geometry.Parse(
+        "M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.7-4.2L13 11h8V3l-3.3 3.3z");
+    public static Geometry MoreIconGeometry { get; } = Geometry.Parse(
+        "M4 10a2 2 0 1 0 0 4a2 2 0 1 0 0-4zM12 10a2 2 0 1 0 0 4a2 2 0 1 0 0-4zM20 10a2 2 0 1 0 0 4a2 2 0 1 0 0-4z");
 
     /// <summary>
     /// Gets or sets whether the containing chat shell is currently scrolling.
@@ -455,6 +512,7 @@ public class StrataChatMessage : TemplatedControl
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         DetachTemplatePartHandlers();
+        ResetCopyFeedback();
 
         base.OnApplyTemplate(e);
         // Stop any pulse on the outgoing stream bar before it is replaced, so a re-templated control
@@ -463,10 +521,12 @@ public class StrataChatMessage : TemplatedControl
         _streamBar = e.NameScope.Find<Border>("PART_StreamBar");
         _bubble = e.NameScope.Find<Border>("PART_Bubble");
         _actionLayer = e.NameScope.Find<Border>("PART_ActionLayer");
+        _root = e.NameScope.Find<StackPanel>("PART_Root");
+        _headerRow = e.NameScope.Find<WrapPanel>("PART_HeaderRow");
+        _bubbleRow = e.NameScope.Find<Grid>("PART_BubbleRow");
         _editArea = e.NameScope.Find<Border>("PART_EditArea");
         _editBox = e.NameScope.Find<TextBox>("PART_EditBox");
         _editHint = e.NameScope.Find<TextBlock>("PART_EditHint");
-        _actionLayerChild = _actionLayer?.Child;
         _editAreaChild = _editArea?.Child;
 
         _copyButton = e.NameScope.Find<Button>("PART_CopyButton");
@@ -480,7 +540,9 @@ public class StrataChatMessage : TemplatedControl
         _retryButton = regenBtn;
         _replyButton = e.NameScope.Find<Button>("PART_ReplyButton");
         _shareButton = e.NameScope.Find<Button>("PART_ShareButton");
+        _moreButton = e.NameScope.Find<Button>("PART_MoreButton");
 
+        UpdateActionPlacement();
         AttachTemplatePartHandlers();
 
         AttachContextMenu();
@@ -488,7 +550,6 @@ public class StrataChatMessage : TemplatedControl
         UpdateAllPseudoClasses();
         OnContentChanged();
         UpdateActionBarLayout(force: true);
-        UpdateActionChromeMount();
         UpdateEditAreaMount();
         if (IsStreaming)
             Dispatcher.UIThread.Post(StartStreamPulse, DispatcherPriority.Loaded);
@@ -520,9 +581,7 @@ public class StrataChatMessage : TemplatedControl
     {
         base.OnPropertyChanged(change);
 
-        if (change.Property == IsPointerOverProperty || change.Property == IsFocusedProperty)
-            UpdateActionChromeMount();
-        else if (change.Property == AreActionsRevealedProperty)
+        if (change.Property == AreActionsRevealedProperty)
             OnActionsRevealedChanged();
     }
 
@@ -621,6 +680,8 @@ public class StrataChatMessage : TemplatedControl
         _isAttachedToVisualTree = false;
         ClearTouchPress();
         HideSelectionReply();
+        ResetCopyFeedback();
+        _contextMenu?.Close();
 
         // Stop the streaming pulse while the composition visual is still attached (before base runs).
         // A Forever composition animation left running when the visual detaches keeps ticking on the
@@ -635,6 +696,8 @@ public class StrataChatMessage : TemplatedControl
         {
             _contextMenu.Opening -= OnContextMenuOpening;
             _contextMenu.Closing -= OnContextMenuClosing;
+            _contextMenu.Opened -= OnContextMenuOpened;
+            _contextMenu.Closed -= OnContextMenuClosed;
         }
         if (_bubble is not null)
         {
@@ -693,6 +756,11 @@ public class StrataChatMessage : TemplatedControl
             _shareButton.Click -= OnShareButtonClick;
             _shareButton.Click += OnShareButtonClick;
         }
+        if (_moreButton is not null)
+        {
+            _moreButton.Click -= OnMoreButtonClick;
+            _moreButton.Click += OnMoreButtonClick;
+        }
     }
 
     private void DetachTemplatePartHandlers()
@@ -705,6 +773,7 @@ public class StrataChatMessage : TemplatedControl
         if (_editBox is not null) _editBox.RemoveHandler(KeyDownEvent, OnEditBoxKeyDown);
         if (_replyButton is not null) _replyButton.Click -= OnReplyButtonClick;
         if (_shareButton is not null) _shareButton.Click -= OnShareButtonClick;
+        if (_moreButton is not null) _moreButton.Click -= OnMoreButtonClick;
     }
 
     protected override async void OnKeyDown(KeyEventArgs e)
@@ -730,9 +799,19 @@ public class StrataChatMessage : TemplatedControl
     private async void OnCopyButtonClick(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        var copy = await CopyMessageTextAsync(StrataCopyFormat.Text);
-        RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection));
-        CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
+        await CopyMessageAndNotifyAsync(StrataCopyFormat.Text);
+    }
+
+    private void OnMoreButtonClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (_contextMenu is null || sender is not Control anchor)
+            return;
+
+        CaptureContextMenuSelection();
+        RebuildContextMenuItems();
+        _contextMenu.Placement = PlacementMode.BottomEdgeAlignedLeft;
+        _contextMenu.Open(anchor);
     }
 
     private void OnRegenerateButtonClick(object? sender, RoutedEventArgs e)
@@ -763,9 +842,15 @@ public class StrataChatMessage : TemplatedControl
         _contextMenu.Opening += OnContextMenuOpening;
         _contextMenu.Closing -= OnContextMenuClosing;
         _contextMenu.Closing += OnContextMenuClosing;
+        _contextMenu.Opened -= OnContextMenuOpened;
+        _contextMenu.Opened += OnContextMenuOpened;
+        _contextMenu.Closed -= OnContextMenuClosed;
+        _contextMenu.Closed += OnContextMenuClosed;
 
         _bubble.ContextMenu = _contextMenu;
         ContextMenu = _contextMenu;
+        if (_moreButton is not null)
+            _moreButton.ContextMenu = _contextMenu;
         ApplyMessageContextMenu(Content);
 
         // Snapshot selected text before child controls can react to the right-click,
@@ -841,6 +926,20 @@ public class StrataChatMessage : TemplatedControl
     }
 
     private void OnContextMenuClosing(object? sender, CancelEventArgs e)
+        => ResetContextMenuSelection();
+
+    private void OnContextMenuOpened(object? sender, RoutedEventArgs e)
+        => PseudoClasses.Set(":menu-open", true);
+
+    private void OnContextMenuClosed(object? sender, RoutedEventArgs e)
+    {
+        PseudoClasses.Set(":menu-open", false);
+        if (_contextMenu is not null)
+            _contextMenu.Placement = PlacementMode.Pointer;
+        ResetContextMenuSelection();
+    }
+
+    private void ResetContextMenuSelection()
     {
         _contextMenuSelectionSource = null;
         _contextMenuSelectionText = null;
@@ -975,7 +1074,7 @@ public class StrataChatMessage : TemplatedControl
 
         var copyItem = new MenuItem
         {
-            Header = hasSelection ? "Copy selected text" : "Copy message",
+            Header = hasSelection ? CopySelectionLabel : CopyLabel,
             Icon = CreateMenuIcon("\uE8C8")
         };
         copyItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.Text);
@@ -996,7 +1095,7 @@ public class StrataChatMessage : TemplatedControl
         {
             var markdownItem = new MenuItem
             {
-                Header = "Copy as Markdown",
+                Header = CopyMarkdownLabel,
                 Icon = CreateMenuIcon("\uE8C8")
             };
             markdownItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.Markdown);
@@ -1004,7 +1103,7 @@ public class StrataChatMessage : TemplatedControl
 
             var richTextItem = new MenuItem
             {
-                Header = "Copy as rich text",
+                Header = CopyRichTextLabel,
                 Icon = CreateMenuIcon("\uE8C8")
             };
             richTextItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.RichText);
@@ -1013,7 +1112,7 @@ public class StrataChatMessage : TemplatedControl
 
         if (!IsEditing && Role is StrataChatRole.Assistant or StrataChatRole.Tool)
         {
-            var copyTurnItem = new MenuItem { Header = "Copy assistant turn", Icon = CreateMenuIcon("\uE8C8") };
+            var copyTurnItem = new MenuItem { Header = CopyTurnLabel, Icon = CreateMenuIcon("\uE8C8") };
             copyTurnItem.Click += (_, _) =>
             {
                 RaiseEvent(new RoutedEventArgs(CopyTurnRequestedEvent));
@@ -1105,6 +1204,19 @@ public class StrataChatMessage : TemplatedControl
         var copy = await CopyMessageTextAsync(format);
         RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection, format));
         CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
+        if (!string.IsNullOrWhiteSpace(copy.Text) && TopLevel.GetTopLevel(this)?.Clipboard is not null)
+        {
+            ResetCopyFeedback();
+            PseudoClasses.Set(":copied", true);
+            _copyFeedbackReset = DispatcherTimer.RunOnce(ResetCopyFeedback, TimeSpan.FromSeconds(2));
+        }
+    }
+
+    private void ResetCopyFeedback()
+    {
+        _copyFeedbackReset?.Dispose();
+        _copyFeedbackReset = null;
+        PseudoClasses.Set(":copied", false);
     }
 
     private async Task<MessageCopyResult> CopyMessageTextAsync(StrataCopyFormat format)
@@ -1535,8 +1647,8 @@ public class StrataChatMessage : TemplatedControl
         PseudoClasses.Set(":user", role == StrataChatRole.User);
         PseudoClasses.Set(":system", role == StrataChatRole.System);
         PseudoClasses.Set(":tool", role == StrataChatRole.Tool);
-        UpdateActionBarLayout();
-        UpdateActionChromeMount();
+        UpdateActionPlacement();
+        UpdateActionBarLayout(force: true);
         InvalidateContextMenu();
     }
 
@@ -1544,14 +1656,12 @@ public class StrataChatMessage : TemplatedControl
     {
         PseudoClasses.Set(":editable", IsEditable);
         UpdateActionBarLayout();
-        UpdateActionChromeMount();
         InvalidateContextMenu();
     }
 
     private void OnHostScrollingChanged()
     {
         PseudoClasses.Set(":host-scrolling", IsHostScrolling);
-        UpdateActionChromeMount();
         if (!IsHostScrolling)
         {
             UpdateActionBarLayout();
@@ -1562,12 +1672,13 @@ public class StrataChatMessage : TemplatedControl
     private void OnActionsRevealedChanged()
     {
         PseudoClasses.Set(":actions-revealed", AreActionsRevealed);
-        UpdateActionChromeMount();
     }
 
     private void OnMetaChanged()
     {
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Timestamp));
+        PseudoClasses.Set(":has-author", !string.IsNullOrWhiteSpace(Author));
+        PseudoClasses.Set(":has-timestamp", !string.IsNullOrWhiteSpace(Timestamp));
     }
 
     private void OnStatusChanged()
@@ -1580,7 +1691,6 @@ public class StrataChatMessage : TemplatedControl
         UpdateEditAreaMount();
         PseudoClasses.Set(":editing", IsEditing);
         UpdateActionBarLayout();
-        UpdateActionChromeMount();
         InvalidateContextMenu();
         if (IsEditing)
             HideSelectionReply();
@@ -1755,6 +1865,8 @@ public class StrataChatMessage : TemplatedControl
         PseudoClasses.Set(":host-scrolling", IsHostScrolling);
         PseudoClasses.Set(":actions-revealed", AreActionsRevealed);
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Author) || !string.IsNullOrWhiteSpace(Timestamp));
+        PseudoClasses.Set(":has-author", !string.IsNullOrWhiteSpace(Author));
+        PseudoClasses.Set(":has-timestamp", !string.IsNullOrWhiteSpace(Timestamp));
         PseudoClasses.Set(":has-status", !string.IsNullOrWhiteSpace(StatusText));
         PseudoClasses.Set(":can-reply", CanReply);
         PseudoClasses.Set(":reply-source", IsReplySource);
@@ -1764,7 +1876,7 @@ public class StrataChatMessage : TemplatedControl
     {
         var canShowActions = !IsEditing && !IsHostScrolling && Role != StrataChatRole.System;
         var showEdit = canShowActions && IsEditable;
-        var showRetry = canShowActions && !IsStreaming && Role is StrataChatRole.Assistant or StrataChatRole.Tool;
+        var showRetry = canShowActions && CanRegenerate && !IsStreaming && Role is StrataChatRole.Assistant or StrataChatRole.Tool;
 
         // Skip DOM updates when values haven't changed
         if (!force && showEdit == _cachedEditVisible && showRetry == _cachedRetryVisible)
@@ -1780,22 +1892,36 @@ public class StrataChatMessage : TemplatedControl
             _retryButton.IsVisible = showRetry;
 
         if (_editSeparator is not null)
-            _editSeparator.IsVisible = showEdit;
+            _editSeparator.IsVisible = showEdit && Role != StrataChatRole.Assistant;
 
         if (_retrySeparator is not null)
-            _retrySeparator.IsVisible = showRetry;
+            _retrySeparator.IsVisible = showRetry && Role != StrataChatRole.Assistant;
     }
 
-    private void UpdateActionChromeMount()
+    private void UpdateActionPlacement()
     {
-        if (_actionLayer is null)
+        if (_actionLayer is null || _headerRow is null || _bubbleRow is null)
             return;
 
-        // Always keep the action bar child mounted so its Auto column width
-        // stays constant. Visibility is controlled purely by Opacity and
-        // IsHitTestVisible via XAML styles (:pointerover, :host-scrolling, etc.).
-        if (_actionLayer.Child is null && _actionLayerChild is not null)
-            _actionLayer.Child = _actionLayerChild;
+        Panel target = Role == StrataChatRole.Assistant ? _headerRow : _bubbleRow;
+        if (!ReferenceEquals(_actionLayer.Parent, target))
+        {
+            if (_actionLayer.Parent is Panel previous)
+                previous.Children.Remove(_actionLayer);
+            target.Children.Add(_actionLayer);
+        }
+
+        if (_root is not null)
+        {
+            _root.Children.Remove(_headerRow);
+            var contentEnd = _editArea is not null
+                ? _root.Children.IndexOf(_editArea)
+                : _root.Children.IndexOf(_bubbleRow);
+            var index = Role == StrataChatRole.Assistant
+                ? contentEnd + 1
+                : 0;
+            _root.Children.Insert(index, _headerRow);
+        }
     }
 
     private void UpdateEditAreaMount()
