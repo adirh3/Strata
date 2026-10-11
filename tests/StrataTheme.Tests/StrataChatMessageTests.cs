@@ -291,6 +291,49 @@ public class StrataChatMessageTests
     }
 
     [Fact]
+    public async Task ShareAction_IsOptInLocalizedAndRaisesAHostEvent()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var menu = new ContextMenu();
+            var message = new StrataChatMessage { Content = "An excellent result" };
+            SetPrivateField(message, "_contextMenu", menu);
+            InvokePrivate(message, "RebuildContextMenuItems");
+            Assert.DoesNotContain(Assert.IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource).OfType<MenuItem>(),
+                item => item.Header?.ToString() == "Share");
+
+            message.CanShare = true;
+            message.ShareLabel = "Share prompt";
+            var raised = 0;
+            message.ShareRequested += (_, _) => raised++;
+            InvokePrivate(message, "RebuildContextMenuItems");
+            var share = Assert.IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource).OfType<MenuItem>()
+                .Single(item => item.Header?.ToString() == "Share prompt");
+            share.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Equal(1, raised);
+        });
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task ShareAction_IsUnavailableDuringStreamingOrEditing(bool streaming, bool editing)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var menu = new ContextMenu();
+            var message = new StrataChatMessage
+            {
+                CanShare = true, ShareLabel = "Share prompt", IsStreaming = streaming, IsEditing = editing
+            };
+            SetPrivateField(message, "_contextMenu", menu);
+            InvokePrivate(message, "RebuildContextMenuItems");
+            Assert.DoesNotContain(Assert.IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource).OfType<MenuItem>(),
+                item => item.Header?.ToString() == "Share prompt");
+        });
+    }
+
+    [Fact]
     public async Task RebuildContextMenuItems_CanReplyOffersReplyFirst_ForTheWholeMessage()
     {
         await _fixture.Dispatch(() =>

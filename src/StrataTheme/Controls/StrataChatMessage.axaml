@@ -60,6 +60,16 @@
                                VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
+                <Button Name="PART_ShareButton" Classes="subtle" IsVisible="False"
+                        Margin="2,-3,0,-3" Padding="7,1" MinHeight="0" MinWidth="0"
+                        CornerRadius="{DynamicResource Radius.Full}" VerticalAlignment="Center"
+                        AutomationProperties.Name="{TemplateBinding ShareLabel}">
+                  <StackPanel Orientation="Horizontal" Spacing="4">
+                    <PathIcon Width="10" Height="10"
+                              Data="{x:Static controls:StrataChatMessage.ShareIconGeometry}" />
+                    <TextBlock Text="{TemplateBinding ShareLabel}" FontSize="11" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
               </StackPanel>
 
               <!-- Read mode: content + side action bar -->
@@ -272,6 +282,28 @@
           <Setter Property="IsHitTestVisible" Value="False" />
         </Style>
         <Style Selector="^:can-reply:editing /template/ Button#PART_ReplyButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:can-share /template/ StackPanel#PART_MetaRow">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:can-share /template/ Button#PART_ShareButton">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Opacity" Value="0.7" />
+        </Style>
+        <Style Selector="^:can-share:pointerover /template/ Button#PART_ShareButton">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:can-share:focus-within /template/ Button#PART_ShareButton">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:streaming /template/ Button#PART_ShareButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:editing /template/ Button#PART_ShareButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:system /template/ Button#PART_ShareButton">
           <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:assistant:has-status /template/ DockPanel#PART_FooterRow">

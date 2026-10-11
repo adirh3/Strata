@@ -48,6 +48,7 @@ public sealed class Strings
     {
         ["en"] = new()
         {
+            ["Chat.Share"] = "Share prompt",
             // App chrome
             ["AppTitle"] = "Strata UI – Design System Preview",
             ["DiffViewer"] = "Shared diff viewer",
@@ -373,6 +374,7 @@ public sealed class Strings
 
         ["he"] = new()
         {
+            ["Chat.Share"] = "שיתוף פרומפט",
             // App chrome
             ["AppTitle"] = "Strata UI – תצוגה מקדימה של מערכת העיצוב",
             ["DiffViewer"] = "תצוגת שינויים משותפת",

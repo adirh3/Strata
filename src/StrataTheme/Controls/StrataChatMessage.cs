@@ -176,6 +176,7 @@ public class StrataChatMessage : TemplatedControl
 
     // ── Reply affordances ──
     private Button? _replyButton;
+    private Button? _shareButton;
     // The selection pill is created on first use: most messages are never selected, so they never pay
     // for the popup and its button.
     private Popup? _selectionReplyPopup;
@@ -239,6 +240,14 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<bool> CanReplyProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(CanReply));
 
+    /// <summary>Opt-in share action in the metadata row and context menu. Hidden while streaming or editing.</summary>
+    public static readonly StyledProperty<bool> CanShareProperty =
+        AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(CanShare));
+
+    /// <summary>Host-localizable label for the share action.</summary>
+    public static readonly StyledProperty<string> ShareLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(ShareLabel), "Share");
+
     /// <summary>
     /// Marks the message as the target of the reply the host is composing, keeping its Reply action
     /// visible and accented so the composer and its source stay visibly connected.
@@ -290,6 +299,10 @@ public class StrataChatMessage : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> ForkRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(ForkRequested), RoutingStrategies.Bubble);
 
+    /// <summary>Raised when the host should share this message or the task that produced it.</summary>
+    public static readonly RoutedEvent<RoutedEventArgs> ShareRequestedEvent =
+        RoutedEvent.Register<StrataChatMessage, RoutedEventArgs>(nameof(ShareRequested), RoutingStrategies.Bubble);
+
     /// <summary>Raised when the user asks to reply to this message or to text selected inside it.</summary>
     public static readonly RoutedEvent<StrataReplyRequestedEventArgs> ReplyRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, StrataReplyRequestedEventArgs>(nameof(ReplyRequested), RoutingStrategies.Bubble);
@@ -340,6 +353,13 @@ public class StrataChatMessage : TemplatedControl
         RoleProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnRoleChanged());
         CanForkProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         CanReplyProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnCanReplyChanged());
+        CanShareProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) =>
+        {
+            c.PseudoClasses.Set(":can-share", c.CanShare);
+            c.InvalidateContextMenu();
+            c.OnMetaChanged();
+        });
+        ShareLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         IsReplySourceProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.PseudoClasses.Set(":reply-source", c.IsReplySource));
         ReplyLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         ReplySelectionLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
@@ -371,6 +391,8 @@ public class StrataChatMessage : TemplatedControl
     { add => AddHandler(CopyTurnRequestedEvent, value); remove => RemoveHandler(CopyTurnRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? ForkRequested
     { add => AddHandler(ForkRequestedEvent, value); remove => RemoveHandler(ForkRequestedEvent, value); }
+    public event EventHandler<RoutedEventArgs>? ShareRequested
+    { add => AddHandler(ShareRequestedEvent, value); remove => RemoveHandler(ShareRequestedEvent, value); }
     public event EventHandler<StrataReplyRequestedEventArgs>? ReplyRequested
     { add => AddHandler(ReplyRequestedEvent, value); remove => RemoveHandler(ReplyRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? RegenerateRequested
@@ -423,6 +445,12 @@ public class StrataChatMessage : TemplatedControl
     /// Gets or sets whether the action bar is pinned visible (the touch equivalent of hovering).
     /// </summary>
     public bool AreActionsRevealed { get => GetValue(AreActionsRevealedProperty); set => SetValue(AreActionsRevealedProperty, value); }
+    public bool CanShare { get => GetValue(CanShareProperty); set => SetValue(CanShareProperty, value); }
+    public string ShareLabel { get => GetValue(ShareLabelProperty); set => SetValue(ShareLabelProperty, value); }
+
+    /// <summary>Vector share icon, independent of platform icon fonts.</summary>
+    public static Geometry ShareIconGeometry { get; } = Geometry.Parse(
+        "M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11A2.99 2.99 0 0 0 21 5a3 3 0 1 0-5.91.7L8.04 9.81a3 3 0 1 0 0 4.38l7.12 4.16c-.04.21-.06.43-.06.65A2.9 2.9 0 1 0 18 16.08z");
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -451,6 +479,7 @@ public class StrataChatMessage : TemplatedControl
         _editButton = editBtn;
         _retryButton = regenBtn;
         _replyButton = e.NameScope.Find<Button>("PART_ReplyButton");
+        _shareButton = e.NameScope.Find<Button>("PART_ShareButton");
 
         AttachTemplatePartHandlers();
 
@@ -659,6 +688,11 @@ public class StrataChatMessage : TemplatedControl
             _replyButton.Click -= OnReplyButtonClick;
             _replyButton.Click += OnReplyButtonClick;
         }
+        if (_shareButton is not null)
+        {
+            _shareButton.Click -= OnShareButtonClick;
+            _shareButton.Click += OnShareButtonClick;
+        }
     }
 
     private void DetachTemplatePartHandlers()
@@ -670,6 +704,7 @@ public class StrataChatMessage : TemplatedControl
         if (_cancelButton is not null) _cancelButton.Click -= OnCancelButtonClick;
         if (_editBox is not null) _editBox.RemoveHandler(KeyDownEvent, OnEditBoxKeyDown);
         if (_replyButton is not null) _replyButton.Click -= OnReplyButtonClick;
+        if (_shareButton is not null) _shareButton.Click -= OnShareButtonClick;
     }
 
     protected override async void OnKeyDown(KeyEventArgs e)
@@ -705,6 +740,13 @@ public class StrataChatMessage : TemplatedControl
         e.Handled = true;
         RaiseEvent(new RoutedEventArgs(RegenerateRequestedEvent));
         CommandHelper.Execute(RegenerateCommand, RegenerateCommandParameter);
+    }
+
+    private void OnShareButtonClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (CanShare && !IsStreaming && !IsEditing && Role != StrataChatRole.System)
+            RaiseEvent(new RoutedEventArgs(ShareRequestedEvent));
     }
 
     private void OnEditButtonClick(object? sender, RoutedEventArgs e) { e.Handled = true; BeginEdit(); }
@@ -939,6 +981,17 @@ public class StrataChatMessage : TemplatedControl
         copyItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.Text);
         items.Add(copyItem);
 
+        if (CanShare && !IsStreaming && !IsEditing && Role != StrataChatRole.System)
+        {
+            var shareItem = new MenuItem
+            {
+                Header = ShareLabel,
+                Icon = new PathIcon { Data = ShareIconGeometry, Width = 12, Height = 12 }
+            };
+            shareItem.Click += OnShareButtonClick;
+            items.Add(shareItem);
+        }
+
         if (!hasSelection)
         {
             var markdownItem = new MenuItem
@@ -1099,6 +1152,7 @@ public class StrataChatMessage : TemplatedControl
     private void OnCanReplyChanged()
     {
         PseudoClasses.Set(":can-reply", CanReply);
+        PseudoClasses.Set(":can-share", CanShare);
         InvalidateContextMenu();
         if (!CanReply)
             HideSelectionReply();

@@ -1262,7 +1262,8 @@
                 </sc:StrataChatMessage>
 
                 <!-- Assistant -->
-                <sc:StrataChatMessage Role="Assistant" IsEditable="True" Author="Strata" Timestamp="09:42" StatusText="grounded">
+                <sc:StrataChatMessage Role="Assistant" IsEditable="True" Author="Strata" Timestamp="09:42" StatusText="grounded"
+                                      CanShare="True" ShareLabel="{Binding Strings[Chat.Share]}">
                   <sc:StrataChatMessage.Content>
                     <SelectableTextBlock TextWrapping="Wrap" FontSize="13"
                                          Foreground="{DynamicResource Brush.TextPrimary}"

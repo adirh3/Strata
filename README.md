@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.34" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.35" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -36,6 +36,14 @@ Or, if published as a NuGet package:
 > **Note:** `SimpleTheme` provides base templates for controls that Strata does not fully re-template. Strata's styles layer on top and override all visual properties.
 
 ---
+
+## Message sharing
+
+Set `StrataChatMessage.CanShare="True"` to offer a metadata-row and context-menu
+share action. Localize `ShareLabel` in the host and handle the bubbling
+`ShareRequested` event to choose what sharing means for your application.
+The action is opt-in, keyboard accessible, and unavailable while the message is
+streaming or being edited. It never copies, sends or executes content itself.
 
 ## Question input state
 
