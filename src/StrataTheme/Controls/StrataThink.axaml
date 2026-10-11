@@ -100,7 +100,7 @@
                                   Margin="0,12,0,0"
                                   HorizontalContentAlignment="Stretch" />
 
-                <!-- Content area — animated MaxHeight reveal, no inner ScrollViewer -->
+                <!-- Content area — animated reveal with a bounded, scrollable body -->
                 <Border Name="PART_ContentHost"
                         ClipToBounds="True"
                         IsVisible="False"
@@ -117,10 +117,15 @@
                   </Border.Transitions>
                   <StackPanel>
                     <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,6,0,6" />
-                    <Border Padding="0,0,2,0">
-                      <ContentPresenter Content="{TemplateBinding DisplayedContent}"
-                                        HorizontalAlignment="Stretch" />
-                    </Border>
+                    <ScrollViewer Name="PART_ContentScrollViewer"
+                                  MaxHeight="{TemplateBinding MaxContentHeight}"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                      <Border Padding="0,0,2,0">
+                        <ContentPresenter Content="{TemplateBinding DisplayedContent}"
+                                          HorizontalAlignment="Stretch" />
+                      </Border>
+                    </ScrollViewer>
                   </StackPanel>
                 </Border>
               </StackPanel>

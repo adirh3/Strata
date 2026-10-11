@@ -156,12 +156,20 @@ does not block horizontal scrolling through long lines.
 
 The parser/models live in `StrataTheme.Diff`; applications do not need their own copy.
 
+## Reasoning cards
+
+`StrataThink` caps its expanded content viewport at 240 device-independent pixels.
+Short reasoning stays content-sized; longer or growing reasoning gets an automatic
+vertical scrollbar without scrolling the header away. `MaxContentHeight` can adjust
+the limit, or be set to `Infinity` for tool/source hosts that need an unbounded layout.
+The limit applies both while reasoning is active and after it finishes.
+
 ## Running activity previews
 
 `StrataThink.PreviewContent` displays lightweight activity rows below the progress header
 while `IsActive` is true and the card is collapsed. Clicking the header or pressing Enter/Space
 replaces the preview with the full `Content`. Finishing returns a collapsed card to its compact
-pill; reasoning controls without a preview are unchanged. Preview and detail content are only
+pill; reasoning controls without a preview retain their compact pill presentation. Preview and detail content are only
 hosted while visible. Set `MaxWidth` to bound the responsive card in a transcript column.
 
 ```xml

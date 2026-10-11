@@ -26,7 +26,7 @@ namespace StrataTheme.Controls;
 /// &lt;/controls:StrataThink&gt;
 /// </code>
 /// <para><b>Template parts:</b> PART_Dot (Border), PART_Pill (Border), PART_HeaderRow (Grid),
-/// PART_PreviewHost (ContentPresenter).</para>
+/// PART_PreviewHost (ContentPresenter), PART_ContentScrollViewer (ScrollViewer).</para>
 /// <para><b>Pseudo-classes:</b> :active, :activity, :preview, :has-meta, :has-progress, :complete.</para>
 /// </remarks>
 public class StrataThink : TemplatedControl
@@ -52,6 +52,13 @@ public class StrataThink : TemplatedControl
 
     public static readonly StyledProperty<object?> ContentProperty =
         AvaloniaProperty.Register<StrataThink, object?>(nameof(Content));
+
+    /// <summary>
+    /// Maximum height of the expanded content viewport. Defaults to 240 device-independent pixels.
+    /// Longer content scrolls vertically; positive infinity preserves an unbounded content layout.
+    /// </summary>
+    public static readonly StyledProperty<double> MaxContentHeightProperty =
+        AvaloniaProperty.Register<StrataThink, double>(nameof(MaxContentHeight), 240);
 
     public static readonly DirectProperty<StrataThink, object?> DisplayedContentProperty =
         AvaloniaProperty.RegisterDirect<StrataThink, object?>(nameof(DisplayedContent), control => control.DisplayedContent);
@@ -110,6 +117,8 @@ public class StrataThink : TemplatedControl
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public string? Meta { get => GetValue(MetaProperty); set => SetValue(MetaProperty, value); }
     public object? Content { get => GetValue(ContentProperty); set => SetValue(ContentProperty, value); }
+    /// <summary>Gets or sets the expanded content height limit; see <see cref="MaxContentHeightProperty"/>.</summary>
+    public double MaxContentHeight { get => GetValue(MaxContentHeightProperty); set => SetValue(MaxContentHeightProperty, value); }
     public object? DisplayedContent
     {
         get => _displayedContent;
@@ -400,8 +409,8 @@ public class StrataThink : TemplatedControl
     }
 
     /// <summary>
-    /// After the expand animation completes (~300ms), remove the MaxHeight cap
-    /// so content of any size renders without clipping or internal scrollbars.
+    /// After the expand animation completes (~300ms), remove its temporary height cap.
+    /// The content ScrollViewer continues to enforce MaxContentHeight.
     /// </summary>
     private async void ScheduleMaxHeightUncap()
     {
