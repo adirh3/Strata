@@ -22,10 +22,12 @@
                     CornerRadius="12"
                     ClipToBounds="True">
 
-              <DockPanel>
+              <!-- Rows match a docked header / filling transcript / docked composer. Child order keeps the
+                   transcript painting above both hosts unless :chrome-overlay floats them above it. -->
+              <Grid Name="PART_LayoutRoot" RowDefinitions="Auto,*,Auto">
 
                 <Border Name="PART_HeaderChrome"
-                        DockPanel.Dock="Top"
+                        Grid.Row="0"
                   IsVisible="False"
                   CornerRadius="11,11,0,0"
                         ClipToBounds="True">
@@ -82,13 +84,13 @@
 
                 <!-- Composer docked at bottom -->
                 <Border Name="PART_ComposerHost"
-                  DockPanel.Dock="Bottom"
+                  Grid.Row="2"
                   CornerRadius="0,0,11,11">
                   <ContentPresenter Content="{TemplateBinding Composer}" />
                 </Border>
 
                 <!-- Scrollable transcript fills remaining space -->
-                <Border Name="PART_TranscriptHost">
+                <Border Name="PART_TranscriptHost" Grid.Row="1">
                   <Grid>
                     <!-- BringIntoViewOnFocusChange is disabled so a left-click on a focusable
                          transcript element (message bubble, tool card, etc.) does NOT auto-scroll
@@ -105,9 +107,13 @@
                         <ContentPresenter Content="{TemplateBinding Transcript}" />
                       </Border>
                     </ScrollViewer>
+                  </Grid>
+                </Border>
 
-                    <!-- Scroll-to-bottom floating button -->
+                    <!-- Scroll-to-bottom floating button. It shares the transcript's row, and in
+                         :chrome-overlay it floats above the composer and any glass behind it. -->
                     <Panel Name="PART_ScrollToBottomHost"
+                           Grid.Row="1"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Bottom"
                            Margin="0,0,0,12"
@@ -135,6 +141,11 @@
                               VerticalContentAlignment="Stretch"
                               Cursor="Hand">
                         <Grid ClipToBounds="False">
+                          <!-- Optional frost behind a translucent surface; hosts enable it by style. -->
+                          <controls:StrataBackdropBlur Name="PART_ScrollToBottomBackdrop"
+                                                       IsVisible="False"
+                                                       CornerRadius="{Binding CornerRadius, ElementName=PART_ScrollToBottomChrome}" />
+
                           <!-- Button surface -->
                           <Border Name="PART_ScrollToBottomChrome"
                                   CornerRadius="18"
@@ -184,9 +195,7 @@
                               ZIndex="2"
                               IsHitTestVisible="False" />
                     </Panel>
-                  </Grid>
-                </Border>
-              </DockPanel>
+              </Grid>
             </Border>
           </ControlTemplate>
         </Setter>
@@ -198,6 +207,27 @@
         </Style>
         <Style Selector="^ /template/ Border#PART_ScrollContent">
           <Setter Property="Padding" Value="16,12,16,12" />
+        </Style>
+
+        <!-- Unlimited canvas: the transcript runs under the header and composer, which float above it.
+             The shell keeps the scroll content clear of both at rest through measured margins. A
+             transparent background keeps taps on the hosts' empty space from reaching the transcript. -->
+        <Style Selector="^:chrome-overlay /template/ Border#PART_TranscriptHost">
+          <Setter Property="Grid.Row" Value="0" />
+          <Setter Property="Grid.RowSpan" Value="3" />
+        </Style>
+        <Style Selector="^:chrome-overlay /template/ Border#PART_HeaderChrome">
+          <Setter Property="ZIndex" Value="1" />
+          <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="^:chrome-overlay /template/ Border#PART_ComposerHost">
+          <Setter Property="ZIndex" Value="1" />
+          <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="^:chrome-overlay /template/ Panel#PART_ScrollToBottomHost">
+          <Setter Property="Grid.Row" Value="0" />
+          <Setter Property="Grid.RowSpan" Value="3" />
+          <Setter Property="ZIndex" Value="2" />
         </Style>
 
         <Style Selector="^:has-header /template/ DockPanel#PART_HeaderRow">

@@ -126,9 +126,16 @@ public class StrataPresence : Panel, IDisposable
             // Rebuild the halo breath so a live intensity change is reflected on the welcome mark.
             p._haloActive = false;
             p.UpdateHalo();
+            p.UpdateCompanionLuminance();
         });
         HaloProperty.Changed.AddClassHandler<StrataPresence>((p, _) => p.UpdateHalo());
         AnimateWhileWorkingProperty.Changed.AddClassHandler<StrataPresence>((p, _) =>
+        {
+            p._motionDirty = true;
+            p._beaconState = (PresenceState)(-1);
+            p.ApplyState();
+        });
+        LifecycleOpacityPulse.IsPausedProperty.Changed.AddClassHandler<StrataPresence>((p, _) =>
         {
             p._motionDirty = true;
             p._beaconState = (PresenceState)(-1);
@@ -616,6 +623,8 @@ public class StrataPresence : Panel, IDisposable
     /// opacity is clamped to [0,1] at the point of application.</summary>
     private double Luminance => Math.Clamp(Intensity, 0, 4) * Gain;
 
+    private double CompanionLuminance => Math.Clamp(0.18 * Luminance, 0, 1);
+
     private void ApplyState()
     {
         var state = State;
@@ -747,7 +756,8 @@ public class StrataPresence : Panel, IDisposable
             _ => MotionLevel.Calm,
         };
 
-        var animate = AnimateWhileWorking && state is PresenceState.Thinking or PresenceState.Streaming;
+        var animate = AnimateWhileWorking && !LifecycleOpacityPulse.GetIsPaused(this)
+                      && state is PresenceState.Thinking or PresenceState.Streaming;
         if (!_motionDirty && level == _motionLevel && animate == _motionAnimated)
             return;
 
@@ -918,7 +928,8 @@ public class StrataPresence : Panel, IDisposable
         if (this.TryFindResource(colorKey, ActualThemeVariant, out var value) && value is Color c)
             lobe.Border.Background = BuildGlow(c, 168, 60);
 
-        var animate = AnimateWhileWorking && state is PresenceState.Thinking or PresenceState.Streaming;
+        var animate = AnimateWhileWorking && !LifecycleOpacityPulse.GetIsPaused(this)
+                      && state is PresenceState.Thinking or PresenceState.Streaming;
         if (!animate)
         {
             LifecycleOpacityPulse.SetIsActive(lobe.Border, false);
@@ -1734,7 +1745,7 @@ public class StrataPresence : Panel, IDisposable
         _companionActive = true;
         // A single pool has to read on its own behind a glass island (the main field is several
         // overlapping lobes), so it carries a touch more presence than any one ambient lobe.
-        var steady = Math.Clamp(0.18 * Luminance, 0, 1);
+        var steady = CompanionLuminance;
         FadeCompanion(lobe.Border, 0.0, steady, 900);
 
         if (lobe.Visual is { } cv)
@@ -1766,8 +1777,14 @@ public class StrataPresence : Panel, IDisposable
         _companionNorm = null;
         ApplyFocus();
 
-        var steady = Math.Clamp(0.18 * Luminance, 0, 1);
+        var steady = CompanionLuminance;
         FadeCompanion(lobe.Border, steady, 0.0, 1080);
+    }
+
+    private void UpdateCompanionLuminance()
+    {
+        if (_companionActive && Find(LobeRole.Companion) is { } companion)
+            FadeCompanion(companion.Border, companion.Border.Opacity, CompanionLuminance, 400);
     }
 
     private void FadeCompanion(Border border, double from, double to, double durationMs)

@@ -317,7 +317,7 @@ public class StrataCanvas : TemplatedControl
 
     private void OnEffectiveVisibilityChanged()
     {
-        if (IsEffectivelyVisible)
+        if (IsEffectivelyVisible && !LifecycleOpacityPulse.GetIsPaused(this))
             StartGeneratingAnimation();
         else
             StopGeneratingAnimation();
@@ -428,6 +428,7 @@ public class StrataCanvas : TemplatedControl
             !IsOpen ||
             !IsGenerating ||
             !IsEffectivelyVisible ||
+            LifecycleOpacityPulse.GetIsPaused(this) ||
             _activityBar is null ||
             _activityTrack is null)
             return;

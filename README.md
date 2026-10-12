@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.41" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.46" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -226,9 +226,45 @@ The transcript in `StrataChatShell` respects the standard attached
 `ScrollViewer.VerticalScrollBarVisibility` property. It defaults to `Auto`; use `Hidden`
 for a touch canvas without rails while keeping scrolling enabled.
 
+Set `ExtendsTranscriptBehindChrome` to run the transcript edge to edge underneath the header
+and composer, which then float above it. The scroll content keeps measured margins so it rests
+clear of both; a growing header preserves a reader's position, and a growing composer re-pins a
+following tail. The scroll-to-bottom button floats above the composer, and both hosts take taps
+on their empty space instead of passing them to the transcript beneath. Style the chrome with
+`:content-under-header` and `:content-under-composer`, which are set only while scrolled content
+is actually behind each host. The default (`false`) keeps the docked desktop layout unchanged.
+
 `StrataPresence.SplitToIsland(point, followFieldHeight: false)` anchors a companion light
 to both coordinates of a floating surface, such as a translucent composer. The existing
 one-argument overload keeps desktop side islands level with the main presence field.
+Changing `Intensity` also eases an already-anchored companion light to the new brightness
+without replaying its split or moving its anchor.
+
+`LifecycleOpacityPulse.IsPaused` is an inherited visual-subtree pause for application
+backgrounding. Activity pulses, progress sweeps, typing dots, streaming rails, and opt-in
+working presence stop while paused and resume from their existing activity state. Hiding or
+detaching an activity indicator also stops its loop; hosts do not need to clear its busy state.
+
+## Backdrop blur
+
+`StrataBackdropBlur` frosts whatever was drawn beneath its bounds earlier in the frame: a blurred,
+optionally saturated copy clipped to `CornerRadius`. It draws no tint or content, so place it
+directly under a translucent surface that supplies both. `Fade` (`Top`/`Bottom`) with `FadeLength`
+dissolves the frost toward one edge for scroll-edge bands. The glass samples only pixels redrawn
+in the current frame and keeps its unblurred backdrop, so a partial redraw (a caret, button
+feedback, an animation beneath) patches just that region and never samples the glass's own
+foreground. Once partial redraws settle, all glass is repainted together, which updates the frost
+just outside a changed region without letting overlapping glasses keep each other rendering.
+It requires the Skia renderer; elsewhere it draws nothing and the
+translucent surface remains the fallback.
+
+Floating controls can be glass of their own. `StrataGlassButton` is an opt-in button theme
+(`Theme="{DynamicResource StrataGlassButton}"`) whose frost, `PART_Backdrop`, is painted before
+the surface's tint, rim and shadow, with matching bounds, corner radius and press transform.
+The filter never resamples the foreground chrome. Give the button a translucent `Background`.
+`StrataChatComposer` exposes a hidden `PART_Backdrop` behind its
+surface, and the chat shell's scroll-to-bottom button a hidden `PART_ScrollToBottomBackdrop`;
+hosts enable either by style. Plain buttons and the default composer draw no frost.
 
 ## Responsive navigation and sheets
 

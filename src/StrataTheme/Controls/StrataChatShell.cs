@@ -63,12 +63,16 @@ public sealed class StrataTranscriptViewportChangedEventArgs : EventArgs
 /// <para>Call <see cref="ScrollToEnd"/> during streaming to follow the tail while the
 /// shell is in follow mode. Call <see cref="JumpToLatest"/> when the user explicitly
 /// wants to return to the newest content.</para>
-/// <para><b>Template parts:</b> PART_Root (Border), PART_TranscriptScroll (ScrollViewer),
-/// PART_HeaderPresenter (ContentPresenter), PART_PresenceDot (Border), PART_PresencePill (Border),
+/// <para><b>Template parts:</b> PART_Root (Border), PART_LayoutRoot (Grid), PART_HeaderChrome (Border),
+/// PART_TranscriptHost (Border), PART_ComposerHost (Border), PART_TranscriptScroll (ScrollViewer),
+/// PART_ScrollContent (Border), PART_HeaderPresenter (ContentPresenter), PART_PresenceDot (Border),
+/// PART_PresencePill (Border), PART_ScrollToBottomHost (Panel),
 /// PART_ScrollToBottomButton (Button – scroll-to-bottom action),
+/// PART_ScrollToBottomBackdrop (StrataBackdropBlur – optional frost, hidden by default),
 /// PART_NewContentDot (Border – pulsing badge on the scroll-to-bottom button).</para>
 /// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence, :scrolling,
-/// :scrolled-away, :show-scroll-to-bottom, :has-new-content, :pulse-new-content.</para>
+/// :scrolled-away, :show-scroll-to-bottom, :has-new-content, :pulse-new-content, :chrome-overlay,
+/// :content-under-header, :content-under-composer.</para>
 /// </remarks>
 public class StrataChatShell : TemplatedControl
 {
@@ -96,6 +100,12 @@ public class StrataChatShell : TemplatedControl
     private bool _isTranscriptScrolling;
     private Button? _scrollToBottomButton;
     private bool _hasNewContent;
+    private Control? _headerChrome;
+    private Control? _composerHost;
+    private Control? _scrollContent;
+    private Control? _scrollToBottomHost;
+    private double _topChromeInset;
+    private double _bottomChromeInset;
 
 
     /// <summary>Optional header content displayed at the top of the shell.</summary>
@@ -134,9 +144,23 @@ public class StrataChatShell : TemplatedControl
         AvaloniaProperty.RegisterDirect<StrataChatShell, bool>(
             nameof(HasNewContent), o => o.HasNewContent);
 
+    /// <summary>
+    /// Runs the transcript edge to edge underneath the header and composer, which then float above it.
+    /// The scroll content keeps measured margins so it rests clear of both chrome hosts, while scrolled
+    /// content passes behind them. Hosts style the chrome (typically translucent glass) using the
+    /// <c>:content-under-header</c> and <c>:content-under-composer</c> pseudo-classes.
+    /// </summary>
+    public static readonly StyledProperty<bool> ExtendsTranscriptBehindChromeProperty =
+        AvaloniaProperty.Register<StrataChatShell, bool>(nameof(ExtendsTranscriptBehindChrome));
+
     static StrataChatShell()
     {
         IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnIsOnlineChanged());
+        ExtendsTranscriptBehindChromeProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
+        {
+            c.PseudoClasses.Set(":chrome-overlay", c.ExtendsTranscriptBehindChrome);
+            c.UpdateChromeInsets();
+        });
         HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
             c.PseudoClasses.Set(":has-header", c.Header is not null));
         PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnPresenceTextChanged());
@@ -164,6 +188,11 @@ public class StrataChatShell : TemplatedControl
     public bool IsOnline { get => GetValue(IsOnlineProperty); set => SetValue(IsOnlineProperty, value); }
     public string PresenceText { get => GetValue(PresenceTextProperty); set => SetValue(PresenceTextProperty, value); }
     public bool IsStreaming { get => GetValue(IsStreamingProperty); set => SetValue(IsStreamingProperty, value); }
+    public bool ExtendsTranscriptBehindChrome
+    {
+        get => GetValue(ExtendsTranscriptBehindChromeProperty);
+        set => SetValue(ExtendsTranscriptBehindChromeProperty, value);
+    }
     public event EventHandler<StrataTranscriptViewportChangedEventArgs>? TranscriptViewportChanged;
     public event Action? JumpToLatestRequested;
 
@@ -194,6 +223,12 @@ public class StrataChatShell : TemplatedControl
 
         _scrollViewer = e.NameScope.Find<ScrollViewer>("PART_TranscriptScroll");
         _scrollToBottomButton = e.NameScope.Find<Button>("PART_ScrollToBottomButton");
+        _headerChrome = e.NameScope.Find<Control>("PART_HeaderChrome");
+        _composerHost = e.NameScope.Find<Control>("PART_ComposerHost");
+        _scrollContent = e.NameScope.Find<Control>("PART_ScrollContent");
+        _scrollToBottomHost = e.NameScope.Find<Control>("PART_ScrollToBottomHost");
+        _topChromeInset = 0;
+        _bottomChromeInset = 0;
 
         AttachTemplatePartHandlers();
 
@@ -209,7 +244,9 @@ public class StrataChatShell : TemplatedControl
         PseudoClasses.Set(":has-header", Header is not null);
         PseudoClasses.Set(":has-presence", !string.IsNullOrWhiteSpace(PresenceText));
         PseudoClasses.Set(":scrolled-away", !IsFollowingTail);
+        PseudoClasses.Set(":chrome-overlay", ExtendsTranscriptBehindChrome);
         UpdateScrollToBottomButtonVisibility();
+        UpdateChromeInsets();
 
         UpdateHasNewContent();
         ScheduleApplyTranscriptAlignment(forceFull: true);
@@ -263,6 +300,22 @@ public class StrataChatShell : TemplatedControl
             _scrollToBottomButton.Click -= OnScrollToBottomButtonClick;
             _scrollToBottomButton.Click += OnScrollToBottomButtonClick;
         }
+
+        if (_headerChrome is not null)
+        {
+            _headerChrome.SizeChanged -= OnChromeSizeChanged;
+            _headerChrome.SizeChanged += OnChromeSizeChanged;
+            _headerChrome.PropertyChanged -= OnChromePropertyChanged;
+            _headerChrome.PropertyChanged += OnChromePropertyChanged;
+        }
+
+        if (_composerHost is not null)
+        {
+            _composerHost.SizeChanged -= OnChromeSizeChanged;
+            _composerHost.SizeChanged += OnChromeSizeChanged;
+            _composerHost.PropertyChanged -= OnChromePropertyChanged;
+            _composerHost.PropertyChanged += OnChromePropertyChanged;
+        }
     }
 
     private void DetachTemplatePartHandlers()
@@ -278,6 +331,88 @@ public class StrataChatShell : TemplatedControl
 
         if (_scrollToBottomButton is not null)
             _scrollToBottomButton.Click -= OnScrollToBottomButtonClick;
+
+        if (_headerChrome is not null)
+        {
+            _headerChrome.SizeChanged -= OnChromeSizeChanged;
+            _headerChrome.PropertyChanged -= OnChromePropertyChanged;
+        }
+
+        if (_composerHost is not null)
+        {
+            _composerHost.SizeChanged -= OnChromeSizeChanged;
+            _composerHost.PropertyChanged -= OnChromePropertyChanged;
+        }
+    }
+
+    private void OnChromeSizeChanged(object? sender, SizeChangedEventArgs e) => UpdateChromeInsets();
+
+    private void OnChromePropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == IsVisibleProperty)
+            UpdateChromeInsets();
+    }
+
+    /// <summary>
+    /// Keeps the scroll content clear of floating chrome at rest. A taller header (a status banner,
+    /// say) moves the reader's content down with it unless the reader is following the tail, so the
+    /// visible position is compensated; a taller composer (keyboard, chips) re-pins a following tail
+    /// through the ordinary extent-change path.
+    /// </summary>
+    private void UpdateChromeInsets()
+    {
+        if (!ExtendsTranscriptBehindChrome)
+        {
+            if (_topChromeInset != 0 || _bottomChromeInset != 0)
+            {
+                _topChromeInset = 0;
+                _bottomChromeInset = 0;
+                _scrollContent?.ClearValue(MarginProperty);
+                _scrollToBottomHost?.ClearValue(MarginProperty);
+            }
+
+            UpdateChromeContentState();
+            return;
+        }
+
+        var top = _headerChrome is { IsVisible: true } header ? header.Bounds.Height : 0d;
+        var bottom = _composerHost is { IsVisible: true } composer ? composer.Bounds.Height : 0d;
+        var topDelta = top - _topChromeInset;
+        if (Math.Abs(topDelta) > ChatScrollPolicy.FractionalEpsilon
+            || Math.Abs(bottom - _bottomChromeInset) > ChatScrollPolicy.FractionalEpsilon)
+        {
+            _topChromeInset = top;
+            _bottomChromeInset = bottom;
+            if (_scrollContent is not null)
+                _scrollContent.Margin = new Thickness(0, top, 0, bottom);
+            if (_scrollToBottomHost is not null)
+            {
+                _scrollToBottomHost.ClearValue(MarginProperty);
+                var resting = _scrollToBottomHost.Margin;
+                _scrollToBottomHost.Margin = new Thickness(
+                    resting.Left, resting.Top, resting.Right, resting.Bottom + bottom);
+            }
+
+            if (Math.Abs(topDelta) > ChatScrollPolicy.FractionalEpsilon && !IsFollowingTail)
+                CompensateForContentAbove(topDelta);
+        }
+
+        UpdateChromeContentState();
+    }
+
+    /// <summary>
+    /// Publishes whether scrolled content currently sits behind each floating chrome host, so glass
+    /// only appears (and only spends GPU time) when there is something behind it to frost. A following
+    /// tail rests clear of the composer even while streaming growth briefly precedes the scroll.
+    /// </summary>
+    private void UpdateChromeContentState()
+    {
+        var overlay = ExtendsTranscriptBehindChrome && _scrollViewer is not null;
+        PseudoClasses.Set(":content-under-header",
+            overlay && _topChromeInset > 0 && _scrollViewer!.Offset.Y > 0.5);
+        PseudoClasses.Set(":content-under-composer",
+            overlay && _bottomChromeInset > 0 && !IsFollowingTail
+            && DistanceFromBottom(_scrollViewer!) > ChatScrollPolicy.DefaultBottomTolerance);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -726,6 +861,7 @@ public class StrataChatShell : TemplatedControl
             return;
 
         UpdateScrollToBottomButtonVisibility();
+        UpdateChromeContentState();
         // The initial Render/Loaded landing can precede markdown measurement or a composer's
         // height transition. Follow the resulting geometry even if Offset did not change, and
         // do not mistake a viewport expansion's upward clamp for the reader leaving the tail.
@@ -1053,6 +1189,7 @@ public class StrataChatShell : TemplatedControl
     {
         PseudoClasses.Set(":scrolled-away", !IsFollowingTail);
         UpdateHasNewContent();
+        UpdateChromeContentState();
     }
 
     /// <summary>

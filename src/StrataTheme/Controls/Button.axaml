@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:sa="using:StrataTheme.Animation">
+        xmlns:sa="using:StrataTheme.Animation"
+        xmlns:controls="using:StrataTheme.Controls">
 
   <!-- ═══════════════════════════════════════════════════════════
        STRATA UI – Button Styles
@@ -84,6 +85,71 @@
         <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
         </Style>
+      </ControlTheme>
+
+      <!-- Opt-in glass: capture the backdrop before painting the tint, rim or shadow. The frost
+           follows the surface's geometry and press transform; hosts tune it through
+           `/template/ controls|StrataBackdropBlur#PART_Backdrop`. -->
+      <ControlTheme x:Key="StrataGlassButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <Border Name="PART_FocusRing"
+                      CornerRadius="{TemplateBinding CornerRadius}"
+                      BorderThickness="{DynamicResource Stroke.FocusRing}"
+                      BorderBrush="Transparent"
+                      Margin="-2"
+                      IsHitTestVisible="False" />
+              <controls:StrataBackdropBlur Name="PART_Backdrop"
+                                           Margin="{Binding Margin, ElementName=PART_Surface}"
+                                           CornerRadius="{Binding CornerRadius, ElementName=PART_Surface}"
+                                           RenderTransform="{Binding RenderTransform, ElementName=PART_Surface}"
+                                           RenderTransformOrigin="{Binding RenderTransformOrigin, ElementName=PART_Surface}" />
+              <Border Name="PART_Surface"
+                      Background="{TemplateBinding Background}"
+                      BorderBrush="{TemplateBinding BorderBrush}"
+                      BorderThickness="{TemplateBinding BorderThickness}"
+                      CornerRadius="{TemplateBinding CornerRadius}"
+                      BoxShadow="0 1 2 0 #0A000000"
+                      RenderTransformOrigin="0.5,0.5"
+                      ClipToBounds="True">
+                <Border.Transitions>
+                  <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+                <Grid>
+                  <Border Name="PART_Aurora"
+                          Height="2"
+                          Background="{DynamicResource Brush.StratumLine}"
+                          VerticalAlignment="Top"
+                          HorizontalAlignment="Stretch"
+                          Opacity="0"
+                          IsHitTestVisible="False"
+                          RenderTransformOrigin="0.5,0.5"
+                          RenderTransform="translateX(-18px)">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.3" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Border.Transitions>
+                  </Border>
+                  <ContentPresenter Name="PART_ContentPresenter"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    Foreground="{TemplateBinding Foreground}"
+                                    TextElement.Foreground="{TemplateBinding Foreground}"
+                                    Padding="{TemplateBinding Padding}"
+                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Grid>
+              </Border>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>

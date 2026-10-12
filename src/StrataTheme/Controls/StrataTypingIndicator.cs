@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
+using StrataTheme.Animation;
 
 namespace StrataTheme.Controls;
 
@@ -34,6 +35,7 @@ public class StrataTypingIndicator : TemplatedControl
     private bool _attached;
     private readonly Stopwatch _pulseClock = new();
     private readonly DispatcherTimer _pulseTimer;
+    private readonly EffectiveVisibilityObserver _visibilityObserver;
 
     /// <summary>Text displayed next to the dots (e.g. "Thinking…", "Typing…").</summary>
     public static readonly StyledProperty<string> LabelProperty =
@@ -51,6 +53,7 @@ public class StrataTypingIndicator : TemplatedControl
     public StrataTypingIndicator()
     {
         _pulseTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(40), DispatcherPriority.Render, OnPulseTick);
+        _visibilityObserver = new EffectiveVisibilityObserver(this, Refresh);
     }
 
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
@@ -71,12 +74,14 @@ public class StrataTypingIndicator : TemplatedControl
         _pulseTimer.Tick -= OnPulseTick;
         _pulseTimer.Tick += OnPulseTick;
         _attached = true;
+        _visibilityObserver.Subscribe();
         Refresh();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _attached = false;
+        _visibilityObserver.Unsubscribe();
         StopPulse();
         _pulseTimer.Tick -= OnPulseTick;
         base.OnDetachedFromVisualTree(e);
@@ -86,7 +91,7 @@ public class StrataTypingIndicator : TemplatedControl
     {
         PseudoClasses.Set(":active", IsActive);
 
-        if (IsActive && _attached && HasTemplateParts)
+        if (CanPulse)
         {
             StartPulse();
             return;
@@ -119,7 +124,7 @@ public class StrataTypingIndicator : TemplatedControl
 
     private void OnPulseTick(object? sender, EventArgs e)
     {
-        if (!_attached || !IsActive || !HasTemplateParts)
+        if (!CanPulse)
         {
             StopPulse();
             return;
@@ -170,4 +175,7 @@ public class StrataTypingIndicator : TemplatedControl
         => from + ((to - from) * progress);
 
     private bool HasTemplateParts => _dot1 is not null && _dot2 is not null && _dot3 is not null;
+
+    private bool CanPulse => IsActive && _attached && HasTemplateParts
+                             && IsEffectivelyVisible && !LifecycleOpacityPulse.GetIsPaused(this);
 }

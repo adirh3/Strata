@@ -7,7 +7,7 @@
 
     <!-- NuGet metadata -->
     <PackageId>StrataUI.Theme</PackageId>
-    <Version>0.3.41</Version>
+    <Version>0.3.46</Version>
     <Authors>StrataUI</Authors>
     <Description>A modern, token-driven Avalonia theme for professional desktop applications.</Description>
     <PackageTags>avalonia;theme;ui;desktop</PackageTags>
@@ -26,6 +26,8 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="$(AvaloniaVersion)" />
+    <!-- StrataBackdropBlur samples and frosts the Skia drawing surface. -->
+    <PackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
     <PackageReference Include="TextMateSharp.Grammars" Version="1.0.65" />
   </ItemGroup>
 

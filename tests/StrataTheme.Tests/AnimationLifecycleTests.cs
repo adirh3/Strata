@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Animation.Easings;
@@ -16,6 +18,99 @@ public sealed class AnimationLifecycleTests
     private readonly AvaloniaFixture _fixture;
 
     public AnimationLifecycleTests(AvaloniaFixture fixture) => _fixture = fixture;
+
+    [Fact]
+    public async Task InheritedPauseStopsLivePresenceAndMovingBarsWithoutClearingTheirActivity()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            using var presence = new StrataPresence
+            {
+                State = PresenceState.Streaming, AnimateWhileWorking = true
+            };
+            var canvas = new StrataCanvas { IsGenerating = true, Template = BuildCanvasTemplate() };
+            var stream = new StrataStream { IsStreaming = true, Template = BuildStreamTemplate() };
+            var host = new StackPanel { Children = { presence, canvas, stream } };
+            var window = new Window { Width = 480, Height = 360, Content = host };
+            try
+            {
+                window.Show();
+                canvas.ApplyTemplate();
+                stream.ApplyTemplate();
+                Dispatcher.UIThread.RunJobs();
+                using var frame = window.CaptureRenderedFrame();
+                AssertRunning(true);
+                LifecycleOpacityPulse.SetIsPaused(host, true);
+                Dispatcher.UIThread.RunJobs();
+                AssertRunning(false);
+                Assert.True(presence.AnimateWhileWorking);
+                Assert.True(canvas.IsGenerating);
+                Assert.True(stream.IsStreaming);
+                LifecycleOpacityPulse.SetIsPaused(host, false);
+                Dispatcher.UIThread.RunJobs();
+                AssertRunning(true);
+
+                void AssertRunning(bool running)
+                {
+                    Assert.Equal(running, presence.HasContinuousAnimationForTest);
+                    Assert.Equal(running, canvas.IsGeneratingAnimationRunningForTest);
+                    Assert.Equal(running, stream.IsStreamAnimationRunningForTest);
+                }
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public async Task AnchoredPresenceCompanionFollowsLiveIntensityWithoutReplayingItsSplit()
+    {
+        await _fixture.Dispatch(async () =>
+        {
+            using var presence = new StrataPresence { Intensity = 0.26, State = PresenceState.Idle };
+            var window = new Window { Width = 360, Height = 640, Content = presence };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var target = new Point(0.5, 0.95);
+                Assert.True(presence.SplitToIsland(target, followFieldHeight: false));
+                var companion = Assert.IsType<Border>(Assert.IsType<Border>(presence.Children[^1]).Child);
+                await SettleAsync(1200);
+                var initial = companion.Opacity;
+                var anchor = presence.Children[^1].Bounds;
+                Assert.True(initial > 0.10);
+
+                presence.Intensity = 0.56;
+                await SettleAsync(650);
+                Assert.InRange(companion.Opacity / initial, 2.10, 2.20);
+                Assert.Equal(anchor, presence.Children[^1].Bounds);
+
+                presence.Intensity = 0.26;
+                await SettleAsync(650);
+                Assert.Equal(initial, companion.Opacity, 3);
+                Assert.True(presence.SplitToIsland(target, followFieldHeight: false));
+                Assert.Equal(initial, companion.Opacity, 3);
+
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            static async Task SettleAsync(int milliseconds)
+            {
+                var clock = Stopwatch.StartNew();
+                while (clock.ElapsedMilliseconds < milliseconds)
+                {
+                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                    Dispatcher.UIThread.RunJobs();
+                    await Task.Delay(16);
+                }
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                Dispatcher.UIThread.RunJobs();
+            }
+        });
+    }
 
     [Fact]
     public async Task CompositedEntranceCancelsQueuedReplayAndReleasesHiddenOrDetachedHosts()

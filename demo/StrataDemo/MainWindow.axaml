@@ -31,6 +31,10 @@
     <Style Selector="Window.narrow Border#SidebarRoot">
       <Setter Property="Width" Value="188" />
     </Style>
+    <Style Selector="Button#BackdropGlassButton:pointerover /template/ Border#PART_Surface,
+                     Button#BackdropGlassButton:pressed /template/ Border#PART_Surface">
+      <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}" />
+    </Style>
 
   </Window.Styles>
 
@@ -619,6 +623,48 @@
                            TextWrapping="Wrap"
                            Text="Strata UI is a token-driven Avalonia theme for modern professional desktop applications. It prioritizes readability, consistency, and accessible contrast across light, dark, and high-contrast variants." />
               </Expander>
+            </StackPanel>
+          </Border>
+
+          <!-- Content scrolls beneath a floating, frosted bar; the frost samples only what is behind it. -->
+          <Border Classes="strata-card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="subtitle" Text="{Binding Strings[BackdropBlur]}" />
+              <TextBlock Classes="caption tertiary" Text="{Binding Strings[BackdropBlur.Subtitle]}" Margin="0,0,0,2" />
+              <Border Height="220" CornerRadius="{DynamicResource Radius.Overlay}" ClipToBounds="True"
+                      Background="{DynamicResource Brush.Surface1}">
+                <Panel>
+                  <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                    <StackPanel Spacing="10" Margin="16,72,16,16">
+                      <Border Height="54" CornerRadius="14" Background="{DynamicResource Brush.AccentDefault}" />
+                      <TextBlock Classes="body" TextWrapping="Wrap"
+                                 Text="{Binding Strings[BackdropBlur.ScrollHint]}" />
+                      <Border Height="54" CornerRadius="14" Background="{DynamicResource Brush.SuccessDefault}" />
+                      <TextBlock Classes="secondary" TextWrapping="Wrap"
+                                 Text="{Binding Strings[BackdropBlur.LayerHint]}" />
+                      <Border Height="54" CornerRadius="14" Background="{DynamicResource Brush.WarningDefault}" />
+                      <Border Height="54" CornerRadius="14" Background="{DynamicResource Brush.DangerDefault}" />
+                    </StackPanel>
+                  </ScrollViewer>
+                  <Panel VerticalAlignment="Top" Height="56" Margin="12">
+                    <sc:StrataBackdropBlur BlurRadius="16" Saturation="1.6" CornerRadius="16" />
+                    <Border CornerRadius="16" Background="{DynamicResource Brush.Surface1}" Opacity="0.55"
+                            BorderBrush="{DynamicResource Brush.BorderSubtle}" BorderThickness="1" />
+                    <TextBlock Classes="body-strong" Text="{Binding Strings[BackdropBlur]}"
+                               Margin="16,0" VerticalAlignment="Center" />
+                  </Panel>
+                  <Button x:Name="BackdropGlassButton" Theme="{DynamicResource StrataGlassButton}"
+                          HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                          Margin="12" Height="44" Padding="16,0"
+                          CornerRadius="{DynamicResource Radius.Interactive}"
+                          BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                          Content="{Binding Strings[BackdropBlur]}">
+                    <Button.Background>
+                      <SolidColorBrush Color="{DynamicResource Color.Surface1}" Opacity="0.55" />
+                    </Button.Background>
+                  </Button>
+                </Panel>
+              </Border>
             </StackPanel>
           </Border>
 

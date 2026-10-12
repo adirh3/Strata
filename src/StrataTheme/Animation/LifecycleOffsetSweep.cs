@@ -131,6 +131,7 @@ public sealed class LifecycleOffsetSweep
             if (!GetIsActive(_target) ||
                 !_isAttached ||
                 !_target.IsEffectivelyVisible ||
+                LifecycleOpacityPulse.GetIsPaused(_target) ||
                 !configuration.HasTravel)
             {
                 Stop();

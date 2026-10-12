@@ -14,9 +14,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Rendering.Composition;
-using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using StrataTheme.Animation;
 
 namespace StrataTheme.Controls;
 
@@ -1943,23 +1943,18 @@ public class StrataChatMessage : TemplatedControl
         // internals so the detach/guard contract is observable to tests via IsStreamPulseActiveForTest.
         _streamPulseActive = true;
 
-        var visual = ElementComposition.GetElementVisual(_streamBar);
-        if (visual is null) return;
-
-        var anim = visual.Compositor.CreateStableScalarKeyFrameAnimation();
-        anim.Target = "Opacity";
-        anim.InsertKeyFrame(0f, 0.3f);
-        anim.InsertKeyFrame(0.5f, 1f);
-        anim.InsertKeyFrame(1f, 0.3f);
-        anim.Duration = TimeSpan.FromMilliseconds(1400);
-        anim.IterationBehavior = AnimationIterationBehavior.Forever;
-        visual.StartAnimation("Opacity", anim);
+        LifecycleOpacityPulse.SetFromOpacity(_streamBar, 0.3);
+        LifecycleOpacityPulse.SetToOpacity(_streamBar, 1);
+        LifecycleOpacityPulse.SetDuration(_streamBar, TimeSpan.FromMilliseconds(1400));
+        LifecycleOpacityPulse.SetEasing(_streamBar, LifecycleOpacityPulseEasing.CompositorDefault);
+        LifecycleOpacityPulse.SetIsActive(_streamBar, true);
     }
 
     private void StopStreamPulse()
     {
         _streamPulseActive = false;
         if (_streamBar is null) return;
+        LifecycleOpacityPulse.SetIsActive(_streamBar, false);
         var visual = ElementComposition.GetElementVisual(_streamBar);
         if (visual is null) return;
 

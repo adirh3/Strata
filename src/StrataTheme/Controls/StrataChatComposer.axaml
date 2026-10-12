@@ -17,6 +17,11 @@
       <ControlTheme x:Key="{x:Type controls:StrataChatComposer}" TargetType="controls:StrataChatComposer">
         <Setter Property="Template">
           <ControlTemplate>
+            <Panel>
+            <!-- Optional frost behind a translucent composer surface; hosts enable it by style. -->
+            <controls:StrataBackdropBlur Name="PART_Backdrop"
+                                         IsVisible="False"
+                                         CornerRadius="{Binding CornerRadius, ElementName=PART_Root}" />
             <Border Name="PART_Root"
                     Background="{DynamicResource Brush.Surface0}"
                     BorderBrush="{DynamicResource Brush.BorderSubtle}"
@@ -464,6 +469,7 @@
                 </controls:ComposerLayoutPanel>
               </StackPanel>
             </Border>
+            </Panel>
           </ControlTemplate>
         </Setter>
 
