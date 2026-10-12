@@ -46,8 +46,8 @@
           always matches, so Avalonia never emits an "unmatch" on detach and never
           disposes the animation instance — pinning the tooltip's composition subtree
           to the app-lifetime Compositor for every tooltip ever shown (a steady leak).
-          The open fade is handled by OverlayAnimationHelper.AnimateOpen + the
-          Opacity DoubleTransition above; a resting tooltip should not breathe.
+          Open and close motion is handled by the shared PopupAnimationHelper
+          through OverlayAnimationHelper; a resting tooltip should not breathe.
         -->
       </ControlTheme>
 
