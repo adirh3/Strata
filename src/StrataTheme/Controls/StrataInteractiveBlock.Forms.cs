@@ -200,18 +200,33 @@ public partial class StrataInteractiveBlock
             InteractiveIcons.ChevronDown);
         button.Click += (_, _) =>
         {
-            var options = new StackPanel { Spacing = 4 };
+            var options = new StackPanel { Spacing = 2 };
             foreach (var option in field.Options)
             {
+                var selected = option == _state.Values.GetValueOrDefault(field.Id);
+                var check = InteractiveIcons.Create(InteractiveIcons.Check, 18);
+                check.Classes.Add("sheet-check");
+                check.IsVisible = selected;
+                Grid.SetColumn(check, 1);
                 var optionButton = new Button
                 {
-                    Content = option, MinHeight = 48,
+                    Content = new Grid
+                    {
+                        ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                        ColumnSpacing = 12,
+                        Children =
+                        {
+                            new TextBlock { Text = option, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center },
+                            check
+                        }
+                    },
+                    MinHeight = 48,
                     Name = "PickerOption_" + SafeName(field.Id) + "_" + field.Options.IndexOf(option),
                     HorizontalAlignment = HorizontalAlignment.Stretch,
-                    HorizontalContentAlignment = HorizontalAlignment.Left,
-                    FontWeight = option == _state.Values.GetValueOrDefault(field.Id) ? FontWeight.SemiBold : FontWeight.Normal,
-                    Classes = { "subtle" }
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    Classes = { "subtle", "sheet-item" }
                 };
+                optionButton.Classes.Set("selected", selected);
                 AutomationProperties.SetName(optionButton, option);
                 optionButton.Click += (_, _) =>
                 {
@@ -223,7 +238,7 @@ public partial class StrataInteractiveBlock
                 };
                 options.Children.Add(optionButton);
             }
-            ShowPicker(field.Label, options);
+            ShowPicker(field.Label, options, field.Help);
         };
         return button;
     }
@@ -264,7 +279,7 @@ public partial class StrataInteractiveBlock
                 args.Handled = true;
             }, RoutingStrategies.Bubble, handledEventsToo: true);
             if (TouchMode)
-                ShowPicker(field.Label, calendar);
+                ShowPicker(field.Label, calendar, field.Help);
             else
             {
                 flyout = new Flyout { Content = calendar, Placement = PlacementMode.BottomEdgeAlignedLeft };

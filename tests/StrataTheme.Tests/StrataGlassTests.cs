@@ -89,6 +89,60 @@ public sealed class StrataGlassTests
         });
     }
 
+    [Fact]
+    public async Task SheetGlassIsOptInAndFrostsOnlyBeneathTheSheetSurface()
+    {
+        await _fixture.Dispatch(async () =>
+        {
+            var window = CreateWindow();
+            try
+            {
+                window.Styles.Add(new Style(selector => selector.OfType<StrataBottomSheet>().Class("glass")
+                    .Template().OfType<StrataBackdropBlur>().Name("PART_Backdrop"))
+                {
+                    Setters = { new Setter(Visual.IsVisibleProperty, true) }
+                });
+                var sheet = new StrataBottomSheet
+                {
+                    IsOpen = true,
+                    Title = "Model",
+                    Content = new Border { Height = 120 }
+                };
+                window.Content = sheet;
+                Pump(window);
+                await Task.Delay(260);
+                Pump(window);
+
+                var surface = Part<Border>(sheet, "PART_Sheet");
+                var motion = Part<Border>(sheet, "PART_SheetMotion");
+                var frost = Part<StrataBackdropBlur>(sheet, "PART_Backdrop");
+                Assert.False(frost.IsVisible);
+                Assert.Contains(motion, frost.GetVisualAncestors());
+                var layers = Assert.IsAssignableFrom<Panel>(frost.GetVisualParent());
+                Assert.Same(layers, surface.GetVisualParent());
+                Assert.True(layers.Children.IndexOf(frost) < layers.Children.IndexOf(surface));
+
+                sheet.Classes.Add("glass");
+                Pump(window);
+
+                Assert.True(frost.IsEffectivelyVisible);
+                Assert.Equal(surface.Bounds, frost.Bounds);
+                Assert.Equal(surface.CornerRadius, frost.CornerRadius);
+                Assert.True(frost.Bounds.Height < sheet.Bounds.Height / 2,
+                    $"The frost must cover the sheet ({frost.Bounds}), not the window ({sheet.Bounds}).");
+
+                sheet.Close();
+                await Task.Delay(200);
+                Pump(window);
+                Assert.False(frost.IsEffectivelyVisible);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     private static Window CreateWindow()
     {
         var window = new Window { Width = 400, Height = 400 };

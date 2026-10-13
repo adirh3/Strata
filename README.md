@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.48" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.50" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -47,6 +47,8 @@ Origins are resolved after layout, including inherited transforms and display sc
 An entrance stays pending until asynchronously populated content has a non-zero layout.
 Closing immediately disables popup input, finishes the exit before releasing the host,
 and a quick reopen continues from the current animated state instead of snapping.
+If the placement target is hidden or detached, the host is released immediately instead
+of continuing its exit animation against an unavailable anchor.
 
 `PopupAnimationHelper.EnableOpenAnimation` opts into expansion and takes precedence
 over `EnableOverlayAnimation`, which the theme enables for other popups. Existing
@@ -116,6 +118,44 @@ Localize `SearchWatermark`, `NoResultsText`, `ModelsLabel` (the list's accessibl
 name), `PinnedLabel`, `ReasoningLabel` and `ContextLabel` in the host. The
 `PART_ModelPickerList` template part is now a `ListBox` with a finite viewport,
 not a `StackPanel` inside an outer `ScrollViewer`.
+
+## Bottom sheets
+
+`StrataBottomSheet` keeps its content mounted through a 220 ms entrance and 160 ms exit.
+Use `Description` for supporting header text and `ShowCloseButton` for an explicit close
+action. Localize `CloseLabel` in the host. The close button, scrim, grip and Escape respect
+`IsDismissable`; the close button does not capture a drag. Hosts still own safe-area/keyboard
+spacing through `SheetMargin` and can style the `PART_Grip`, `PART_HeaderContent`,
+`PART_Description` and `PART_CloseButton` (class `sheet-close`) template parts.
+
+Glass sheets are opt-in, like the glass composer. `PART_Backdrop` is a hidden
+`StrataBackdropBlur` beneath the sheet surface; it shares the surface's corner radius and moves
+with the slide and drag. Styling it visible frosts only the page beneath the sheet—the page
+around it stays sharp behind the scrim. Give the sheet surface a translucent background, as
+the tint and rim are painted above the frost. On renderers without Skia the tint is the fallback.
+
+Picker rows use `Button.sheet-item`, with the class `selected` and a trailing
+`PathIcon.sheet-check` marking the current choice.
+
+```xml
+<sc:StrataBottomSheet Classes="glass"
+                     Title="Projects"
+                     ShowCloseButton="True"
+                     SheetMargin="12"
+                     IsOpen="{Binding IsProjectPickerOpen}">
+  <!-- Touch-friendly choices -->
+</sc:StrataBottomSheet>
+```
+
+```xml
+<Style Selector="sc|StrataBottomSheet.glass /template/ sc|StrataBackdropBlur#PART_Backdrop">
+  <Setter Property="IsVisible" Value="True" />
+  <Setter Property="BlurRadius" Value="24" />
+</Style>
+<Style Selector="sc|StrataBottomSheet.glass /template/ Border#PART_Sheet">
+  <Setter Property="Background" Value="#C71B1E29" />
+</Style>
+```
 
 ## Message sharing
 

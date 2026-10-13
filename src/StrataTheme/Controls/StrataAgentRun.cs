@@ -29,9 +29,13 @@ namespace StrataTheme.Controls;
 ///                           Status="InProgress" /&gt;
 /// </code>
 /// <para><b>Template parts:</b> PART_Root (Border), PART_FocusRing (Border), PART_Stratum (Border),
-/// PART_Header (Border), PART_Avatar (Border), PART_StateDot (Border), PART_Progress (ProgressBar).</para>
-/// <para><b>Pseudo-classes:</b> :inprogress, :completed, :failed, :stopped, :has-activity,
-/// :has-progress, :progress-unknown, :has-model, :has-mode, :has-byline.</para>
+/// PART_Header (Border), PART_Avatar (Border), PART_StatusArea (StackPanel), PART_StatusGlyph (PathIcon),
+/// PART_StateDot (Border), PART_Progress (ProgressBar).</para>
+/// <para><b>Pseudo-classes:</b> :inprogress, :completed, :failed, :stopped, :finished, :has-timing,
+/// :has-activity, :has-progress, :progress-unknown, :has-model, :has-mode, :has-byline.</para>
+/// <para><b>Densities (classes):</b> default card, <c>compact</c> (dense cards), <c>inline</c> (one
+/// transcript row), <c>list</c> (flat index row inside a host button) and <c>hero</c> (page header with
+/// a wrapping headline).</para>
 /// </remarks>
 public class StrataAgentRun : TemplatedControl
 {
@@ -234,18 +238,33 @@ public class StrataAgentRun : TemplatedControl
     public string TimingText
     {
         get => _timingText;
-        private set => SetAndRaise(TimingTextProperty, ref _timingText, value);
+        private set
+        {
+            SetAndRaise(TimingTextProperty, ref _timingText, value);
+            PseudoClasses.Set(":has-timing", !string.IsNullOrEmpty(value));
+        }
+    }
+
+    /// <summary>
+    /// Formats a finished run's duration for people: milliseconds and tenths for quick runs, then
+    /// the same "3m 24s" / "1h 05m" shape as the live clock, rather than "1896.3s".
+    /// </summary>
+    public static string FormatDuration(double durationMs)
+    {
+        if (durationMs <= 0)
+            return "";
+        if (durationMs < 1000)
+            return $"{durationMs:F0} ms";
+        if (durationMs < 60_000)
+            return $"{durationMs / 1000d:F1}s";
+        return RunningElapsedClock.Format(TimeSpan.FromMilliseconds(durationMs));
     }
 
     private void OnElapsedTick()
     {
         if (Status != StrataAiToolCallStatus.InProgress)
         {
-            TimingText = DurationMs <= 0
-                ? ""
-                : DurationMs >= 1000
-                    ? $"{DurationMs / 1000d:F1}s"
-                    : $"{DurationMs:F0} ms";
+            TimingText = FormatDuration(DurationMs);
             return;
         }
 
@@ -295,6 +314,7 @@ public class StrataAgentRun : TemplatedControl
         PseudoClasses.Set(":completed", Status == StrataAiToolCallStatus.Completed);
         PseudoClasses.Set(":failed", Status == StrataAiToolCallStatus.Failed);
         PseudoClasses.Set(":stopped", Status == StrataAiToolCallStatus.Stopped);
+        PseudoClasses.Set(":finished", !isRunning);
 
         // The activity line is a live readout: it only earns its space while the agent is working.
         PseudoClasses.Set(":has-activity", isRunning && !string.IsNullOrWhiteSpace(Activity));
