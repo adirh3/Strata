@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.48" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.49" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -47,6 +47,8 @@ Origins are resolved after layout, including inherited transforms and display sc
 An entrance stays pending until asynchronously populated content has a non-zero layout.
 Closing immediately disables popup input, finishes the exit before releasing the host,
 and a quick reopen continues from the current animated state instead of snapping.
+If the placement target is hidden or detached, the host is released immediately instead
+of continuing its exit animation against an unavailable anchor.
 
 `PopupAnimationHelper.EnableOpenAnimation` opts into expansion and takes precedence
 over `EnableOverlayAnimation`, which the theme enables for other popups. Existing

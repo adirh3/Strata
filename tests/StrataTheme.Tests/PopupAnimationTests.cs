@@ -286,6 +286,123 @@ public sealed class PopupAnimationTests
             }
         });
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public Task DetachingThePlacementTargetReleasesTheHostBeforeItsNextLayout(bool overlay, bool closing) =>
+        _fixture.Dispatch(() =>
+        {
+            var (window, popup, target, child) = CreatePopup(overlay);
+            try
+            {
+                popup.Open();
+                RenderFrame(window);
+                RenderFrame(window);
+                if (closing)
+                    popup.Close();
+                Assert.True(child.IsAttachedToVisualTree());
+
+                Assert.IsType<Panel>(window.Content).Children.Remove(target);
+                Assert.False(target.IsAttachedToVisualTree());
+                child.Width += 20;
+                window.UpdateLayout();
+                RenderFrame(window);
+
+                Assert.False(popup.IsOpen);
+                Assert.False(child.IsAttachedToVisualTree());
+                Assert.True(child.IsHitTestVisible);
+                Assert.True(child.IsEnabled);
+                Assert.Equal(1, child.Opacity);
+            }
+            finally
+            {
+                PopupAnimationHelper.SetEnableOpenAnimation(popup, false);
+                popup.Close();
+                window.Close();
+            }
+        });
+
+    [Fact]
+    public Task AnOwnerClosingDuringTargetDetachmentDoesNotDelayReleasingTheHost() =>
+        _fixture.Dispatch(() =>
+        {
+            var (window, popup, target, child) = CreatePopup(true);
+            target.DetachedFromVisualTree += (_, _) =>
+            {
+                popup.Close();
+                popup.PlacementTarget = null;
+            };
+            try
+            {
+                popup.Open();
+                RenderFrame(window);
+                RenderFrame(window);
+
+                Assert.IsType<Panel>(window.Content).Children.Remove(target);
+                child.Width += 20;
+                window.UpdateLayout();
+                RenderFrame(window);
+
+                Assert.False(popup.IsOpen);
+                Assert.False(child.IsAttachedToVisualTree());
+                Assert.True(child.IsHitTestVisible);
+                Assert.True(child.IsEnabled);
+            }
+            finally
+            {
+                PopupAnimationHelper.SetEnableOpenAnimation(popup, false);
+                popup.Close();
+                window.Close();
+            }
+        });
+
+    [Fact]
+    public Task ReopeningAtAnotherPlacementTargetObservesOnlyTheCurrentAnchor() =>
+        _fixture.Dispatch(() =>
+        {
+            var (window, popup, target, child) = CreatePopup(true);
+            var panel = Assert.IsType<Panel>(window.Content);
+            var replacement = new Border { Width = 80, Height = 40 };
+            panel.Children.Add(replacement);
+            try
+            {
+                popup.Open();
+                RenderFrame(window);
+                RenderFrame(window);
+                popup.Close();
+                popup.PlacementTarget = replacement;
+                popup.Open();
+                RenderFrame(window);
+                RenderFrame(window);
+                panel.Children.Remove(target);
+                child.Width += 20;
+                window.UpdateLayout();
+                RenderFrame(window);
+
+                Assert.True(popup.IsOpen);
+                Assert.True(child.IsAttachedToVisualTree());
+                Assert.Equal(2, PopupAnimationHelper.GetOpenAnimationCount(popup));
+
+                panel.Children.Remove(replacement);
+                child.Width += 20;
+                window.UpdateLayout();
+                RenderFrame(window);
+
+                Assert.False(popup.IsOpen);
+                Assert.False(child.IsAttachedToVisualTree());
+                Assert.True(child.IsHitTestVisible);
+                Assert.True(child.IsEnabled);
+            }
+            finally
+            {
+                PopupAnimationHelper.SetEnableOpenAnimation(popup, false);
+                popup.Close();
+                window.Close();
+            }
+        });
+
     [Fact]
     public Task TheThemeEnablesMotionForPopupsWithoutControlSpecificFlags() =>
         _fixture.Dispatch(() =>

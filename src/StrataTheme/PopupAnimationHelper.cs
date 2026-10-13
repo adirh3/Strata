@@ -169,6 +169,7 @@ public static class PopupAnimationHelper
                     _popup.Parent as Control;
                 if (_target is { } target)
                 {
+                    target.DetachedFromVisualTree += OnTargetDetached;
                     _targetVisibility = new EffectiveVisibilityObserver(target, () =>
                     {
                         if (!target.IsEffectivelyVisible)
@@ -190,6 +191,12 @@ public static class PopupAnimationHelper
         private void OnDetached(object? sender, VisualTreeAttachmentEventArgs e) => Reset();
         private void OnReady(object? sender, EventArgs e) => QueueOpen(_version);
         private void OnLayoutUpdated(object? sender, EventArgs e) => QueueOpen(_version);
+
+        private void OnTargetDetached(object? sender, VisualTreeAttachmentEventArgs e)
+        {
+            if (ReferenceEquals(sender, _target))
+                CloseImmediately();
+        }
 
         private void OnPopupPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
         {
@@ -275,7 +282,8 @@ public static class PopupAnimationHelper
             if (_allowClose || _disposed || e.Cancel || _child is null)
                 return;
             if (_visual is null || !_child.IsAttachedToVisualTree() ||
-                _target is { IsEffectivelyVisible: false })
+                (_target is { } target &&
+                    (!target.IsAttachedToVisualTree() || !target.IsEffectivelyVisible)))
             {
                 Reset();
                 return;
@@ -379,6 +387,8 @@ public static class PopupAnimationHelper
             _opacityHold = null;
             _targetVisibility?.Dispose();
             _targetVisibility = null;
+            if (_target is not null)
+                _target.DetachedFromVisualTree -= OnTargetDetached;
             RestoreInput();
             if (_visual is not null)
             {
