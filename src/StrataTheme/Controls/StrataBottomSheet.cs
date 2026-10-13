@@ -28,6 +28,12 @@ namespace StrataTheme.Controls;
 /// <para>Host it in a <c>Panel</c> that covers the window; it renders its own scrim and is
 /// collapsed (and hit-test invisible) whenever <see cref="IsOpen"/> is false.</para>
 /// </summary>
+/// <remarks>
+/// Optional template parts: PART_Backdrop (StrataBackdropBlur), PART_CloseButton (Button),
+/// PART_Description (TextBlock), PART_Grip (Border), PART_HeaderContent (Grid).
+/// PART_Backdrop is hidden by default. A host that styles it visible turns the sheet into glass: it
+/// moves with the sheet and frosts only the page beneath the sheet surface, never the whole window.
+/// </remarks>
 [TemplatePart("PART_Scrim", typeof(Border))]
 [TemplatePart("PART_Sheet", typeof(Border))]
 [TemplatePart("PART_Handle", typeof(Border))]
@@ -42,6 +48,7 @@ public class StrataBottomSheet : ContentControl
     private Border? _sheet;
     private Border? _handle;
     private Border? _motion;
+    private Button? _closeButton;
     private ContentPresenter? _contentPresenter;
     private DispatcherTimer? _closeTimer;
     private int _motionVersion;
@@ -70,6 +77,18 @@ public class StrataBottomSheet : ContentControl
     /// <summary>Optional title shown above the content.</summary>
     public static readonly StyledProperty<string?> TitleProperty =
         AvaloniaProperty.Register<StrataBottomSheet, string?>(nameof(Title));
+
+    /// <summary>Optional supporting text beneath the title.</summary>
+    public static readonly StyledProperty<string?> DescriptionProperty =
+        AvaloniaProperty.Register<StrataBottomSheet, string?>(nameof(Description));
+
+    /// <summary>Show a keyboard- and touch-accessible close action in the header.</summary>
+    public static readonly StyledProperty<bool> ShowCloseButtonProperty =
+        AvaloniaProperty.Register<StrataBottomSheet, bool>(nameof(ShowCloseButton));
+
+    /// <summary>Accessible name for the optional close action.</summary>
+    public static readonly StyledProperty<string> CloseLabelProperty =
+        AvaloniaProperty.Register<StrataBottomSheet, string>(nameof(CloseLabel), "Close");
 
     /// <summary>Set false for sheets that must be dismissed by an explicit choice.</summary>
     public static readonly StyledProperty<bool> IsDismissableProperty =
@@ -100,6 +119,24 @@ public class StrataBottomSheet : ContentControl
     {
         get => GetValue(TitleProperty);
         set => SetValue(TitleProperty, value);
+    }
+
+    public string? Description
+    {
+        get => GetValue(DescriptionProperty);
+        set => SetValue(DescriptionProperty, value);
+    }
+
+    public bool ShowCloseButton
+    {
+        get => GetValue(ShowCloseButtonProperty);
+        set => SetValue(ShowCloseButtonProperty, value);
+    }
+
+    public string CloseLabel
+    {
+        get => GetValue(CloseLabelProperty);
+        set => SetValue(CloseLabelProperty, value);
     }
 
     public bool IsDismissable
@@ -145,6 +182,9 @@ public class StrataBottomSheet : ContentControl
         if (_scrim is not null)
             _scrim.PointerPressed -= OnScrimPressed;
 
+        if (_closeButton is not null)
+            _closeButton.Click -= OnCloseClicked;
+
         if (_handle is not null)
         {
             _handle.PointerPressed -= OnHandlePressed;
@@ -157,12 +197,16 @@ public class StrataBottomSheet : ContentControl
         _sheet = e.NameScope.Find<Border>("PART_Sheet");
         _handle = e.NameScope.Find<Border>("PART_Handle");
         _motion = e.NameScope.Find<Border>("PART_SheetMotion");
+        _closeButton = e.NameScope.Find<Button>("PART_CloseButton");
         _contentPresenter = e.NameScope.Find<ContentPresenter>("PART_ContentPresenter");
         if (_contentPresenter is not null)
             _contentPresenter.IsVisible = false;
 
         if (_scrim is not null)
             _scrim.PointerPressed += OnScrimPressed;
+
+        if (_closeButton is not null)
+            _closeButton.Click += OnCloseClicked;
 
         if (_handle is not null)
         {
@@ -181,6 +225,16 @@ public class StrataBottomSheet : ContentControl
 
         if (change.Property == IsOpenProperty)
             UpdateOpenState();
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (!e.Handled && e.Key == Key.Escape && IsOpen && IsDismissable)
+        {
+            Close();
+            e.Handled = true;
+        }
     }
 
     private void UpdateOpenState()
@@ -312,6 +366,12 @@ public class StrataBottomSheet : ContentControl
         Close();
     }
 
+    private void OnCloseClicked(object? sender, RoutedEventArgs e)
+    {
+        if (IsDismissable)
+            Close();
+    }
+
     private void OnHandlePressed(object? sender, PointerPressedEventArgs e)
     {
         if (!ReferenceEquals(sender, _handle) ||
@@ -319,6 +379,10 @@ public class StrataBottomSheet : ContentControl
             !IsOpen ||
             _dragPointer is not null ||
             (_motion ?? _sheet) is not { } surface)
+            return;
+
+        if (_closeButton is { } close && e.Source is Visual source
+            && (ReferenceEquals(source, close) || source.GetVisualAncestors().Contains(close)))
             return;
 
         var offset = _motion?.RenderTransform?.Value.M32 ?? 0;

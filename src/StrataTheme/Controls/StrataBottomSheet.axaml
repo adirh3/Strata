@@ -4,7 +4,9 @@
 
   <Design.PreviewWith>
     <Border Width="360" Height="420">
-      <controls:StrataBottomSheet IsOpen="True" Title="Chat actions">
+      <controls:StrataBottomSheet IsOpen="True" Title="Chat actions"
+                                 Description="Manage this conversation."
+                                 ShowCloseButton="True">
         <StackPanel>
           <TextBlock Text="Rename" Margin="20,14" />
           <TextBlock Text="Delete" Margin="20,14" />
@@ -38,43 +40,70 @@
                       Margin="{TemplateBinding SheetMargin}"
                       RenderTransformOrigin="0.5,1"
                       Opacity="0">
-                <Border Name="PART_Sheet"
-                        Background="{DynamicResource Brush.Surface1}"
-                        BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                        BorderThickness="1,1,1,0"
-                        CornerRadius="20,20,0,0"
-                        BoxShadow="0 -8 32 0 #50000000"
-                        ClipToBounds="True">
-                  <DockPanel LastChildFill="True">
-                  <!-- The grip and title share a touch-sized drag surface. -->
-                  <Border Name="PART_Handle"
-                          DockPanel.Dock="Top"
-                          Background="Transparent"
-                          MinHeight="48"
-                          Cursor="Hand">
-                    <StackPanel>
-                      <Border Width="32" Height="4" CornerRadius="2" Margin="0,12,0,12"
-                              HorizontalAlignment="Center"
-                              Background="{DynamicResource Brush.BorderStrong}" />
+                <Panel Name="PART_SheetLayers">
+                  <!-- Optional glass: frosts only the page beneath the sheet and moves with it.
+                       It is painted before the sheet's tint and rim so they stay crisp; hosts
+                       enable and tune it by style. -->
+                  <controls:StrataBackdropBlur Name="PART_Backdrop"
+                                               IsVisible="False"
+                                               CornerRadius="{Binding CornerRadius, ElementName=PART_Sheet}" />
+                  <Border Name="PART_Sheet"
+                          Background="{DynamicResource Brush.Surface1}"
+                          BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                          BorderThickness="1,1,1,0"
+                          CornerRadius="20,20,0,0"
+                          BoxShadow="0 -8 32 0 #50000000"
+                          ClipToBounds="True">
+                    <DockPanel LastChildFill="True">
+                    <!-- The grip and title share a touch-sized drag surface. -->
+                    <Border Name="PART_Handle"
+                            DockPanel.Dock="Top"
+                            Background="Transparent"
+                            MinHeight="48"
+                            Cursor="Hand">
+                      <StackPanel>
+                        <Border Name="PART_Grip" Width="32" Height="4" CornerRadius="2" Margin="0,12,0,12"
+                                HorizontalAlignment="Center"
+                                Background="{DynamicResource Brush.BorderStrong}" />
 
-                      <TextBlock Name="PART_Title"
-                                 Text="{TemplateBinding Title}"
-                                 Margin="20,0,20,14"
-                                 FontSize="13"
-                                 FontWeight="SemiBold"
-                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                 IsVisible="{TemplateBinding Title,
-                                             Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                    </StackPanel>
+                        <Grid Name="PART_HeaderContent" ColumnDefinitions="*,Auto" Margin="20,0,20,14">
+                          <StackPanel Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Name="PART_Title"
+                                       Text="{TemplateBinding Title}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brush.TextTertiary}"
+                                       IsVisible="{TemplateBinding Title,
+                                                   Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <TextBlock Name="PART_Description"
+                                       Text="{TemplateBinding Description}"
+                                       FontSize="{DynamicResource Font.SizeBody}"
+                                       Foreground="{DynamicResource Brush.TextSecondary}"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{TemplateBinding Description,
+                                                   Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                          </StackPanel>
+                          <Button Name="PART_CloseButton" Grid.Column="1" Classes="subtle sheet-close"
+                                  Width="36" Height="36" MinWidth="36" MinHeight="36"
+                                  Padding="0" Margin="12,0,0,0" VerticalAlignment="Top"
+                                  IsVisible="{TemplateBinding ShowCloseButton}"
+                                  IsEnabled="{TemplateBinding IsDismissable}"
+                                  AutomationProperties.Name="{TemplateBinding CloseLabel}">
+                            <PathIcon Width="12" Height="12"
+                                      Data="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                          </Button>
+                        </Grid>
+                      </StackPanel>
+                    </Border>
+
+                      <ContentPresenter Name="PART_ContentPresenter"
+                                        IsVisible="False"
+                                        Margin="0,0,0,10"
+                                        Content="{TemplateBinding Content}"
+                                        ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </DockPanel>
                   </Border>
-
-                    <ContentPresenter Name="PART_ContentPresenter"
-                                      IsVisible="False"
-                                      Margin="0,0,0,10"
-                                      Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
-                  </DockPanel>
-                </Border>
+                </Panel>
               </Border>
             </Panel>
           </ControlTemplate>
@@ -111,6 +140,11 @@
 
   <Style Selector="controls|StrataBottomSheet Button.sheet-item.danger">
     <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+  </Style>
+
+  <!-- The current choice in a picker sheet carries a trailing check, not a heavier label. -->
+  <Style Selector="controls|StrataBottomSheet PathIcon.sheet-check">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
   </Style>
 
 </Styles>

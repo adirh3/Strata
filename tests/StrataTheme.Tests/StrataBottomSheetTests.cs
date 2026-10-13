@@ -122,6 +122,78 @@ public sealed class StrataBottomSheetTests
     }
 
     [Fact]
+    public void HeaderEnhancementsAreOptIn()
+    {
+        var sheet = new StrataBottomSheet();
+        Assert.Null(sheet.Description);
+        Assert.False(sheet.ShowCloseButton);
+        Assert.Equal("Close", sheet.CloseLabel);
+    }
+
+    [Fact]
+    public async Task HeaderCloseRespectsDismissabilityAndPresentationLifetime()
+    {
+        await _fixture.Dispatch(async () =>
+        {
+            var bottomSheet = new StrataBottomSheet
+            {
+                Title = "Projects", Description = "Choose a workspace.",
+                ShowCloseButton = true, CloseLabel = "Close projects",
+                IsOpen = true,
+                Content = new TextBlock { Text = "A project" }
+            };
+            var window = new Window { Width = 320, Height = 480 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+            });
+            window.Content = bottomSheet;
+            try
+            {
+                window.Show();
+                bottomSheet.ApplyTemplate();
+                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(260);
+                var close = bottomSheet.GetVisualDescendants().OfType<Button>()
+                    .Single(button => button.Name == "PART_CloseButton");
+                var description = bottomSheet.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(text => text.Name == "PART_Description");
+                Assert.Equal("Choose a workspace.", description.Text);
+                Assert.Equal("Close projects", Avalonia.Automation.AutomationProperties.GetName(close));
+                Assert.Contains("sheet-close", close.Classes);
+                var closedCount = 0;
+                bottomSheet.Closed += (_, _) => closedCount++;
+
+                bottomSheet.IsDismissable = false;
+                Assert.False(close.IsEnabled);
+                close.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Assert.True(bottomSheet.IsOpen);
+                Assert.Equal(0, closedCount);
+
+                bottomSheet.IsDismissable = true;
+                close.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Assert.False(bottomSheet.IsOpen);
+                Assert.True(bottomSheet.IsPresented);
+                Assert.Equal(1, closedCount);
+                await Task.Delay(200);
+                Assert.False(bottomSheet.IsPresented);
+
+                bottomSheet.IsOpen = true;
+                await Task.Delay(60);
+                bottomSheet.Close();
+                bottomSheet.IsOpen = true;
+                await Task.Delay(260);
+                Assert.True(bottomSheet.IsPresented);
+            }
+            finally
+            {
+                window.Close();
+            }
+            Assert.False(bottomSheet.IsPresented);
+        });
+    }
+
+    [Fact]
     public async Task CompetingPointers_CannotMoveOrReleaseOwnerDrag()
     {
         await _fixture.Dispatch(() =>

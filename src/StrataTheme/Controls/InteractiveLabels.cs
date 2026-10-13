@@ -32,7 +32,7 @@ public sealed class InteractiveLabels
         ["compare"] = "Compare", ["use"] = "Use selected", ["clear"] = "Clear", ["assumptions"] = "Use these numbers",
         ["discuss"] = "Discuss results", ["check"] = "Check answer", ["hint"] = "Hint", ["next"] = "Next",
         ["previous"] = "Back", ["restart"] = "Start over", ["cancelInput"] = "Cancel", ["reset"] = "Reset",
-        ["sending"] = "Sending\u2026", ["sent"] = "Sent",
+        ["sending"] = "Sending\u2026", ["sent"] = "Sent", ["close"] = "Close",
 
         // States
         ["needsInput"] = "Needs your input", ["inputCanceled"] = "Canceled",
@@ -94,7 +94,7 @@ public sealed class InteractiveLabels
         ["compare"] = "השוואה", ["use"] = "שימוש בנבחרים", ["clear"] = "ניקוי", ["assumptions"] = "שימוש במספרים האלה",
         ["discuss"] = "נדבר על התוצאות", ["check"] = "בדיקת תשובה", ["hint"] = "רמז", ["next"] = "הבא",
         ["previous"] = "הקודם", ["restart"] = "התחלה מחדש", ["cancelInput"] = "ביטול", ["reset"] = "איפוס",
-        ["sending"] = "שולח\u2026", ["sent"] = "נשלח",
+        ["sending"] = "שולח\u2026", ["sent"] = "נשלח", ["close"] = "סגירה",
 
         ["needsInput"] = "ממתין לפרטים שלך", ["inputCanceled"] = "בוטל",
         ["inputExpired"] = "הבקשה הסתיימה", ["ended"] = "הסתיים", ["nothingSent"] = "לא נשלח דבר.",

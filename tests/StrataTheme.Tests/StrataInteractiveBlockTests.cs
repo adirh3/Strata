@@ -380,7 +380,7 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
     [Fact]
     public async Task TouchPickerStaysInsideItsLocalDeviceHostAndUsesTouchSizedActions()
     {
-        await fixture.Dispatch(() =>
+        await fixture.Dispatch(async () =>
         {
             var host = new Grid { Width = 412, Height = 650 };
             var control = new StrataInteractiveBlock
@@ -402,21 +402,35 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
                 input.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
+                await Task.Delay(260);
                 var picker = Assert.Single(host.Children.OfType<StrataBottomSheet>());
                 Assert.Equal(412, picker.Width);
                 Assert.Equal(650, picker.Height);
                 Assert.True(picker.IsOpen);
                 var option = picker.GetVisualDescendants().OfType<Button>()
-                    .Single(button => button.Content as string == "Balanced");
+                    .Single(button => Avalonia.Automation.AutomationProperties.GetName(button) == "Balanced");
+                Assert.DoesNotContain(picker.GetVisualDescendants().OfType<PathIcon>(),
+                    icon => icon.Classes.Contains("sheet-check") && icon.IsVisible);
                 option.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                Assert.Empty(host.Children.OfType<StrataBottomSheet>());
+                Assert.False(picker.IsOpen);
+                Assert.True(picker.IsPresented);
                 Assert.Equal("Balanced", InteractiveState.Parse(control.StateJson!).Values["pace"]);
+                await Task.Delay(200);
+                Assert.Empty(host.Children.OfType<StrataBottomSheet>());
                 input.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
+                await Task.Delay(260);
                 Assert.Single(host.Children.OfType<StrataBottomSheet>());
+                var current = host.Children.OfType<StrataBottomSheet>().Single().GetVisualDescendants()
+                    .OfType<Button>().Single(button => button.Classes.Contains("selected"));
+                Assert.Equal("Balanced", Avalonia.Automation.AutomationProperties.GetName(current));
+                Assert.True(current.GetVisualDescendants().OfType<PathIcon>()
+                    .Single(icon => icon.Classes.Contains("sheet-check")).IsVisible);
                 window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
                 window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                Assert.False(host.Children.OfType<StrataBottomSheet>().Single().IsOpen);
+                await Task.Delay(200);
                 Assert.Empty(host.Children.OfType<StrataBottomSheet>());
             }
             finally { window.Close(); }
@@ -548,7 +562,7 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
     [Fact]
     public async Task DatePickerSelectionMovesUntilADayIsChosen()
     {
-        await fixture.Dispatch(() =>
+        await fixture.Dispatch(async () =>
         {
             var host = new Grid { Width = 412, Height = 650 };
             var control = new StrataInteractiveBlock
@@ -567,6 +581,7 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
                     .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
+                await Task.Delay(260);
                 var calendar = host.GetVisualDescendants().OfType<Avalonia.Controls.Calendar>().Single();
                 calendar.SelectedDate = new DateTime(2026, 10, 24); // what an arrow key does
                 Assert.Equal(0, saves);
@@ -574,7 +589,55 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
                 calendar.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
                 Assert.Equal(1, saves);
                 Assert.Equal("2026-10-24", InteractiveState.Parse(control.StateJson!).Values["date"]);
+                Assert.False(host.Children.OfType<StrataBottomSheet>().Single().IsOpen);
+                await Task.Delay(200);
                 Assert.Empty(host.Children.OfType<StrataBottomSheet>());
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public async Task ReopeningATouchPickerDuringExitKeepsTheNewPickerAndItsOwner()
+    {
+        await fixture.Dispatch(async () =>
+        {
+            var host = new Grid { Width = 412, Height = 650 };
+            var control = new StrataInteractiveBlock
+            {
+                Definition = InteractiveDefinition.Parse("form",
+                    """{"id":"trip","title":"Trip","fields":[{"id":"pace","label":"Pace","type":"select","options":["Relaxed","Balanced","Packed","Spontaneous","Cultural","Outdoorsy"]}]}"""),
+                TouchMode = true, PickerHost = host
+            };
+            host.Children.Add(control);
+            var window = Show(host, 760);
+            try
+            {
+                var input = control.GetVisualDescendants().OfType<Button>()
+                    .Single(button => button.Name == "Field_pace");
+                var presented = false;
+                control.AddHandler(StrataInteractiveBlock.PickerPresentationChangedEvent,
+                    (_, args) => presented = args.IsPresented);
+                input.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                await Task.Delay(260);
+                var old = host.Children.OfType<StrataBottomSheet>().Single();
+                control.ClosePicker();
+                Assert.True(old.IsPresented);
+                Assert.False(presented);
+                input.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                await Task.Delay(260);
+                var current = host.Children.OfType<StrataBottomSheet>().Single();
+                Assert.NotSame(old, current);
+                Assert.True(current.IsOpen);
+                Assert.True(presented);
+                control.ClosePicker();
+                await Task.Delay(200);
+                Assert.Empty(host.Children.OfType<StrataBottomSheet>());
+                Assert.False(presented);
             }
             finally { window.Close(); }
         });
