@@ -6,6 +6,176 @@
 
   <Styles.Resources>
     <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="Brush.ModelPickerSegmentTrack" Color="#0D000000" />
+          <SolidColorBrush x:Key="Brush.ModelPickerSegmentThumb" Color="#FFFFFFFF" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Brush.ModelPickerSegmentTrack" Color="#10FFFFFF" />
+          <SolidColorBrush x:Key="Brush.ModelPickerSegmentThumb" Color="#2AFFFFFF" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <!-- Bare input surface for row, pin and segment buttons: one presenter that paints its own
+           background, so each row stays light. Their row or track owns every visual state. -->
+      <ControlTheme x:Key="ModelPickerActionTheme" TargetType="Button">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Background="{TemplateBinding Background}"
+                              BorderBrush="{TemplateBinding BorderBrush}"
+                              BorderThickness="{TemplateBinding BorderThickness}"
+                              CornerRadius="{TemplateBinding CornerRadius}"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              Foreground="{TemplateBinding Foreground}"
+                              Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </ControlTemplate>
+        </Setter>
+        <Style Selector="^:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+          <Setter Property="BorderThickness" Value="1" />
+        </Style>
+      </ControlTheme>
+
+      <!-- Borderless search field. The header around it draws the divider and the Strata line. -->
+      <ControlTheme x:Key="ModelPickerSearchTheme" TargetType="TextBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource Brush.SelectionBackground}" />
+        <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Brush.SelectionText}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="Cursor" Value="IBeam" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel Background="{TemplateBinding Background}">
+              <TextBlock Name="PART_Placeholder"
+                         Text="{TemplateBinding PlaceholderText}"
+                         FontSize="{TemplateBinding FontSize}"
+                         Foreground="{DynamicResource Brush.TextTertiary}"
+                         IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                         IsHitTestVisible="False"
+                         TextTrimming="CharacterEllipsis"
+                         VerticalAlignment="Center"
+                         Margin="{TemplateBinding Padding}" />
+              <ScrollViewer Name="PART_ScrollViewer"
+                            HorizontalScrollBarVisibility="Hidden"
+                            VerticalScrollBarVisibility="Disabled">
+                <TextPresenter Name="PART_TextPresenter"
+                               Text="{TemplateBinding Text, Mode=TwoWay}"
+                               CaretBrush="{TemplateBinding CaretBrush}"
+                               CaretIndex="{TemplateBinding CaretIndex}"
+                               SelectionStart="{TemplateBinding SelectionStart}"
+                               SelectionEnd="{TemplateBinding SelectionEnd}"
+                               SelectionBrush="{TemplateBinding SelectionBrush}"
+                               SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                               TextAlignment="{TemplateBinding TextAlignment}"
+                               TextWrapping="NoWrap"
+                               LetterSpacing="{TemplateBinding LetterSpacing}"
+                               LineHeight="{TemplateBinding LineHeight}"
+                               Margin="{TemplateBinding Padding}"
+                               VerticalAlignment="Center" />
+              </ScrollViewer>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <!-- Quiet icon toggle for header actions. Checked uses the accent tint so an active
+           filter is obvious without adding a label. -->
+      <ControlTheme x:Key="ModelPickerIconToggleTheme" TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Name="PART_Surface"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="Transparent"
+                    BorderThickness="1"
+                    CornerRadius="{TemplateBinding CornerRadius}">
+              <Border.Transitions>
+                <Transitions>
+                  <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.12" />
+                </Transitions>
+              </Border.Transitions>
+              <ContentPresenter Content="{TemplateBinding Content}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+            </Border>
+          </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#PART_Surface">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#PART_Surface">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+        </Style>
+        <Style Selector="^:checked /template/ Border#PART_Surface">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+        </Style>
+        <Style Selector="^:checked:pointerover /template/ Border#PART_Surface">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtleHover}" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_Surface">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+        </Style>
+      </ControlTheme>
+
+      <!-- One calm plate marks the active row; it follows the pointer and the arrow keys alike.
+           The current model is marked by its check, not by a second highlight. -->
+      <ControlTheme x:Key="ModelPickerItemTheme" TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Background="{TemplateBinding Background}"
+                              CornerRadius="8"
+                              Content="{TemplateBinding (controls:StrataModelPicker.RowContent)}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+          </ControlTemplate>
+        </Setter>
+        <Style Selector="^:selected /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+        </Style>
+      </ControlTheme>
+
+      <ControlTheme x:Key="ModelPickerListTheme" TargetType="ListBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="Padding" Value="6" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <ScrollViewer Name="PART_ScrollViewer"
+                          Classes="scroll-fade model-picker-scroll"
+                          HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
+                          VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
+              <ItemsPresenter Name="PART_ItemsPresenter"
+                              Margin="{TemplateBinding Padding}"
+                              ItemsPanel="{TemplateBinding ItemsPanel}" />
+            </ScrollViewer>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
       <ControlTheme x:Key="{x:Type controls:StrataModelPicker}" TargetType="controls:StrataModelPicker">
         <Setter Property="Width" Value="160" />
         <Setter Property="Template">
@@ -58,46 +228,278 @@
                 </Grid>
               </Button>
 
-               <!-- SlideX keeps the panel on screen. The popup is centred on the picker button,
-                    and that button sits near the left edge of a phone composer, so a 300-wide
-                    panel would otherwise be positioned at a negative X and have its section
-                    headers and radio dots clipped off the side of the display. -->
-               <Popup Name="PART_ModelPickerPopup"
-                      IsLightDismissEnabled="True"
-                      ShouldUseOverlayLayer="True"
-                      Placement="AnchorAndGravity"
-                      PlacementAnchor="Bottom"
-                      PlacementGravity="Top"
-                      PlacementConstraintAdjustment="FlipY,ResizeY,SlideX"
-                      VerticalOffset="4"
-                      PlacementTarget="{Binding #PART_ModelPickerButton}"
-                      WindowManagerAddShadowHint="False"
-                      strata:PopupAnimationHelper.EnableOpenAnimation="True">
+              <!-- SlideX keeps the panel on screen: the button can sit near the left edge of a
+                   narrow composer, where a centred panel would otherwise start off-screen. -->
+              <Popup Name="PART_ModelPickerPopup"
+                     IsLightDismissEnabled="True"
+                     ShouldUseOverlayLayer="True"
+                     Placement="AnchorAndGravity"
+                     PlacementAnchor="Bottom"
+                     PlacementGravity="Top"
+                     PlacementConstraintAdjustment="FlipY,ResizeY,SlideX"
+                     VerticalOffset="4"
+                     PlacementTarget="{Binding #PART_ModelPickerButton}"
+                     WindowManagerAddShadowHint="False"
+                     strata:PopupAnimationHelper.EnableOpenAnimation="True"
+                     strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.18">
                 <Border Name="PART_ModelPickerPanel"
-                        Width="340"
-                        Margin="8"
-                        Background="{DynamicResource Brush.Surface1Translucent}"
-                        BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                        Width="328"
+                        Margin="10"
+                        Background="{DynamicResource Brush.SurfaceOverlay}"
+                        BorderBrush="{DynamicResource Brush.BorderDefault}"
                         BorderThickness="1"
                         CornerRadius="12"
-                        BoxShadow="0 12 40 0 #30000000, 0 2 10 0 #10000000"
+                        BoxShadow="0 18 48 -10 #48000000, 0 4 14 0 #22000000"
                         ClipToBounds="False">
-                  <DockPanel>
-                    <StackPanel Name="PART_ContextWindowSection"
-                                DockPanel.Dock="Bottom"
-                                Spacing="0" />
-                    <StackPanel Name="PART_EffortSection"
-                                DockPanel.Dock="Bottom"
-                                Spacing="0" />
-                    <ScrollViewer MaxHeight="320"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  VerticalScrollBarVisibility="Auto"
-                                  Margin="4,6,4,4">
-                      <StackPanel Name="PART_ModelPickerList"
-                                  Spacing="1"
-                                  Margin="0,0,0,2" />
-                    </ScrollViewer>
-                  </DockPanel>
+                  <Panel>
+                    <!-- In-window glass: a blurred copy of the window content behind the panel,
+                         under a theme tint. Only this layer is blurred; content stays sharp. -->
+                    <Border CornerRadius="11" ClipToBounds="True" IsHitTestVisible="False">
+                      <Border Name="PART_ModelPickerBackdrop" Margin="-28">
+                        <Border.Effect>
+                          <BlurEffect Radius="20" />
+                        </Border.Effect>
+                      </Border>
+                    </Border>
+                    <Border Name="PART_ModelPickerTint"
+                            CornerRadius="11"
+                            Background="{DynamicResource Brush.Surface1Glass}"
+                            IsVisible="False"
+                            IsHitTestVisible="False" />
+
+                    <DockPanel>
+                      <Grid Name="PART_ModelPickerHeader"
+                            DockPanel.Dock="Top"
+                            Height="44"
+                            Background="Transparent"
+                            ColumnDefinitions="Auto,*,Auto">
+                        <Path Data="M7 2.25 A4.75 4.75 0 1 1 7 11.75 A4.75 4.75 0 1 1 7 2.25 Z M10.5 10.5 L14 14"
+                              Width="16"
+                              Height="16"
+                              Stretch="None"
+                              Stroke="{DynamicResource Brush.TextTertiary}"
+                              StrokeThickness="1.5"
+                              StrokeLineCap="Round"
+                              StrokeJoin="Round"
+                              Margin="14,0,6,0"
+                              VerticalAlignment="Center"
+                              IsHitTestVisible="False" />
+                        <TextBox Name="PART_ModelPickerSearch"
+                                 Grid.Column="1"
+                                 Theme="{StaticResource ModelPickerSearchTheme}"
+                                 Text="{TemplateBinding SearchText, Mode=TwoWay}"
+                                 PlaceholderText="{TemplateBinding SearchWatermark}"
+                                 AutomationProperties.Name="{TemplateBinding SearchWatermark}"
+                                 VerticalAlignment="Stretch" />
+                        <ToggleButton Name="PART_ModelPickerPinnedFilter"
+                                      Grid.Column="2"
+                                      Theme="{StaticResource ModelPickerIconToggleTheme}"
+                                      IsChecked="{TemplateBinding ShowPinnedOnly, Mode=TwoWay}"
+                                      ToolTip.Tip="{TemplateBinding PinnedLabel}"
+                                      AutomationProperties.Name="{TemplateBinding PinnedLabel}"
+                                      Margin="6,0,8,0"
+                                      IsVisible="False">
+                          <Path Data="M5 2 H11 M6.25 2 V6 L4.25 9 H11.75 L9.75 6 V2 M8 9 V14.5"
+                                Width="16"
+                                Height="16"
+                                Stretch="None"
+                                StrokeThickness="1.3"
+                                StrokeLineCap="Round"
+                                StrokeJoin="Round" />
+                        </ToggleButton>
+                        <Border Grid.ColumnSpan="3"
+                                Height="1"
+                                VerticalAlignment="Bottom"
+                                Background="{DynamicResource Brush.BorderSubtle}"
+                                IsHitTestVisible="False" />
+                        <Border Name="PART_ModelPickerSearchLine"
+                                Grid.ColumnSpan="3"
+                                Height="2"
+                                Margin="14,0"
+                                VerticalAlignment="Bottom"
+                                CornerRadius="1"
+                                Background="{DynamicResource Brush.StratumLine}"
+                                Opacity="0"
+                                RenderTransformOrigin="0%,50%"
+                                RenderTransform="scaleX(0)"
+                                IsHitTestVisible="False">
+                          <Border.Transitions>
+                            <Transitions>
+                              <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.4" Easing="CubicEaseOut" />
+                            </Transitions>
+                          </Border.Transitions>
+                        </Border>
+                      </Grid>
+
+                      <Border Name="PART_ModelPickerFooter"
+                              DockPanel.Dock="Bottom"
+                              BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                              BorderThickness="0,1,0,0"
+                              Padding="14,10,14,10"
+                              IsVisible="False">
+                        <!-- Scoped here rather than app-wide, so no other control pays for them.
+                             The controls span the same width as the search field's Strata line. -->
+                        <Border.Styles>
+                          <Style Selector="Border.model-picker-segments">
+                            <Setter Property="Background" Value="{DynamicResource Brush.ModelPickerSegmentTrack}" />
+                            <Setter Property="CornerRadius" Value="9" />
+                            <Setter Property="Padding" Value="2" />
+                          </Style>
+                          <!-- Sliding thumb: a raised neutral surface, matching the app's segmented
+                               controls. Motion communicates the change; the segments stay put. -->
+                          <Style Selector="Border.segment-thumb">
+                            <Setter Property="Background" Value="{DynamicResource Brush.ModelPickerSegmentThumb}" />
+                            <Setter Property="CornerRadius" Value="7" />
+                            <Setter Property="BoxShadow" Value="0 1 3 0 #29000000" />
+                          </Style>
+                          <Style Selector="Button.effort-seg">
+                            <Setter Property="Theme" Value="{StaticResource ModelPickerActionTheme}" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+                            <Setter Property="FontWeight" Value="Medium" />
+                            <Setter Property="Height" Value="24" />
+                            <Setter Property="MinHeight" Value="0" />
+                            <Setter Property="MinWidth" Value="0" />
+                            <Setter Property="CornerRadius" Value="7" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Cursor" Value="Hand" />
+                            <Setter Property="HorizontalContentAlignment" Value="Center" />
+                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                            <Setter Property="Transitions">
+                              <Transitions>
+                                <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+                              </Transitions>
+                            </Setter>
+                          </Style>
+                          <Style Selector="Button.effort-seg:pointerover, Button.effort-seg.active">
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                          </Style>
+                          <Style Selector="Button.effort-seg TextBlock">
+                            <Setter Property="FontSize" Value="{Binding FontSize, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Setter Property="FontWeight" Value="{Binding FontWeight, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                          </Style>
+                        </Border.Styles>
+                        <StackPanel Spacing="6">
+                          <StackPanel Name="PART_EffortSection" />
+                          <StackPanel Name="PART_ContextWindowSection" />
+                        </StackPanel>
+                      </Border>
+
+                      <Grid Name="PART_ModelPickerResults" MinHeight="88">
+                        <ListBox Name="PART_ModelPickerList"
+                                 Theme="{StaticResource ModelPickerListTheme}"
+                                 ItemContainerTheme="{StaticResource ModelPickerItemTheme}"
+                                 AutoScrollToSelectedItem="False"
+                                 AutomationProperties.Name="{TemplateBinding ModelsLabel}"
+                                 MaxHeight="320"
+                                 KeyboardNavigation.TabNavigation="Once">
+                          <!-- Row styles live on the list with simple selectors: every realized row
+                               evaluates only these, instead of app-wide descendant selectors. -->
+                          <ListBox.Styles>
+                            <Style Selector="Button.model-row-select, Button.model-pin">
+                              <Setter Property="Theme" Value="{StaticResource ModelPickerActionTheme}" />
+                            </Style>
+                            <Style Selector="TextBlock">
+                              <Setter Property="FontSize" Value="13" />
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                              <Setter Property="VerticalAlignment" Value="Center" />
+                            </Style>
+                            <Style Selector="TextBlock.model-picker-group-header">
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                            </Style>
+                            <Style Selector="Path.model-picker-check">
+                              <Setter Property="Stroke" Value="{DynamicResource Brush.AccentDefault}" />
+                            </Style>
+                            <!-- Right-aligned facts such as context size and cost. -->
+                            <Style Selector="TextBlock.model-meta">
+                              <Setter Property="FontSize" Value="12" />
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                              <Setter Property="TextAlignment" Value="Right" />
+                              <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            </Style>
+                            <Style Selector="TextBlock.model-meta.emphasis">
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+                            </Style>
+                            <!-- Short status beside the name, e.g. a model that still has to be enabled. -->
+                            <Style Selector="TextBlock.model-status">
+                              <Setter Property="FontSize" Value="11.5" />
+                              <Setter Property="FontWeight" Value="Medium" />
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                            </Style>
+                            <Style Selector="TextBlock.model-status.warning">
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
+                            </Style>
+                            <!-- Inferred tier tags for plain model-id rows. -->
+                            <Style Selector="Border.model-tier-badge">
+                              <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+                            </Style>
+                            <Style Selector="Border.model-tier-badge.tier-premium">
+                              <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+                            </Style>
+                            <Style Selector="TextBlock.model-tier-text">
+                              <Setter Property="FontSize" Value="10.5" />
+                              <Setter Property="FontWeight" Value="Medium" />
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                            </Style>
+                            <Style Selector="TextBlock.model-tier-text.tier-premium">
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+                            </Style>
+                            <Style Selector="TextBlock.model-tier-text.tier-fast">
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+                            </Style>
+                            <Style Selector="TextBlock.model-tier-text.tier-reasoning">
+                              <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+                            </Style>
+                            <!-- Pin affordance: appears with the pointer, so a long list stays quiet.
+                                 Pinned rows use the accent and a filled pin; the Pinned heading already
+                                 says which rows are pinned. -->
+                            <Style Selector="Button.model-pin">
+                              <Setter Property="Opacity" Value="0" />
+                              <Setter Property="Transitions">
+                                <Transitions>
+                                  <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                                </Transitions>
+                              </Setter>
+                            </Style>
+                            <Style Selector="Grid.model-picker-row:pointerover Button.model-pin, Button.model-pin:focus-visible">
+                              <Setter Property="Opacity" Value="1" />
+                            </Style>
+                            <Style Selector="Button.model-pin Path">
+                              <Setter Property="Stroke" Value="{DynamicResource Brush.TextTertiary}" />
+                            </Style>
+                            <Style Selector="Button.model-pin:pointerover Path">
+                              <Setter Property="Stroke" Value="{DynamicResource Brush.TextPrimary}" />
+                            </Style>
+                            <Style Selector="Button.model-pin:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                              <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+                            </Style>
+                            <Style Selector="Button.model-pin.pinned Path">
+                              <Setter Property="Stroke" Value="{DynamicResource Brush.AccentDefault}" />
+                              <Setter Property="Fill" Value="{DynamicResource Brush.AccentDefault}" />
+                            </Style>
+                          </ListBox.Styles>
+                          <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <VirtualizingStackPanel />
+                            </ItemsPanelTemplate>
+                          </ListBox.ItemsPanel>
+                        </ListBox>
+                        <TextBlock Name="PART_ModelPickerNoResults"
+                                   Text="{TemplateBinding NoResultsText}"
+                                   Foreground="{DynamicResource Brush.TextTertiary}"
+                                   FontSize="12.5"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Margin="16"
+                                   IsVisible="False" />
+                      </Grid>
+                    </DockPanel>
+                  </Panel>
                 </Border>
               </Popup>
             </Panel>
@@ -107,10 +509,48 @@
         <Style Selector="^:not(:has-models) /template/ Panel#PART_ModelPickerWrap">
           <Setter Property="IsVisible" Value="False" />
         </Style>
+        <Style Selector="^:can-filter-pinned /template/ ToggleButton#PART_ModelPickerPinnedFilter">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:no-model-results /template/ ListBox#PART_ModelPickerList">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-model-results /template/ TextBlock#PART_ModelPickerNoResults">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-model-settings /template/ Border#PART_ModelPickerFooter">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-model-picker-backdrop /template/ Border#PART_ModelPickerPanel">
+          <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="^:has-model-picker-backdrop /template/ Border#PART_ModelPickerTint">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- The composer's Strata line: drawn along the header's divider while search has focus,
+             growing from the leading edge, instead of a coloured outline around the field. -->
+        <Style Selector="^ /template/ Grid#PART_ModelPickerHeader:focus-within Border#PART_ModelPickerSearchLine">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="scaleX(1)" />
+        </Style>
+
+        <Style Selector="^ /template/ ToggleButton#PART_ModelPickerPinnedFilter Path">
+          <Setter Property="Stroke" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+        <Style Selector="^ /template/ ToggleButton#PART_ModelPickerPinnedFilter:pointerover Path">
+          <Setter Property="Stroke" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^ /template/ ToggleButton#PART_ModelPickerPinnedFilter:checked Path">
+          <Setter Property="Stroke" Value="{DynamicResource Brush.AccentDefault}" />
+          <Setter Property="Fill" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
 
+  <!-- App-wide styles are limited to the collapsed button and the list's scroll viewer; row and
+       footer styles are scoped to their own containers in the template above. -->
   <Style Selector="controls|StrataModelPicker /template/ Button#PART_ModelPickerButton:pointerover /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
   </Style>
@@ -120,195 +560,9 @@
     <Setter Property="FontWeight" Value="Medium" />
   </Style>
 
-  <Style Selector="TextBlock.model-picker-group-header">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-  </Style>
-
-  <Style Selector="Border.model-picker-row">
-    <Setter Property="Background" Value="#00000000" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
-      </Transitions>
-    </Setter>
-  </Style>
-  <Style Selector="Border.model-picker-row:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
-  </Style>
-  <Style Selector="Border.model-picker-row.selected">
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
-  </Style>
-  <Style Selector="Border.model-picker-row.selected:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtleHover}" />
-  </Style>
-
-  <!-- The row-select button is only the semantic/input surface. The outer row owns every visual
-       state so selection and hover remain one calm, full-width plate. -->
-  <Style Selector="Border.model-picker-row Button.model-row-select /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
-  </Style>
-  <Style Selector="Border.model-picker-row Button.model-row-select:pointerover /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
-  </Style>
-  <Style Selector="Border.model-picker-row Button.model-row-select:pressed /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
-    <Setter Property="RenderTransform" Value="none" />
-  </Style>
-  <Style Selector="Border.model-picker-row Button.model-row-select /template/ Border#PART_Aurora">
-    <Setter Property="Opacity" Value="0" />
-  </Style>
-
-  <Style Selector="Border.model-picker-row TextBlock">
-    <Setter Property="FontSize" Value="12.5" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
-    <Setter Property="VerticalAlignment" Value="Center" />
-  </Style>
-  <Style Selector="Border.model-picker-row TextBlock.model-name">
-    <Setter Property="FontWeight" Value="Normal" />
-  </Style>
-  <Style Selector="Border.model-picker-row.selected TextBlock">
-    <Setter Property="FontWeight" Value="Medium" />
-  </Style>
-
-  <Style Selector="Border.model-picker-dot">
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
-  </Style>
-
-  <Style Selector="Border.model-picker-separator">
-    <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
-  </Style>
-
-  <Style Selector="Border.model-tier-badge">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
-    <Setter Property="Opacity" Value="0.85" />
-  </Style>
-  <Style Selector="Border.model-tier-badge TextBlock">
-    <Setter Property="FontSize" Value="9.5" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-    <Setter Property="FontWeight" Value="Medium" />
-  </Style>
-  <Style Selector="Border.model-tier-badge.tier-premium">
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
-  </Style>
-  <Style Selector="Border.model-tier-badge.tier-premium TextBlock">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
-  </Style>
-  <Style Selector="Border.model-tier-badge.tier-fast TextBlock">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
-  </Style>
-  <Style Selector="Border.model-tier-badge.tier-reasoning">
-    <Setter Property="Background" Value="#1A34D399" />
-  </Style>
-  <Style Selector="Border.model-tier-badge.tier-reasoning TextBlock">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
-  </Style>
-
-  <Style Selector="Border.model-effort-toggle">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
-    <Setter Property="BorderThickness" Value="1" />
-  </Style>
-
-  <!-- Sliding selection thumb. The accent gradient + lit top edge is the same "elevated accent"
-       language the primary button and toggle switch already use, so the control reads as part of the
-       system rather than a one-off. Motion is what communicates the change; the segments stay put. -->
-  <Style Selector="Border.segment-thumb">
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentElevationBorder}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="BoxShadow" Value="0 2 8 0 #33000000" />
-  </Style>
-
-  <Style Selector="Border.section-marker">
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
-  </Style>
-
-  <Style Selector="TextBlock.segment-readout">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
-  </Style>
-
-  <Style Selector="Border.model-effort-toggle Button.effort-seg">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-    <Setter Property="FontSize" Value="11" />
-    <Setter Property="FontWeight" Value="Medium" />
-    <Setter Property="Height" Value="26" />
-    <Setter Property="MinHeight" Value="0" />
-    <Setter Property="MinWidth" Value="0" />
-    <Setter Property="Padding" Value="2,2" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="Cursor" Value="Hand" />
-    <Setter Property="HorizontalContentAlignment" Value="Center" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.12" />
-        <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-      </Transitions>
-    </Setter>
-  </Style>
-  <Style Selector="Border.model-effort-toggle Button.effort-seg:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
-  </Style>
-  <Style Selector="Border.model-effort-toggle Button.effort-seg:pointerover /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
-  </Style>
-
-  <!-- The active segment is painted by the thumb behind it, so the button must stay fully
-       transparent in every state or a hover would smear a plate over the gradient. -->
-  <Style Selector="Border.model-effort-toggle Button.effort-seg.active">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-  </Style>
-  <Style Selector="Border.model-effort-toggle Button.effort-seg.active:pointerover">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
-  </Style>
-  <Style Selector="Border.model-effort-toggle Button.effort-seg.active /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
-  </Style>
-  <Style Selector="Border.model-effort-toggle Button.effort-seg.active:pointerover /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="Transparent" />
-  </Style>
-
-  <Style Selector="TextBlock.effort-label">
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-  </Style>
-
-  <!-- Pin affordance: always present so it is discoverable, but faint until the row is hovered or
-       the model is actually pinned, so an unpinned list stays visually calm. -->
-  <Style Selector="Border.model-picker-row Button.model-pin">
-    <Setter Property="Opacity" Value="0.25" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
-      </Transitions>
-    </Setter>
-  </Style>
-  <Style Selector="Border.model-picker-row Button.model-pin Path">
-    <Setter Property="Fill" Value="{DynamicResource Brush.TextTertiary}" />
-  </Style>
-  <Style Selector="Border.model-picker-row:pointerover Button.model-pin">
-    <Setter Property="Opacity" Value="0.9" />
-  </Style>
-  <Style Selector="Border.model-picker-row Button.model-pin:pointerover">
-    <Setter Property="Opacity" Value="1" />
-  </Style>
-  <Style Selector="Border.model-picker-row Button.model-pin:pointerover /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
-  </Style>
-  <Style Selector="Border.model-picker-row Button.model-pin.pinned">
-    <Setter Property="Opacity" Value="1" />
-  </Style>
-  <Style Selector="Border.model-picker-row Button.model-pin.pinned Path">
-    <Setter Property="Fill" Value="{DynamicResource Brush.AccentDefault}" />
+  <!-- The faded scrollbar overlays the row edge instead of reserving a column, so rows, their pin
+       buttons and the header's pinned filter share one right edge. -->
+  <Style Selector="ScrollViewer.model-picker-scroll /template/ ScrollContentPresenter#PART_ContentPresenter">
+    <Setter Property="Grid.ColumnSpan" Value="2" />
   </Style>
 </Styles>

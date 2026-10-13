@@ -25,6 +25,45 @@ public sealed class PopupAnimationTests
 
     public PopupAnimationTests(AvaloniaFixture fixture) => _fixture = fixture;
 
+    [Fact]
+    public Task CustomOpeningDurationIsScopedToOnePopup() =>
+        _fixture.Dispatch(() =>
+        {
+            var popup = new Popup();
+            var other = new Popup();
+            PopupAnimationHelper.SetOpenAnimationDuration(popup, TimeSpan.FromMilliseconds(180));
+
+            Assert.Equal(TimeSpan.FromMilliseconds(180), PopupAnimationHelper.GetOpenAnimationDuration(popup));
+            Assert.Equal(TimeSpan.FromMilliseconds(220), PopupAnimationHelper.GetOpenAnimationDuration(other));
+            Assert.Equal(TimeSpan.FromMilliseconds(150), PopupAnimationHelper.CloseDuration);
+            Assert.ThrowsAny<ArgumentException>(() =>
+                PopupAnimationHelper.SetOpenAnimationDuration(popup, TimeSpan.Zero));
+            Assert.ThrowsAny<ArgumentException>(() =>
+                PopupAnimationHelper.SetOpenAnimationDuration(popup, TimeSpan.FromMilliseconds(-1)));
+        });
+
+    [Fact]
+    public Task ChangingOpeningDurationDoesNotReplayTheEntrance() =>
+        _fixture.Dispatch(() =>
+        {
+            var (window, popup, _, _) = CreatePopup(true);
+            try
+            {
+                popup.Open();
+                RenderFrame(window);
+                RenderFrame(window);
+                PopupAnimationHelper.SetOpenAnimationDuration(popup, TimeSpan.FromMilliseconds(180));
+                RenderFrame(window);
+                Assert.Equal(1, PopupAnimationHelper.GetOpenAnimationCount(popup));
+            }
+            finally
+            {
+                PopupAnimationHelper.SetEnableOpenAnimation(popup, false);
+                popup.Close();
+                window.Close();
+            }
+        });
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

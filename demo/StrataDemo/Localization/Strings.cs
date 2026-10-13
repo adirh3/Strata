@@ -49,6 +49,12 @@ public sealed class Strings
         ["en"] = new()
         {
             ["Chat.Share"] = "Share prompt",
+            ["ModelPicker.Search"] = "Search models...",
+            ["ModelPicker.Reasoning"] = "Reasoning",
+            ["ModelPicker.Context"] = "Context",
+            ["ModelPicker.NoResults"] = "No models found",
+            ["ModelPicker.Models"] = "Models",
+            ["ModelPicker.Pinned"] = "Pinned",
             // App chrome
             ["AppTitle"] = "Strata UI – Design System Preview",
             ["DiffViewer"] = "Shared diff viewer",
@@ -400,6 +406,12 @@ public sealed class Strings
         ["he"] = new()
         {
             ["Chat.Share"] = "שיתוף פרומפט",
+            ["ModelPicker.Search"] = "חיפוש מודלים...",
+            ["ModelPicker.Reasoning"] = "חשיבה",
+            ["ModelPicker.Context"] = "הקשר",
+            ["ModelPicker.NoResults"] = "לא נמצאו מודלים",
+            ["ModelPicker.Models"] = "מודלים",
+            ["ModelPicker.Pinned"] = "מוצמדים",
             // App chrome
             ["AppTitle"] = "Strata UI – תצוגה מקדימה של מערכת העיצוב",
             ["DiffViewer"] = "תצוגת שינויים משותפת",

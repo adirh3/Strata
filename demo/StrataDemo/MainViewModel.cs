@@ -10,6 +10,7 @@ namespace StrataDemo;
 public sealed record DemoProviderModel(string ModelId, string Name, string ProviderName) : IStrataModelOption
 {
     public bool IsPinned => false;
+    public string DisplayName => Name;
 }
 
 public class MainViewModel : INotifyPropertyChanged

@@ -34,6 +34,12 @@ public static class PopupAnimationHelper
         AvaloniaProperty.RegisterAttached<Popup, bool>(
             "EnableOverlayAnimation", typeof(PopupAnimationHelper));
 
+    /// <summary>Opening duration for one popup. Closing timing and other popups are unchanged.</summary>
+    public static readonly AttachedProperty<TimeSpan> OpenAnimationDurationProperty =
+        AvaloniaProperty.RegisterAttached<Popup, TimeSpan>(
+            "OpenAnimationDuration", typeof(PopupAnimationHelper), OpenDuration,
+            validate: duration => duration > TimeSpan.Zero);
+
     static PopupAnimationHelper()
     {
         EnableOpenAnimationProperty.Changed.AddClassHandler<Popup>((popup, _) => Update(popup));
@@ -51,6 +57,12 @@ public static class PopupAnimationHelper
 
     public static void SetEnableOverlayAnimation(Popup popup, bool value) =>
         popup.SetValue(EnableOverlayAnimationProperty, value);
+
+    public static TimeSpan GetOpenAnimationDuration(Popup popup) =>
+        popup.GetValue(OpenAnimationDurationProperty);
+
+    public static void SetOpenAnimationDuration(Popup popup, TimeSpan value) =>
+        popup.SetValue(OpenAnimationDurationProperty, value);
 
     internal static void RegisterOverlay(Control control)
     {
@@ -296,7 +308,7 @@ public static class PopupAnimationHelper
         {
             var visual = _visual!;
             var easing = opening ? (Easing)new CubicEaseOut() : new CubicEaseIn();
-            var duration = opening ? OpenDuration : CloseDuration;
+            var duration = opening ? GetOpenAnimationDuration(_popup) : CloseDuration;
             var scale = visual.Compositor.CreateStableVector3DKeyFrameAnimation();
             scale.Target = nameof(CompositionVisual.Scale);
             scale.Duration = duration;

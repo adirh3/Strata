@@ -15,6 +15,15 @@
   </Window.DataContext>
 
   <Window.Styles>
+    <Style Selector="sc|StrataModelPicker">
+      <Setter Property="SearchWatermark" Value="{Binding Strings[ModelPicker.Search]}" />
+      <Setter Property="NoResultsText" Value="{Binding Strings[ModelPicker.NoResults]}" />
+      <Setter Property="ModelsLabel" Value="{Binding Strings[ModelPicker.Models]}" />
+      <Setter Property="PinnedLabel" Value="{Binding Strings[ModelPicker.Pinned]}" />
+      <Setter Property="ReasoningLabel" Value="{Binding Strings[ModelPicker.Reasoning]}" />
+      <Setter Property="ContextLabel" Value="{Binding Strings[ModelPicker.Context]}" />
+    </Style>
+
     <Style Selector="StackPanel.page-shell, Grid.page-shell">
       <Setter Property="Margin" Value="32,24,32,28" />
     </Style>

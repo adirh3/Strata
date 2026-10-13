@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.46" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.47" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -39,7 +39,7 @@ Or, if published as a NuGet package:
 
 ## Popup motion
 
-Strata popups share one render-thread scale/fade lifecycle: 220 ms to open and
+Strata popups share one render-thread scale/fade lifecycle: 220 ms to open by default and
 150 ms to close, without overshoot or entrance replays after layout/style changes.
 Combo boxes expand from their placement target's center and height; menus, flyouts,
 submenus and tooltips use the nearest placement anchor (the pointer for context menus).
@@ -54,13 +54,65 @@ over `EnableOverlayAnimation`, which the theme enables for other popups. Existin
 second animation. To opt out, set both popup properties and the presenter's
 `AnimateOpen` property to `False`.
 
-## Model picker provider groups
+`PopupAnimationHelper.OpenAnimationDuration` optionally changes one popup's
+opening time, without changing its 150 ms exit or other popups. The model picker
+uses 180 ms for a slightly quicker entrance.
+
+## Model picker
 
 Rich model items implementing `IStrataModelOption` may supply `ProviderName` to
 group rows by the host's provider or account. `ModelId` stays the selection value,
 and pinned items still appear first. Leaving `ProviderName` unset preserves the
 existing model-id grouping. Use `ModelItemTemplate` for clean model names and
 badges without encoding provider information in the model identifier.
+
+The popup focuses search when opened. Search matches every query word against
+the model ID, optional `IStrataModelOption.DisplayName`, account and model provider;
+case, spaces and punctuation do not need to match the ID exactly. The pin toggle
+beside search narrows the results to pinned models without changing the selected
+model. One highlight follows both the pointer and Up/Down (skipping group
+headings) and is scrolled into view with its heading; Enter chooses the
+highlighted model, Ctrl+P (⌘P on macOS) pins or unpins it when `ModelPinCommand`
+is set, and Escape closes the popup and restores focus to its button. A focused
+button (the pin filter or a segment) keeps its own keys. The pin buttons' tooltips
+and accelerator keys show the shortcut. Choosing a model leaves the
+reasoning/context controls available. Reopening starts with the full catalog
+again, scrolled to and checking the current model.
+
+The layout follows a command-palette shape: a borderless search header, then
+single-line rows grouped under small uppercase headings, then a settings footer.
+A check marks the current model; group headings, model names and the search text
+share one leading edge. A row's pin button appears with the pointer, and pinned
+rows use a filled accent pin. Hosts can align right-hand metadata with the
+`model-meta` (and `model-meta emphasis`) text classes and show a short status beside
+the name with `model-status` / `model-status warning`. Row and footer styles are
+scoped to the list and footer, and each row is kept to a minimal control tree,
+because a virtualized list restyles every control of a row when it recycles it.
+The footer appears only when the current model offers reasoning or context
+choices. It has no text labels or icons, so it never sets the popup's width: each
+choice is a segmented control spanning the same width as the search field's
+Strata line. Segments share spare width evenly and shrink proportionally
+(trimming labels) only when space runs out. `ReasoningLabel` and `ContextLabel`
+are each control's tooltip and every segment's accessible help text, and the
+control's accessible name reads the label with its current value (for example
+"Reasoning: High").
+
+The search field has no outline; while it has focus, the composer's Strata line
+grows along the header divider. The popup stays in the window's overlay layer: a
+`VisualBrush` samples the existing window content (excluding the popup itself),
+with `BlurEffect` applied only to that background and a quiet theme-colored glass
+tint above it. Model rows, search and reasoning/context controls stay sharp. The
+backdrop crop tracks popup placement and size, and its window-content reference is
+released when the popup detaches. No native popup window or platform-wide popup
+changes are needed.
+
+Rows are virtualized and recycled, unchanged catalogs retain their item source,
+and batched catalog/pin updates produce one refresh rather than rebuilding every
+row. Reasoning/context segments are retained when their choices have not changed.
+Localize `SearchWatermark`, `NoResultsText`, `ModelsLabel` (the list's accessible
+name), `PinnedLabel`, `ReasoningLabel` and `ContextLabel` in the host. The
+`PART_ModelPickerList` template part is now a `ListBox` with a finite viewport,
+not a `StackPanel` inside an outer `ScrollViewer`.
 
 ## Message sharing
 
