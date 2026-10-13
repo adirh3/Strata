@@ -308,7 +308,7 @@
                               CornerRadius="6"
                               Background="{DynamicResource Brush.Surface2}"
                               VerticalAlignment="Center"
-                              ToolTip.Tip="MCP Servers">
+                              ToolTip.Tip="{TemplateBinding McpToolTip}">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                           <Viewbox Width="13" Height="13" VerticalAlignment="Center">
                             <Canvas Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}">
@@ -344,7 +344,7 @@
                             </Transitions>
                           </Border.Transitions>
                           <StackPanel Spacing="0">
-                            <TextBlock Text="MCP SERVERS"
+                            <TextBlock Text="{TemplateBinding McpHeader}"
                                        FontSize="{DynamicResource Font.SizeCaption}" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.TextTertiary}"
                                        Margin="10,6,10,6"

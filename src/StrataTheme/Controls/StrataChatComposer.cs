@@ -204,6 +204,14 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<string?> ModelUnpinToolTipProperty =
         AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ModelUnpinToolTip));
 
+    /// <summary>Tooltip for the MCP server button. Hosts that name MCP servers differently, such as "Connectors", set their own.</summary>
+    public static readonly StyledProperty<string> McpToolTipProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpToolTip), "MCP Servers");
+
+    /// <summary>Header of the MCP server list the MCP button opens. Like <see cref="McpToolTip"/>, hosts may name it their way.</summary>
+    public static readonly StyledProperty<string> McpHeaderProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpHeader), "MCP SERVERS");
+
     /// <summary>Items source for the quality/effort selector ComboBox.</summary>
     public static readonly StyledProperty<IEnumerable?> QualityLevelsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(QualityLevels));
@@ -700,6 +708,8 @@ public class StrataChatComposer : TemplatedControl
     public ICommand? ModelPinCommand { get => GetValue(ModelPinCommandProperty); set => SetValue(ModelPinCommandProperty, value); }
     public string? ModelPinToolTip { get => GetValue(ModelPinToolTipProperty); set => SetValue(ModelPinToolTipProperty, value); }
     public string? ModelUnpinToolTip { get => GetValue(ModelUnpinToolTipProperty); set => SetValue(ModelUnpinToolTipProperty, value); }
+    public string McpToolTip { get => GetValue(McpToolTipProperty); set => SetValue(McpToolTipProperty, value); }
+    public string McpHeader { get => GetValue(McpHeaderProperty); set => SetValue(McpHeaderProperty, value); }
 
     public IEnumerable? QualityLevels{ get => GetValue(QualityLevelsProperty); set => SetValue(QualityLevelsProperty, value); }
     public object? SelectedQuality { get => GetValue(SelectedQualityProperty); set => SetValue(SelectedQualityProperty, value); }

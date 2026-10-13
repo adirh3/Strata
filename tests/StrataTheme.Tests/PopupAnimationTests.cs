@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
@@ -635,6 +636,53 @@ public sealed class PopupAnimationTests
                 ToolTip.SetIsOpen(target, false);
                 window.Close();
             }
+        });
+
+    [Fact]
+    public Task ToolTipOverItsTargetLetsThePointerThrough() =>
+        _fixture.Dispatch(() =>
+        {
+            // A plain filled Border: hit-testable without a control template (the test app has no theme).
+            var target = new Border
+            {
+                Background = Brushes.SlateGray,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+            };
+            var tip = new ToolTip { Content = "Tooltip content" };
+            ToolTip.SetTip(target, tip);
+            // Centred on its own target, the way pointer placement lands a tip under the cursor near an edge.
+            ToolTip.SetPlacement(target, PlacementMode.Center);
+            var window = CreateWindow(target, theme: true);
+            try
+            {
+                ToolTip.SetIsOpen(target, true);
+                RenderFrame(window);
+                RenderFrame(window);
+                Assert.True(tip.IsAttachedToVisualTree());
+                var middle = tip.TranslatePoint(new Point(tip.Bounds.Width / 2, tip.Bounds.Height / 2), window);
+                Assert.NotNull(middle);
+
+                Assert.False(tip.IsHitTestVisible);
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                Assert.True(IsWithin(window.InputHitTest(middle.Value), target),
+                    "The click under an open tooltip should reach the control beneath it.");
+
+                // Control: were the tip hit-testable, it would take that click.
+                tip.IsHitTestVisible = true;
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                Assert.True(IsWithin(window.InputHitTest(middle.Value), tip));
+            }
+            finally
+            {
+                ToolTip.SetIsOpen(target, false);
+                window.Close();
+            }
+
+            static bool IsWithin(IInputElement? hit, Visual ancestor) =>
+                hit is Visual visual && (visual == ancestor || visual.GetVisualAncestors().Contains(ancestor));
         });
 
     [Fact]
