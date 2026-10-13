@@ -40,7 +40,7 @@ namespace StrataTheme.Controls;
 /// PART_ModelPickerList (ListBox), PART_ModelPickerSearch (TextBox), PART_ModelPickerPanel (Border),
 /// PART_ModelPickerBackdrop (Border), PART_EffortSection (StackPanel), PART_ContextWindowSection (StackPanel).</para>
 /// <para><b>Pseudo-classes:</b> :has-models, :has-quality, :has-context-window, :model-picker-open,
-/// :no-model-results, :can-filter-pinned, :has-model-settings, :has-model-picker-backdrop.</para>
+/// :no-model-results, :can-filter-pinned, :has-model-settings.</para>
 /// <para><b>Rich items:</b> items implementing <see cref="IStrataModelOption"/> are identified by
 /// <see cref="IStrataModelOption.ModelId"/> instead of <c>ToString()</c>, are listed pinned-first, and
 /// get a pin affordance when <see cref="ModelPinCommand"/> is set. <see cref="SelectedModel"/> still
@@ -53,8 +53,6 @@ public class StrataModelPicker : TemplatedControl
     private ListBox? _modelPickerList;
     private TextBox? _modelPickerSearch;
     private Border? _modelPickerPanel;
-    private Border? _modelPickerBackdrop;
-    private VisualBrush? _modelPickerBackdropBrush;
     private Border? _modelPickerChevronWrap;
     private StackPanel? _effortSection;
     private StackPanel? _contextWindowSection;
@@ -69,6 +67,7 @@ public class StrataModelPicker : TemplatedControl
     private bool _sectionsRefreshQueued;
     private bool _scrollRefreshQueued;
     private bool _resetNavigation;
+    private int _openingVersion;
     private List<ModelPickerRowData> _catalogRows = [];
     private IReadOnlyList<ModelPickerRowData> _visibleRows = [];
     private int _filteredModelCount;
@@ -408,7 +407,6 @@ public class StrataModelPicker : TemplatedControl
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
-        ReleaseModelPickerBackdrop();
         WireTemplateHandlers(false);
         base.OnApplyTemplate(e);
 
@@ -417,7 +415,6 @@ public class StrataModelPicker : TemplatedControl
         _modelPickerList = e.NameScope.Find<ListBox>("PART_ModelPickerList");
         _modelPickerSearch = e.NameScope.Find<TextBox>("PART_ModelPickerSearch");
         _modelPickerPanel = e.NameScope.Find<Border>("PART_ModelPickerPanel");
-        _modelPickerBackdrop = e.NameScope.Find<Border>("PART_ModelPickerBackdrop");
         _modelPickerChevronWrap = e.NameScope.Find<Border>("PART_ModelPickerChevronWrap");
         _effortSection = e.NameScope.Find<StackPanel>("PART_EffortSection");
         _contextWindowSection = e.NameScope.Find<StackPanel>("PART_ContextWindowSection");
@@ -447,11 +444,9 @@ public class StrataModelPicker : TemplatedControl
         }
         if (_modelPickerPopup is not null)
         {
-            _modelPickerPopup.Opened -= OnModelPickerPopupOpened;
             _modelPickerPopup.Closed -= OnModelPickerPopupClosed;
             if (attach)
             {
-                _modelPickerPopup.Opened += OnModelPickerPopupOpened;
                 _modelPickerPopup.Closed += OnModelPickerPopupClosed;
             }
         }
@@ -460,16 +455,6 @@ public class StrataModelPicker : TemplatedControl
             _modelPickerPanel.RemoveHandler(KeyDownEvent, OnModelPickerKeyDown);
             if (attach)
                 _modelPickerPanel.AddHandler(KeyDownEvent, OnModelPickerKeyDown, RoutingStrategies.Tunnel);
-        }
-        if (_modelPickerBackdrop is not null)
-        {
-            _modelPickerBackdrop.LayoutUpdated -= OnModelPickerBackdropLayoutUpdated;
-            _modelPickerBackdrop.DetachedFromVisualTree -= OnModelPickerBackdropDetached;
-            if (attach)
-            {
-                _modelPickerBackdrop.LayoutUpdated += OnModelPickerBackdropLayoutUpdated;
-                _modelPickerBackdrop.DetachedFromVisualTree += OnModelPickerBackdropDetached;
-            }
         }
         if (_modelPickerList is not null)
         {
@@ -497,7 +482,6 @@ public class StrataModelPicker : TemplatedControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        ReleaseModelPickerBackdrop();
         WireTemplateHandlers(false);
         _isAttachedToVisualTree = false;
         DetachModelsCollection();
@@ -586,50 +570,6 @@ public class StrataModelPicker : TemplatedControl
         ToggleModelPickerPopup();
     }
 
-    private void OnModelPickerPopupOpened(object? sender, EventArgs e)
-        => UpdateModelPickerBackdrop();
-
-    private void OnModelPickerBackdropLayoutUpdated(object? sender, EventArgs e)
-        => UpdateModelPickerBackdrop();
-
-    private void OnModelPickerBackdropDetached(object? sender, VisualTreeAttachmentEventArgs e)
-        => ReleaseModelPickerBackdrop();
-
-    private void UpdateModelPickerBackdrop()
-    {
-        if (_modelPickerPopup is not { IsOpen: true }
-            || _modelPickerBackdrop is not { Bounds.Width: > 0, Bounds.Height: > 0 } backdrop
-            || TopLevel.GetTopLevel(this) is not ContentControl { Content: Visual source }
-            || backdrop.TransformToVisual(source) is not { } transform)
-            return;
-
-        var sourceRect = new RelativeRect(new Rect(backdrop.Bounds.Size).TransformToAABB(transform), RelativeUnit.Absolute);
-        if (_modelPickerBackdropBrush is { } current
-            && ReferenceEquals(current.Visual, source) && current.SourceRect == sourceRect)
-            return;
-
-        // Sample only the window content, never the overlay layer containing this popup.
-        if (!ReferenceEquals(_modelPickerBackdropBrush?.Visual, source)
-            && source.GetSelfAndVisualDescendants().Contains(backdrop))
-            return;
-
-        _modelPickerBackdropBrush ??= new VisualBrush { Stretch = Stretch.Fill };
-        _modelPickerBackdropBrush.Visual = source;
-        _modelPickerBackdropBrush.SourceRect = sourceRect;
-        backdrop.Background = _modelPickerBackdropBrush;
-        PseudoClasses.Set(":has-model-picker-backdrop", true);
-    }
-
-    private void ReleaseModelPickerBackdrop()
-    {
-        if (_modelPickerBackdropBrush is not null)
-            _modelPickerBackdropBrush.Visual = null;
-        _modelPickerBackdropBrush = null;
-        if (_modelPickerBackdrop is not null)
-            _modelPickerBackdrop.Background = null;
-        PseudoClasses.Set(":has-model-picker-backdrop", false);
-    }
-
     private void OnModelPickerPopupClosed(object? sender, EventArgs e)
     {
         PseudoClasses.Set(":model-picker-open", false);
@@ -682,12 +622,14 @@ public class StrataModelPicker : TemplatedControl
         _modelPickerPopup.IsOpen = true;
         PseudoClasses.Set(":model-picker-open", true);
         AnimateChevron(true);
-        RaisePickerOpened();
+        var openingVersion = ++_openingVersion;
 
         Dispatcher.UIThread.Post(() =>
         {
-            if (_modelPickerPopup is { IsOpen: true })
-                _modelPickerSearch?.Focus();
+            if (_modelPickerPopup is not { IsOpen: true } || openingVersion != _openingVersion)
+                return;
+            _modelPickerSearch?.Focus();
+            RaisePickerOpened();
         }, DispatcherPriority.Loaded);
     }
 
@@ -1025,8 +967,8 @@ public class StrataModelPicker : TemplatedControl
                 return header;
             }
 
-            var row = existing as ModelPickerRow
-                ?? (ModelPickerRow)owner.CreateModelRow(entry.Model, entry.ModelName, false);
+            if (existing is not ModelPickerRow row)
+                return owner.CreateModelRow(entry.Model, entry.ModelName);
             owner.UpdateModelRow(row, entry.Model, entry.ModelName);
             return row;
         }
@@ -1480,7 +1422,7 @@ public class StrataModelPicker : TemplatedControl
     private static Geometry PinGeometry =>
         s_pinGeometry ??= Geometry.Parse("M5 2 H11 M6.25 2 V6 L4.25 9 H11.75 L9.75 6 V2 M8 9 V14.5");
 
-    private Control CreateModelRow(object? model, string modelName, bool isSelected)
+    private Control CreateModelRow(object? model, string modelName)
     {
         var contentGrid = new Grid
         {
@@ -1528,7 +1470,6 @@ public class StrataModelPicker : TemplatedControl
             UpdateModelPickerSelection(ResolveSelectionValue(row.Model));
         };
         UpdateModelRow(row, model, modelName);
-        SetRowChecked(row, isSelected);
         return row;
     }
 

@@ -240,31 +240,31 @@
                      VerticalOffset="4"
                      PlacementTarget="{Binding #PART_ModelPickerButton}"
                      WindowManagerAddShadowHint="False"
-                     strata:PopupAnimationHelper.EnableOpenAnimation="True"
-                     strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.18">
+                     strata:PopupAnimationHelper.EnableOpenAnimation="False"
+                     strata:PopupAnimationHelper.EnableOverlayAnimation="True"
+                     strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
                 <Border Name="PART_ModelPickerPanel"
                         Width="328"
                         Margin="10"
-                        Background="{DynamicResource Brush.SurfaceOverlay}"
+                        Background="Transparent"
                         BorderBrush="{DynamicResource Brush.BorderDefault}"
                         BorderThickness="1"
                         CornerRadius="12"
                         BoxShadow="0 18 48 -10 #48000000, 0 4 14 0 #22000000"
                         ClipToBounds="False">
                   <Panel>
-                    <!-- In-window glass: a blurred copy of the window content behind the panel,
-                         under a theme tint. Only this layer is blurred; content stays sharp. -->
-                    <Border CornerRadius="11" ClipToBounds="True" IsHitTestVisible="False">
-                      <Border Name="PART_ModelPickerBackdrop" Margin="-28">
-                        <Border.Effect>
-                          <BlurEffect Radius="20" />
-                        </Border.Effect>
-                      </Border>
+                    <!-- Sample only the pixels beneath the picker, without repainting the window. -->
+                    <Border Name="PART_ModelPickerBackdrop"
+                            CornerRadius="11"
+                            ClipToBounds="True"
+                            IsHitTestVisible="False">
+                      <controls:StrataBackdropBlur Name="PART_ModelPickerFrost"
+                                                  CornerRadius="11"
+                                                  BlurRadius="20" />
                     </Border>
                     <Border Name="PART_ModelPickerTint"
                             CornerRadius="11"
                             Background="{DynamicResource Brush.Surface1Glass}"
-                            IsVisible="False"
                             IsHitTestVisible="False" />
 
                     <DockPanel>
@@ -325,8 +325,8 @@
                                 IsHitTestVisible="False">
                           <Border.Transitions>
                             <Transitions>
-                              <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
-                              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.4" Easing="CubicEaseOut" />
+                              <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
                             </Transitions>
                           </Border.Transitions>
                         </Border>
@@ -521,13 +521,6 @@
         <Style Selector="^:has-model-settings /template/ Border#PART_ModelPickerFooter">
           <Setter Property="IsVisible" Value="True" />
         </Style>
-        <Style Selector="^:has-model-picker-backdrop /template/ Border#PART_ModelPickerPanel">
-          <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="^:has-model-picker-backdrop /template/ Border#PART_ModelPickerTint">
-          <Setter Property="IsVisible" Value="True" />
-        </Style>
-
         <!-- The composer's Strata line: drawn along the header's divider while search has focus,
              growing from the leading edge, instead of a coloured outline around the field. -->
         <Style Selector="^ /template/ Grid#PART_ModelPickerHeader:focus-within Border#PART_ModelPickerSearchLine">

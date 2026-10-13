@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.47" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.48" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -56,7 +56,7 @@ second animation. To opt out, set both popup properties and the presenter's
 
 `PopupAnimationHelper.OpenAnimationDuration` optionally changes one popup's
 opening time, without changing its 150 ms exit or other popups. The model picker
-uses 180 ms for a slightly quicker entrance.
+uses a 120 ms near-full-size scale/fade instead of expanding from its button's height.
 
 ## Model picker
 
@@ -98,17 +98,20 @@ control's accessible name reads the label with its current value (for example
 "Reasoning: High").
 
 The search field has no outline; while it has focus, the composer's Strata line
-grows along the header divider. The popup stays in the window's overlay layer: a
-`VisualBrush` samples the existing window content (excluding the popup itself),
-with `BlurEffect` applied only to that background and a quiet theme-colored glass
-tint above it. Model rows, search and reasoning/context controls stay sharp. The
-backdrop crop tracks popup placement and size, and its window-content reference is
-released when the popup detaches. No native popup window or platform-wide popup
-changes are needed.
+grows along the header divider. The popup stays in the window's overlay layer:
+`StrataBackdropBlur` samples only the pixels already drawn beneath the picker,
+with a quiet theme-colored glass tint above it. It does not repaint the whole
+window through a `VisualBrush`, and does not retain a window-content reference.
+Model rows, search and reasoning/context controls stay sharp. The frost follows
+popup placement and size; on non-Skia renderers the tint remains the fallback.
+No native popup window is needed.
 
 Rows are virtualized and recycled, unchanged catalogs retain their item source,
 and batched catalog/pin updates produce one refresh rather than rebuilding every
-row. Reasoning/context segments are retained when their choices have not changed.
+row. A newly realized row builds its content once, including with non-recycling
+host templates. The host's catalog-refresh command runs after the opening click
+handler, once search has focus; a closed or superseded entrance skips that callback.
+Reasoning/context segments are retained when their choices have not changed.
 Localize `SearchWatermark`, `NoResultsText`, `ModelsLabel` (the list's accessible
 name), `PinnedLabel`, `ReasoningLabel` and `ContextLabel` in the host. The
 `PART_ModelPickerList` template part is now a `ListBox` with a finite viewport,
