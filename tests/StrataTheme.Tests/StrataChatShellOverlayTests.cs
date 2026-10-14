@@ -92,7 +92,58 @@ public sealed class StrataChatShellOverlayTests
         });
     }
 
-    private static (StrataChatShell Shell, Border Header, Border Composer, Window Window) Create(bool overlay)
+    [Fact]
+    public async Task HeaderOverlayRunsTranscriptUnderHeaderOnlyAndKeepsComposerDocked()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var (shell, header, _, window) = Create(overlay: false, headerOverlay: true);
+            try
+            {
+                var scroll = shell.TranscriptScrollViewer!;
+                var headerChrome = Part<Border>(shell, "PART_HeaderChrome");
+                var composerHost = Part<Border>(shell, "PART_ComposerHost");
+                Assert.Contains(":header-overlay", shell.Classes);
+                Assert.DoesNotContain(":chrome-overlay", shell.Classes);
+                Assert.Equal(0, scroll.TranslatePoint(default, shell)!.Value.Y, 1);
+                Assert.Equal(composerHost.TranslatePoint(default, shell)!.Value.Y,
+                    scroll.TranslatePoint(new Point(0, scroll.Bounds.Height), shell)!.Value.Y, 1);
+                Assert.Equal(new Thickness(0, headerChrome.Bounds.Height, 0, 0),
+                    Part<Border>(shell, "PART_ScrollContent").Margin);
+                Assert.Equal(new Thickness(0, 0, 0, 12), Part<Panel>(shell, "PART_ScrollToBottomHost").Margin);
+                Assert.DoesNotContain(":content-under-header", shell.Classes);
+
+                header.Height = 100;
+                Pump(window);
+                Assert.Equal(new Thickness(0, headerChrome.Bounds.Height, 0, 0),
+                    Part<Border>(shell, "PART_ScrollContent").Margin);
+
+                // The full canvas takes precedence over the header-only one.
+                shell.ExtendsTranscriptBehindChrome = true;
+                Pump(window);
+                Assert.Contains(":chrome-overlay", shell.Classes);
+                Assert.DoesNotContain(":header-overlay", shell.Classes);
+                Assert.Equal(
+                    new Thickness(0, headerChrome.Bounds.Height, 0, composerHost.Bounds.Height),
+                    Part<Border>(shell, "PART_ScrollContent").Margin);
+
+                shell.ExtendsTranscriptBehindChrome = false;
+                shell.ExtendsTranscriptBehindHeader = false;
+                Pump(window);
+                Assert.DoesNotContain(":header-overlay", shell.Classes);
+                Assert.Equal(default, Part<Border>(shell, "PART_ScrollContent").Margin);
+                Assert.Equal(headerChrome.Bounds.Bottom, scroll.TranslatePoint(default, shell)!.Value.Y, 1);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    private static (StrataChatShell Shell, Border Header, Border Composer, Window Window) Create(
+        bool overlay,
+        bool headerOverlay = false)
     {
         var header = new Border { Height = 64 };
         var composer = new Border { Height = 96 };
@@ -105,7 +156,8 @@ public sealed class StrataChatShellOverlayTests
             Header = header,
             Composer = composer,
             Transcript = transcript,
-            ExtendsTranscriptBehindChrome = overlay
+            ExtendsTranscriptBehindChrome = overlay,
+            ExtendsTranscriptBehindHeader = headerOverlay
         };
         var window = new Window { Width = 400, Height = 800 };
         window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))

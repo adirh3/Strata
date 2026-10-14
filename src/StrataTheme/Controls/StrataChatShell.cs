@@ -72,7 +72,7 @@ public sealed class StrataTranscriptViewportChangedEventArgs : EventArgs
 /// PART_NewContentDot (Border – pulsing badge on the scroll-to-bottom button).</para>
 /// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence, :scrolling,
 /// :scrolled-away, :show-scroll-to-bottom, :has-new-content, :pulse-new-content, :chrome-overlay,
-/// :content-under-header, :content-under-composer.</para>
+/// :header-overlay, :content-under-header, :content-under-composer.</para>
 /// </remarks>
 public class StrataChatShell : TemplatedControl
 {
@@ -104,6 +104,7 @@ public class StrataChatShell : TemplatedControl
     private Control? _composerHost;
     private Control? _scrollContent;
     private Control? _scrollToBottomHost;
+    private ScrollBar? _verticalScrollBar;
     private double _topChromeInset;
     private double _bottomChromeInset;
 
@@ -153,12 +154,26 @@ public class StrataChatShell : TemplatedControl
     public static readonly StyledProperty<bool> ExtendsTranscriptBehindChromeProperty =
         AvaloniaProperty.Register<StrataChatShell, bool>(nameof(ExtendsTranscriptBehindChrome));
 
+    /// <summary>
+    /// Runs the transcript underneath the header only, leaving the composer docked in its own row. Use it
+    /// when the header floats as glass but the composer keeps its own edge. The scroll content rests clear
+    /// of the header, scrolled content passes behind it, and <c>:content-under-header</c> reports when
+    /// there is something to frost. <see cref="ExtendsTranscriptBehindChrome"/> takes precedence.
+    /// </summary>
+    public static readonly StyledProperty<bool> ExtendsTranscriptBehindHeaderProperty =
+        AvaloniaProperty.Register<StrataChatShell, bool>(nameof(ExtendsTranscriptBehindHeader));
+
     static StrataChatShell()
     {
         IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnIsOnlineChanged());
         ExtendsTranscriptBehindChromeProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
         {
-            c.PseudoClasses.Set(":chrome-overlay", c.ExtendsTranscriptBehindChrome);
+            c.UpdateOverlayPseudoClasses();
+            c.UpdateChromeInsets();
+        });
+        ExtendsTranscriptBehindHeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
+        {
+            c.UpdateOverlayPseudoClasses();
             c.UpdateChromeInsets();
         });
         HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
@@ -193,6 +208,13 @@ public class StrataChatShell : TemplatedControl
         get => GetValue(ExtendsTranscriptBehindChromeProperty);
         set => SetValue(ExtendsTranscriptBehindChromeProperty, value);
     }
+    public bool ExtendsTranscriptBehindHeader
+    {
+        get => GetValue(ExtendsTranscriptBehindHeaderProperty);
+        set => SetValue(ExtendsTranscriptBehindHeaderProperty, value);
+    }
+
+    private bool OverlaysHeader => ExtendsTranscriptBehindChrome || ExtendsTranscriptBehindHeader;
     public event EventHandler<StrataTranscriptViewportChangedEventArgs>? TranscriptViewportChanged;
     public event Action? JumpToLatestRequested;
 
@@ -215,6 +237,12 @@ public class StrataChatShell : TemplatedControl
     public bool IsPinnedToBottom => IsFollowingTail
         && CurrentDistanceFromBottom <= ChatScrollPolicy.DefaultBottomTolerance;
 
+    /// <summary>
+    /// How much of the transcript's top a floating header covers (zero when the header is docked).
+    /// Hosts that scroll to content by offset place it below this.
+    /// </summary>
+    public double TopChromeInset => _topChromeInset;
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
@@ -227,6 +255,7 @@ public class StrataChatShell : TemplatedControl
         _composerHost = e.NameScope.Find<Control>("PART_ComposerHost");
         _scrollContent = e.NameScope.Find<Control>("PART_ScrollContent");
         _scrollToBottomHost = e.NameScope.Find<Control>("PART_ScrollToBottomHost");
+        _verticalScrollBar = null;
         _topChromeInset = 0;
         _bottomChromeInset = 0;
 
@@ -244,7 +273,7 @@ public class StrataChatShell : TemplatedControl
         PseudoClasses.Set(":has-header", Header is not null);
         PseudoClasses.Set(":has-presence", !string.IsNullOrWhiteSpace(PresenceText));
         PseudoClasses.Set(":scrolled-away", !IsFollowingTail);
-        PseudoClasses.Set(":chrome-overlay", ExtendsTranscriptBehindChrome);
+        UpdateOverlayPseudoClasses();
         UpdateScrollToBottomButtonVisibility();
         UpdateChromeInsets();
 
@@ -293,6 +322,16 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.AddHandler(InputElement.KeyDownEvent, OnTranscriptKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
             _scrollViewer.RemoveHandler(InputElement.ScrollGestureEvent, OnTranscriptScrollGesture);
             _scrollViewer.AddHandler(InputElement.ScrollGestureEvent, OnTranscriptScrollGesture, RoutingStrategies.Bubble, handledEventsToo: true);
+            _scrollViewer.TemplateApplied -= OnTranscriptScrollTemplateApplied;
+            _scrollViewer.TemplateApplied += OnTranscriptScrollTemplateApplied;
+        }
+
+        if (_scrollContent is not null)
+        {
+            _scrollContent.RemoveHandler(RequestBringIntoViewEvent, OnTranscriptBringIntoView);
+            _scrollContent.AddHandler(RequestBringIntoViewEvent, OnTranscriptBringIntoView);
+            _scrollContent.RemoveHandler(InputElement.KeyDownEvent, OnTranscriptPageKeyDown);
+            _scrollContent.AddHandler(InputElement.KeyDownEvent, OnTranscriptPageKeyDown);
         }
 
         if (_scrollToBottomButton is not null)
@@ -327,6 +366,13 @@ public class StrataChatShell : TemplatedControl
             _scrollViewer.RemoveHandler(InputElement.PointerPressedEvent, OnTranscriptPointerPressed);
             _scrollViewer.RemoveHandler(InputElement.KeyDownEvent, OnTranscriptKeyDown);
             _scrollViewer.RemoveHandler(InputElement.ScrollGestureEvent, OnTranscriptScrollGesture);
+            _scrollViewer.TemplateApplied -= OnTranscriptScrollTemplateApplied;
+        }
+
+        if (_scrollContent is not null)
+        {
+            _scrollContent.RemoveHandler(RequestBringIntoViewEvent, OnTranscriptBringIntoView);
+            _scrollContent.RemoveHandler(InputElement.KeyDownEvent, OnTranscriptPageKeyDown);
         }
 
         if (_scrollToBottomButton is not null)
@@ -353,6 +399,13 @@ public class StrataChatShell : TemplatedControl
             UpdateChromeInsets();
     }
 
+    /// <summary>A full chrome overlay includes the header, so it wins over a header-only one.</summary>
+    private void UpdateOverlayPseudoClasses()
+    {
+        PseudoClasses.Set(":chrome-overlay", ExtendsTranscriptBehindChrome);
+        PseudoClasses.Set(":header-overlay", ExtendsTranscriptBehindHeader && !ExtendsTranscriptBehindChrome);
+    }
+
     /// <summary>
     /// Keeps the scroll content clear of floating chrome at rest. A taller header (a status banner,
     /// say) moves the reader's content down with it unless the reader is following the tail, so the
@@ -361,7 +414,7 @@ public class StrataChatShell : TemplatedControl
     /// </summary>
     private void UpdateChromeInsets()
     {
-        if (!ExtendsTranscriptBehindChrome)
+        if (!OverlaysHeader)
         {
             if (_topChromeInset != 0 || _bottomChromeInset != 0)
             {
@@ -369,6 +422,7 @@ public class StrataChatShell : TemplatedControl
                 _bottomChromeInset = 0;
                 _scrollContent?.ClearValue(MarginProperty);
                 _scrollToBottomHost?.ClearValue(MarginProperty);
+                ApplyScrollBarInsets();
             }
 
             UpdateChromeContentState();
@@ -376,7 +430,9 @@ public class StrataChatShell : TemplatedControl
         }
 
         var top = _headerChrome is { IsVisible: true } header ? header.Bounds.Height : 0d;
-        var bottom = _composerHost is { IsVisible: true } composer ? composer.Bounds.Height : 0d;
+        var bottom = ExtendsTranscriptBehindChrome && _composerHost is { IsVisible: true } composer
+            ? composer.Bounds.Height
+            : 0d;
         var topDelta = top - _topChromeInset;
         if (Math.Abs(topDelta) > ChatScrollPolicy.FractionalEpsilon
             || Math.Abs(bottom - _bottomChromeInset) > ChatScrollPolicy.FractionalEpsilon)
@@ -393,11 +449,69 @@ public class StrataChatShell : TemplatedControl
                     resting.Left, resting.Top, resting.Right, resting.Bottom + bottom);
             }
 
+            ApplyScrollBarInsets();
             if (Math.Abs(topDelta) > ChatScrollPolicy.FractionalEpsilon && !IsFollowingTail)
                 CompensateForContentAbove(topDelta);
         }
 
         UpdateChromeContentState();
+    }
+
+    /// <summary>
+    /// Keeps the scrollbar clear of floating chrome. The hosts take taps on their empty space, so a
+    /// thumb beneath them could be seen but not grabbed.
+    /// </summary>
+    private void ApplyScrollBarInsets()
+    {
+        if (_verticalScrollBar is not { } bar)
+            return;
+
+        bar.ClearValue(MarginProperty);
+        if (_topChromeInset <= 0 && _bottomChromeInset <= 0)
+            return;
+
+        var resting = bar.Margin;
+        bar.Margin = new Thickness(
+            resting.Left, resting.Top + _topChromeInset, resting.Right, resting.Bottom + _bottomChromeInset);
+    }
+
+    private void OnTranscriptScrollTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    {
+        _verticalScrollBar = e.NameScope.Find<ScrollBar>("PART_VerticalScrollBar");
+        ApplyScrollBarInsets();
+    }
+
+    /// <summary>
+    /// Lands content brought into view clear of floating chrome: the scroller moves a target to the
+    /// viewport's edge, which an overlaid header or composer covers.
+    /// </summary>
+    private void OnTranscriptBringIntoView(object? sender, RequestBringIntoViewEventArgs e)
+    {
+        if (_topChromeInset <= 0 && _bottomChromeInset <= 0)
+            return;
+
+        var target = e.TargetRect;
+        e.TargetRect = new Rect(target.X, target.Y - _topChromeInset, target.Width,
+            target.Height + _topChromeInset + _bottomChromeInset);
+    }
+
+    /// <summary>
+    /// Pages by what floating chrome leaves visible. The scroller pages by its whole viewport, which
+    /// would carry the lines at a page's edge under the header or composer.
+    /// </summary>
+    private void OnTranscriptPageKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.PageUp or Key.PageDown) || e.KeyModifiers != KeyModifiers.None
+            || _scrollViewer is not { } scroller || _topChromeInset + _bottomChromeInset <= 0)
+        {
+            return;
+        }
+
+        var page = Math.Max(0d, scroller.Viewport.Height - _topChromeInset - _bottomChromeInset);
+        var maxOffset = Math.Max(0d, scroller.Extent.Height - scroller.Viewport.Height);
+        var offset = scroller.Offset.Y + (e.Key == Key.PageDown ? page : -page);
+        scroller.Offset = scroller.Offset.WithY(Math.Clamp(offset, 0d, maxOffset));
+        e.Handled = true;
     }
 
     /// <summary>
@@ -407,11 +521,11 @@ public class StrataChatShell : TemplatedControl
     /// </summary>
     private void UpdateChromeContentState()
     {
-        var overlay = ExtendsTranscriptBehindChrome && _scrollViewer is not null;
+        var hasScroll = _scrollViewer is not null;
         PseudoClasses.Set(":content-under-header",
-            overlay && _topChromeInset > 0 && _scrollViewer!.Offset.Y > 0.5);
+            OverlaysHeader && hasScroll && _topChromeInset > 0 && _scrollViewer!.Offset.Y > 0.5);
         PseudoClasses.Set(":content-under-composer",
-            overlay && _bottomChromeInset > 0 && !IsFollowingTail
+            ExtendsTranscriptBehindChrome && hasScroll && _bottomChromeInset > 0 && !IsFollowingTail
             && DistanceFromBottom(_scrollViewer!) > ChatScrollPolicy.DefaultBottomTolerance);
     }
 

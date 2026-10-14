@@ -345,6 +345,12 @@ following tail. The scroll-to-bottom button floats above the composer, and both 
 on their empty space instead of passing them to the transcript beneath. Style the chrome with
 `:content-under-header` and `:content-under-composer`, which are set only while scrolled content
 is actually behind each host. The default (`false`) keeps the docked desktop layout unchanged.
+`ExtendsTranscriptBehindHeader` does the same for the header alone (`:header-overlay`): the
+transcript runs under a floating header while the composer stays docked in its own row, for hosts
+whose composer keeps its own edge. `ExtendsTranscriptBehindChrome` takes precedence. In either
+mode, content brought into view and keyboard pages land clear of the floating chrome, the vertical
+scrollbar keeps clear of it too, and hosts that scroll to content by offset can read
+`TopChromeInset`.
 
 `StrataPresence.SplitToIsland(point, followFieldHeight: false)` anchors a companion light
 to both coordinates of a floating surface, such as a translucent composer. The existing

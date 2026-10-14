@@ -230,6 +230,17 @@
           <Setter Property="ZIndex" Value="2" />
         </Style>
 
+        <!-- Header-only canvas: the transcript runs under the floating header, while the composer keeps
+             its own docked row, so only the header needs a translucent material. -->
+        <Style Selector="^:header-overlay /template/ Border#PART_TranscriptHost">
+          <Setter Property="Grid.Row" Value="0" />
+          <Setter Property="Grid.RowSpan" Value="2" />
+        </Style>
+        <Style Selector="^:header-overlay /template/ Border#PART_HeaderChrome">
+          <Setter Property="ZIndex" Value="1" />
+          <Setter Property="Background" Value="Transparent" />
+        </Style>
+
         <Style Selector="^:has-header /template/ DockPanel#PART_HeaderRow">
           <Setter Property="IsVisible" Value="True" />
         </Style>
