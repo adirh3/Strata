@@ -28,17 +28,29 @@ namespace StrataTheme.Controls;
 /// <summary>Lightweight chip data for agent, skill, or MCP display in the composer.</summary>
 /// <param name="Name">Primary display label.</param>
 /// <param name="Glyph">Single-character icon or fallback marker (default "✦").</param>
-/// <param name="ErrorMessage">If set, the chip displays in an error state with this tooltip.</param>
+/// <param name="ErrorMessage">
+/// If set, the chip is in an error state. Keep it short and human: it is the one-line reason the MCP
+/// picker shows under the item, and the chip's tooltip.
+/// </param>
 /// <param name="SecondaryText">Optional supporting text shown in richer autocomplete rows and used as a secondary search field.</param>
 /// <param name="Value">Optional backing value used when the display label differs from the payload.</param>
 /// <param name="SourceLabel">Optional short provenance hint (for example "Lumi", "Project" or "Plugin · foo") shown as a trailing badge in autocomplete rows.</param>
+/// <param name="ErrorDetails">Optional complete technical details behind <paramref name="ErrorMessage"/>, revealed only on request.</param>
+/// <param name="StatusMessage">
+/// Optional neutral status that is not a problem, such as "Still starting". The MCP picker shows it
+/// under the item without the error state's attention cues or actions.
+/// </param>
+/// <param name="Group">Optional heading the MCP picker lists the item under, such as "Yours".</param>
 public record StrataComposerChip(
     string Name,
     string Glyph = "✦",
     string? ErrorMessage = null,
     string? SecondaryText = null,
     string? Value = null,
-    string? SourceLabel = null)
+    string? SourceLabel = null,
+    string? ErrorDetails = null,
+    string? StatusMessage = null,
+    string? Group = null)
 {
     /// <summary>True when the chip has an error (e.g., MCP server failed to connect).</summary>
     public bool HasError => ErrorMessage is not null;
@@ -115,7 +127,7 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_ChipsRow (WrapPanel), PART_AgentChip (Border),
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_FocusLine (Border), PART_FocusSweep (Border), PART_AutoCompletePopup (Popup),
-/// PART_AutoCompletePanel (StackPanel).</para>
+/// PART_AutoCompletePanel (StackPanel), PART_McpPanel (Panel) hosting PART_ConnectorPicker (StrataConnectorPicker).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :external-editor, :editor-content-hidden, :compact,
 /// :can-attach, :can-send-without-prompt,
 /// :can-voice, :editing, :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
@@ -133,10 +145,6 @@ public class StrataChatComposer : TemplatedControl
     private Popup? _autoCompletePopup;
     private StackPanel? _autoCompletePanel;
     private ScrollViewer? _autoCompleteScrollViewer;
-    private Popup? _mcpPopup;
-    private StackPanel? _mcpPopupPanel;
-    private TextBlock? _mcpCountText;
-    private Button? _mcpButton;
     private Popup? _modelPickerPopup;
     private StackPanel? _modelPickerList;
     private Avalonia.Controls.Shapes.Path? _modelPickerChevron;
@@ -154,7 +162,6 @@ public class StrataChatComposer : TemplatedControl
     private char _triggerChar;
     private bool _suppressAutoComplete;
     private INotifyCollectionChanged? _subscribedSkillCollection;
-    private INotifyCollectionChanged? _subscribedMcpCollection;
     private INotifyCollectionChanged? _subscribedAvailableMcpCollection;
     private INotifyCollectionChanged? _subscribedAvailableFileCollection;
     private bool _fileAutoCompleteRefreshQueued;
@@ -208,9 +215,47 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<string> McpToolTipProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpToolTip), "MCP Servers");
 
-    /// <summary>Header of the MCP server list the MCP button opens. Like <see cref="McpToolTip"/>, hosts may name it their way.</summary>
+    /// <summary>
+    /// Accessible name of the MCP server list, forwarded to <see cref="StrataConnectorPicker.Header"/>. Like
+    /// <see cref="McpToolTip"/>, hosts may name it their way.
+    /// </summary>
     public static readonly StyledProperty<string> McpHeaderProperty =
-        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpHeader), "MCP SERVERS");
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpHeader), "MCP Servers");
+
+    /// <summary>
+    /// Action offered on MCP list items whose server reports an error, such as "Fix with Lumi".
+    /// The parameter is the affected <see cref="StrataComposerChip"/>. Choosing it closes the list.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> McpErrorActionCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(McpErrorActionCommand));
+
+    /// <summary>Label of <see cref="McpErrorActionCommand"/>. The action is hidden while this is empty.</summary>
+    public static readonly StyledProperty<string?> McpErrorActionLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(McpErrorActionLabel));
+
+    /// <summary>Label of the toggle that reveals an MCP error's <see cref="StrataComposerChip.ErrorDetails"/>.</summary>
+    public static readonly StyledProperty<string> McpErrorDetailsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpErrorDetailsLabel), "Details");
+
+    /// <summary>Tooltip and accessible name of the button that copies an MCP error's details.</summary>
+    public static readonly StyledProperty<string> McpCopyErrorDetailsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpCopyErrorDetailsLabel), "Copy details");
+
+    /// <summary>
+    /// Finds new MCP servers, forwarded to <see cref="StrataConnectorPicker.BrowseCommand"/>. The parameter
+    /// is the picker's search text, or null. While set, the MCP button shows even before any server
+    /// exists, so the host's servers can be found from the composer.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> McpBrowseCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(McpBrowseCommand));
+
+    /// <summary>Opens the host's MCP server settings, forwarded to <see cref="StrataConnectorPicker.ManageCommand"/>.</summary>
+    public static readonly StyledProperty<ICommand?> McpManageCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(McpManageCommand));
+
+    /// <summary>True while the host is still discovering MCP servers, forwarded to <see cref="StrataConnectorPicker.IsLoading"/>.</summary>
+    public static readonly StyledProperty<bool> McpIsLoadingProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(McpIsLoading));
 
     /// <summary>Items source for the quality/effort selector ComboBox.</summary>
     public static readonly StyledProperty<IEnumerable?> QualityLevelsProperty =
@@ -319,8 +364,8 @@ public class StrataChatComposer : TemplatedControl
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableSkills));
 
     /// <summary>
-    /// Items source for MCP server chips displayed in the composer.
-    /// Use <see cref="StrataComposerChip"/> items for icon+name display.
+    /// The MCP servers that are on, as <see cref="StrataComposerChip"/>s, forwarded to
+    /// <see cref="StrataConnectorPicker.SelectedItems"/>: an <see cref="IList"/> the picker edits directly.
     /// </summary>
     public static readonly StyledProperty<IEnumerable?> McpItemsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(McpItems));
@@ -337,7 +382,7 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<IEnumerable?> AvailableProjectsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableProjects));
 
-    /// <summary>Catalog of MCP servers available for selection via the MCP button popup.</summary>
+    /// <summary>Every MCP server the host offers, forwarded to <see cref="StrataConnectorPicker.Items"/>.</summary>
     public static readonly StyledProperty<IEnumerable?> AvailableMcpsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableMcps));
 
@@ -649,8 +694,8 @@ public class StrataChatComposer : TemplatedControl
         AgentGlyphProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         ProjectNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
-        McpItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnMcpItemsChanged());
         AvailableMcpsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnAvailableMcpsChanged());
+        McpBrowseCommandProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         AvailableFilesProperty.Changed.AddClassHandler<StrataChatComposer>(
             (c, _) => c.OnAvailableFilesChanged());
         ModelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => { c.EnsureSelectedValues(); c.RefreshModelPickerIfOpen(); });
@@ -710,6 +755,13 @@ public class StrataChatComposer : TemplatedControl
     public string? ModelUnpinToolTip { get => GetValue(ModelUnpinToolTipProperty); set => SetValue(ModelUnpinToolTipProperty, value); }
     public string McpToolTip { get => GetValue(McpToolTipProperty); set => SetValue(McpToolTipProperty, value); }
     public string McpHeader { get => GetValue(McpHeaderProperty); set => SetValue(McpHeaderProperty, value); }
+    public ICommand? McpErrorActionCommand { get => GetValue(McpErrorActionCommandProperty); set => SetValue(McpErrorActionCommandProperty, value); }
+    public string? McpErrorActionLabel { get => GetValue(McpErrorActionLabelProperty); set => SetValue(McpErrorActionLabelProperty, value); }
+    public string McpErrorDetailsLabel { get => GetValue(McpErrorDetailsLabelProperty); set => SetValue(McpErrorDetailsLabelProperty, value); }
+    public string McpCopyErrorDetailsLabel { get => GetValue(McpCopyErrorDetailsLabelProperty); set => SetValue(McpCopyErrorDetailsLabelProperty, value); }
+    public ICommand? McpBrowseCommand { get => GetValue(McpBrowseCommandProperty); set => SetValue(McpBrowseCommandProperty, value); }
+    public ICommand? McpManageCommand { get => GetValue(McpManageCommandProperty); set => SetValue(McpManageCommandProperty, value); }
+    public bool McpIsLoading { get => GetValue(McpIsLoadingProperty); set => SetValue(McpIsLoadingProperty, value); }
 
     public IEnumerable? QualityLevels{ get => GetValue(QualityLevelsProperty); set => SetValue(QualityLevelsProperty, value); }
     public object? SelectedQuality { get => GetValue(SelectedQualityProperty); set => SetValue(SelectedQualityProperty, value); }
@@ -821,12 +873,6 @@ public class StrataChatComposer : TemplatedControl
             _subscribedSkillCollection = null;
         }
 
-        if (_subscribedMcpCollection is not null)
-        {
-            _subscribedMcpCollection.CollectionChanged -= OnMcpCollectionChanged;
-            _subscribedMcpCollection = null;
-        }
-
         if (_subscribedAvailableMcpCollection is not null)
         {
             _subscribedAvailableMcpCollection.CollectionChanged -= OnAvailableMcpCollectionChanged;
@@ -893,11 +939,6 @@ public class StrataChatComposer : TemplatedControl
             CommandHelper.Execute(ProjectRemovedCommand, ProjectRemovedCommandParameter);
         });
         _chipsRow = e.NameScope.Find<WrapPanel>("PART_ChipsRow");
-        _mcpPopup = e.NameScope.Find<Popup>("PART_McpPopup");
-        _mcpPopupPanel = e.NameScope.Find<StackPanel>("PART_McpPopupPanel");
-        _mcpCountText = e.NameScope.Find<TextBlock>("PART_McpCount");
-        _mcpButton = e.NameScope.Find<Button>("PART_McpButton");
-        Wire(e, "PART_McpButton", () => ShowMcpPopup());
         _modelPickerPopup = e.NameScope.Find<Popup>("PART_ModelPickerPopup");
         _modelPickerList = e.NameScope.Find<StackPanel>("PART_ModelPickerList");
         _modelPickerChevron = e.NameScope.Find<Avalonia.Controls.Shapes.Path>("PART_ModelPickerChevron");
@@ -1805,27 +1846,6 @@ public class StrataChatComposer : TemplatedControl
         return false;
     }
 
-    private bool IsAlreadyActiveMcp(StrataComposerChip chip)
-    {
-        if (McpItems is null) return false;
-        foreach (var item in McpItems)
-        {
-            if (item is StrataComposerChip sc && sc.Name == chip.Name) return true;
-            if (item?.ToString() == chip.Name) return true;
-        }
-        return false;
-    }
-
-    private StrataComposerChip? FindActiveMcpChip(string name)
-    {
-        if (McpItems is null) return null;
-        foreach (var item in McpItems)
-        {
-            if (item is StrataComposerChip sc && sc.Name == name) return sc;
-        }
-        return null;
-    }
-
     private static Control CreateSectionHeader(string label)
     {
         var tb = new TextBlock { Text = label };
@@ -2008,18 +2028,13 @@ public class StrataChatComposer : TemplatedControl
         var hasAgent = !string.IsNullOrWhiteSpace(AgentName);
         var hasProject = !string.IsNullOrWhiteSpace(ProjectName);
         var hasSkills = HasAnySkills();
-        var mcpCount = CountMcps();
-        var totalMcpCount = CountAvailableMcps();
         PseudoClasses.Set(":has-agent", hasAgent);
         PseudoClasses.Set(":has-project", hasProject);
         PseudoClasses.Set(":has-skills", hasSkills);
-        PseudoClasses.Set(":has-mcps", mcpCount > 0);
         PseudoClasses.Set(":has-chips", hasAgent || hasProject || hasSkills);
-        PseudoClasses.Set(":mcp-partial", mcpCount > 0 && mcpCount < totalMcpCount);
-        UpdateMcpCountText(mcpCount, totalMcpCount);
         PseudoClasses.Set(":recording", IsRecording);
         PseudoClasses.Set(":suggestions-generating", IsSuggestionsGenerating);
-        PseudoClasses.Set(":has-mcp-options", HasAnyAvailableMcps());
+        PseudoClasses.Set(":has-mcp-options", HasAnyAvailableMcps() || McpBrowseCommand is not null);
 
         if (_sendButton is not null)
         {
@@ -2121,229 +2136,11 @@ public class StrataChatComposer : TemplatedControl
         return false;
     }
 
-    private int CountMcps()
-    {
-        if (McpItems is null) return 0;
-        var count = 0;
-        foreach (var _ in McpItems) count++;
-        return count;
-    }
-
-    private int CountAvailableMcps()
-    {
-        if (AvailableMcps is null) return 0;
-        var count = 0;
-        foreach (var _ in AvailableMcps) count++;
-        return count;
-    }
-
     private bool HasAnyAvailableMcps()
     {
         if (AvailableMcps is null) return false;
         foreach (var _ in AvailableMcps) return true;
         return false;
-    }
-
-    private void UpdateMcpCountText(int active, int total)
-    {
-        if (_mcpCountText is null) return;
-        if (total == 0)
-        {
-            _mcpCountText.Text = "";
-        }
-        else
-        {
-            // Check if any active MCP has an error
-            var hasErrors = McpItems is not null && McpItems.OfType<StrataComposerChip>().Any(c => c.HasError);
-            if (hasErrors)
-                _mcpCountText.Text = active == total ? $"⚠ ({total})" : $"⚠ {active}/{total}";
-            else if (active == total)
-                _mcpCountText.Text = $"All ({total})";
-            else
-                _mcpCountText.Text = $"{active}/{total}";
-        }
-    }
-
-    // ── MCP button popup ───────────────────────────────────────────
-
-    private void ShowMcpPopup()
-    {
-        if (_mcpPopup is null || _mcpPopupPanel is null || AvailableMcps is null)
-            return;
-
-        _mcpPopupPanel.Children.Clear();
-
-        var checkboxes = new List<(CheckBox Cb, StrataComposerChip Chip)>();
-
-        foreach (var item in AvailableMcps)
-        {
-            var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
-            var isActive = IsAlreadyActiveMcp(chip);
-
-            // Check if the active chip has an error (e.g., MCP server failed to connect)
-            var activeChip = isActive ? FindActiveMcpChip(chip.Name) : null;
-            var hasError = activeChip?.HasError == true;
-
-            var cb = new CheckBox
-            {
-                IsChecked = isActive,
-                Margin = new Thickness(0),
-                Padding = new Thickness(0),
-                MinWidth = 0,
-                MinHeight = 0,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            var nameText = new TextBlock
-            {
-                Text = chip.Name,
-                FontSize = 12,
-                VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis
-            };
-
-            // Build row with DockPanel for better layout
-            var dp = new DockPanel { LastChildFill = true };
-            dp.Children.Add(cb);
-            DockPanel.SetDock(cb, Dock.Left);
-            nameText.Margin = new Thickness(10, 0, 0, 0);
-
-            if (hasError)
-            {
-                nameText.Opacity = 0.6;
-                var statusDot = new Border
-                {
-                    Width = 6, Height = 6,
-                    CornerRadius = new CornerRadius(3),
-                    Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E05252")),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 6, 0)
-                };
-                dp.Children.Add(statusDot);
-                DockPanel.SetDock(statusDot, Dock.Right);
-            }
-
-            if (!string.IsNullOrWhiteSpace(chip.SourceLabel))
-            {
-                var sourceText = new TextBlock
-                {
-                    Text = chip.SourceLabel,
-                    FontSize = 10,
-                    Opacity = 0.55,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(8, 0, 0, 0)
-                };
-                dp.Children.Add(sourceText);
-                DockPanel.SetDock(sourceText, Dock.Right);
-            }
-
-            // Added last so LastChildFill gives the name the remaining width.
-            dp.Children.Add(nameText);
-
-            var outerPanel = new StackPanel { Spacing = 2 };
-            outerPanel.Children.Add(dp);
-
-            if (hasError && activeChip?.ErrorMessage is { } errMsg)
-            {
-                var errorText = new TextBlock
-                {
-                    Text = errMsg,
-                    FontSize = 10,
-                    Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E05252")),
-                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                    Margin = new Thickness(26, 0, 0, 0),
-                    Opacity = 0.9
-                };
-                outerPanel.Children.Add(errorText);
-            }
-
-            var border = new Border
-            {
-                Child = outerPanel,
-                Padding = new Thickness(10, 7),
-                CornerRadius = new CornerRadius(6),
-                Cursor = new Cursor(StandardCursorType.Hand)
-            };
-            border.Classes.Add("mcp-popup-item");
-
-            var capturedChip = chip;
-            var capturedCb = cb;
-            checkboxes.Add((cb, chip));
-
-            border.PointerPressed += (_, pe) =>
-            {
-                if (!pe.GetCurrentPoint(border).Properties.IsLeftButtonPressed) return;
-                capturedCb.IsChecked = !capturedCb.IsChecked;
-                pe.Handled = true;
-            };
-
-            cb.IsCheckedChanged += (_, _) =>
-            {
-                if (cb.IsChecked == true)
-                {
-                    if (McpItems is System.Collections.IList list && !IsAlreadyActiveMcp(capturedChip))
-                        list.Add(capturedChip);
-                }
-                else
-                {
-                    if (McpItems is System.Collections.IList list)
-                    {
-                        for (var i = list.Count - 1; i >= 0; i--)
-                        {
-                            var existing = list[i];
-                            var existingName = existing is StrataComposerChip sc ? sc.Name : existing?.ToString() ?? "";
-                            if (existingName == capturedChip.Name)
-                            {
-                                list.RemoveAt(i);
-                                break;
-                            }
-                        }
-                    }
-                }
-                Sync();
-            };
-
-            _mcpPopupPanel.Children.Add(border);
-        }
-
-        // Separator line before action buttons
-        var separator = new Border
-        {
-            Height = 1,
-            Margin = new Thickness(4, 4)
-        };
-        separator.Classes.Add("mcp-popup-separator");
-        _mcpPopupPanel.Children.Add(separator);
-
-        // Select All / Deselect All buttons at the bottom
-        var selectAll = new Button { Content = "Select All", Padding = new Thickness(10, 4), MinHeight = 0, MinWidth = 0, FontSize = 11 };
-        selectAll.Classes.Add("subtle");
-        selectAll.Click += (_, _) =>
-        {
-            foreach (var (cb, _) in checkboxes)
-                cb.IsChecked = true;
-        };
-
-        var deselectAll = new Button { Content = "Deselect All", Padding = new Thickness(10, 4), MinHeight = 0, MinWidth = 0, FontSize = 11 };
-        deselectAll.Classes.Add("subtle");
-        deselectAll.Click += (_, _) =>
-        {
-            foreach (var (cb, _) in checkboxes)
-                cb.IsChecked = false;
-        };
-
-        var actionsRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 4,
-            Margin = new Thickness(4, 0, 4, 2),
-            HorizontalAlignment = HorizontalAlignment.Right
-        };
-        actionsRow.Children.Add(selectAll);
-        actionsRow.Children.Add(deselectAll);
-        _mcpPopupPanel.Children.Add(actionsRow);
-
-        _mcpPopup.IsOpen = true;
     }
 
     // ═══════════════════════════════════════════════════
@@ -3038,28 +2835,6 @@ public class StrataChatComposer : TemplatedControl
     private void OnSkillCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         RebuildSkillChips();
-    }
-
-    private void OnMcpItemsChanged()
-    {
-        if (_subscribedMcpCollection is not null)
-        {
-            _subscribedMcpCollection.CollectionChanged -= OnMcpCollectionChanged;
-            _subscribedMcpCollection = null;
-        }
-
-        if (McpItems is INotifyCollectionChanged ncc)
-        {
-            ncc.CollectionChanged += OnMcpCollectionChanged;
-            _subscribedMcpCollection = ncc;
-        }
-
-        Sync();
-    }
-
-    private void OnMcpCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        Sync();
     }
 
     private void OnAvailableMcpsChanged()

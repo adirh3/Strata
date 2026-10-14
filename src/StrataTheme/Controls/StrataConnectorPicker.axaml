@@ -1,0 +1,711 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:sa="using:StrataTheme.Animation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls"
+        xmlns:strata="using:StrataTheme">
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <!-- Connectors carry one identity hue, the same sage the connectors page uses, so a connector
+           looks the same in a chat and in its settings. -->
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="Brush.ConnectorHue" Color="#33786D" />
+          <SolidColorBrush x:Key="Brush.ConnectorTile" Color="#FFF4F4F7" />
+          <SolidColorBrush x:Key="Brush.ConnectorTileBorder" Color="#FFE8E8ED" />
+          <SolidColorBrush x:Key="Brush.ConnectorSwitchTrack" Color="#1F000000" />
+          <SolidColorBrush x:Key="Brush.ConnectorInset" Color="#0B000000" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Brush.ConnectorHue" Color="#84BDB2" />
+          <SolidColorBrush x:Key="Brush.ConnectorTile" Color="#0DFFFFFF" />
+          <SolidColorBrush x:Key="Brush.ConnectorTileBorder" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="Brush.ConnectorSwitchTrack" Color="#2EFFFFFF" />
+          <SolidColorBrush x:Key="Brush.ConnectorInset" Color="#12FFFFFF" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <StreamGeometry x:Key="ConnectorPicker.Plug">M17 6.1h3V8h-3v2.1a5 5 0 0 1-4 4.9V18h2v2H9v-2h2v-3a5 5 0 0 1-4-4.9V8H4V6.1h3V4h2v2.1h4V4h2v2.1zM9 8v2.1a3 3 0 0 0 6 0V8H9z</StreamGeometry>
+      <StreamGeometry x:Key="ConnectorPicker.Compass">F1 M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 1.9a8.1 8.1 0 1 0 0 16.2 8.1 8.1 0 0 0 0-16.2zm4.3 3.8-2.1 6.1a.9.9 0 0 1-.5.5l-6.1 2.1 2.1-6.1a.9.9 0 0 1 .5-.5l6.1-2.1zM12 10.9a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2z</StreamGeometry>
+      <StreamGeometry x:Key="ConnectorPicker.Sliders">M4 6h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2z M4 16h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2z M13.2 6a2.6 2.6 0 0 1 5 0v2a2.6 2.6 0 0 1-5 0z M5.8 16a2.6 2.6 0 0 1 5 0v2a2.6 2.6 0 0 1-5 0z</StreamGeometry>
+
+      <!-- Borderless search field, like the model picker's: the header draws the divider and the
+           Strata line under it. -->
+      <ControlTheme x:Key="ConnectorPickerSearchTheme" TargetType="TextBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource Brush.SelectionBackground}" />
+        <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Brush.SelectionText}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="Cursor" Value="IBeam" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel Background="{TemplateBinding Background}">
+              <TextBlock Name="PART_Placeholder"
+                         Text="{TemplateBinding PlaceholderText}"
+                         FontSize="{TemplateBinding FontSize}"
+                         Foreground="{DynamicResource Brush.TextTertiary}"
+                         IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                         IsHitTestVisible="False"
+                         TextTrimming="CharacterEllipsis"
+                         VerticalAlignment="Center"
+                         Margin="{TemplateBinding Padding}" />
+              <ScrollViewer Name="PART_ScrollViewer"
+                            HorizontalScrollBarVisibility="Hidden"
+                            VerticalScrollBarVisibility="Disabled">
+                <TextPresenter Name="PART_TextPresenter"
+                               Text="{TemplateBinding Text, Mode=TwoWay}"
+                               CaretBrush="{TemplateBinding CaretBrush}"
+                               CaretIndex="{TemplateBinding CaretIndex}"
+                               SelectionStart="{TemplateBinding SelectionStart}"
+                               SelectionEnd="{TemplateBinding SelectionEnd}"
+                               SelectionBrush="{TemplateBinding SelectionBrush}"
+                               SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                               TextAlignment="{TemplateBinding TextAlignment}"
+                               TextWrapping="NoWrap"
+                               LetterSpacing="{TemplateBinding LetterSpacing}"
+                               LineHeight="{TemplateBinding LineHeight}"
+                               Margin="{TemplateBinding Padding}"
+                               VerticalAlignment="Center" />
+              </ScrollViewer>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <!-- Quiet text action: the footer's links and "Turn all on". Its text and icon take the button's
+           foreground (see the connector-link styles on PART_Panel), so one state change recolours both. -->
+      <ControlTheme x:Key="ConnectorPickerLinkTheme" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Background="{TemplateBinding Background}"
+                              BorderBrush="Transparent"
+                              BorderThickness="1"
+                              CornerRadius="{TemplateBinding CornerRadius}"
+                              Content="{TemplateBinding Content}"
+                              Foreground="{TemplateBinding Foreground}"
+                              Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}">
+              <ContentPresenter.Transitions>
+                <Transitions>
+                  <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
+                </Transitions>
+              </ContentPresenter.Transitions>
+            </ContentPresenter>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+        </Style>
+        <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+        </Style>
+        <!-- An accent link: the primary next step in its context. -->
+        <Style Selector="^.emphasis">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^.emphasis:pointerover">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentHover}" />
+        </Style>
+      </ControlTheme>
+
+      <!-- Compact on/off switch for one connector. The track takes the accent gradient when on, like
+           Strata's ToggleSwitch, at a size that sits in a list row. -->
+      <ControlTheme x:Key="ConnectorSwitchTheme" TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="18" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <Border Name="PART_Track"
+                      CornerRadius="9"
+                      Background="{DynamicResource Brush.ConnectorSwitchTrack}"
+                      BorderBrush="Transparent"
+                      BorderThickness="1" />
+              <Border Name="PART_OnTrack"
+                      CornerRadius="9"
+                      Background="{DynamicResource Brush.AccentGradient}"
+                      Opacity="0">
+                <Border.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Border.Transitions>
+              </Border>
+              <Ellipse Name="PART_Knob"
+                       Width="12" Height="12"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       Margin="3,0,0,0"
+                       Fill="{DynamicResource Brush.TextSecondary}"
+                       RenderTransform="translateX(0px)">
+                <Ellipse.Transitions>
+                  <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                  </Transitions>
+                </Ellipse.Transitions>
+              </Ellipse>
+              <Border Name="PART_FocusRing"
+                      Margin="-3"
+                      CornerRadius="12"
+                      BorderBrush="Transparent"
+                      BorderThickness="1.5"
+                      IsHitTestVisible="False" />
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover /template/ Border#PART_Track">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+        </Style>
+        <Style Selector="^:checked /template/ Border#PART_OnTrack">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:checked /template/ Ellipse#PART_Knob">
+          <Setter Property="Fill" Value="White" />
+          <Setter Property="RenderTransform" Value="translateX(12px)" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+        </Style>
+      </ControlTheme>
+
+      <ControlTheme x:Key="{x:Type controls:StrataConnectorPicker}" TargetType="controls:StrataConnectorPicker">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <Button Name="PART_Button"
+                      Classes="subtle"
+                      Height="28"
+                      MinHeight="0"
+                      MinWidth="0"
+                      Padding="8,4,10,4"
+                      CornerRadius="14"
+                      Background="{DynamicResource Brush.Surface2}"
+                      BorderThickness="0"
+                      VerticalAlignment="Center"
+                      Cursor="Hand"
+                      ToolTip.Tip="{TemplateBinding ButtonToolTip}"
+                      AutomationProperties.HelpText="{TemplateBinding ButtonToolTip}">
+                <Button.Transitions>
+                  <Transitions>
+                    <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
+                  </Transitions>
+                </Button.Transitions>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Panel VerticalAlignment="Center">
+                    <PathIcon Name="PART_ButtonIcon"
+                              Data="{StaticResource ConnectorPicker.Plug}"
+                              Width="14" Height="14"
+                              FlowDirection="LeftToRight" />
+                    <!-- A connector in this chat needs attention. -->
+                    <Ellipse Name="PART_AttentionDot"
+                             Width="7" Height="7"
+                             HorizontalAlignment="Right" VerticalAlignment="Top"
+                             Margin="0,-2,-3,0"
+                             Fill="{DynamicResource Brush.WarningDefault}"
+                             IsVisible="False" />
+                  </Panel>
+                  <TextBlock Name="PART_ButtonLabel"
+                             MaxWidth="120"
+                             FontSize="12"
+                             FontWeight="Medium"
+                             Foreground="{DynamicResource Brush.TextSecondary}"
+                             TextTrimming="CharacterEllipsis"
+                             VerticalAlignment="Center"
+                             IsVisible="False" />
+                </StackPanel>
+              </Button>
+
+              <!-- In-window, like the model picker: SlideX keeps the panel on screen when the button
+                   sits near the edge of a narrow composer. -->
+              <Popup Name="PART_Popup"
+                     IsLightDismissEnabled="True"
+                     ShouldUseOverlayLayer="True"
+                     Placement="AnchorAndGravity"
+                     PlacementAnchor="Bottom"
+                     PlacementGravity="Top"
+                     PlacementConstraintAdjustment="FlipY,ResizeY,SlideX"
+                     VerticalOffset="4"
+                     PlacementTarget="{Binding #PART_Button}"
+                     WindowManagerAddShadowHint="False"
+                     strata:PopupAnimationHelper.EnableOpenAnimation="False"
+                     strata:PopupAnimationHelper.EnableOverlayAnimation="True"
+                     strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
+                <Border Name="PART_Panel"
+                        Width="344"
+                        Margin="10"
+                        Background="Transparent"
+                        BorderBrush="{DynamicResource Brush.BorderDefault}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        BoxShadow="0 18 48 -10 #48000000, 0 4 14 0 #22000000"
+                        AutomationProperties.Name="{TemplateBinding Header}"
+                        ClipToBounds="False">
+                  <!-- Scoped here rather than app-wide, so no other control pays for them. -->
+                  <Border.Styles>
+                    <Style Selector="Button.connector-link TextBlock">
+                      <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                      <Setter Property="FontSize" Value="{Binding FontSize, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Style>
+                    <Style Selector="Button.connector-link PathIcon">
+                      <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    </Style>
+                  </Border.Styles>
+                  <Panel>
+                    <!-- Sample only the pixels beneath the panel, without repainting the window. -->
+                    <Border CornerRadius="11" ClipToBounds="True" IsHitTestVisible="False">
+                      <controls:StrataBackdropBlur CornerRadius="11" BlurRadius="20" />
+                    </Border>
+                    <Border CornerRadius="11"
+                            Background="{DynamicResource Brush.Surface1Glass}"
+                            IsHitTestVisible="False" />
+
+                    <DockPanel>
+                      <Grid Name="PART_Header"
+                            DockPanel.Dock="Top"
+                            Height="44"
+                            Background="Transparent"
+                            ColumnDefinitions="Auto,*">
+                        <Path Data="M7 2.25 A4.75 4.75 0 1 1 7 11.75 A4.75 4.75 0 1 1 7 2.25 Z M10.5 10.5 L14 14"
+                              Width="16"
+                              Height="16"
+                              Stretch="None"
+                              Stroke="{DynamicResource Brush.TextTertiary}"
+                              StrokeThickness="1.5"
+                              StrokeLineCap="Round"
+                              StrokeJoin="Round"
+                              Margin="14,0,8,0"
+                              VerticalAlignment="Center"
+                              IsHitTestVisible="False" />
+                        <TextBox Name="PART_SearchBox"
+                                 Grid.Column="1"
+                                 Theme="{StaticResource ConnectorPickerSearchTheme}"
+                                 Text="{TemplateBinding SearchText, Mode=TwoWay}"
+                                 PlaceholderText="{TemplateBinding SearchWatermark}"
+                                 AutomationProperties.Name="{TemplateBinding SearchWatermark}"
+                                 Margin="0,0,14,0"
+                                 VerticalAlignment="Stretch" />
+                        <Border Grid.ColumnSpan="2"
+                                Height="1"
+                                VerticalAlignment="Bottom"
+                                Background="{DynamicResource Brush.BorderSubtle}"
+                                IsHitTestVisible="False" />
+                        <Border Name="PART_SearchLine"
+                                Grid.ColumnSpan="2"
+                                Height="2"
+                                Margin="14,0"
+                                VerticalAlignment="Bottom"
+                                CornerRadius="1"
+                                Background="{DynamicResource Brush.StratumLine}"
+                                Opacity="0"
+                                RenderTransformOrigin="0%,50%"
+                                RenderTransform="scaleX(0)"
+                                IsHitTestVisible="False">
+                          <Border.Transitions>
+                            <Transitions>
+                              <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                            </Transitions>
+                          </Border.Transitions>
+                        </Border>
+                      </Grid>
+
+                      <!-- Says what the switches change (this chat only) and offers them all at once. -->
+                      <Grid Name="PART_Summary"
+                            DockPanel.Dock="Top"
+                            ColumnDefinitions="*,Auto"
+                            Margin="16,8,8,0">
+                        <TextBlock Name="PART_SummaryText"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource Brush.TextTertiary}"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" />
+                        <Button Name="PART_ToggleAllButton"
+                                Grid.Column="1"
+                                Theme="{StaticResource ConnectorPickerLinkTheme}"
+                                Classes="connector-link emphasis"
+                                Padding="8,3"
+                                VerticalAlignment="Center">
+                          <TextBlock Name="PART_ToggleAllText" FontWeight="Medium" />
+                        </Button>
+                      </Grid>
+
+                      <Border Name="PART_Footer"
+                              DockPanel.Dock="Bottom"
+                              BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                              BorderThickness="0,1,0,0"
+                              Padding="8,6"
+                              IsVisible="False">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                          <Button Name="PART_BrowseButton"
+                                  Theme="{StaticResource ConnectorPickerLinkTheme}"
+                                  Classes="connector-link"
+                                  AutomationProperties.Name="{TemplateBinding BrowseLabel}">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                              <PathIcon Data="{StaticResource ConnectorPicker.Compass}" Width="13" Height="13" FlowDirection="LeftToRight" />
+                              <TextBlock Text="{TemplateBinding BrowseLabel}" />
+                            </StackPanel>
+                          </Button>
+                          <Button Name="PART_ManageButton"
+                                  Grid.Column="2"
+                                  Theme="{StaticResource ConnectorPickerLinkTheme}"
+                                  Classes="connector-link"
+                                  AutomationProperties.Name="{TemplateBinding ManageLabel}">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                              <PathIcon Data="{StaticResource ConnectorPicker.Sliders}" Width="13" Height="13" FlowDirection="LeftToRight" />
+                              <TextBlock Text="{TemplateBinding ManageLabel}" />
+                            </StackPanel>
+                          </Button>
+                        </Grid>
+                      </Border>
+
+                      <Panel Name="PART_Body" MinHeight="72">
+                        <ScrollViewer Name="PART_ListScroller"
+                                      MaxHeight="372"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                          <StackPanel Name="PART_List" Margin="6,4,6,6">
+                            <!-- Row styles live on the list with simple selectors, so every row
+                                 evaluates only these instead of app-wide descendant selectors. -->
+                            <StackPanel.Styles>
+                              <Style Selector="ToggleButton.connector-switch">
+                                <Setter Property="Theme" Value="{StaticResource ConnectorSwitchTheme}" />
+                              </Style>
+                              <Style Selector="TextBlock.connector-group-header">
+                                <Setter Property="FontSize" Value="11" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter Property="LetterSpacing" Value="0.6" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                              </Style>
+                              <!-- One calm plate marks the active row; it follows the pointer and the
+                                   arrow keys alike. -->
+                              <Style Selector="Border.connector-row">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Transitions">
+                                  <Transitions>
+                                    <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
+                                  </Transitions>
+                                </Setter>
+                              </Style>
+                              <Style Selector="Border.connector-row.active">
+                                <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+                              </Style>
+                              <Style Selector="Border.connector-tile">
+                                <Setter Property="Background" Value="{DynamicResource Brush.ConnectorTile}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource Brush.ConnectorTileBorder}" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Setter Property="Transitions">
+                                  <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.14" />
+                                  </Transitions>
+                                </Setter>
+                              </Style>
+                              <Style Selector="Border.connector-row.off Border.connector-tile">
+                                <Setter Property="Opacity" Value="0.45" />
+                              </Style>
+                              <Style Selector="PathIcon.connector-glyph">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.ConnectorHue}" />
+                              </Style>
+                              <Style Selector="Ellipse.connector-attention-dot">
+                                <Setter Property="Fill" Value="{DynamicResource Brush.WarningDefault}" />
+                                <Setter Property="Stroke" Value="{DynamicResource Brush.Surface1}" />
+                                <Setter Property="StrokeThickness" Value="2" />
+                              </Style>
+                              <Style Selector="TextBlock.connector-name">
+                                <Setter Property="FontSize" Value="13" />
+                                <Setter Property="FontWeight" Value="Medium" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                              </Style>
+                              <Style Selector="Border.connector-row.off TextBlock.connector-name">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+                              </Style>
+                              <!-- What the connector is, or where it comes from: a fact, so it reads as text. -->
+                              <Style Selector="TextBlock.connector-caption">
+                                <Setter Property="FontSize" Value="12" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                              </Style>
+                              <Style Selector="TextBlock.connector-status">
+                                <Setter Property="FontSize" Value="11.5" />
+                                <Setter Property="LineHeight" Value="16" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                              </Style>
+
+                              <!-- A connector that needs attention. -->
+                              <Style Selector="PathIcon.connector-issue-icon">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
+                              </Style>
+                              <Style Selector="TextBlock.connector-issue-summary">
+                                <Setter Property="FontSize" Value="12" />
+                                <Setter Property="LineHeight" Value="16" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+                              </Style>
+                              <Style Selector="Button.connector-issue-action">
+                                <Setter Property="CornerRadius" Value="7" />
+                                <Setter Property="Padding" Value="9,4" />
+                                <Setter Property="MinHeight" Value="0" />
+                                <Setter Property="MinWidth" Value="0" />
+                              </Style>
+                              <!-- On the label itself: Strata's TextBlock style would override inherited values. -->
+                              <Style Selector="Button.connector-issue-action TextBlock">
+                                <Setter Property="FontSize" Value="11.5" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+                              </Style>
+                              <Style Selector="Button.connector-issue-action PathIcon">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                              </Style>
+                              <Style Selector="Button.connector-issue-action:pointerover TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                              </Style>
+                              <Style Selector="Button.connector-issue-action:pointerover PathIcon">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                              </Style>
+                              <!-- The host's repair action: tonal accent, recognisable without shouting. -->
+                              <Style Selector="Button.connector-issue-action.primary">
+                                <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                              </Style>
+                              <Style Selector="Button.connector-issue-action.primary TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+                              </Style>
+                              <Style Selector="Button.connector-issue-action.primary PathIcon">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+                              </Style>
+                              <Style Selector="Button.connector-issue-action.primary:disabled">
+                                <Setter Property="Opacity" Value="0.5" />
+                              </Style>
+                              <Style Selector="Border.connector-issue-details">
+                                <Setter Property="Background" Value="{DynamicResource Brush.ConnectorInset}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Setter Property="CornerRadius" Value="7" />
+                                <Setter Property="Padding" Value="8,6,4,6" />
+                              </Style>
+                              <Style Selector="SelectableTextBlock.connector-issue-details-text">
+                                <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
+                                <Setter Property="FontSize" Value="10.5" />
+                                <Setter Property="LineHeight" Value="15" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+                              </Style>
+                              <Style Selector="Button.connector-issue-copy PathIcon">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                              </Style>
+                              <Style Selector="Button.connector-issue-copy:pointerover PathIcon">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                              </Style>
+                            </StackPanel.Styles>
+                          </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Nothing here matches: offer to look further. -->
+                        <StackPanel Name="PART_NoResults"
+                                    Spacing="10"
+                                    Margin="20,22,20,24"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsVisible="False">
+                          <TextBlock Name="PART_NoResultsText"
+                                     FontSize="12.5"
+                                     Foreground="{DynamicResource Brush.TextTertiary}"
+                                     TextWrapping="Wrap"
+                                     TextAlignment="Center"
+                                     HorizontalAlignment="Center" />
+                          <Button Name="PART_SearchBrowseButton"
+                                  Theme="{StaticResource ConnectorPickerLinkTheme}"
+                                  Classes="connector-link emphasis"
+                                  AutomationProperties.Name="{Binding #PART_SearchBrowseText.Text}"
+                                  HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                              <PathIcon Data="{StaticResource ConnectorPicker.Compass}" Width="13" Height="13" FlowDirection="LeftToRight" />
+                              <TextBlock Name="PART_SearchBrowseText" FontWeight="Medium" TextTrimming="CharacterEllipsis" MaxWidth="240" />
+                            </StackPanel>
+                          </Button>
+                        </StackPanel>
+
+                        <!-- No connectors at all: what they are, and where to find them. -->
+                        <StackPanel Name="PART_Empty"
+                                    Spacing="8"
+                                    Margin="28,26,28,24"
+                                    HorizontalAlignment="Center"
+                                    IsVisible="False">
+                          <Border Width="44" Height="44"
+                                  CornerRadius="13"
+                                  Background="{DynamicResource Brush.ConnectorTile}"
+                                  BorderBrush="{DynamicResource Brush.ConnectorTileBorder}"
+                                  BorderThickness="1"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,0,0,6">
+                            <PathIcon Data="{StaticResource ConnectorPicker.Plug}"
+                                      Width="20" Height="20"
+                                      FlowDirection="LeftToRight"
+                                      Foreground="{DynamicResource Brush.ConnectorHue}" />
+                          </Border>
+                          <TextBlock Name="PART_EmptyTitle"
+                                     Text="{TemplateBinding EmptyTitle}"
+                                     FontSize="14"
+                                     FontWeight="SemiBold"
+                                     Foreground="{DynamicResource Brush.TextPrimary}"
+                                     TextAlignment="Center"
+                                     TextWrapping="Wrap" />
+                          <!-- Still discovering: no invitation to add a first connector the user may already have. -->
+                          <TextBlock Name="PART_LoadingTitle"
+                                     Text="{TemplateBinding LoadingText}"
+                                     FontSize="14"
+                                     FontWeight="SemiBold"
+                                     Foreground="{DynamicResource Brush.TextSecondary}"
+                                     TextAlignment="Center"
+                                     TextWrapping="Wrap"
+                                     IsVisible="False" />
+                          <TextBlock Name="PART_EmptyText"
+                                     Text="{TemplateBinding EmptyText}"
+                                     FontSize="12.5"
+                                     LineHeight="18"
+                                     Foreground="{DynamicResource Brush.TextSecondary}"
+                                     TextAlignment="Center"
+                                     TextWrapping="Wrap" />
+                          <Button Name="PART_EmptyBrowseButton"
+                                  Classes="accent"
+                                  HorizontalAlignment="Center"
+                                  Padding="14,6"
+                                  CornerRadius="9"
+                                  Margin="0,8,0,0"
+                                  AutomationProperties.Name="{TemplateBinding EmptyActionLabel}">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                              <PathIcon Data="{StaticResource ConnectorPicker.Compass}" Width="13" Height="13" FlowDirection="LeftToRight" />
+                              <TextBlock Text="{TemplateBinding EmptyActionLabel}" FontWeight="SemiBold" />
+                            </StackPanel>
+                          </Button>
+                          <!-- Connectors may exist but be turned off for every chat. -->
+                          <Button Name="PART_EmptyManageButton"
+                                  Theme="{StaticResource ConnectorPickerLinkTheme}"
+                                  Classes="connector-link"
+                                  HorizontalAlignment="Center"
+                                  AutomationProperties.Name="{TemplateBinding ManageLabel}">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                              <PathIcon Data="{StaticResource ConnectorPicker.Sliders}" Width="13" Height="13" FlowDirection="LeftToRight" />
+                              <TextBlock Text="{TemplateBinding ManageLabel}" />
+                            </StackPanel>
+                          </Button>
+                        </StackPanel>
+                      </Panel>
+                    </DockPanel>
+                  </Panel>
+                </Border>
+              </Popup>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Trigger: the plug takes the connector hue while any connector is on. -->
+        <Style Selector="^ /template/ PathIcon#PART_ButtonIcon">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+        <Style Selector="^:has-selection /template/ PathIcon#PART_ButtonIcon">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.ConnectorHue}" />
+        </Style>
+        <Style Selector="^:has-errors /template/ Ellipse#PART_AttentionDot">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:open /template/ Button#PART_Button">
+          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+        </Style>
+
+        <!-- The composer's Strata line, drawn along the header while search has focus. -->
+        <Style Selector="^ /template/ Grid#PART_Header:focus-within Border#PART_SearchLine">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="scaleX(1)" />
+        </Style>
+
+        <Style Selector="^:searching /template/ Grid#PART_Summary">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-results /template/ ScrollViewer#PART_ListScroller">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-results /template/ StackPanel#PART_NoResults">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:not(:can-browse) /template/ Button#PART_SearchBrowseButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:can-browse) /template/ Button#PART_BrowseButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:can-browse) /template/ Button#PART_EmptyBrowseButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:can-manage) /template/ Button#PART_ManageButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:can-manage) /template/ Button#PART_EmptyManageButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:can-browse /template/ Border#PART_Footer">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:can-manage /template/ Border#PART_Footer">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- No connectors at all: the panel becomes a short introduction. -->
+        <Style Selector="^:no-connectors /template/ Grid#PART_Header">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-connectors /template/ Grid#PART_Summary">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-connectors /template/ ScrollViewer#PART_ListScroller">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-connectors /template/ Border#PART_Footer">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-connectors /template/ StackPanel#PART_Empty">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:loading /template/ TextBlock#PART_EmptyTitle">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:loading /template/ TextBlock#PART_EmptyText">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:loading /template/ TextBlock#PART_LoadingTitle">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- App-wide styles are limited to the collapsed button; row styles are scoped to the list above. -->
+  <Style Selector="controls|StrataConnectorPicker /template/ Button#PART_Button:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+  </Style>
+</Styles>

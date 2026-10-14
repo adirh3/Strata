@@ -53,6 +53,45 @@ internal static class StrataChatComposerSearch
         return result.Count == 0 ? 0 : result[0].Score;
     }
 
+    /// <summary>
+    /// Ranks connectors for the connector picker: by name first, then by what they do and where they come
+    /// from, so "issues" finds the connector whose description mentions them.
+    /// </summary>
+    internal static List<StrataComposerChip> RankConnectors(IReadOnlyList<StrataComposerChip> connectors, string? query)
+    {
+        ArgumentNullException.ThrowIfNull(connectors);
+
+        var searchQuery = SearchQuery.Create(query);
+        if (searchQuery.IsEmpty)
+            return connectors.ToList();
+
+        var documents = connectors
+            .Select((chip, index) => SearchEngine.Prepare(CreateConnectorDocument(new ChipEntry(chip, index)), index))
+            .ToArray();
+        return SearchEngine
+            .SearchPrepared(documents, searchQuery, ChipSearchOptions)
+            .Select(static result => result.Item.Chip)
+            .ToList();
+    }
+
+    private static SearchDocument<ChipEntry> CreateConnectorDocument(ChipEntry entry)
+    {
+        var chip = entry.Chip;
+        var fields = new List<SearchField> { SearchField.Primary(chip.Name) };
+        if (!string.IsNullOrWhiteSpace(chip.SecondaryText))
+            fields.Add(new SearchField(chip.SecondaryText, 0.58));
+        if (!string.IsNullOrWhiteSpace(chip.SourceLabel))
+            fields.Add(new SearchField(chip.SourceLabel, 0.4));
+
+        return new SearchDocument<ChipEntry>(
+            entry,
+            fields,
+            sort: new SearchSortMetadata(
+                Length: chip.Name.Length,
+                StableIndex: entry.OriginalIndex,
+                Text: chip.Name));
+    }
+
     private static SearchDocument<ChipEntry> CreateDocument(ChipEntry entry)
     {
         var fields = string.IsNullOrWhiteSpace(entry.Chip.SecondaryText)
