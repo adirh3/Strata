@@ -278,6 +278,18 @@ public class StrataBackdropBlur : Control
         private SKRectI _cachedBounds;
         private bool _failed;
 
+        // Native filter and paint objects are reused across frames: content scrolling beneath a glass
+        // re-blurs it every frame, and recreating them each time showed up as a steady per-frame cost.
+        private SKImageFilter? _blurFilter;
+        private SKColorFilter? _saturationFilter;
+        private SKImageFilter? _filter;
+        private float _filterSigma = -1;
+        private readonly SKPaint _copyPaint = new() { BlendMode = SKBlendMode.Src };
+        private readonly SKPaint _drawPaint = new() { BlendMode = SKBlendMode.Plus };
+        private readonly SKPaint _erasePaint = new() { BlendMode = SKBlendMode.DstOut };
+        private readonly SKRoundRect _clip = new();
+        private readonly SKPoint[] _radii = new SKPoint[4];
+
         public BackdropOperation(
             Rect bounds,
             double blurRadius,
@@ -400,9 +412,41 @@ public class StrataBackdropBlur : Control
             if (_backdrop is null)
                 return false;
 
-            using var copy = new SKPaint { BlendMode = SKBlendMode.Src };
-            _backdrop.Canvas.DrawImage(patch, region.Left - _cachedVisible.Left, region.Top - _cachedVisible.Top, copy);
+            _backdrop.Canvas.DrawImage(patch, region.Left - _cachedVisible.Left, region.Top - _cachedVisible.Top, _copyPaint);
             return true;
+        }
+
+        private SKImageFilter GetFilter(float sigma)
+        {
+            if (_filter is not null && _filterSigma == sigma)
+                return _filter;
+
+            DisposeFilters();
+            _blurFilter = SKImageFilter.CreateBlur(sigma, sigma, SKShaderTileMode.Clamp);
+            if (Math.Abs(_saturation - 1) > 0.001)
+            {
+                _saturationFilter = SKColorFilter.CreateColorMatrix(CreateSaturationMatrix(_saturation));
+                _filter = SKImageFilter.CreateColorFilter(_saturationFilter, _blurFilter);
+            }
+            else
+            {
+                _filter = _blurFilter;
+            }
+
+            _filterSigma = sigma;
+            return _filter;
+        }
+
+        private void DisposeFilters()
+        {
+            if (!ReferenceEquals(_filter, _blurFilter))
+                _filter?.Dispose();
+            _blurFilter?.Dispose();
+            _saturationFilter?.Dispose();
+            _filter = null;
+            _blurFilter = null;
+            _saturationFilter = null;
+            _filterSigma = -1;
         }
 
         private bool Blur(GRContext? grContext, float scale)
@@ -411,13 +455,7 @@ public class StrataBackdropBlur : Control
             if (backdrop is null)
                 return false;
 
-            var sigma = (float)(_blurRadius * scale);
-            using var blur = SKImageFilter.CreateBlur(sigma, sigma, SKShaderTileMode.Clamp);
-            using var saturation = Math.Abs(_saturation - 1) > 0.001
-                ? SKColorFilter.CreateColorMatrix(CreateSaturationMatrix(_saturation))
-                : null;
-            using var saturated = saturation is null ? null : SKImageFilter.CreateColorFilter(saturation, blur);
-            var filter = saturated ?? blur;
+            var filter = GetFilter((float)(_blurRadius * scale));
 
             var subset = new SKRectI(0, 0, backdrop.Width, backdrop.Height);
             SKImage? frost;
@@ -451,15 +489,12 @@ public class StrataBackdropBlur : Control
             try
             {
                 canvas.ResetMatrix();
-                using var clip = new SKRoundRect();
-                clip.SetRectRadii(device,
-                [
-                    new SKPoint((float)_cornerRadius.TopLeft * scaleX, (float)_cornerRadius.TopLeft * scaleY),
-                    new SKPoint((float)_cornerRadius.TopRight * scaleX, (float)_cornerRadius.TopRight * scaleY),
-                    new SKPoint((float)_cornerRadius.BottomRight * scaleX, (float)_cornerRadius.BottomRight * scaleY),
-                    new SKPoint((float)_cornerRadius.BottomLeft * scaleX, (float)_cornerRadius.BottomLeft * scaleY)
-                ]);
-                canvas.ClipRoundRect(clip, SKClipOperation.Intersect, antialias: true);
+                _radii[0] = new SKPoint((float)_cornerRadius.TopLeft * scaleX, (float)_cornerRadius.TopLeft * scaleY);
+                _radii[1] = new SKPoint((float)_cornerRadius.TopRight * scaleX, (float)_cornerRadius.TopRight * scaleY);
+                _radii[2] = new SKPoint((float)_cornerRadius.BottomRight * scaleX, (float)_cornerRadius.BottomRight * scaleY);
+                _radii[3] = new SKPoint((float)_cornerRadius.BottomLeft * scaleX, (float)_cornerRadius.BottomLeft * scaleY);
+                _clip.SetRectRadii(device, _radii);
+                canvas.ClipRoundRect(_clip, SKClipOperation.Intersect, antialias: true);
 
                 // The frost replaces what lies beneath it rather than covering it. Over a translucent
                 // window (Mica, acrylic) the frost is translucent as well, so blended over the sharp
@@ -467,8 +502,10 @@ public class StrataBackdropBlur : Control
                 // and then adding the frost blends the two by that coverage; over an opaque backdrop this
                 // is exactly a normal blend.
                 var alpha = (byte)Math.Round(255 * Math.Clamp(opacity, 0, 1));
-                using var erase = new SKPaint { BlendMode = SKBlendMode.DstOut, Color = new SKColor(0, 0, 0, alpha) };
-                using var paint = new SKPaint { BlendMode = SKBlendMode.Plus, Color = new SKColor(255, 255, 255, alpha) };
+                var erase = _erasePaint;
+                var paint = _drawPaint;
+                erase.Color = new SKColor(0, 0, 0, alpha);
+                paint.Color = new SKColor(255, 255, 255, alpha);
                 var destination = SKRect.Create(_frostDevice.Left, _frostDevice.Top, _frostDevice.Width, _frostDevice.Height);
                 if (_fade == StrataBackdropFade.None)
                 {
@@ -496,11 +533,22 @@ public class StrataBackdropBlur : Control
             }
             finally
             {
+                _erasePaint.Shader = null;
+                _drawPaint.Shader = null;
                 canvas.Restore();
             }
         }
 
-        public void Dispose() => Release();
+        public void Dispose()
+        {
+            _failed = true;
+            Release();
+            DisposeFilters();
+            _copyPaint.Dispose();
+            _drawPaint.Dispose();
+            _erasePaint.Dispose();
+            _clip.Dispose();
+        }
 
         /// <summary>
         /// Lets go of the frost. Raster state is freed at once. GPU state is retired until a render makes its
