@@ -86,6 +86,38 @@ public class StrataQuestionCardReattachClickTests
         Assert.Equal("Blue", result.SubmittedAnswer);
     }
 
+    [Fact]
+    public async Task ConfirmingAMultiSelectAnswer_HidesTheConfirmButton()
+    {
+        var result = await _fixture.Dispatch(() =>
+        {
+            var card = new StrataQuestionCard
+            {
+                Template = BuildQuestionTemplate(),
+                OptionsList = ["Red", "Blue"],
+                AllowFreeText = false,
+                AllowMultiSelect = true,
+            };
+            var window = new Window { Width = 400, Height = 300, Content = card };
+            window.Show();
+            card.ApplyTemplate();
+            Dispatcher.UIThread.RunJobs();
+
+            Option(card, "Red").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var confirm = card.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "PART_MultiSubmit");
+            var visibleWhilePicking = confirm.IsVisible;
+            confirm.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            var result = (VisibleWhilePicking: visibleWhilePicking, card.IsAnswered, VisibleAfterAnswer: confirm.IsVisible);
+            window.Close();
+            return result;
+        });
+
+        Assert.True(result.VisibleWhilePicking);
+        Assert.True(result.IsAnswered);
+        Assert.False(result.VisibleAfterAnswer);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

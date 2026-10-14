@@ -71,7 +71,13 @@ public class StrataQuestionCard : TemplatedControl
     {
         OptionsProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.RebuildOptions());
         OptionsListProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.RebuildOptions());
-        IsAnsweredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
+        IsAnsweredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) =>
+        {
+            c.UpdatePseudoClasses();
+            // The confirm button's visibility is set locally while picking, which outranks the
+            // :answered style, so an answered card hides it here.
+            c.UpdateMultiSubmitVisibility();
+        });
         IsExpiredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnIsExpiredChanged());
         AllowFreeTextProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         AllowMultiSelectProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
