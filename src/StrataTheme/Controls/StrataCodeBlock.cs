@@ -445,6 +445,15 @@ public class StrataCodeBlock : Control
     {
         private IReadOnlyList<CodeSpan>? _spans;
 
+        // TextBlock rebuilds its layout on every arrange; like its own cache, this keeps the shaped runs
+        // so only line layout is redone when the width alone changes.
+        private readonly TextRunCache _runCache = new();
+        private ShapingKey _shapingKey;
+        private GenericTextRunProperties? _defaults;
+
+        // One properties object per style rather than per token: each resolves its font once.
+        private readonly Dictionary<RunStyle, TextRunProperties> _runProperties = new();
+
         protected override Type StyleKeyOverride => typeof(SelectableTextBlock);
 
         internal IReadOnlyList<CodeSpan>? Spans => _spans;
@@ -463,9 +472,8 @@ public class StrataCodeBlock : Control
             if (_spans is null || Inlines is { Count: > 0 })
                 return base.CreateTextLayout(text);
 
-            var typeface = new Typeface(FontFamily, FontStyle, FontWeight, FontStretch);
-            var defaults = new GenericTextRunProperties(
-                typeface, FontSize, TextDecorations, Foreground, null, BaselineAlignment.Baseline, null, FontFeatures);
+            text ??= "";
+            var defaults = GetDefaults();
             var paragraph = new GenericTextParagraphProperties(
                 FlowDirection, TextAlignment, firstLineInParagraph: true, alwaysCollapsible: false,
                 defaults, TextWrapping, LineHeight, 0, LetterSpacing);
@@ -473,34 +481,105 @@ public class StrataCodeBlock : Control
             var selectionStart = Math.Min(SelectionStart, SelectionEnd);
             var selectionEnd = Math.Max(SelectionStart, SelectionEnd);
             var selectionForeground = selectionEnd > selectionStart ? SelectionForegroundBrush : null;
-            var source = new CodeTextSource(text ?? "", defaults, _spans, selectionStart, selectionEnd, selectionForeground);
+
+            var shapingKey = new ShapingKey(
+                text, _spans, defaults, selectionStart, selectionEnd, selectionForeground, FlowDirection, LetterSpacing);
+            if (shapingKey != _shapingKey)
+            {
+                _runCache.Invalidate();
+                _shapingKey = shapingKey;
+            }
+
+            var source = new CodeTextSource(
+                text, defaults, _spans, selectionStart, selectionEnd, selectionForeground, GetRunProperties);
             var max = GetMaxSizeFromConstraint();
-            return new TextLayout(source, paragraph, TextTrimming, max.Width, max.Height, MaxLines);
+            return new TextLayout(source, paragraph, TextTrimming, max.Width, max.Height, MaxLines, _runCache);
         }
+
+        private GenericTextRunProperties GetDefaults()
+        {
+            var typeface = new Typeface(FontFamily, FontStyle, FontWeight, FontStretch);
+            if (_defaults is { } defaults
+                && defaults.Typeface.Equals(typeface)
+                && defaults.FontRenderingEmSize.Equals(FontSize)
+                && ReferenceEquals(defaults.TextDecorations, TextDecorations)
+                && ReferenceEquals(defaults.ForegroundBrush, Foreground)
+                && ReferenceEquals(defaults.FontFeatures, FontFeatures))
+            {
+                return defaults;
+            }
+
+            _runProperties.Clear();
+            return _defaults = new GenericTextRunProperties(
+                typeface, FontSize, TextDecorations, Foreground, null, BaselineAlignment.Baseline, null, FontFeatures);
+        }
+
+        private TextRunProperties GetRunProperties(IBrush? foreground, CodeSpan style)
+        {
+            var defaults = _defaults!;
+            var key = new RunStyle(foreground ?? defaults.ForegroundBrush, style.Italic, style.Bold, style.Underline);
+            if (_runProperties.TryGetValue(key, out var properties))
+                return properties;
+
+            var typeface = defaults.Typeface;
+            if (style.Italic || style.Bold)
+            {
+                typeface = new Typeface(
+                    typeface.FontFamily,
+                    style.Italic ? Avalonia.Media.FontStyle.Italic : typeface.Style,
+                    style.Bold ? FontWeight.Bold : typeface.Weight,
+                    typeface.Stretch);
+            }
+
+            properties = new GenericTextRunProperties(
+                typeface,
+                defaults.FontRenderingEmSize,
+                style.Underline ? Avalonia.Media.TextDecorations.Underline : defaults.TextDecorations,
+                key.Foreground,
+                null,
+                BaselineAlignment.Baseline,
+                null,
+                defaults.FontFeatures);
+            _runProperties[key] = properties;
+            return properties;
+        }
+
+        private readonly record struct RunStyle(IBrush? Foreground, bool Italic, bool Bold, bool Underline);
+
+        /// <summary>Everything a shaped run depends on; the layout width is deliberately absent.</summary>
+        private readonly record struct ShapingKey(
+            string? Text,
+            IReadOnlyList<CodeSpan>? Spans,
+            TextRunProperties? Defaults,
+            int SelectionStart,
+            int SelectionEnd,
+            IBrush? SelectionForeground,
+            FlowDirection FlowDirection,
+            double LetterSpacing);
     }
 
     private sealed class CodeTextSource(
         string text,
-        GenericTextRunProperties defaults,
+        TextRunProperties defaults,
         IReadOnlyList<CodeSpan> spans,
         int selectionStart,
         int selectionEnd,
-        IBrush? selectionForeground) : ITextSource
+        IBrush? selectionForeground,
+        Func<IBrush?, CodeSpan, TextRunProperties> getProperties) : ITextSource
     {
-        private readonly TextRunProperties?[] _spanProperties = new TextRunProperties?[spans.Count];
-
         public TextRun? GetTextRun(int textSourceIndex)
         {
             if (textSourceIndex >= text.Length)
                 return new TextEndOfParagraph();
 
             var index = FindSpan(textSourceIndex);
+            var inSpan = index >= 0 && textSourceIndex < spans[index].End;
             int end;
             TextRunProperties properties;
-            if (index >= 0 && textSourceIndex < spans[index].End)
+            if (inSpan)
             {
                 end = spans[index].End;
-                properties = _spanProperties[index] ??= Create(spans[index].Foreground, spans[index]);
+                properties = getProperties(spans[index].Foreground, spans[index]);
             }
             else
             {
@@ -517,9 +596,7 @@ public class StrataCodeBlock : Control
                 else if (textSourceIndex < selectionEnd)
                 {
                     end = Math.Min(end, selectionEnd);
-                    properties = Create(selectionForeground, index >= 0 && textSourceIndex < spans[index].End
-                        ? spans[index]
-                        : default);
+                    properties = getProperties(selectionForeground, inSpan ? spans[index] : default);
                 }
             }
 
@@ -545,29 +622,6 @@ public class StrataCodeBlock : Control
             }
 
             return found;
-        }
-
-        private GenericTextRunProperties Create(IBrush? foreground, CodeSpan style)
-        {
-            var typeface = defaults.Typeface;
-            if (style.Italic || style.Bold)
-            {
-                typeface = new Typeface(
-                    typeface.FontFamily,
-                    style.Italic ? Avalonia.Media.FontStyle.Italic : typeface.Style,
-                    style.Bold ? FontWeight.Bold : typeface.Weight,
-                    typeface.Stretch);
-            }
-
-            return new GenericTextRunProperties(
-                typeface,
-                defaults.FontRenderingEmSize,
-                style.Underline ? TextDecorations.Underline : defaults.TextDecorations,
-                foreground ?? defaults.ForegroundBrush,
-                null,
-                BaselineAlignment.Baseline,
-                null,
-                defaults.FontFeatures);
         }
     }
 }

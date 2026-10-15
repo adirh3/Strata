@@ -1346,7 +1346,9 @@ public class StrataChatMessage : TemplatedControl
         _selectionReplyText = selectedText;
         popup.PlacementTarget = textBlock;
         popup.PlacementRect = GetSelectionAnchor(textBlock, releasePoint);
-        popup.Open();
+        // IsOpen rather than Open(): a pill still fading out from the last selection is resumed by
+        // PopupAnimationHelper, where Open() would be ignored until the fade finishes.
+        popup.IsOpen = true;
     }
 
     /// <summary>
