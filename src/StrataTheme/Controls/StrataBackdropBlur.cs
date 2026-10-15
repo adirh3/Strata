@@ -75,6 +75,9 @@ public class StrataBackdropBlur : Control
     private static int s_healQueued;
     private static long s_healGeneration;
 
+    // GPU textures of frosts that went away, waiting for a render in which their context is current.
+    private static readonly RetiredGpuResources s_retired = new();
+
     static StrataBackdropBlur()
     {
         AffectsRender<StrataBackdropBlur>(
@@ -195,6 +198,64 @@ public class StrataBackdropBlur : Control
         inner.Left >= outer.Left && inner.Top >= outer.Top
         && inner.Right <= outer.Right && inner.Bottom <= outer.Bottom;
 
+    private static bool IsLost(object context) =>
+        context is GRContext gpu && (gpu.Handle == IntPtr.Zero || gpu.IsAbandoned);
+
+    /// <summary>
+    /// GPU objects whose owner went away while their graphics context was not current. Releasing a texture
+    /// then never reaches the driver (an OpenGL delete without a current context is dropped), so it would
+    /// stay allocated for the life of the process. They wait here for a render under their own context.
+    /// </summary>
+    internal sealed class RetiredGpuResources
+    {
+        private readonly List<(object Context, IDisposable Resource)> _items = [];
+
+        internal int Count
+        {
+            get
+            {
+                lock (_items)
+                    return _items.Count;
+            }
+        }
+
+        internal void Retire(object context, IDisposable? resource)
+        {
+            if (resource is null)
+                return;
+
+            lock (_items)
+                _items.Add((context, resource));
+        }
+
+        /// <summary>
+        /// Releases what was retired under <paramref name="current"/>, which the caller has made current,
+        /// and what belongs to a context that has since been lost, whose objects no longer reach the driver.
+        /// </summary>
+        internal void ReleaseFor(object current, Func<object, bool> isLost)
+        {
+            List<IDisposable>? release = null;
+            lock (_items)
+            {
+                for (var i = _items.Count - 1; i >= 0; i--)
+                {
+                    var (context, resource) = _items[i];
+                    if (!ReferenceEquals(context, current) && !isLost(context))
+                        continue;
+
+                    (release ??= []).Add(resource);
+                    _items.RemoveAt(i);
+                }
+            }
+
+            if (release is null)
+                return;
+
+            foreach (var resource in release)
+                resource.Dispose();
+        }
+    }
+
     private sealed class BackdropOperation : ICustomDrawOperation
     {
         private readonly double _blurRadius;
@@ -203,9 +264,10 @@ public class StrataBackdropBlur : Control
         private readonly StrataBackdropFade _fade;
         private readonly double _fadeLength;
 
-        // Render-thread state, disposed there too. A new operation is created for every UI-thread render,
-        // and a changed operation always repaints the control's whole bounds, so each instance starts from
-        // a full frame. The unblurred backdrop then lets later partial frames patch only what they redrew.
+        // Render-thread state. A new operation is created for every UI-thread render, and a changed operation
+        // always repaints the control's whole bounds, so each instance starts from a full frame. The unblurred
+        // backdrop then lets later partial frames patch only what they redrew. GPU-backed state is only ever
+        // released while its context is current, during a render: see Release.
         private SKSurface? _backdrop;
         private GRContext? _backdropContext;
         private SKSizeI _backdropSize;
@@ -246,6 +308,10 @@ public class StrataBackdropBlur : Control
             try
             {
                 using var lease = feature.Lease();
+                // A GPU render has its context current, so frosts that went away can now be released. Raster
+                // renders (RenderTargetBitmap) can run on the UI thread, which must not touch a GPU context.
+                if (lease.GrContext is { } gpu)
+                    s_retired.ReleaseFor(gpu, IsLost);
                 RenderCore(lease);
             }
             catch (Exception ex)
@@ -283,6 +349,10 @@ public class StrataBackdropBlur : Control
                 return;
 
             var grContext = lease.GrContext;
+            // State made for another context is released under that context, never under this one.
+            if (!ReferenceEquals(grContext, _backdropContext))
+                Release();
+
             var hasCache = _frost is not null && _backdrop is not null
                            && deviceBounds == _cachedBounds
                            && ReferenceEquals(grContext, _backdropContext);
@@ -432,11 +502,25 @@ public class StrataBackdropBlur : Control
 
         public void Dispose() => Release();
 
+        /// <summary>
+        /// Lets go of the frost. Raster state is freed at once. GPU state is retired until a render makes its
+        /// context current: the compositor disposes replaced operations while applying its batches, before any
+        /// context is current, and a GPU texture freed then is never deleted by the driver.
+        /// </summary>
         private void Release()
         {
-            _frost?.Dispose();
+            if (_backdropContext is { } context)
+            {
+                s_retired.Retire(context, _frost);
+                s_retired.Retire(context, _backdrop);
+            }
+            else
+            {
+                _frost?.Dispose();
+                _backdrop?.Dispose();
+            }
+
             _frost = null;
-            _backdrop?.Dispose();
             _backdrop = null;
             _backdropContext = null;
         }

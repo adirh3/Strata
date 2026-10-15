@@ -42,4 +42,58 @@ public sealed class StrataBackdropBlurTests
         for (var row = 0; row < 3; row++)
             Assert.Equal(1, boosted[row * 5] + boosted[row * 5 + 1] + boosted[row * 5 + 2], 4);
     }
+
+    [Fact]
+    public void RetiredGpuStateWaitsForARenderUnderItsOwnContext()
+    {
+        var retired = new StrataBackdropBlur.RetiredGpuResources();
+        var context = new object();
+        var frost = new Resource();
+        var backdrop = new Resource();
+        retired.Retire(context, frost);
+        retired.Retire(context, backdrop);
+        retired.Retire(context, null);
+
+        // The compositor disposes a replaced frost before its context is current, and a render under another
+        // context is no better. Releasing a texture then would leave it allocated in the driver for good.
+        retired.ReleaseFor(new object(), NeverLost);
+        Assert.Equal(0, frost.Disposals + backdrop.Disposals);
+        Assert.Equal(2, retired.Count);
+
+        retired.ReleaseFor(context, NeverLost);
+        Assert.Equal(1, frost.Disposals);
+        Assert.Equal(1, backdrop.Disposals);
+        Assert.Equal(0, retired.Count);
+
+        retired.ReleaseFor(context, NeverLost);
+        Assert.Equal(1, frost.Disposals);
+    }
+
+    [Fact]
+    public void RetiredGpuStateOfALostContextIsReleasedUnderAnyContext()
+    {
+        var retired = new StrataBackdropBlur.RetiredGpuResources();
+        var lost = new object();
+        var live = new object();
+        var orphan = new Resource();
+        var waiting = new Resource();
+        retired.Retire(lost, orphan);
+        retired.Retire(live, waiting);
+
+        // A lost context's objects no longer reach the driver, so they need not wait for it.
+        retired.ReleaseFor(new object(), context => ReferenceEquals(context, lost));
+
+        Assert.Equal(1, orphan.Disposals);
+        Assert.Equal(0, waiting.Disposals);
+        Assert.Equal(1, retired.Count);
+    }
+
+    private static bool NeverLost(object context) => false;
+
+    private sealed class Resource : IDisposable
+    {
+        public int Disposals { get; private set; }
+
+        public void Dispose() => Disposals++;
+    }
 }

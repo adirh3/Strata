@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.55" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.56" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -457,7 +457,9 @@ feedback, an animation beneath) patches just that region and never samples the g
 foreground. Once partial redraws settle, all glass is repainted together, which updates the frost
 just outside a changed region without letting overlapping glasses keep each other rendering.
 It requires the Skia renderer; elsewhere it draws nothing and the
-translucent surface remains the fallback.
+translucent surface remains the fallback. Its GPU textures are released only while their context is
+current, by the next frost to render: Avalonia disposes a replaced draw operation before making the
+context current, and a texture freed then would never be deleted by the driver.
 
 Floating controls can be glass of their own. `StrataGlassButton` is an opt-in button theme
 (`Theme="{DynamicResource StrataGlassButton}"`) whose frost, `PART_Backdrop`, is painted before
