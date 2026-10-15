@@ -120,7 +120,8 @@ public class StrataReplyRequestedEventArgs : RoutedEventArgs
 /// PART_ReplyButton (Button, optional), PART_ShareButton (Button, optional), PART_MoreButton (Button, optional),
 /// PART_HeaderRow (WrapPanel), PART_BubbleRow (Grid), PART_Timestamp (TextBlock).</para>
 /// <para><b>Pseudo-classes:</b> :assistant, :user, :system, :tool, :streaming, :editing, :editable, :host-scrolling,
-/// :has-meta, :has-author, :has-timestamp, :has-status, :can-reply, :can-share, :reply-source, :menu-open, :copied.</para>
+/// :has-meta, :has-author, :has-timestamp, :has-status, :can-reply, :can-share, :reply-source, :menu-open, :copied,
+/// :progress-update.</para>
 /// <para><b>Replies:</b> when <see cref="CanReply"/> is set the message offers a Reply action beside its meta
 /// row, a Reply item in its context menu, and a floating Reply pill over selected text. All three raise
 /// <see cref="ReplyRequested"/>; the host decides what replying means.</para>
@@ -286,6 +287,28 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<bool> IsReplySourceProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsReplySource));
 
+    /// <summary>
+    /// Marks an assistant progress update — narration written while the assistant works. An update never
+    /// carries the answer's footer of actions or metadata. Folded into a <see cref="StrataTurnSummary"/> with
+    /// the work it narrates, it reads quieter than the answer; outside one it keeps the answer's voice. Only
+    /// the colour changes, so a message that becomes an update when it finishes does not reflow.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsProgressUpdateProperty =
+        AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(IsProgressUpdate));
+
+    /// <summary>
+    /// True for everything inside a progress update that reads in the quieter voice. It is inherited, so it
+    /// reaches content however and whenever the content attaches; content that sets its own text colour,
+    /// such as <see cref="StrataMarkdown"/>, reads it to take that voice. A selector over the message's
+    /// logical tree is not enough: a host can attach content before it joins that tree.
+    /// </summary>
+    public static readonly AttachedProperty<bool> IsWithinQuietUpdateProperty =
+        AvaloniaProperty.RegisterAttached<StrataChatMessage, Control, bool>("IsWithinQuietUpdate", inherits: true);
+
+    public static bool GetIsWithinQuietUpdate(Control control) => control.GetValue(IsWithinQuietUpdateProperty);
+
+    public static void SetIsWithinQuietUpdate(Control control, bool value) => control.SetValue(IsWithinQuietUpdateProperty, value);
+
     /// <summary>Label of the whole-message Reply action and the selection pill, so hosts can localize it.</summary>
     public static readonly StyledProperty<string> ReplyLabelProperty =
         AvaloniaProperty.Register<StrataChatMessage, string>(nameof(ReplyLabel), "Reply");
@@ -392,6 +415,7 @@ public class StrataChatMessage : TemplatedControl
         });
         ShareLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         IsReplySourceProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.PseudoClasses.Set(":reply-source", c.IsReplySource));
+        IsProgressUpdateProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.PseudoClasses.Set(":progress-update", c.IsProgressUpdate));
         ReplyLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         ReplySelectionLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         ContentProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnContentChanged());
@@ -472,6 +496,7 @@ public class StrataChatMessage : TemplatedControl
     public string ForkMenuHeader { get => GetValue(ForkMenuHeaderProperty); set => SetValue(ForkMenuHeaderProperty, value); }
     public bool CanReply { get => GetValue(CanReplyProperty); set => SetValue(CanReplyProperty, value); }
     public bool IsReplySource { get => GetValue(IsReplySourceProperty); set => SetValue(IsReplySourceProperty, value); }
+    public bool IsProgressUpdate { get => GetValue(IsProgressUpdateProperty); set => SetValue(IsProgressUpdateProperty, value); }
     public string ReplyLabel { get => GetValue(ReplyLabelProperty); set => SetValue(ReplyLabelProperty, value); }
     public string ReplySelectionLabel { get => GetValue(ReplySelectionLabelProperty); set => SetValue(ReplySelectionLabelProperty, value); }
 
@@ -1859,6 +1884,7 @@ public class StrataChatMessage : TemplatedControl
         PseudoClasses.Set(":has-status", !string.IsNullOrWhiteSpace(StatusText));
         PseudoClasses.Set(":can-reply", CanReply);
         PseudoClasses.Set(":reply-source", IsReplySource);
+        PseudoClasses.Set(":progress-update", IsProgressUpdate);
     }
 
     private void UpdateActionBarLayout(bool force = false)

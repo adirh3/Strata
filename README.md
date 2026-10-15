@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.53" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.55" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -181,6 +181,22 @@ Set `TimestampToolTip` to the full date/time while keeping `Timestamp` short. Ho
 localize `CopyLabel`, `CopySelectionLabel`, `CopyMarkdownLabel`, `CopyRichTextLabel`,
 `CopyTurnLabel`, `CopiedLabel`, and `MoreActionsLabel`, alongside the existing reply/fork labels.
 Disable Edit and Retry when the host does not implement those actions.
+
+Set `IsProgressUpdate="True"` on an assistant message that is narration written while the
+assistant works (`:progress-update`). An update never carries the answer's footer. Folded into a
+`StrataTurnSummary` with the work it narrates, it reads quieter than the answer, in secondary text;
+outside one, such as the update beside the step in progress, it keeps the answer's voice. The summary
+marks what it folds with the inherited `StrataTurnSummary.IsWithinSummary`. Only the colour changes, so a
+message that turns out to be an update when it finishes does not reflow. Folded, its content takes the
+quieter colour by inheritance, `StrataMarkdown` included: the bubble sets the inherited
+`StrataChatMessage.IsWithinQuietUpdate`, which content that sets its own text colour can read too. When a
+reader opens a summary, its content is revealed from the top while it fades in, and closing folds it away
+the same way. The content keeps its natural layout throughout, so a scrolling area inside never shows a
+scroll bar mid-motion, and the motion starts once the content has been laid out, so content that takes a
+moment to build does not use it up. A reader's own toggle also stops an ancestor `StrataChatShell` from
+following its tail, so the row stays under the pointer. Changes made in code, such as opening the row to
+show a search hit, apply at once so positions inside are final, as does every change when the control has
+the `motion-disabled` class. Hosts that want a bounded area for long content bound their own content.
 
 ## Markdown images
 

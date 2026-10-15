@@ -43,26 +43,17 @@
                 </Grid>
               </Border>
 
-              <!-- Expandable content area with left accent bar -->
-              <Border Name="PART_ContentHost"
-                      ClipToBounds="True"
-                      IsVisible="False"
-                      MaxHeight="0"
-                      Opacity="0"
-                      RenderTransformOrigin="0.5,0"
-                      RenderTransform="translateY(-4px) scaleY(0.97)">
-                <Border.Transitions>
-                  <Transitions>
-                    <DoubleTransition Property="MaxHeight" Duration="0:0:0.28" Easing="CubicEaseOut" />
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24" Easing="CubicEaseOut" />
-                  </Transitions>
-                </Border.Transitions>
-
+              <!-- Expandable content area with left accent bar. The control reveals it from the top
+                   while it fades in; the content keeps its natural layout throughout. -->
+              <controls:TurnSummaryRevealHost Name="PART_ContentHost"
+                                              IsVisible="False"
+                                              Reveal="0"
+                                              Opacity="0">
                 <Border Padding="12,4,0,4"
                         BorderThickness="2,0,0,0"
                         BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                        Margin="3,2,0,0">
+                        Margin="3,2,0,0"
+                        controls:StrataTurnSummary.IsWithinSummary="True">
                   <Border.Transitions>
                     <Transitions>
                       <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
@@ -70,19 +61,11 @@
                   </Border.Transitions>
                   <ContentPresenter Content="{TemplateBinding DisplayedContent}" />
                 </Border>
-              </Border>
+              </controls:TurnSummaryRevealHost>
 
             </StackPanel>
           </ControlTemplate>
         </Setter>
-
-        <!-- Expanded state -->
-        <Style Selector="^:expanded /template/ Border#PART_ContentHost">
-          <Setter Property="IsVisible" Value="True" />
-          <Setter Property="MaxHeight" Value="4000" />
-          <Setter Property="Opacity" Value="1" />
-          <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
-        </Style>
 
         <!-- Failure state dot -->
         <Style Selector="^:has-failures /template/ Border#PART_Dot">

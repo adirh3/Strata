@@ -409,6 +409,16 @@
           <Setter Property="ToolTip.Tip" Value="{Binding CopiedLabel, RelativeSource={RelativeSource TemplatedParent}}" />
         </Style>
 
+        <!-- ══ PROGRESS UPDATE: narration written while working never carries the answer's footer ══ -->
+        <Style Selector="^:assistant:progress-update /template/ WrapPanel#PART_HeaderRow">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <!-- Folded into a turn summary with the work it narrates, an update reads quieter; outside one it keeps the answer's voice. -->
+        <Style Selector="^:assistant:progress-update[(controls|StrataTurnSummary.IsWithinSummary)=True] /template/ Border#PART_Bubble">
+          <Setter Property="TextElement.Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+          <Setter Property="controls:StrataChatMessage.IsWithinQuietUpdate" Value="True" />
+        </Style>
+
         <!-- ══ USER: right-aligned subtle pill ══ -->
         <Style Selector="^:user">
           <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleText}" />
@@ -516,6 +526,12 @@
   <!-- User bubble: override markdown text color so it contrasts with the indigo background -->
   <Style Selector="controls|StrataChatMessage:user controls|StrataMarkdown">
     <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+  </Style>
+  <!-- Quiet progress update: markdown sets its own text colour, so it takes the quieter voice here too. It
+       matches on the inherited flag, not on the message as an ancestor: a host can attach content
+       before it joins the message's logical tree, and the ancestor match would then never apply. -->
+  <Style Selector="controls|StrataMarkdown[(controls|StrataChatMessage.IsWithinQuietUpdate)=True]">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
   <Style Selector="controls|StrataChatMessage:user Border.strata-md-bullet-dot">
     <Setter Property="Background" Value="{DynamicResource Brush.ChatUserBubbleText}" />
