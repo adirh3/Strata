@@ -66,6 +66,8 @@ public partial class StrataMarkdown
         new(MaxConcurrentMarkdownImagesPerComponent, MaxConcurrentMarkdownImagesPerComponent);
     private readonly Dictionary<string, MarkdownImageCacheEntry> _imageCache = new(StringComparer.Ordinal);
     private readonly HashSet<string> _imageKeysUsed = new(StringComparer.Ordinal);
+    private StrataFullScreenOverlay? _expandedImageView;
+    private string? _expandedImageCacheKey;
 
     private Inline CreateImageInline(string altText, string imageTarget, double fontSize)
     {
@@ -188,6 +190,24 @@ public partial class StrataMarkdown
         content.Children.Add(image);
         content.Children.Add(loadingContent);
 
+        var expandButton = new Button
+        {
+            Name = "MarkdownImageExpand",
+            Content = new PathIcon
+            {
+                Width = 14,
+                Height = 14,
+                Data = Geometry.Parse("M0,0 H5 V2 H2 V5 H0 Z M9,0 H14 V5 H12 V2 H9 Z M14,9 V14 H9 V12 H12 V9 Z M5,14 H0 V9 H2 V12 H5 Z")
+            },
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            IsVisible = false
+        };
+        expandButton.Classes.Add("strata-md-image-expand");
+        AutomationProperties.SetName(expandButton, "View image full screen");
+        AutomationProperties.SetHelpText(expandButton, label);
+        content.Children.Add(expandButton);
+
         var frame = new Border
         {
             Child = content,
@@ -202,6 +222,7 @@ public partial class StrataMarkdown
         AutomationProperties.SetName(frame, label);
         AutomationProperties.SetHelpText(frame, $"Loading markdown image from {source.DisplayTarget}");
         ToolTip.SetTip(frame, source.DisplayTarget);
+        expandButton.Click += (_, _) => OpenMarkdownImageViewer(frame, image, label, source);
 
         _ = PopulateMarkdownImageAsync(
             cacheEntry,
@@ -210,8 +231,143 @@ public partial class StrataMarkdown
             loadingContent,
             progress,
             placeholder,
+            expandButton,
             label);
         return frame;
+    }
+
+    private void OpenMarkdownImageViewer(
+        Border frame,
+        Image inlineImage,
+        string label,
+        MarkdownImageSource source)
+    {
+        if (_expandedImageView is not null || inlineImage.Source is null)
+            return;
+
+        var expandedImage = new Image
+        {
+            Name = "ExpandedMarkdownImage",
+            Source = inlineImage.Source,
+            Stretch = Stretch.Uniform
+        };
+        AutomationProperties.SetName(expandedImage, label);
+        var caption = new TextBlock
+        {
+            Text = label,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        caption.Classes.Add("strata-md-image-caption");
+        var closeButton = new Button
+        {
+            Name = "MarkdownImageClose",
+            Content = new PathIcon
+            {
+                Width = 14,
+                Height = 14,
+                Data = Geometry.Parse("M1,0 L7,6 L13,0 L14,1 L8,7 L14,13 L13,14 L7,8 L1,14 L0,13 L6,7 L0,1 Z")
+            }
+        };
+        closeButton.Classes.Add("strata-md-image-viewer-close");
+        AutomationProperties.SetName(closeButton, "Close full screen");
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        header.Children.Add(caption);
+        Grid.SetColumn(closeButton, 1);
+        header.Children.Add(closeButton);
+
+        var progress = new ProgressBar { IsIndeterminate = true };
+        progress.Classes.Add("strata-md-image-progress");
+        var status = new TextBlock
+        {
+            Text = "Loading full-resolution image...",
+            TextWrapping = TextWrapping.Wrap,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        status.Classes.Add("strata-md-image-caption");
+        var footer = new StackPanel();
+        footer.Children.Add(progress);
+        footer.Children.Add(status);
+        var content = new Grid
+        {
+            RowDefinitions = new RowDefinitions("Auto,*,Auto"),
+            Margin = new Thickness(16)
+        };
+        content.Children.Add(header);
+        Grid.SetRow(expandedImage, 1);
+        content.Children.Add(expandedImage);
+        Grid.SetRow(footer, 2);
+        content.Children.Add(footer);
+
+        var viewer = StrataFullScreenOverlay.Open(
+            this,
+            "MarkdownImageFullScreen",
+            content,
+            () => closeButton.Focus());
+        if (viewer is null)
+            return;
+        _expandedImageView = viewer;
+        _expandedImageCacheKey = source.CacheKey;
+
+        var cancellation = new CancellationTokenSource();
+        var cancellationToken = cancellation.Token;
+        Bitmap? expandedBitmap = null;
+        closeButton.Click += (_, _) => viewer.Close();
+        viewer.Closed += (_, _) =>
+        {
+            _expandedImageView = null;
+            _expandedImageCacheKey = null;
+            cancellation.Cancel();
+            cancellation.Dispose();
+            expandedImage.Source = null;
+            expandedBitmap?.Dispose();
+        };
+
+        var topLevel = TopLevel.GetTopLevel(frame);
+        var decodeBounds = topLevel is Window window && window.Screens.ScreenFromWindow(window) is { } screen
+            ? screen.Bounds.Size
+            : PixelSize.FromSize(topLevel?.ClientSize ?? frame.Bounds.Size, topLevel?.RenderScaling ?? 1);
+        _ = PopulateExpandedImageAsync();
+
+        async Task PopulateExpandedImageAsync()
+        {
+            Bitmap? bitmap = null;
+            try
+            {
+                bitmap = await LoadMarkdownImageAsync(
+                    source,
+                    _imageDownloadGate,
+                    cancellationToken,
+                    decodeBounds).ConfigureAwait(false);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        return;
+                    expandedBitmap = bitmap;
+                    expandedImage.Source = bitmap;
+                    bitmap = null;
+                    footer.IsVisible = false;
+                });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex) when (ex is OperationCanceledException || IsRecoverableMarkdownImageFailure(ex))
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        return;
+                    progress.IsVisible = false;
+                    status.Text = "Full-resolution image unavailable. Showing the inline preview.";
+                    AutomationProperties.SetHelpText(status, ex.Message);
+                });
+            }
+            finally
+            {
+                bitmap?.Dispose();
+            }
+        }
     }
 
     private static Inline CreateImageFallbackInline(string altText, double fontSize)
@@ -232,6 +388,7 @@ public partial class StrataMarkdown
         StackPanel loadingContent,
         ProgressBar progress,
         TextBlock placeholder,
+        Button expandButton,
         string label)
     {
         try
@@ -249,6 +406,7 @@ public partial class StrataMarkdown
                 image.IsVisible = true;
                 image.Opacity = 1;
                 loadingContent.IsVisible = false;
+                expandButton.IsVisible = true;
                 AutomationProperties.SetHelpText(
                     frame,
                     $"Markdown image from {cacheEntry.Source.DisplayTarget}");
@@ -496,7 +654,8 @@ public partial class StrataMarkdown
 
     internal static async Task<Bitmap> LoadMarkdownImageAsync(
         string imageTarget,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        PixelSize? decodeBounds = null)
     {
         if (!TryResolveMarkdownImageSource(imageTarget, out var source))
             throw new NotSupportedException($"Unsupported markdown image source: {imageTarget}");
@@ -504,7 +663,7 @@ public partial class StrataMarkdown
         using var componentGate = new SemaphoreSlim(
             MaxConcurrentMarkdownImagesPerComponent,
             MaxConcurrentMarkdownImagesPerComponent);
-        return await LoadMarkdownImageAsync(source, componentGate, cancellationToken).ConfigureAwait(false);
+        return await LoadMarkdownImageAsync(source, componentGate, cancellationToken, decodeBounds).ConfigureAwait(false);
     }
 
     private Task<Bitmap> LoadMarkdownImageForControlAsync(
@@ -515,14 +674,16 @@ public partial class StrataMarkdown
     private static async Task<Bitmap> LoadMarkdownImageAsync(
         MarkdownImageSource source,
         SemaphoreSlim componentGate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PixelSize? decodeBounds = null)
     {
         if (source.RemoteUri is { } remoteUri)
         {
             return await LoadRemoteMarkdownImageAsync(
                 remoteUri,
                 componentGate,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                decodeBounds).ConfigureAwait(false);
         }
 
         var localPath = source.LocalPath
@@ -542,13 +703,14 @@ public partial class StrataMarkdown
             fileStream,
             fileInfo.Length,
             cancellationToken).ConfigureAwait(false);
-        return DecodeMarkdownImage(localImageData);
+        return DecodeMarkdownImage(localImageData, decodeBounds);
     }
 
     private static async Task<Bitmap> LoadRemoteMarkdownImageAsync(
         Uri remoteUri,
         SemaphoreSlim componentGate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PixelSize? decodeBounds)
     {
         for (var attempt = 0; ; attempt++)
         {
@@ -557,7 +719,8 @@ public partial class StrataMarkdown
                 return await LoadRemoteMarkdownImageOnceAsync(
                         remoteUri,
                         componentGate,
-                        cancellationToken)
+                        cancellationToken,
+                        decodeBounds)
                     .ConfigureAwait(false);
             }
             catch (Exception ex) when (ShouldRetryRemoteMarkdownImageFailure(
@@ -573,7 +736,8 @@ public partial class StrataMarkdown
     private static async Task<Bitmap> LoadRemoteMarkdownImageOnceAsync(
         Uri remoteUri,
         SemaphoreSlim componentGate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PixelSize? decodeBounds)
     {
         await componentGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -595,7 +759,7 @@ public partial class StrataMarkdown
                 responseStream,
                 response.Content.Headers.ContentLength,
                 requestToken).ConfigureAwait(false);
-            return DecodeMarkdownImage(imageData);
+            return DecodeMarkdownImage(imageData, decodeBounds);
         }
         finally
         {
@@ -996,7 +1160,7 @@ public partial class StrataMarkdown
         }
     }
 
-    private static Bitmap DecodeMarkdownImage(MemoryStream imageData)
+    private static Bitmap DecodeMarkdownImage(MemoryStream imageData, PixelSize? decodeBounds = null)
     {
         if (!imageData.TryGetBuffer(out var buffer)
             || !TryReadMarkdownImageDimensions(
@@ -1006,7 +1170,7 @@ public partial class StrataMarkdown
             throw new InvalidDataException("The markdown image format is unsupported or invalid.");
         }
 
-        var targetWidth = CalculateMarkdownImageDecodeWidth(pixelSize);
+        var targetWidth = CalculateMarkdownImageDecodeWidth(pixelSize, decodeBounds);
         imageData.Position = 0;
         return Bitmap.DecodeToWidth(
             imageData,
@@ -1014,16 +1178,20 @@ public partial class StrataMarkdown
             BitmapInterpolationMode.HighQuality);
     }
 
-    internal static int CalculateMarkdownImageDecodeWidth(PixelSize pixelSize)
+    internal static int CalculateMarkdownImageDecodeWidth(PixelSize pixelSize, PixelSize? decodeBounds = null)
     {
         if (pixelSize.Width <= 0 || pixelSize.Height <= 0)
             throw new ArgumentOutOfRangeException(nameof(pixelSize), "Image dimensions must be positive.");
+        if (decodeBounds is { } bounds && (bounds.Width <= 0 || bounds.Height <= 0))
+            throw new ArgumentOutOfRangeException(nameof(decodeBounds), "Decode bounds must be positive.");
 
+        double maxWidth = decodeBounds?.Width ?? (int)MaxMarkdownImageWidth;
+        double maxHeight = decodeBounds?.Height ?? (int)MaxMarkdownImageHeight;
         var scale = Math.Min(
             1d,
             Math.Min(
-                MaxMarkdownImageWidth / pixelSize.Width,
-                MaxMarkdownImageHeight / pixelSize.Height));
+                maxWidth / pixelSize.Width,
+                maxHeight / pixelSize.Height));
         return Math.Max(1, (int)Math.Round(pixelSize.Width * scale));
     }
 
@@ -1224,6 +1392,8 @@ public partial class StrataMarkdown
 
         foreach (var key in _evictBuffer)
         {
+            if (key == _expandedImageCacheKey)
+                _expandedImageView?.Close();
             if (_imageCache.Remove(key, out var cacheEntry))
                 cacheEntry.Dispose();
         }
@@ -1234,6 +1404,7 @@ public partial class StrataMarkdown
 
     private void ClearImageCache()
     {
+        _expandedImageView?.Close(restoreFocus: false);
         foreach (var cacheEntry in _imageCache.Values)
             cacheEntry.Dispose();
 

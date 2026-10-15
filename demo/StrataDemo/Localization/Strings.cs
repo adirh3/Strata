@@ -321,6 +321,7 @@ public sealed class Strings
 
                 ולבסוף נוסיף משפט עם כתובת support@example.com ועם הערך `RightToLeft` כדי לבדוק רצפים לועזיים בתוך טקסט עברי רציף.
                 """,
+            ["Markdown.ImagesHint"] = "Local and online images have an expand button. View an image full screen, then press Esc or Close to return.",
             ["MarkdownHebrewSamples.Footer"] = "These samples stay in Hebrew even when the demo UI is English so RTL selection issues are easy to reproduce.",
 
             // Charts
@@ -678,6 +679,7 @@ public sealed class Strings
 
                 ולבסוף נוסיף משפט עם כתובת support@example.com ועם הערך `RightToLeft` כדי לבדוק רצפים לועזיים בתוך טקסט עברי רציף.
                 """,
+            ["Markdown.ImagesHint"] = "לתמונות מקומיות ומקוונות יש כפתור הרחבה. הציגו תמונה במסך מלא, ואז לחצו על Esc או סגירה כדי לחזור.",
             ["MarkdownHebrewSamples.Footer"] = "הדוגמאות נשארות בעברית גם כאשר ממשק הדמו באנגלית, כדי שיהיה קל לשחזר בעיות בחירה ב-RTL.",
 
             // Charts

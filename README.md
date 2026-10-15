@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.52" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.53" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -181,6 +181,16 @@ Set `TimestampToolTip` to the full date/time while keeping `Timestamp` short. Ho
 localize `CopyLabel`, `CopySelectionLabel`, `CopyMarkdownLabel`, `CopyRichTextLabel`,
 `CopyTurnLabel`, `CopiedLabel`, and `MoreActionsLabel`, alongside the existing reply/fork labels.
 Disable Edit and Retry when the host does not implement those actions.
+
+## Markdown images
+
+Loaded local and online markdown images have a keyboard-accessible expand button
+in their top-right corner. It opens the same full-screen overlay as Mermaid diagrams,
+fits the image without cropping, and loads a screen-sized decode on demand while
+keeping inline previews limited to 640 by 480 pixels (240 by 180 within text).
+Escape or the close button restores the previous window state and keyboard focus.
+Removing the image closes its viewer and releases its larger bitmap. If the larger
+image cannot be loaded, the viewer keeps the inline preview and displays an error.
 
 ## Native interactive responses
 

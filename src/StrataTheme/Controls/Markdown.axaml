@@ -60,6 +60,34 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
   </Style>
 
+  <Style Selector="Button.strata-md-image-expand, Button.strata-md-image-viewer-close">
+    <Setter Property="Width" Value="{DynamicResource Size.ControlHeightS}" />
+    <Setter Property="Height" Value="{DynamicResource Size.ControlHeightS}" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Button.strata-md-image-expand">
+    <Setter Property="Margin" Value="6" />
+    <Setter Property="Opacity" Value="0.8" />
+  </Style>
+
+  <Style Selector="Button.strata-md-image-expand:pointerover, Button.strata-md-image-expand:focus-visible">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <Style Selector="TextBlock.strata-md-image-caption">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+
   <Style Selector="TextBlock.strata-md-image-placeholder">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
