@@ -34,7 +34,8 @@ public enum StrataBackdropFade
 /// <para>The control is a leaf that draws no tint, border or content of its own and never takes hit
 /// tests. Place it directly underneath a translucent surface: the surface supplies the tint and the
 /// content, this control supplies the frost, and content can then flow behind the chrome while staying
-/// legible.</para>
+/// legible. The frost replaces what lies beneath it, so the sharp backdrop stays hidden even where the
+/// window itself is translucent (Mica, acrylic).</para>
 /// <para>Requires the Skia renderer. On other renderers, or when the drawing surface cannot be read,
 /// it draws nothing and the translucent surface above it remains the fallback.</para>
 /// <para>Only pixels redrawn in the current frame are sampled. The unblurred backdrop is remembered, so
@@ -390,13 +391,18 @@ public class StrataBackdropBlur : Control
                 ]);
                 canvas.ClipRoundRect(clip, SKClipOperation.Intersect, antialias: true);
 
-                using var paint = new SKPaint
-                {
-                    Color = new SKColor(255, 255, 255, (byte)Math.Round(255 * Math.Clamp(opacity, 0, 1)))
-                };
+                // The frost replaces what lies beneath it rather than covering it. Over a translucent
+                // window (Mica, acrylic) the frost is translucent as well, so blended over the sharp
+                // backdrop it would let that show through. Erasing the backdrop by the glass's coverage
+                // and then adding the frost blends the two by that coverage; over an opaque backdrop this
+                // is exactly a normal blend.
+                var alpha = (byte)Math.Round(255 * Math.Clamp(opacity, 0, 1));
+                using var erase = new SKPaint { BlendMode = SKBlendMode.DstOut, Color = new SKColor(0, 0, 0, alpha) };
+                using var paint = new SKPaint { BlendMode = SKBlendMode.Plus, Color = new SKColor(255, 255, 255, alpha) };
                 var destination = SKRect.Create(_frostDevice.Left, _frostDevice.Top, _frostDevice.Width, _frostDevice.Height);
                 if (_fade == StrataBackdropFade.None)
                 {
+                    canvas.DrawRect(destination, erase);
                     canvas.DrawImage(_frost, SKRect.Create(_frostSource.Left, _frostSource.Top,
                         _frostSource.Width, _frostSource.Height), destination, paint);
                     return;
@@ -413,6 +419,8 @@ public class StrataBackdropBlur : Control
                     [SKColors.White, new SKColor(255, 255, 255, 200), new SKColor(255, 255, 255, 72), SKColors.Transparent],
                     [0f, 0.35f, 0.7f, 1f], SKShaderTileMode.Clamp);
                 using var shader = SKShader.CreateBlend(SKBlendMode.DstIn, image, ramp);
+                erase.Shader = ramp;
+                canvas.DrawRect(destination, erase);
                 paint.Shader = shader;
                 canvas.DrawRect(destination, paint);
             }
