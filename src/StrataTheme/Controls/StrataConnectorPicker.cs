@@ -136,6 +136,14 @@ public class StrataConnectorPicker : TemplatedControl
     public static readonly StyledProperty<string> TurnAllOffLabelProperty =
         AvaloniaProperty.Register<StrataConnectorPicker, string>(nameof(TurnAllOffLabel), "Turn all off");
 
+    /// <summary>The pill's name, such as "Connectors", beside the plug. The count follows it.</summary>
+    public static readonly StyledProperty<string?> LabelProperty =
+        AvaloniaProperty.Register<StrataConnectorPicker, string?>(nameof(Label));
+
+    /// <summary>False keeps the pill to its plug and count, for a narrow toolbar.</summary>
+    public static readonly StyledProperty<bool> ShowLabelProperty =
+        AvaloniaProperty.Register<StrataConnectorPicker, bool>(nameof(ShowLabel), true);
+
     /// <summary>The pill's label while every connector is off.</summary>
     public static readonly StyledProperty<string> OffLabelProperty =
         AvaloniaProperty.Register<StrataConnectorPicker, string>(nameof(OffLabel), "Off");
@@ -200,7 +208,7 @@ public class StrataConnectorPicker : TemplatedControl
                  {
                      ButtonToolTipProperty, HeaderProperty, IsLoadingProperty, BrowseCommandProperty,
                      ManageCommandProperty, OffLabelProperty, SummaryFormatProperty, TurnAllOnLabelProperty,
-                     TurnAllOffLabelProperty,
+                     TurnAllOffLabelProperty, LabelProperty, ShowLabelProperty,
                  })
             property.Changed.AddClassHandler<StrataConnectorPicker>((picker, _) => picker.UpdateChrome());
     }
@@ -218,6 +226,8 @@ public class StrataConnectorPicker : TemplatedControl
     public string TurnAllOnLabel { get => GetValue(TurnAllOnLabelProperty); set => SetValue(TurnAllOnLabelProperty, value); }
     public string TurnAllOffLabel { get => GetValue(TurnAllOffLabelProperty); set => SetValue(TurnAllOffLabelProperty, value); }
     public string OffLabel { get => GetValue(OffLabelProperty); set => SetValue(OffLabelProperty, value); }
+    public string? Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
+    public bool ShowLabel { get => GetValue(ShowLabelProperty); set => SetValue(ShowLabelProperty, value); }
     public string BrowseLabel { get => GetValue(BrowseLabelProperty); set => SetValue(BrowseLabelProperty, value); }
     public string ManageLabel { get => GetValue(ManageLabelProperty); set => SetValue(ManageLabelProperty, value); }
     public string NoResultsFormat { get => GetValue(NoResultsFormatProperty); set => SetValue(NoResultsFormatProperty, value); }
@@ -432,16 +442,14 @@ public class StrataConnectorPicker : TemplatedControl
             list.RemoveAt(index);
     }
 
-    /// <summary>
-    /// Keeps left-to-right text, such as a connector named "GitHub (work)", intact inside a right-to-left
-    /// layout: without an isolate its closing parenthesis would jump to the start of the line.
-    /// </summary>
-    private string Isolate(string? text)
-        => string.IsNullOrEmpty(text) || FlowDirection != FlowDirection.RightToLeft
-            ? text ?? string.Empty
-            : "\u2068" + text + "\u2069";
-
     // ── Pill ────────────────────────────────────────────────────────
+
+    /// <summary>How many of the offered connectors are on, and how many are offered.</summary>
+    internal (int On, int Available) GetCounts()
+    {
+        var available = GetAvailable();
+        return (available.Count(chip => IsSelected(chip.Name)), available.Count);
+    }
 
     /// <summary>Updates the pill and the list's chrome. Cheap: safe to call on every change.</summary>
     private void UpdateChrome()
@@ -456,6 +464,7 @@ public class StrataConnectorPicker : TemplatedControl
         PseudoClasses.Set(":loading", IsLoading);
         PseudoClasses.Set(":can-browse", BrowseCommand is not null);
         PseudoClasses.Set(":can-manage", ManageCommand is not null);
+        PseudoClasses.Set(":has-label", ShowLabel && !string.IsNullOrWhiteSpace(Label));
 
         if (_buttonLabel is not null && !PseudoClasses.Contains(":open"))
         {
@@ -650,9 +659,9 @@ public class StrataConnectorPicker : TemplatedControl
 
             PseudoClasses.Set(":no-results", ranked.Count == 0);
             if (_noResultsText is not null)
-                _noResultsText.Text = string.Format(CultureInfo.CurrentCulture, NoResultsFormat, Isolate(query));
+                _noResultsText.Text = string.Format(CultureInfo.CurrentCulture, NoResultsFormat, BidiText.Isolate(this, query));
             if (_searchBrowseText is not null)
-                _searchBrowseText.Text = string.Format(CultureInfo.CurrentCulture, SearchBrowseFormat, Isolate(query));
+                _searchBrowseText.Text = string.Format(CultureInfo.CurrentCulture, SearchBrowseFormat, BidiText.Isolate(this, query));
             SetActiveRow(_visibleRows.FirstOrDefault());
         }
         else
@@ -890,10 +899,10 @@ public class StrataConnectorPicker : TemplatedControl
         var caption = string.IsNullOrWhiteSpace(available.SecondaryText) ? null : available.SecondaryText;
 
         row.Available = available;
-        row.NameText.Text = Isolate(available.Name);
+        row.NameText.Text = BidiText.Isolate(this, available.Name);
 
         // A problem or a status takes the caption's place: it is what matters right now.
-        row.Caption.Text = Isolate(caption);
+        row.Caption.Text = BidiText.Isolate(this, caption);
         row.Caption.IsVisible = caption is not null && issue is null && status is null;
         ToolTip.SetTip(row.Caption, caption);
 

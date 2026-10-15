@@ -315,6 +315,17 @@ feathered highlight then travels for two seconds and stops, leaving the static l
 leaves. Refocusing replays the sequence; typing and resizing do not extend it. Motion does not
 change layout. The sweep and its pending timers stop on blur, hiding, or detachment. Apply
 `Classes="motion-disabled"` to show the static focus line immediately without either animation.
+The `glass` composer draws a finer line (1.5 px) feathered at both ends, and no ring: focus keeps the
+glass as clear while its rim brightens, its shadow deepens and its top edge catches the light. At rest the
+whole composer sits back to 98% of its size, about its bottom centre; while the user writes (`:engaged`:
+focus in the composer, or in one of its own menus and lists, which open in the overlay layer) it comes
+forward to full size, glass, text and tools together, in 450 ms on a curve that starts gently and lands
+softly, and settles back in 350 ms. The scale runs on the composer's composition visual on the render thread, so it never changes
+layout, hit testing or popup placement, and the user always writes at full size, where text is crisp and
+lists line up with the controls that opened them. A change of mind turns the motion round from wherever it
+is. `motion-disabled` and `mobile` keep the composer at full size. Desktop composers give the
+text room, 18 px around it (12 px under chips) with 10 px around the toolbar; `Classes="mobile"` keeps
+its own touch metrics.
 
 `StrataTheme.Animation.SlideFadeEntrance.Play(host)` gives an attached, visible entrance host
 a short rise and fade without animating its layout. Call it only for newly presented content,
@@ -326,6 +337,52 @@ For content that can contend with loading or streaming work, use
 without changing the logical effective viewport or scroll anchors. The queued start joins
 the next composition commit after binding/layout. `StopComposited(host)` cancels it;
 hiding, detaching and completion also release the animation. Existing `Play` behavior is unchanged.
+
+## Composer toolbar: +, skills and connectors
+
+The toolbar reads left to right as what a message brings in, then the model and the one action:
+
+- **+** (`PART_AddButton`) opens a glass menu of everything a message can bring in: files
+  (`AttachCommand`), the three most recent `AvailableChats` not already chosen, **All chats**, then
+  Skills, Agents, Connectors and Project, each shown only when the host offers it. **All chats** and
+  **Agents** open their own searchable lists at the + button (`PART_ChatPicker`, `PART_AgentPicker`,
+  whose pills are hidden). The agent list offers `AvailableAgents`, leads with the agent answering
+  now, and applies a choice like `@` (`AgentName`/`AgentValue`/`AgentGlyph`); choosing the current
+  agent again removes it through `AgentRemovedCommand`, like its chip's remove button. Rows that
+  have a typing shortcut show its key (`#`, `/`, `@`, `$`); ↑/↓/Home/End walk the rows and Esc closes.
+  Every label is a property (`AddFilesLabel`, `AddConnectorsCountFormat`, `AddMenuHint`, …) so hosts
+  can localize them. The + button hides when there is nothing to add and on `Classes="mobile"`.
+- **Skills** and **Connectors** keep the two most used lists one click away. Both are quiet text
+  capsules with line icons; `StrataConnectorPicker.Label` names the connector capsule beside its
+  neutral count, and below 600 px wide both shrink to their icons.
+- The model picker takes the `quiet` class in the composer: plain text and a line chevron beside
+  the send button.
+- The send button sends, steers and stops as before. With `CanVoice` and nothing to send it
+  dictates (`VoiceRequested`/`VoiceCommand`), and while `IsRecording` it stops dictation;
+  `DictateLabel` and `StopDictatingLabel` name it. Touch composers (`Classes="mobile"`) don't dictate
+  from it; their hosts offer dictation of their own. While Lumi works a gradient ring breathes around
+  the stop button.
+
+Toolbar glyphs are `StrataLineIcon`s: one round-capped stroke on a 24-unit grid in the inherited
+foreground, drawn from `StrataIcons`. Each access to a `StrataIcons` geometry parses a new one, so
+none is shared across renderers.
+
+## Composer context: skills and chats
+
+`StrataComposerPicker` is a toolbar pill that opens a searchable glass list for choosing context.
+The pill shows its `Label` and how many `SelectedItems` are chosen; the list leads with the chosen
+items (in the order fixed when it opens), ranks matches as you type, and takes ↑/↓, Enter and Esc.
+`ManageLabel`/`ManageCommand` add a footer link, and `CloseOnSelect` suits a pick-one list. The
+picker never edits `SelectedItems` itself: it raises `ItemToggled` and its host decides.
+
+`StrataChatComposer` has two. **Skills** offers `AvailableSkills` and fills `SkillItems` (removals
+go through `SkillRemovedCommand`; `SkillsManageCommand` adds the footer link). **Chats** offers
+`AvailableChats` and edits `ChatItems` directly, reporting removals with `ChatRemoved`;
+`ChatsRequestedCommand` runs just before chats are shown so the host can refresh them on demand.
+The Chats list has no pill of its own: the + menu opens it, anchored to the + button.
+Typing `#` lists matching chats before files. A picker hides while its host offers no list
+(`AvailableSkills` or `AvailableChats` is null) and on `Classes="mobile"`; an empty list opens on an
+empty state instead. Below 600 px wide the Skills pill shrinks to its icon.
 
 ## Mobile composer
 
@@ -392,7 +449,12 @@ the surface's tint, rim and shadow, with matching bounds, corner radius and pres
 The filter never resamples the foreground chrome. Give the button a translucent `Background`.
 `StrataChatComposer` exposes a hidden `PART_Backdrop` behind its
 surface, and the chat shell's scroll-to-bottom button a hidden `PART_ScrollToBottomBackdrop`;
-hosts enable either by style. Plain buttons and the default composer draw no frost.
+hosts enable either by style. `Classes="glass"` turns the composer's on (14 px, saturation 1.3), under a
+translucent surface: the theme's overlay surface at two thirds with a hairline rim, so it stays a shade
+above whatever it floats on. The composer does not clip to its bounds, so the card's shadow falls softly past its
+rounded corners. Hosts can keep the frost off until content actually runs beneath the composer, for
+example by following `StrataChatShell.IsContentUnderComposer`. Plain buttons and the default
+composer draw no frost.
 
 ## Responsive navigation and sheets
 

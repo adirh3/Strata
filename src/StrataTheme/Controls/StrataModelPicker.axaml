@@ -199,7 +199,7 @@
                   </Transitions>
                 </Button.Transitions>
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="5">
-                  <Viewbox Width="12" Height="12" VerticalAlignment="Center">
+                  <Viewbox Name="PART_ModelPickerSpark" Width="12" Height="12" VerticalAlignment="Center">
                     <Path Fill="{DynamicResource Brush.AccentDefault}"
                           Data="M8,1 L10,6 L15,8 L10,10 L8,15 L6,10 L1,8 L6,6 Z" />
                   </Viewbox>
@@ -216,14 +216,23 @@
                           Margin="0,1,0,0"
                           VerticalAlignment="Center"
                           RenderTransformOrigin="0.5,0.5">
-                    <Path Name="PART_ModelPickerChevron"
-                          Fill="{DynamicResource Brush.TextTertiary}"
-                          Data="M3,5 L8,10 L13,5"
-                          Width="8"
-                          Height="5"
-                          Stretch="Uniform"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center" />
+                    <Panel>
+                      <Path Name="PART_ModelPickerChevron"
+                            Fill="{DynamicResource Brush.TextTertiary}"
+                            Data="M3,5 L8,10 L13,5"
+                            Width="8"
+                            Height="5"
+                            Stretch="Uniform"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+                      <controls:StrataLineIcon Name="PART_ModelPickerChevronLine"
+                                               Width="14" Height="14"
+                                               StrokeThickness="2"
+                                               IsVisible="False"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Data="{x:Static controls:StrataIcons.ChevronDown}" />
+                    </Panel>
                   </Border>
                 </Grid>
               </Button>
@@ -538,6 +547,35 @@
           <Setter Property="Stroke" Value="{DynamicResource Brush.AccentDefault}" />
           <Setter Property="Fill" Value="{DynamicResource Brush.AccentDefault}" />
         </Style>
+
+        <!-- Quiet: plain text and a line chevron, for a toolbar where it sits beside the send button. -->
+        <Style Selector="^.quiet /template/ Button#PART_ModelPickerButton">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Height" Value="32" />
+          <Setter Property="Padding" Value="10,0,8,0" />
+          <Setter Property="CornerRadius" Value="16" />
+          <Setter Property="FontSize" Value="13" />
+          <Setter Property="FontWeight" Value="Medium" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        </Style>
+        <Style Selector="^.quiet:model-picker-open /template/ Button#PART_ModelPickerButton">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^.quiet /template/ Viewbox#PART_ModelPickerSpark">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^.quiet /template/ Path#PART_ModelPickerChevron">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^.quiet /template/ controls|StrataLineIcon#PART_ModelPickerChevronLine">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^.quiet /template/ Border#PART_ModelPickerChevronWrap">
+          <Setter Property="Width" Value="14" />
+          <Setter Property="Height" Value="14" />
+          <Setter Property="Margin" Value="-1,1,0,0" />
+          <Setter Property="Opacity" Value="0.75" />
+        </Style>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
@@ -557,5 +595,19 @@
        buttons and the header's pinned filter share one right edge. -->
   <Style Selector="ScrollViewer.model-picker-scroll /template/ ScrollContentPresenter#PART_ContentPresenter">
     <Setter Property="Grid.ColumnSpan" Value="2" />
+  </Style>
+
+  <!-- Quiet picker: the composer toolbar's tool states (outside the theme to reach the button's surface). -->
+  <Style Selector="controls|StrataModelPicker.quiet /template/ Button#PART_ModelPickerButton:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataModelPicker.quiet /template/ Button#PART_ModelPickerButton /template/ Border#PART_Surface">
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="controls|StrataModelPicker.quiet /template/ Button#PART_ModelPickerButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolCatch}" />
+  </Style>
+  <Style Selector="controls|StrataModelPicker.quiet:model-picker-open /template/ Button#PART_ModelPickerButton /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolCatchPressed}" />
   </Style>
 </Styles>

@@ -16,7 +16,7 @@ namespace StrataTheme;
 /// </remarks>
 public static class StableCompositionAnimations
 {
-    private static readonly Easing StableDefaultEasing = new StableCubicBezierEasing();
+    private static readonly Easing StableDefaultEasing = new StableCubicBezierEasing(0.25, 0.1, 0.25, 1.0);
     private static readonly FieldInfo DefaultEasingField = ResolveDefaultEasingField();
 
     /// <summary>Creates a scalar keyframe animation protected from shared spline state.</summary>
@@ -68,44 +68,56 @@ public static class StableCompositionAnimations
 
         return field;
     }
+}
 
-    private sealed class StableCubicBezierEasing : Easing
+/// <summary>
+/// A cubic-bezier easing without mutable state, so render-thread animations can share it and a stray
+/// progress value can never poison it.
+/// </summary>
+internal sealed class StableCubicBezierEasing : Easing
+{
+    private const int SearchIterations = 24;
+    private readonly double _x1;
+    private readonly double _y1;
+    private readonly double _x2;
+    private readonly double _y2;
+
+    public StableCubicBezierEasing(double x1, double y1, double x2, double y2)
     {
-        private const double X1 = 0.25;
-        private const double Y1 = 0.1;
-        private const double X2 = 0.25;
-        private const double Y2 = 1.0;
-        private const int SearchIterations = 24;
+        _x1 = x1;
+        _y1 = y1;
+        _x2 = x2;
+        _y2 = y2;
+    }
 
-        public override double Ease(double progress)
+    public override double Ease(double progress)
+    {
+        if (double.IsNaN(progress) || progress <= 0)
+            return 0;
+
+        if (progress >= 1)
+            return 1;
+
+        var lower = 0d;
+        var upper = 1d;
+
+        for (var i = 0; i < SearchIterations; i++)
         {
-            if (double.IsNaN(progress) || progress <= 0)
-                return 0;
-
-            if (progress >= 1)
-                return 1;
-
-            var lower = 0d;
-            var upper = 1d;
-
-            for (var i = 0; i < SearchIterations; i++)
-            {
-                var parameter = (lower + upper) / 2d;
-                if (CubicCoordinate(parameter, X1, X2) < progress)
-                    lower = parameter;
-                else
-                    upper = parameter;
-            }
-
-            return CubicCoordinate((lower + upper) / 2d, Y1, Y2);
+            var parameter = (lower + upper) / 2d;
+            if (CubicCoordinate(parameter, _x1, _x2) < progress)
+                lower = parameter;
+            else
+                upper = parameter;
         }
 
-        private static double CubicCoordinate(double parameter, double first, double second)
-        {
-            var inverse = 1d - parameter;
-            return (3d * inverse * inverse * parameter * first)
-                + (3d * inverse * parameter * parameter * second)
-                + (parameter * parameter * parameter);
-        }
+        return CubicCoordinate((lower + upper) / 2d, _y1, _y2);
+    }
+
+    private static double CubicCoordinate(double parameter, double first, double second)
+    {
+        var inverse = 1d - parameter;
+        return (3d * inverse * inverse * parameter * first)
+            + (3d * inverse * parameter * parameter * second)
+            + (parameter * parameter * parameter);
     }
 }

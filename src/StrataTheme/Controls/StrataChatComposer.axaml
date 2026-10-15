@@ -7,18 +7,128 @@
 
   <!-- ═══════════════════════════════════════════════════════════════
        StrataChatComposer
-       Clean bottom composer: borderless text area on top, toolbar
-       below with attach +, real ComboBox selectors for model/quality,
-       suggestion chips, and circular accent send button.
+       A soft, rounded card: what the message carries (agent, project,
+       skills, other chats) as chips on top, a borderless text area,
+       then one row of quiet tools — + (files, chats, agents and the rest),
+       Skills, Connectors, the model — and one round button that dictates,
+       sends and stops.
+       The glass class turns the card translucent over a frosted backdrop.
        ═══════════════════════════════════════════════════════════════ -->
 
   <Styles.Resources>
     <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <!-- Glass: the overlay surface at two thirds over its own frost, the same recipe as the other glass
+               that floats over content, so the composer reads as one material with it rather than a grey panel. -->
+          <SolidColorBrush x:Key="Brush.ComposerGlassFill" Color="{DynamicResource Color.SurfaceOverlay}" Opacity="0.66" />
+          <SolidColorBrush x:Key="Brush.ComposerGlassBorder" Color="{DynamicResource Color.TextPrimary}" Opacity="0.1" />
+          <SolidColorBrush x:Key="Brush.ComposerGlassBorderHover" Color="{DynamicResource Color.TextPrimary}" Opacity="0.16" />
+          <SolidColorBrush x:Key="Brush.ComposerFocusBorder" Color="{DynamicResource Color.AccentDefault}" Opacity="0.5" />
+          <BoxShadows x:Key="Shadow.ComposerRest">0 10 28 -14 #3D101828, 0 2 6 -2 #12101828</BoxShadows>
+          <BoxShadows x:Key="Shadow.ComposerHover">0 14 34 -14 #4D101828, 0 2 8 -2 #18101828</BoxShadows>
+          <BoxShadows x:Key="Shadow.ComposerFocus">0 0 0 4 #174F46E5, 0 14 34 -14 #4D101828, 0 2 8 -2 #18101828</BoxShadows>
+          <!-- Context chips: a neutral pill; each kind's hue only tints its small tile. -->
+          <SolidColorBrush x:Key="Brush.ComposerChipFill" Color="#0A000000" />
+          <SolidColorBrush x:Key="Brush.ComposerChipBorder" Color="#12000000" />
+          <SolidColorBrush x:Key="Brush.ComposerAgentHue" Color="#5E50B5" />
+          <SolidColorBrush x:Key="Brush.ComposerAgentTile" Color="#1F5E50B5" />
+          <SolidColorBrush x:Key="Brush.ComposerProjectHue" Color="#3D6F99" />
+          <SolidColorBrush x:Key="Brush.ComposerProjectTile" Color="#1F3D6F99" />
+          <SolidColorBrush x:Key="Brush.ComposerSkillTile" Color="#1F8F6A22" />
+          <SolidColorBrush x:Key="Brush.ComposerSkillHue" Color="#8F6A22" />
+          <SolidColorBrush x:Key="Brush.ComposerChatTile" Color="#1F4F46E5" />
+          <!-- Glass at rest, and in focus: it comes forward, so its shadow deepens and its top edge catches the
+               light. Both have the same layers, so one blends into the other. -->
+          <BoxShadows x:Key="Shadow.ComposerGlassRest">0 10 28 -14 #3D101828, 0 2 6 -2 #12101828, inset 0 1 0 0 #00FFFFFF</BoxShadows>
+          <BoxShadows x:Key="Shadow.ComposerGlassFocus">0 18 40 -16 #4D101828, 0 3 10 -3 #18101828, inset 0 1 0 0 #FFFFFFFF</BoxShadows>
+          <!-- The round send button: Lumi's gradient when there is something to send. -->
+          <LinearGradientBrush x:Key="Brush.ComposerOrbReady" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#6366F1" />
+            <GradientStop Offset="0.55" Color="#8B5CF6" />
+            <GradientStop Offset="1" Color="#EC4899" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="Brush.ComposerOrbReadyHover" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#7477F4" />
+            <GradientStop Offset="0.55" Color="#9A6DF8" />
+            <GradientStop Offset="1" Color="#F05BA6" />
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="Brush.ComposerOrbIdle" Color="#0F000000" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbIdleHover" Color="#1A000000" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbWorking" Color="#23232E" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbWorkingHover" Color="#33333F" />
+          <LinearGradientBrush x:Key="Brush.ComposerOrbListening" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#8B5CF6" />
+            <GradientStop Offset="1" Color="#EC4899" />
+          </LinearGradientBrush>
+          <ConicGradientBrush x:Key="Brush.ComposerOrbRing" Center="50%,50%" Angle="0">
+            <GradientStop Offset="0" Color="#006366F1" />
+            <GradientStop Offset="0.3" Color="#6366F1" />
+            <GradientStop Offset="0.62" Color="#8B5CF6" />
+            <GradientStop Offset="0.88" Color="#EC4899" />
+            <GradientStop Offset="1" Color="#00EC4899" />
+          </ConicGradientBrush>
+          <BoxShadows x:Key="Shadow.ComposerOrbReady">0 6 14 -6 #A68B5CF6</BoxShadows>
+          <BoxShadows x:Key="Shadow.ComposerOrbListening">0 0 0 4 #29EC4899</BoxShadows>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <!-- The same glass as in light: a shade above the surface it floats on, never a grey cast over it. -->
+          <SolidColorBrush x:Key="Brush.ComposerGlassFill" Color="{DynamicResource Color.SurfaceOverlay}" Opacity="0.66" />
+          <SolidColorBrush x:Key="Brush.ComposerGlassBorder" Color="{DynamicResource Color.TextPrimary}" Opacity="0.1" />
+          <SolidColorBrush x:Key="Brush.ComposerGlassBorderHover" Color="{DynamicResource Color.TextPrimary}" Opacity="0.16" />
+          <SolidColorBrush x:Key="Brush.ComposerFocusBorder" Color="{DynamicResource Color.AccentDefault}" Opacity="0.55" />
+          <BoxShadows x:Key="Shadow.ComposerRest">0 14 34 -14 #73000000, 0 2 8 -2 #33000000, inset 0 1 0 0 #0FFFFFFF</BoxShadows>
+          <BoxShadows x:Key="Shadow.ComposerHover">0 16 38 -14 #85000000, 0 2 8 -2 #38000000, inset 0 1 0 0 #14FFFFFF</BoxShadows>
+          <BoxShadows x:Key="Shadow.ComposerFocus">0 0 0 4 #22818CF8, 0 16 38 -14 #85000000, 0 2 8 -2 #38000000, inset 0 1 0 0 #14FFFFFF</BoxShadows>
+          <SolidColorBrush x:Key="Brush.ComposerChipFill" Color="#0FFFFFFF" />
+          <SolidColorBrush x:Key="Brush.ComposerChipBorder" Color="#17FFFFFF" />
+          <SolidColorBrush x:Key="Brush.ComposerAgentHue" Color="#A59BDD" />
+          <SolidColorBrush x:Key="Brush.ComposerAgentTile" Color="#2EA59BDD" />
+          <SolidColorBrush x:Key="Brush.ComposerProjectHue" Color="#8FB4D4" />
+          <SolidColorBrush x:Key="Brush.ComposerProjectTile" Color="#2E8FB4D4" />
+          <SolidColorBrush x:Key="Brush.ComposerSkillTile" Color="#2ECDAE70" />
+          <SolidColorBrush x:Key="Brush.ComposerSkillHue" Color="#DCC089" />
+          <SolidColorBrush x:Key="Brush.ComposerChatTile" Color="#33818CF8" />
+          <BoxShadows x:Key="Shadow.ComposerGlassRest">0 14 34 -14 #73000000, 0 2 8 -2 #33000000, inset 0 1 0 0 #0FFFFFFF</BoxShadows>
+          <BoxShadows x:Key="Shadow.ComposerGlassFocus">0 22 46 -16 #94000000, 0 4 12 -4 #40000000, inset 0 1 0 0 #24C7CDFE</BoxShadows>
+          <LinearGradientBrush x:Key="Brush.ComposerOrbReady" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#818CF8" />
+            <GradientStop Offset="0.55" Color="#A78BFA" />
+            <GradientStop Offset="1" Color="#F472B6" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="Brush.ComposerOrbReadyHover" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#97A0FA" />
+            <GradientStop Offset="0.55" Color="#B89FFB" />
+            <GradientStop Offset="1" Color="#F78AC4" />
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="Brush.ComposerOrbIdle" Color="#17FFFFFF" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbIdleHover" Color="#26FFFFFF" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbWorking" Color="#1C1C24" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbWorkingHover" Color="#2A2A34" />
+          <LinearGradientBrush x:Key="Brush.ComposerOrbListening" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#A78BFA" />
+            <GradientStop Offset="1" Color="#F472B6" />
+          </LinearGradientBrush>
+          <ConicGradientBrush x:Key="Brush.ComposerOrbRing" Center="50%,50%" Angle="0">
+            <GradientStop Offset="0" Color="#00818CF8" />
+            <GradientStop Offset="0.3" Color="#818CF8" />
+            <GradientStop Offset="0.62" Color="#A78BFA" />
+            <GradientStop Offset="0.88" Color="#F472B6" />
+            <GradientStop Offset="1" Color="#00F472B6" />
+          </ConicGradientBrush>
+          <BoxShadows x:Key="Shadow.ComposerOrbReady">0 6 16 -6 #D9A78BFA, inset 0 1 0 0 #59FFFFFF</BoxShadows>
+          <BoxShadows x:Key="Shadow.ComposerOrbListening">0 0 0 4 #33F472B6</BoxShadows>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+      <StreamGeometry x:Key="Composer.Icon.Remove">M6.4 6.4a1 1 0 0 1 1.4 0L12 10.6l4.2-4.2a1 1 0 1 1 1.4 1.4L13.4 12l4.2 4.2a1 1 0 1 1-1.4 1.4L12 13.4l-4.2 4.2a1 1 0 0 1-1.4-1.4L10.6 12 6.4 7.8a1 1 0 0 1 0-1.4z</StreamGeometry>
+
       <ControlTheme x:Key="{x:Type controls:StrataChatComposer}" TargetType="controls:StrataChatComposer">
+        <!-- The card's shadow falls outside it: a templated control would otherwise clip it to a square. -->
+        <Setter Property="ClipToBounds" Value="False" />
         <Setter Property="Template">
           <ControlTemplate>
             <Panel>
-            <!-- Optional frost behind a translucent composer surface; hosts enable it by style. -->
+            <!-- Frost behind a translucent surface; the glass class turns it on. -->
             <controls:StrataBackdropBlur Name="PART_Backdrop"
                                          IsVisible="False"
                                          CornerRadius="{Binding CornerRadius, ElementName=PART_Root}" />
@@ -26,102 +136,94 @@
                     Background="{DynamicResource Brush.Surface0}"
                     BorderBrush="{DynamicResource Brush.BorderSubtle}"
                     BorderThickness="1"
-                    CornerRadius="12"
+                    CornerRadius="20"
                     Padding="0"
-                    BoxShadow="0 1 4 0 #0A000000">
+                    BoxShadow="{DynamicResource Shadow.ComposerRest}">
               <Border.Transitions>
                 <Transitions>
-                  <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
-                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                  <BrushTransition Property="BorderBrush" Duration="0:0:0.18" />
+                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.24" />
                 </Transitions>
               </Border.Transitions>
 
               <StackPanel>
 
-                <!-- Agent & skill chips -->
+                <!-- What the message carries: agent, project, skills and other chats -->
                 <ScrollViewer Name="PART_ContextScroll"
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Disabled"
                               IsScrollChainingEnabled="False">
                 <WrapPanel Name="PART_ChipsRow"
                            Orientation="Horizontal"
-                           Margin="12,10,12,2">
+                           Margin="12,12,12,0">
                   <!-- Agent chip (hidden via :has-agent pseudo-class) -->
                   <Border Name="PART_AgentChip"
-                          CornerRadius="12"
-                          Padding="8,4,4,4"
-                          Margin="0,0,6,4"
-                          Background="{DynamicResource Brush.AccentSubtle}">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4">
+                          Classes="composer-chip"
+                          Margin="0,0,6,6">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
                       <Border Name="PART_AgentChipSurface" Grid.ColumnSpan="3"
                               IsVisible="False" IsHitTestVisible="False" />
-                      <TextBlock Name="PART_AgentGlyph" Text="{TemplateBinding AgentGlyph}"
-                                 FontSize="{DynamicResource Font.SizeCaption}"
-                                 Foreground="{DynamicResource Brush.AccentDefault}"
-                                 VerticalAlignment="Center" />
+                      <Border Name="PART_AgentTile" Classes="chip-tile" VerticalAlignment="Center">
+                        <TextBlock Name="PART_AgentGlyph" Text="{TemplateBinding AgentGlyph}"
+                                   FontSize="{DynamicResource Font.SizeCaption}"
+                                   Foreground="{DynamicResource Brush.ComposerAgentHue}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                      </Border>
                       <TextBlock Name="PART_AgentName" Grid.Column="1" Text="{TemplateBinding AgentName}"
-                                 FontSize="{DynamicResource Font.SizeCaption}"
-                                 FontWeight="SemiBold"
-                                 Foreground="{DynamicResource Brush.AccentDefault}"
+                                 FontSize="12"
+                                 FontWeight="Medium"
+                                 Foreground="{DynamicResource Brush.TextPrimary}"
                                  TextTrimming="CharacterEllipsis"
                                  VerticalAlignment="Center" />
                       <Button Name="PART_AgentRemoveButton" Grid.Column="2"
-                              Classes="subtle"
+                              Classes="subtle chip-remove"
                               AutomationProperties.Name="Remove agent"
-                              Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}"
-                              Padding="0" MinHeight="0" MinWidth="0"
-                              CornerRadius="8"
                               VerticalAlignment="Center"
                               Cursor="Hand">
-                        <TextBlock Name="PART_AgentRemoveGlyph" Text="×" FontSize="{DynamicResource Font.SizeCaption}"
-                                   Foreground="{DynamicResource Brush.AccentDefault}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
+                        <TextBlock Name="PART_AgentRemoveGlyph" Text="×"
+                                   Classes="chip-remove-icon" />
                       </Button>
                     </Grid>
                   </Border>
                   <!-- Project chip (hidden via :has-project pseudo-class) -->
                   <Border Name="PART_ProjectChip"
-                          CornerRadius="12"
-                          Padding="8,3,4,3"
-                          Margin="0,0,6,4"
-                          Background="{DynamicResource Brush.Surface2}"
-                          BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                          BorderThickness="1">
+                          Classes="composer-chip"
+                          Margin="0,0,6,6">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
                       <Border Name="PART_ProjectChipSurface" Grid.ColumnSpan="3"
                               IsVisible="False" IsHitTestVisible="False" />
-                      <PathIcon Name="PART_ProjectIcon" Width="14" Height="14"
-                                Foreground="{DynamicResource Brush.TextSecondary}"
-                                VerticalAlignment="Center"
-                                Data="M3 5h6l2 2h10v12H3V5zm2 2v10h14V9h-9L8 7H5z" />
+                      <Border Name="PART_ProjectTile" Classes="chip-tile" VerticalAlignment="Center">
+                        <controls:StrataLineIcon Name="PART_ProjectIcon" Width="12" Height="12"
+                                                 StrokeThickness="2.1"
+                                                 Foreground="{DynamicResource Brush.ComposerProjectHue}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 Data="{x:Static controls:StrataIcons.Folder}" />
+                      </Border>
                       <TextBlock Name="PART_ProjectName" Grid.Column="1" Text="{TemplateBinding ProjectName}"
-                                 FontSize="{DynamicResource Font.SizeCaption}"
+                                 FontSize="12"
                                  FontWeight="Medium"
                                  Foreground="{DynamicResource Brush.TextPrimary}"
                                  TextTrimming="CharacterEllipsis"
                                  VerticalAlignment="Center" />
                       <Button Name="PART_ProjectRemoveButton" Grid.Column="2"
-                              Classes="subtle"
+                              Classes="subtle chip-remove"
                               AutomationProperties.Name="Remove project"
-                              Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}"
-                              Padding="0" MinHeight="0" MinWidth="0"
-                              CornerRadius="8"
                               VerticalAlignment="Center"
                               Cursor="Hand">
-                        <PathIcon Width="10" Height="10" Foreground="{DynamicResource Brush.TextTertiary}"
-                                  Data="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                        <PathIcon Width="8" Height="8" Foreground="{DynamicResource Brush.TextTertiary}"
+                                  Data="{StaticResource Composer.Icon.Remove}" />
                       </Button>
                     </Grid>
                   </Border>
-                  <!-- Skill chips are appended here programmatically -->
+                  <!-- Skill and chat chips are appended here programmatically -->
                 </WrapPanel>
                 </ScrollViewer>
 
                 <!-- Inline attachment chips (above the text input) -->
                 <ContentPresenter Name="PART_AttachmentContent"
                                   Content="{TemplateBinding AttachmentContent}"
-                                  Margin="8,4,8,0" />
+                                  Margin="10,6,10,0" />
 
                 <controls:ComposerLayoutPanel Name="PART_ComposerLayout">
                 <StackPanel Name="PART_EditorArea">
@@ -133,10 +235,10 @@
                            PlaceholderText="{TemplateBinding Placeholder}"
                            AcceptsReturn="True"
                            TextWrapping="Wrap"
-                           MinHeight="40" MaxHeight="180"
+                           MinHeight="48" MaxHeight="200"
                            BorderThickness="0"
                            Background="Transparent"
-                           Padding="14,12,14,6"
+                           Padding="18,18,18,8"
                            VerticalContentAlignment="Top"
                            FontSize="{DynamicResource Font.SizeBody}"
                            CornerRadius="0"
@@ -149,7 +251,7 @@
 
                   <Border Name="PART_FocusLine"
                           Height="2"
-                          Margin="14,0"
+                          Margin="18,0"
                           VerticalAlignment="Bottom"
                           CornerRadius="1"
                           Background="{DynamicResource Brush.StratumLine}"
@@ -179,30 +281,37 @@
                     </Border>
                   </Border>
 
-                  <!-- Inline autocomplete popup (anchored to TextBox via Panel) -->
+                  <!-- Inline autocomplete (/ skills, @ agents, $ projects, # chats and files). In the
+                       window's overlay layer, so its glass frosts the chat beneath it. -->
                   <Popup Name="PART_AutoCompletePopup"
                          IsLightDismissEnabled="True"
                          OverlayDismissEventPassThrough="True"
+                         ShouldUseOverlayLayer="True"
                          Placement="AnchorAndGravity"
                          PlacementAnchor="BottomLeft"
                          PlacementGravity="BottomRight"
                          WindowManagerAddShadowHint="False"
-                         strata:PopupAnimationHelper.EnableOpenAnimation="True">
-                    <Border Background="{DynamicResource Brush.Surface1}"
-                            BorderBrush="{DynamicResource Brush.BorderDefault}"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="6"
-                            MinWidth="260"
-                            MaxWidth="560"
-                            BoxShadow="0 18 40 0 #1F000000">
-                      <ScrollViewer Name="PART_AutoCompleteScrollViewer"
-                                    MaxHeight="320"
-                                    HorizontalScrollBarVisibility="Disabled"
-                                    VerticalScrollBarVisibility="Auto">
-                        <StackPanel Name="PART_AutoCompletePanel" Spacing="1" />
-                      </ScrollViewer>
-                    </Border>
+                         strata:PopupAnimationHelper.EnableOpenAnimation="False"
+                         strata:PopupAnimationHelper.EnableOverlayAnimation="True"
+                         strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
+                    <Panel MinWidth="280" MaxWidth="560">
+                      <Border CornerRadius="14" ClipToBounds="True" IsHitTestVisible="False">
+                        <controls:StrataBackdropBlur CornerRadius="14" BlurRadius="22" Saturation="1.4" />
+                      </Border>
+                      <Border Background="{DynamicResource Brush.Surface1Glass}"
+                              BorderBrush="{DynamicResource Brush.BorderDefault}"
+                              BorderThickness="1"
+                              CornerRadius="14"
+                              Padding="6"
+                              BoxShadow="0 18 44 -10 #48000000, 0 4 14 0 #22000000">
+                        <ScrollViewer Name="PART_AutoCompleteScrollViewer"
+                                      MaxHeight="340"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                          <StackPanel Name="PART_AutoCompletePanel" Spacing="1" />
+                        </ScrollViewer>
+                      </Border>
+                    </Panel>
                   </Popup>
                 </Panel>
 
@@ -210,17 +319,17 @@
                 <ContentPresenter Name="PART_StatusContent"
                                   Content="{TemplateBinding StatusContent}"
                                   IsVisible="{TemplateBinding StatusContent, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                  Margin="10,2,10,0" />
+                                  Margin="12,2,12,0" />
                 </StackPanel>
 
                 <!-- Toolbar row -->
-                <Grid Name="PART_Toolbar" Margin="8,4,8,8" ColumnDefinitions="Auto,*,Auto">
+                <Grid Name="PART_Toolbar" Margin="10,10,10,10" ColumnDefinitions="Auto,*,Auto">
                   <ContentPresenter Name="PART_LeadingContent" Grid.Column="0"
                                     Content="{TemplateBinding LeadingContent}"
                                     IsVisible="{TemplateBinding LeadingContent, Converter={x:Static ObjectConverters.IsNotNull}}"
                                     VerticalAlignment="Bottom" />
 
-                  <!-- Left: attach + selectors + chips (wrap to stay responsive) -->
+                  <!-- Left: attach, what to bring in, then how to answer (wraps to stay responsive) -->
                   <WrapPanel Name="PART_SecondaryActions" Grid.Column="1"
                              Orientation="Horizontal"
                              Margin="0,0,8,0"
@@ -231,43 +340,177 @@
                                       Content="{TemplateBinding ToolbarContent}"
                                       VerticalAlignment="Center" />
 
-                    <!-- Attach button -->
-                    <Button Name="PART_AttachButton"
-                            Classes="subtle"
-                            Width="{DynamicResource Size.ControlHeightS}" Height="{DynamicResource Size.ControlHeightS}"
-                            Padding="0" MinHeight="0" MinWidth="0"
-                            CornerRadius="6"
-                            VerticalAlignment="Center"
-                            ToolTip.Tip="Attach"
-                            Margin="0,0,6,6">
-                      <TextBlock Text="+" FontSize="16" FontWeight="SemiBold"
-                                 Foreground="{DynamicResource Brush.TextSecondary}"
-                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Button>
+                    <!-- Add: everything a message can bring in, in one menu. -->
+                    <Panel Name="PART_AddWrap" Margin="0,0,4,6" VerticalAlignment="Center">
+                      <Button Name="PART_AddButton"
+                              Classes="composer-tool"
+                              Width="32" Height="32"
+                              Padding="0"
+                              CornerRadius="16"
+                              VerticalAlignment="Center"
+                              ToolTip.Tip="{TemplateBinding AddButtonToolTip}"
+                              AutomationProperties.Name="{TemplateBinding AddButtonToolTip}">
+                        <controls:StrataLineIcon Width="18" Height="18"
+                                                 StrokeThickness="1.9"
+                                                 Data="{x:Static controls:StrataIcons.Plus}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Button>
 
-                    <!-- Mention: add agent or skill -->
-                    <Button Name="PART_MentionButton"
-                            Classes="subtle"
-                            Width="{DynamicResource Size.ControlHeightS}" Height="{DynamicResource Size.ControlHeightS}"
-                            Padding="0" MinHeight="0" MinWidth="0"
-                            CornerRadius="6"
-                            VerticalAlignment="Center"
-                            ToolTip.Tip="Mention agent or skill"
-                            Margin="0,0,6,6">
-                      <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Canvas Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}">
-                          <!-- Person silhouette -->
-                          <Path Fill="{DynamicResource Brush.TextSecondary}"
-                                Data="M6,8 C7.66,8 9,6.66 9,5 C9,3.34 7.66,2 6,2 C4.34,2 3,3.34 3,5 C3,6.66 4.34,8 6,8 Z M6,9.5 C3.33,9.5 0,10.84 0,12.5 L0,14 L12,14 L12,12.5 C12,10.84 8.67,9.5 6,9.5 Z" />
-                          <!-- Plus badge -->
-                          <Path Fill="{DynamicResource Brush.TextSecondary}"
-                                Data="M14,6 L14,4 L13,4 L13,6 L11,6 L11,7 L13,7 L13,9 L14,9 L14,7 L16,7 L16,6 Z" />
-                        </Canvas>
-                      </Viewbox>
-                    </Button>
+                      <!-- Other chats: no pill of its own, the + menu opens their list. -->
+                      <controls:StrataComposerPicker Name="PART_ChatPicker"
+                                                     Classes="chats add-list"
+                                                     CloseOnSelect="True"
+                                                     MaxListedItems="60"
+                                                     PlacementTarget="{Binding #PART_AddButton}"
+                                                     Icon="{x:Static controls:StrataIcons.Chats}"
+                                                     ItemIcon="{x:Static controls:StrataIcons.Chat}"
+                                                     Items="{TemplateBinding AvailableChats}"
+                                                     SelectedItems="{TemplateBinding ChatItems}" />
 
-                    <Panel Name="PART_ModelPickerWrap" Margin="0,0,6,6">
-                      <controls:StrataModelPicker Width="160"
+                      <!-- Agents: also no pill, the + menu opens their list. One answers at a time. -->
+                      <controls:StrataComposerPicker Name="PART_AgentPicker"
+                                                     Classes="agents add-list"
+                                                     CloseOnSelect="True"
+                                                     PlacementTarget="{Binding #PART_AddButton}"
+                                                     Icon="{x:Static controls:StrataIcons.Person}"
+                                                     Items="{TemplateBinding AvailableAgents}" />
+
+                      <!-- In the window's overlay layer, so its glass frosts the chat beneath it. -->
+                      <Popup Name="PART_AddPopup"
+                             IsLightDismissEnabled="True"
+                             ShouldUseOverlayLayer="True"
+                             Placement="AnchorAndGravity"
+                             PlacementAnchor="TopLeft"
+                             PlacementGravity="TopRight"
+                             PlacementConstraintAdjustment="FlipY,ResizeY,SlideX"
+                             HorizontalOffset="-12"
+                             VerticalOffset="-2"
+                             PlacementTarget="{Binding #PART_AddButton}"
+                             WindowManagerAddShadowHint="False"
+                             strata:PopupAnimationHelper.EnableOpenAnimation="False"
+                             strata:PopupAnimationHelper.EnableOverlayAnimation="True"
+                             strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
+                        <Panel Width="300" Margin="10">
+                          <Border CornerRadius="16" ClipToBounds="True" IsHitTestVisible="False">
+                            <controls:StrataBackdropBlur CornerRadius="16" BlurRadius="24" Saturation="1.5" />
+                          </Border>
+                          <Border Name="PART_AddPanel"
+                                  Background="{DynamicResource Brush.Surface1Glass}"
+                                  BorderBrush="{DynamicResource Brush.BorderDefault}"
+                                  BorderThickness="1"
+                                  CornerRadius="16"
+                                  BoxShadow="0 22 54 -16 #66000000, 0 6 16 -6 #33000000">
+                            <DockPanel>
+                              <Border Name="PART_AddFooter"
+                                      DockPanel.Dock="Bottom"
+                                      IsVisible="{TemplateBinding AddMenuHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                                      BorderThickness="0,1,0,0"
+                                      Padding="14,9,14,10">
+                                <TextBlock Text="{TemplateBinding AddMenuHint}"
+                                           FontSize="11.5"
+                                           Foreground="{DynamicResource Brush.TextTertiary}"
+                                           TextWrapping="Wrap" />
+                              </Border>
+                              <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                            VerticalScrollBarVisibility="Auto">
+                                <StackPanel Name="PART_AddMenuList" Margin="6" Spacing="1" />
+                              </ScrollViewer>
+                            </DockPanel>
+                          </Border>
+                        </Panel>
+                      </Popup>
+                    </Panel>
+
+                    <!-- Skills for this chat, one click away -->
+                    <controls:StrataComposerPicker Name="PART_SkillPicker"
+                                                   Classes="skills"
+                                                   Margin="0,0,4,6"
+                                                   VerticalAlignment="Center"
+                                                   Icon="{x:Static controls:StrataIcons.Wand}"
+                                                   Items="{TemplateBinding AvailableSkills}"
+                                                   SelectedItems="{TemplateBinding SkillItems}"
+                                                   ManageCommand="{TemplateBinding SkillsManageCommand}" />
+
+                    <!-- Connectors (MCP servers) this chat can use -->
+                    <Panel Name="PART_McpPanel" Margin="0,0,4,6" VerticalAlignment="Center">
+                      <controls:StrataConnectorPicker Name="PART_ConnectorPicker"
+                                                     VerticalAlignment="Center"
+                                                     Items="{TemplateBinding AvailableMcps}"
+                                                     SelectedItems="{TemplateBinding McpItems}"
+                                                     ButtonToolTip="{TemplateBinding McpToolTip}"
+                                                     Header="{TemplateBinding McpHeader}"
+                                                     ErrorActionCommand="{TemplateBinding McpErrorActionCommand}"
+                                                     ErrorActionLabel="{TemplateBinding McpErrorActionLabel}"
+                                                     ErrorDetailsLabel="{TemplateBinding McpErrorDetailsLabel}"
+                                                     CopyErrorDetailsLabel="{TemplateBinding McpCopyErrorDetailsLabel}"
+                                                     BrowseCommand="{TemplateBinding McpBrowseCommand}"
+                                                     ManageCommand="{TemplateBinding McpManageCommand}"
+                                                     IsLoading="{TemplateBinding McpIsLoading}" />
+                    </Panel>
+
+                    <!-- Modes ComboBox (Ask / Plan / Agent) -->
+                    <ComboBox Name="PART_ModesCombo"
+                              Classes="composer-select"
+                              ItemsSource="{TemplateBinding Modes}"
+                              SelectedItem="{Binding SelectedMode, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                              MinWidth="82"
+                              Height="30" MinHeight="0" Padding="10,4,8,4"
+                              FontSize="{DynamicResource Font.SizeCaption}"
+                              CornerRadius="15"
+                              Background="{DynamicResource Brush.Surface2}"
+                              BorderThickness="0"
+                              VerticalAlignment="Center"
+                              Margin="0,0,6,6" />
+
+                    <!-- Suggestion loading placeholders -->
+                    <StackPanel Name="PART_SuggestionLoading" Orientation="Horizontal" Spacing="6"
+                                Margin="0,0,6,6" IsVisible="False" IsHitTestVisible="False">
+                      <Border Classes="suggestion-loading-pill phase-a" Width="112" Height="30" CornerRadius="15" />
+                      <Border Classes="suggestion-loading-pill phase-b" Width="136" Height="30" CornerRadius="15" />
+                      <Border Classes="suggestion-loading-pill phase-c" Width="96" Height="30" CornerRadius="15" />
+                    </StackPanel>
+
+                    <!-- Suggestion chips -->
+                    <Button Name="PART_ActionA" Classes="subtle suggestion-chip"
+                            Height="30" Padding="10,4" MinHeight="0" MaxWidth="260"
+                            CornerRadius="15" FontSize="{DynamicResource Font.SizeCaption}"
+                            VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Margin="0,0,6,6"
+                            ToolTip.Tip="{TemplateBinding SuggestionA}"
+                            Foreground="{DynamicResource Brush.TextSecondary}">
+                      <TextBlock Text="{TemplateBinding SuggestionA}" TextTrimming="CharacterEllipsis" />
+                    </Button>
+                    <Button Name="PART_ActionB" Classes="subtle suggestion-chip"
+                            Height="30" Padding="10,4" MinHeight="0" MaxWidth="260"
+                            CornerRadius="15" FontSize="{DynamicResource Font.SizeCaption}"
+                            VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Margin="0,0,6,6"
+                            ToolTip.Tip="{TemplateBinding SuggestionB}"
+                            Foreground="{DynamicResource Brush.TextSecondary}">
+                      <TextBlock Text="{TemplateBinding SuggestionB}" TextTrimming="CharacterEllipsis" />
+                    </Button>
+                    <Button Name="PART_ActionC" Classes="subtle suggestion-chip"
+                            Height="30" Padding="10,4" MinHeight="0" MaxWidth="260"
+                            CornerRadius="15" FontSize="{DynamicResource Font.SizeCaption}"
+                            VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Margin="0,0,6,6"
+                            ToolTip.Tip="{TemplateBinding SuggestionC}"
+                            Foreground="{DynamicResource Brush.TextSecondary}">
+                      <TextBlock Text="{TemplateBinding SuggestionC}" TextTrimming="CharacterEllipsis" />
+                    </Button>
+                      </WrapPanel>
+
+                  <!-- Right: the model, then the one button that dictates, sends and stops -->
+                  <StackPanel Name="PART_PrimaryActions" Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom" Margin="0,0,0,5">
+                    <Panel Name="PART_ModelPickerWrap" VerticalAlignment="Center">
+                      <controls:StrataModelPicker Name="PART_ModelPicker"
+                                                  Classes="quiet"
+                                                  Width="NaN"
+                                                  MaxWidth="280"
                                                   VerticalAlignment="Center"
                                                   Models="{TemplateBinding Models}"
                                                   SelectedModel="{Binding SelectedModel, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
@@ -284,142 +527,85 @@
                                                   PickerOpenedCommandParameter="{TemplateBinding ModelPickerOpenedCommandParameter}" />
                     </Panel>
 
-                    <!-- Modes ComboBox (Ask / Plan / Agent) -->
-                    <ComboBox Name="PART_ModesCombo"
-                              Classes="composer-select"
-                              ItemsSource="{TemplateBinding Modes}"
-                              SelectedItem="{Binding SelectedMode, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
-                              MinWidth="82"
-                              Height="28" MinHeight="0" Padding="8,4,6,4"
-                              FontSize="{DynamicResource Font.SizeCaption}"
-                              CornerRadius="6"
-                              Background="{DynamicResource Brush.Surface2}"
-                              BorderThickness="0"
+                    <Panel Name="PART_SendWrap" VerticalAlignment="Center">
+                      <!-- While Lumi works: light breathing around the stop button. -->
+                      <Border Name="PART_SendHalo"
+                              Margin="-3"
+                              CornerRadius="999"
+                              BorderThickness="2"
+                              BorderBrush="{DynamicResource Brush.ComposerOrbRing}"
+                              IsVisible="False"
+                              IsHitTestVisible="False"
+                              sa:LifecycleOpacityPulse.FromOpacity="1"
+                              sa:LifecycleOpacityPulse.ToOpacity="0.3"
+                              sa:LifecycleOpacityPulse.Duration="0:0:1.4"
+                              sa:LifecycleOpacityPulse.PlaybackDirection="Alternate"
+                              sa:LifecycleOpacityPulse.Easing="SineEaseInOut" />
+                      <Button Name="PART_SendButton"
+                              Width="34" Height="34"
+                              Padding="0" MinHeight="0" MinWidth="0"
+                              CornerRadius="999"
+                              Background="{DynamicResource Brush.AccentGradient}"
+                              Foreground="{DynamicResource Brush.TextOnAccent}"
                               VerticalAlignment="Center"
-                              Margin="0,0,6,6" />
-
-                    <!-- Connectors (MCP servers) this chat can use -->
-                    <Panel Name="PART_McpPanel" Margin="0,0,6,6">
-                      <controls:StrataConnectorPicker Name="PART_ConnectorPicker"
-                                                     VerticalAlignment="Center"
-                                                     Items="{TemplateBinding AvailableMcps}"
-                                                     SelectedItems="{TemplateBinding McpItems}"
-                                                     ButtonToolTip="{TemplateBinding McpToolTip}"
-                                                     Header="{TemplateBinding McpHeader}"
-                                                     ErrorActionCommand="{TemplateBinding McpErrorActionCommand}"
-                                                     ErrorActionLabel="{TemplateBinding McpErrorActionLabel}"
-                                                     ErrorDetailsLabel="{TemplateBinding McpErrorDetailsLabel}"
-                                                     CopyErrorDetailsLabel="{TemplateBinding McpCopyErrorDetailsLabel}"
-                                                     BrowseCommand="{TemplateBinding McpBrowseCommand}"
-                                                     ManageCommand="{TemplateBinding McpManageCommand}"
-                                                     IsLoading="{TemplateBinding McpIsLoading}" />
+                              ToolTip.Tip="Send (Enter)"
+                              RenderTransformOrigin="0.5,0.5"
+                              RenderTransform="translateY(0px)">
+                        <Button.Transitions>
+                          <Transitions>
+                            <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.08" Easing="CubicEaseOut" />
+                          </Transitions>
+                        </Button.Transitions>
+                        <Panel>
+                          <!-- Touch glyphs: filled shapes sized for a thumb. -->
+                          <Viewbox Name="PART_SendGlyphs" Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Grid Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}">
+                              <Path Name="PART_SendIcon"
+                                    Stretch="Uniform"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                    Data="M8,1.5 L13,6.5 H10.2 V14.5 H5.8 V6.5 H3 Z" />
+                              <Path Name="PART_StopIcon"
+                                    IsVisible="False"
+                                    Stretch="Uniform"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                    Data="M4.5,4.5 H11.5 V11.5 H4.5 Z" />
+                              <Canvas Name="PART_StopSendIcon"
+                                      IsVisible="False"
+                                      Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}">
+                                <Path Stretch="Uniform"
+                                      Canvas.Left="2.5" Canvas.Top="0"
+                                      Width="11" Height="10"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M5.5,0 L11,5 H8.2 V10 H2.8 V5 H0 Z" />
+                                <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M3.5,12 H12.5 V14.5 H3.5 Z" />
+                              </Canvas>
+                            </Grid>
+                          </Viewbox>
+                          <!-- Desktop glyphs: the composer's line family. -->
+                          <Panel Name="PART_OrbGlyphs" Width="18" Height="18" IsVisible="False"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <controls:StrataLineIcon Name="PART_OrbSendIcon" StrokeThickness="2.2"
+                                                     Data="{x:Static controls:StrataIcons.ArrowUp}" />
+                            <controls:StrataLineIcon Name="PART_OrbStopSendIcon" StrokeThickness="2.1" IsVisible="False"
+                                                     Data="{x:Static controls:StrataIcons.StopSend}" />
+                            <controls:StrataLineIcon Name="PART_OrbMicIcon" StrokeThickness="1.9" IsVisible="False"
+                                                     Data="{x:Static controls:StrataIcons.Mic}" />
+                            <controls:StrataLineIcon Name="PART_OrbWaveIcon" StrokeThickness="2" IsVisible="False"
+                                                     Data="{x:Static controls:StrataIcons.Wave}" />
+                            <Border Name="PART_OrbStopIcon" Width="10" Height="10" CornerRadius="2.5" IsVisible="False"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                          </Panel>
+                        </Panel>
+                      </Button>
                     </Panel>
-
-                    <!-- Suggestion loading placeholders -->
-                    <StackPanel Name="PART_SuggestionLoading" Orientation="Horizontal" Spacing="6"
-                                Margin="0,0,6,6" IsVisible="False" IsHitTestVisible="False">
-                      <Border Classes="suggestion-loading-pill phase-a" Width="112" Height="28" CornerRadius="6" />
-                      <Border Classes="suggestion-loading-pill phase-b" Width="136" Height="28" CornerRadius="6" />
-                      <Border Classes="suggestion-loading-pill phase-c" Width="96" Height="28" CornerRadius="6" />
-                    </StackPanel>
-
-                    <!-- Suggestion chips -->
-                    <Button Name="PART_ActionA" Classes="subtle suggestion-chip"
-                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="260"
-                            CornerRadius="6" FontSize="{DynamicResource Font.SizeCaption}"
-                            VerticalAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Margin="0,0,6,6"
-                            ToolTip.Tip="{TemplateBinding SuggestionA}"
-                            Foreground="{DynamicResource Brush.TextSecondary}">
-                      <TextBlock Text="{TemplateBinding SuggestionA}" TextTrimming="CharacterEllipsis" />
-                    </Button>
-                    <Button Name="PART_ActionB" Classes="subtle suggestion-chip"
-                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="260"
-                            CornerRadius="6" FontSize="{DynamicResource Font.SizeCaption}"
-                            VerticalAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Margin="0,0,6,6"
-                            ToolTip.Tip="{TemplateBinding SuggestionB}"
-                            Foreground="{DynamicResource Brush.TextSecondary}">
-                      <TextBlock Text="{TemplateBinding SuggestionB}" TextTrimming="CharacterEllipsis" />
-                    </Button>
-                    <Button Name="PART_ActionC" Classes="subtle suggestion-chip"
-                            Height="28" Padding="8,4" MinHeight="0" MaxWidth="260"
-                            CornerRadius="6" FontSize="{DynamicResource Font.SizeCaption}"
-                            VerticalAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Margin="0,0,6,6"
-                            ToolTip.Tip="{TemplateBinding SuggestionC}"
-                            Foreground="{DynamicResource Brush.TextSecondary}">
-                      <TextBlock Text="{TemplateBinding SuggestionC}" TextTrimming="CharacterEllipsis" />
-                    </Button>
-                      </WrapPanel>
-
-                  <!-- Right: voice + send -->
-                  <StackPanel Name="PART_PrimaryActions" Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom" Margin="0,0,0,6">
-                    <Button Name="PART_VoiceButton"
-                            Classes="subtle"
-                            Width="{DynamicResource Size.ControlHeightS}" Height="{DynamicResource Size.ControlHeightS}"
-                            Padding="0" MinHeight="0" MinWidth="0"
-                            CornerRadius="6"
-                            VerticalAlignment="Bottom"
-                            ToolTip.Tip="Voice">
-                      <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Path Stretch="Uniform"
-                              Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}"
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Center"
-                              Fill="{DynamicResource Brush.TextTertiary}"
-                              Data="M8,1.8 C9.3,1.8 10.4,2.9 10.4,4.2 L10.4,7.3 C10.4,8.6 9.3,9.7 8,9.7 C6.7,9.7 5.6,8.6 5.6,7.3 L5.6,4.2 C5.6,2.9 6.7,1.8 8,1.8 Z M3.6,7.2 L4.8,7.2 C4.8,9.1 6.1,10.7 8,11 C9.9,10.7 11.2,9.1 11.2,7.2 L12.4,7.2 C12.4,9.6 10.7,11.7 8.6,12.2 L8.6,14.2 L7.4,14.2 L7.4,12.2 C5.3,11.7 3.6,9.6 3.6,7.2 Z" />
-                      </Viewbox>
-                    </Button>
-
-                    <Button Name="PART_SendButton"
-                            Width="34" Height="34"
-                            Padding="0" MinHeight="0" MinWidth="0"
-                            CornerRadius="999"
-                            Background="{DynamicResource Brush.AccentGradient}"
-                            Foreground="{DynamicResource Brush.TextOnAccent}"
-                            VerticalAlignment="Bottom"
-                            ToolTip.Tip="Send (Enter)"
-                          RenderTransformOrigin="0.5,0.5"
-                          RenderTransform="translateY(3px)">
-                      <Button.Transitions>
-                        <Transitions>
-                          <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
-                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.08" Easing="CubicEaseOut" />
-                        </Transitions>
-                      </Button.Transitions>
-                      <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Grid Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}">
-                          <Path Name="PART_SendIcon"
-                                Stretch="Uniform"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                Data="M8,1.5 L13,6.5 H10.2 V14.5 H5.8 V6.5 H3 Z" />
-                          <Path Name="PART_StopIcon"
-                                IsVisible="False"
-                                Stretch="Uniform"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                Data="M4.5,4.5 H11.5 V11.5 H4.5 Z" />
-                          <Canvas Name="PART_StopSendIcon"
-                                  IsVisible="False"
-                                  Width="{DynamicResource Size.IconButtonXS}" Height="{DynamicResource Size.IconButtonXS}">
-                            <Path Stretch="Uniform"
-                                  Canvas.Left="2.5" Canvas.Top="0"
-                                  Width="11" Height="10"
-                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                  Data="M5.5,0 L11,5 H8.2 V10 H2.8 V5 H0 Z" />
-                            <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                  Data="M3.5,12 H12.5 V14.5 H3.5 Z" />
-                          </Canvas>
-                        </Grid>
-                      </Viewbox>
-                    </Button>
                   </StackPanel>
                 </Grid>
                 </controls:ComposerLayoutPanel>
@@ -429,15 +615,16 @@
           </ControlTemplate>
         </Setter>
 
+        <!-- ── Surface ── -->
         <Style Selector="^ /template/ Border#PART_Root:pointerover">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
-          <Setter Property="BoxShadow" Value="0 2 8 0 #11000000" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerHover}" />
         </Style>
 
-        <!-- Focus ring on the outer container -->
+        <!-- Focus: a soft accent ring around the whole card, and the Strata line drawn under the text -->
         <Style Selector="^:focus-within /template/ Border#PART_Root">
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
-          <Setter Property="BoxShadow" Value="0 0 0 1 #28818CF8, 0 2 8 0 #11000000" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.ComposerFocusBorder}" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerFocus}" />
         </Style>
         <Style Selector="^:focus-within /template/ Border#PART_FocusLine">
           <Setter Property="Opacity" Value="1" />
@@ -454,22 +641,137 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
-        <!-- Send button hover/press -->
+        <!-- Glass: a translucent card over a frost of whatever runs beneath the composer: the overlay surface at
+             two thirds with a hairline rim, frosted like the other floating glass. It stays as clear, with
+             no coloured outline. At rest the whole composer sits back a little; while you write (:engaged, focus
+             in the composer or in one of its lists) it comes forward as one piece, glass, text and tools together,
+             to its full size (the focus depth, scaled on the render thread in StrataChatComposer.FocusDepth.cs).
+             With it the shadow deepens, the rim brightens, the top edge catches the light and the Strata line
+             draws in under the text, finer than the plain composer's and feathered at its ends. -->
+        <Style Selector="^.glass /template/ controls|StrataBackdropBlur#PART_Backdrop">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="BlurRadius" Value="14" />
+          <Setter Property="Saturation" Value="1.3" />
+        </Style>
+        <Style Selector="^.glass /template/ Border#PART_Root">
+          <Setter Property="Background" Value="{DynamicResource Brush.ComposerGlassFill}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.ComposerGlassBorder}" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerGlassRest}" />
+          <Setter Property="Transitions">
+            <Transitions>
+              <BrushTransition Property="BorderBrush" Duration="0:0:0.3" Easing="CubicEaseOut" />
+              <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.4" Easing="CubicEaseOut" />
+            </Transitions>
+          </Setter>
+        </Style>
+        <Style Selector="^.glass /template/ Border#PART_Root:pointerover">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.ComposerGlassBorderHover}" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerGlassRest}" />
+        </Style>
+        <Style Selector="^.glass:engaged /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.ComposerGlassBorderHover}" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerGlassFocus}" />
+        </Style>
+        <Style Selector="^.glass:engaged /template/ Border#PART_FocusLine">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="scaleX(1)" />
+        </Style>
+        <Style Selector="^.glass /template/ Border#PART_FocusLine">
+          <Setter Property="Height" Value="1.5" />
+          <Setter Property="OpacityMask">
+            <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+              <GradientStop Offset="0" Color="#00000000" />
+              <GradientStop Offset="0.08" Color="#FF000000" />
+              <GradientStop Offset="0.92" Color="#FF000000" />
+              <GradientStop Offset="1" Color="#00000000" />
+            </LinearGradientBrush>
+          </Setter>
+        </Style>
+
+        <!-- Chips above the text already set it apart from the card's edge. -->
+        <Style Selector="^:has-chips:not(.mobile) /template/ TextBox#PART_Input">
+          <Setter Property="Padding" Value="18,12,18,8" />
+        </Style>
+
+        <!-- ── Context chips ──
+             A neutral pill with a small tile in the kind's hue: lavender agents, steel-blue projects,
+             ochre skills, accent chats. Touch hosts restyle them (see the mobile variant). -->
+        <Style Selector="^:not(.mobile) /template/ Border#PART_AgentTile">
+          <Setter Property="Background" Value="{DynamicResource Brush.ComposerAgentTile}" />
+        </Style>
+        <Style Selector="^:not(.mobile) /template/ Border#PART_ProjectTile">
+          <Setter Property="Background" Value="{DynamicResource Brush.ComposerProjectTile}" />
+        </Style>
+        <!-- ── Tools ── -->
+        <!-- The pickers' own words; hosts localize them with a style on each picker's class. -->
+        <Style Selector="^ /template/ controls|StrataComposerPicker#PART_SkillPicker">
+          <Setter Property="Label" Value="Skills" />
+          <Setter Property="ButtonToolTip" Value="Give Lumi skills for this chat (/)" />
+          <Setter Property="SearchWatermark" Value="Search skills" />
+          <Setter Property="SelectedLabel" Value="In this chat" />
+          <Setter Property="ItemsLabel" Value="All skills" />
+          <Setter Property="EmptyTitle" Value="No skills yet" />
+          <Setter Property="EmptyText" Value="Skills teach the assistant how to do something your way." />
+          <Setter Property="NoResultsFormat" Value="No skills match &#x201C;{0}&#x201D;" />
+          <Setter Property="HintText" Value="Tip: type / to add a skill as you write" />
+          <Setter Property="ManageLabel" Value="Manage skills" />
+        </Style>
+        <Style Selector="^ /template/ controls|StrataComposerPicker#PART_ChatPicker">
+          <Setter Property="Label" Value="Chats" />
+          <Setter Property="SearchWatermark" Value="Search chats" />
+          <Setter Property="SelectedLabel" Value="In this message" />
+          <Setter Property="ItemsLabel" Value="Recent chats" />
+          <Setter Property="EmptyTitle" Value="No other chats yet" />
+          <Setter Property="EmptyText" Value="Once you have more conversations, you can bring any of them into a message." />
+          <Setter Property="NoResultsFormat" Value="No chats match &#x201C;{0}&#x201D;" />
+          <Setter Property="HintText" Value="Tip: type # to find a chat as you write" />
+        </Style>
+        <Style Selector="^ /template/ controls|StrataConnectorPicker#PART_ConnectorPicker">
+          <Setter Property="Label" Value="Connectors" />
+        </Style>
+        <Style Selector="^:narrow /template/ controls|StrataComposerPicker">
+          <Setter Property="ShowLabel" Value="False" />
+        </Style>
+        <Style Selector="^:narrow /template/ controls|StrataConnectorPicker">
+          <Setter Property="ShowLabel" Value="False" />
+        </Style>
+        <Style Selector="^:not(:has-skill-options) /template/ controls|StrataComposerPicker#PART_SkillPicker">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:has-chat-options) /template/ controls|StrataComposerPicker#PART_ChatPicker">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:has-add-options) /template/ Panel#PART_AddWrap">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:add-open /template/ Button#PART_AddButton">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+
+        <!-- ── Send ──
+             One round button for the next step: dictate while the message is empty, send once there is
+             something to send, stop while Lumi works. Touch hosts keep their filled glyphs and colours. -->
         <Style Selector="^ /template/ Button#PART_SendButton:pointerover">
-          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
-          <Setter Property="RenderTransform" Value="translateY(3px) scale(1.05)" />
+          <Setter Property="RenderTransform" Value="translateY(0px) scale(1.06)" />
         </Style>
         <Style Selector="^ /template/ Button#PART_SendButton:pressed">
+          <Setter Property="RenderTransform" Value="translateY(0px) scale(0.92)" />
+        </Style>
+        <Style Selector="^.mobile /template/ Button#PART_SendButton:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+        </Style>
+        <Style Selector="^.mobile /template/ Button#PART_SendButton:pressed">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientPressed}" />
-          <Setter Property="RenderTransform" Value="translateY(3px) scale(0.93)" />
         </Style>
 
         <!-- Busy: stop mode -->
         <Style Selector="^:busy /template/ Button#PART_SendButton">
-          <Setter Property="Background" Value="{DynamicResource Brush.ComposerStop}" />
           <Setter Property="ToolTip.Tip" Value="Stop generation" />
         </Style>
-        <Style Selector="^:busy /template/ Button#PART_SendButton:pointerover">
+        <Style Selector="^.mobile:busy /template/ Button#PART_SendButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.ComposerStop}" />
+        </Style>
+        <Style Selector="^.mobile:busy /template/ Button#PART_SendButton:pointerover">
           <Setter Property="Background" Value="{DynamicResource Brush.ComposerStopHover}" />
         </Style>
         <Style Selector="^:busy /template/ Path#PART_SendIcon">
@@ -481,10 +783,12 @@
 
         <!-- Busy + has text: queue the draft, stop the current turn, then send after cleanup. -->
         <Style Selector="^:stop-send /template/ Button#PART_SendButton">
-          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
           <Setter Property="ToolTip.Tip" Value="Stop &amp; send (Enter)" />
         </Style>
-        <Style Selector="^:stop-send /template/ Button#PART_SendButton:pointerover">
+        <Style Selector="^.mobile:stop-send /template/ Button#PART_SendButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+        </Style>
+        <Style Selector="^.mobile:stop-send /template/ Button#PART_SendButton:pointerover">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
         </Style>
         <Style Selector="^:stop-send /template/ Path#PART_StopIcon">
@@ -496,10 +800,12 @@
 
         <!-- Busy + has text + steering: inject the draft into the running turn without stopping it. -->
         <Style Selector="^:steer /template/ Button#PART_SendButton">
-          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
           <Setter Property="ToolTip.Tip" Value="Send to steer (Enter)" />
         </Style>
-        <Style Selector="^:steer /template/ Button#PART_SendButton:pointerover">
+        <Style Selector="^.mobile:steer /template/ Button#PART_SendButton">
+          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
+        </Style>
+        <Style Selector="^.mobile:steer /template/ Button#PART_SendButton:pointerover">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
         </Style>
         <Style Selector="^:steer /template/ Path#PART_StopIcon">
@@ -512,21 +818,88 @@
           <Setter Property="IsVisible" Value="True" />
         </Style>
 
+        <!-- Desktop: the composer's line glyphs, chosen by the moment. -->
+        <Style Selector="^:not(.mobile) /template/ Viewbox#PART_SendGlyphs">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile) /template/ Panel#PART_OrbGlyphs">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <!-- Nothing to send: a quiet, inactive arrow (or the microphone when voice is available). -->
+        <Style Selector="^:not(.mobile):empty:not(:busy):not(:can-send-without-prompt) /template/ Button#PART_SendButton">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+          <Setter Property="Cursor" Value="Arrow" />
+        </Style>
+        <Style Selector="^:not(.mobile):empty:not(:busy):not(:can-send-without-prompt):not(:voice) /template/ Button#PART_SendButton:pointerover">
+          <Setter Property="RenderTransform" Value="translateY(0px)" />
+        </Style>
+        <Style Selector="^:not(.mobile):voice /template/ Button#PART_SendButton">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+          <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="^:not(.mobile):voice /template/ controls|StrataLineIcon#PART_OrbSendIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile):voice /template/ controls|StrataLineIcon#PART_OrbMicIcon">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <!-- Working: stop, with light breathing around the button. -->
+        <Style Selector="^:not(.mobile):busy:not(:steer) /template/ controls|StrataLineIcon#PART_OrbSendIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile):busy:not(:steer):not(:stop-send) /template/ Border#PART_OrbStopIcon">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:not(.mobile):stop-send /template/ controls|StrataLineIcon#PART_OrbStopSendIcon">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:not(.mobile):busy:not(:steer):not(:stop-send):not(:recording) /template/ Border#PART_SendHalo">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
+        </Style>
+        <Style Selector="^.motion-disabled /template/ Border#PART_SendHalo">
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="False" />
+        </Style>
+        <!-- Listening wins over every other moment: the same button finishes dictation. -->
+        <Style Selector="^:not(.mobile):recording /template/ Button#PART_SendButton">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+          <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="^:not(.mobile):recording /template/ controls|StrataLineIcon#PART_OrbSendIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile):recording /template/ controls|StrataLineIcon#PART_OrbMicIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile):recording /template/ controls|StrataLineIcon#PART_OrbStopSendIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile):recording /template/ Border#PART_OrbStopIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile):recording /template/ controls|StrataLineIcon#PART_OrbWaveIcon">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
         <!-- Host-owned edit mode: the integrated StatusContent provides explicit Update/Cancel
              actions, while editing semantics take precedence over busy/steering. -->
         <Style Selector="^:editing /template/ Border#PART_Root">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
-          <Setter Property="BoxShadow" Value="0 0 0 1 #20818CF8, 0 2 8 0 #11000000" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerFocus}" />
+        </Style>
+        <Style Selector="^.glass:editing /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.ComposerFocusBorder}" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerGlassFocus}" />
         </Style>
         <Style Selector="^:editing /template/ Button#PART_SendButton">
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
-        <!-- Empty: dim send -->
-        <Style Selector="^:empty:not(:busy) /template/ Button#PART_SendButton">
+        <!-- Empty: dim send (touch) -->
+        <Style Selector="^.mobile:empty:not(:busy) /template/ Button#PART_SendButton">
           <Setter Property="Opacity" Value="0.35" />
         </Style>
-        <Style Selector="^:can-send-without-prompt:not(:busy) /template/ Button#PART_SendButton">
+        <Style Selector="^.mobile:can-send-without-prompt:not(:busy) /template/ Button#PART_SendButton">
           <Setter Property="Opacity" Value="1" />
         </Style>
 
@@ -555,16 +928,6 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
-        <!-- Hide attach when disabled -->
-        <Style Selector="^:not(:can-attach) /template/ Button#PART_AttachButton">
-          <Setter Property="IsVisible" Value="False" />
-        </Style>
-
-        <!-- Hide voice button when speech recognition is unavailable (e.g. non-Windows) -->
-        <Style Selector="^:not(:can-voice) /template/ Button#PART_VoiceButton">
-          <Setter Property="IsVisible" Value="False" />
-        </Style>
-
         <!-- Hide model picker when no models -->
         <Style Selector="^:not(:has-models) /template/ Panel#PART_ModelPickerWrap">
           <Setter Property="IsVisible" Value="False" />
@@ -578,7 +941,7 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
-        <!-- Hide chips row when no agent and no skills -->
+        <!-- Hide chips row when there is nothing to carry -->
         <Style Selector="^:not(:has-chips) /template/ WrapPanel#PART_ChipsRow">
           <Setter Property="IsVisible" Value="False" />
         </Style>
@@ -592,42 +955,174 @@
         <Style Selector="^:not(:has-project) /template/ Border#PART_ProjectChip">
           <Setter Property="IsVisible" Value="False" />
         </Style>
-
-        <!-- Voice button: recording state -->
-        <Style Selector="^:recording /template/ Button#PART_VoiceButton">
-          <Setter Property="Background" Value="{DynamicResource Brush.DangerSubtle}" />
-        </Style>
-        <Style Selector="^:recording /template/ Button#PART_VoiceButton Path">
-          <Setter Property="Fill" Value="{DynamicResource Brush.DangerDefault}" />
-        </Style>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
 
-  <!-- Button hover overrides targeting PART_Surface (must be outside ControlTheme to use double /template/) -->
-  <Style Selector="controls|StrataChatComposer /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+  <!-- ── Send button surfaces (outside the ControlTheme, to reach through two templates) ── -->
+  <Style Selector="controls|StrataChatComposer /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataChatComposer /template/ Button#PART_SendButton /template/ Border#PART_Aurora">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <!-- Desktop: Lumi's gradient when there is something to send, a quiet disc when there isn't, a dark
+       disc to stop while Lumi works, and a warm one while it listens. -->
+  <Style Selector="controls|StrataChatComposer:not(.mobile) /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerOrbReady}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerOrbReady}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile) /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerOrbReadyHover}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile):empty:not(:busy):not(:can-send-without-prompt) /template/ Button#PART_SendButton /template/ Border#PART_Surface,
+                   controls|StrataChatComposer:not(.mobile):empty:not(:busy):not(:can-send-without-prompt) /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerOrbIdle}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile):voice /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerOrbIdleHover}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile):busy:not(:steer):not(:stop-send) /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerOrbWorking}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile):busy:not(:steer):not(:stop-send) /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerOrbWorkingHover}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile):recording /template/ Button#PART_SendButton /template/ Border#PART_Surface,
+                   controls|StrataChatComposer:not(.mobile):recording /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerOrbListening}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerOrbListening}" />
+  </Style>
+
+  <!-- Touch: the accent disc, red while stopping. -->
+  <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
   </Style>
-  <Style Selector="controls|StrataChatComposer /template/ Button#PART_SendButton:pressed /template/ Border#PART_Surface">
+  <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_SendButton:pressed /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientPressed}" />
   </Style>
-  <Style Selector="controls|StrataChatComposer:busy /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+  <Style Selector="controls|StrataChatComposer.mobile:busy /template/ Button#PART_SendButton /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.ComposerStop}" />
   </Style>
-  <Style Selector="controls|StrataChatComposer:busy /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+  <Style Selector="controls|StrataChatComposer.mobile:busy /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.ComposerStopHover}" />
   </Style>
-  <Style Selector="controls|StrataChatComposer:stop-send /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+  <Style Selector="controls|StrataChatComposer.mobile:stop-send /template/ Button#PART_SendButton /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
   </Style>
-  <Style Selector="controls|StrataChatComposer:stop-send /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+  <Style Selector="controls|StrataChatComposer.mobile:stop-send /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
   </Style>
-  <Style Selector="controls|StrataChatComposer:steer /template/ Button#PART_SendButton /template/ Border#PART_Surface">
+  <Style Selector="controls|StrataChatComposer.mobile:steer /template/ Button#PART_SendButton /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
   </Style>
-  <Style Selector="controls|StrataChatComposer:steer /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
+  <Style Selector="controls|StrataChatComposer.mobile:steer /template/ Button#PART_SendButton:pointerover /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentGradientHover}" />
+  </Style>
+
+  <!-- Lists the + menu opens appear where the menu was, along the composer's edge rather than
+       centred on the + button. (A class activates this style, so it outranks the template's values.) -->
+  <Style Selector="controls|StrataComposerPicker.add-list /template/ Popup#PART_Popup">
+    <Setter Property="PlacementAnchor" Value="TopLeft" />
+    <Setter Property="PlacementGravity" Value="TopRight" />
+    <Setter Property="HorizontalOffset" Value="-12" />
+    <Setter Property="VerticalOffset" Value="-2" />
+  </Style>
+
+  <!-- Other chats and agents have no pill of their own: the + menu opens their lists. -->
+  <Style Selector="controls|StrataChatComposer /template/ controls|StrataComposerPicker#PART_ChatPicker /template/ Button#PART_Button,
+                   controls|StrataChatComposer /template/ controls|StrataComposerPicker#PART_AgentPicker /template/ Button#PART_Button">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <!-- ── The + menu ──
+       Rows a pointer or the arrow keys walk: a line icon, a label, then what the row leads to. -->
+  <Style Selector="Button.add-menu-row">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="MinHeight" Value="38" />
+    <Setter Property="Padding" Value="8,5,10,5" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="Button.add-menu-row /template/ Border#PART_Surface">
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="Button.add-menu-row:pressed /template/ Border#PART_Surface">
+    <Setter Property="RenderTransform" Value="none" />
+  </Style>
+  <Style Selector="Button.add-menu-row:focus-visible /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+  </Style>
+  <Style Selector="Button.add-menu-row:focus-visible /template/ Border#PART_FocusRing">
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.add-menu-row controls|StrataLineIcon.add-menu-icon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="Button.add-menu-row:pointerover controls|StrataLineIcon.add-menu-icon,
+                   Button.add-menu-row:focus-visible controls|StrataLineIcon.add-menu-icon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="Button.add-menu-row TextBlock.add-menu-label">
+    <Setter Property="FontSize" Value="13.5" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style Selector="Button.add-menu-row TextBlock.add-menu-meta">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.add-menu-row controls|StrataLineIcon.add-menu-chevron">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="Border.add-menu-key">
+    <Setter Property="MinWidth" Value="20" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="Padding" Value="5,0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="{DynamicResource Brush.PickerTile}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.PickerTileBorder}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.add-menu-key TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.add-menu-tile">
+    <Setter Property="Width" Value="26" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerChatTile}" />
+  </Style>
+  <Style Selector="Border.add-menu-tile controls|StrataLineIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="TextBlock.add-menu-header">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.3" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.add-menu-separator">
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Margin" Value="8,5" />
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
   </Style>
 
   <!-- Embedded TextBox chrome removal (regular styles, outside ControlTheme) -->
@@ -655,7 +1150,7 @@
   <Style Selector="ComboBox.composer-select /template/ Border#Border">
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
-    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="CornerRadius" Value="15" />
   </Style>
   <Style Selector="ComboBox.composer-select:pointerover /template/ Border#Border">
     <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
@@ -709,35 +1204,100 @@
     <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
   </Style>
 
-  <!-- Programmatic skill chip styles -->
+  <!-- ── Context chips (template agent/project chips and the skill/chat chips built in code) ──
+       28px pills: a hued tile, the name, and a remove button that brightens on hover. Sizes live
+       here rather than on the controls so a touch host can grow them. -->
   <Style Selector="Border.composer-chip-surface">
     <Setter Property="IsVisible" Value="False" />
   </Style>
 
-  <Style Selector="Border.composer-skill-chip">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+  <Style Selector="Border.composer-chip">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerChipFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.ComposerChipBorder}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="12" />
-    <Setter Property="Padding" Value="8,3,4,3" />
-    <Setter Property="Margin" Value="0,0,6,4" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="3,3,4,3" />
+    <Setter Property="Margin" Value="0,0,6,6" />
   </Style>
-  <Style Selector="Border.composer-skill-chip TextBlock.chip-glyph">
-    <Setter Property="FontSize" Value="11" />
-    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  <Style Selector="Border.composer-chip Border.chip-tile">
+    <Setter Property="Width" Value="20" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <!-- Desktop: a softer radius sitting within the card's corner, and the × waits until the pointer or the
+       keyboard reaches its chip, so a row of chips reads as content, not controls. -->
+  <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip">
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip Border.chip-tile">
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip Button.chip-remove">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip:pointerover Button.chip-remove,
+                   controls|StrataChatComposer:not(.mobile) Border.composer-chip:focus-within Button.chip-remove">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Border.composer-chip controls|StrataLineIcon.chip-icon">
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Height" Value="12" />
+    <Setter Property="StrokeThickness" Value="2.1" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
-  <Style Selector="Border.composer-skill-chip TextBlock.chip-name">
+  <Style Selector="Border.composer-chat-chip controls|StrataLineIcon.chip-icon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="Border.composer-skill-chip controls|StrataLineIcon.chip-icon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ComposerSkillHue}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-skill-chip Border.chip-tile">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerSkillTile}" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chat-chip Border.chip-tile">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerChatTile}" />
+  </Style>
+  <Style Selector="Border.composer-chip TextBlock.chip-glyph">
     <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.composer-chip TextBlock.chip-name">
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="MaxWidth" Value="220" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
-  <Style Selector="Border.composer-skill-chip TextBlock.chip-remove-icon">
-    <Setter Property="FontSize" Value="10" />
+  <Style Selector="Border.composer-chip Button.chip-remove">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.composer-chip TextBlock.chip-remove-icon">
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
     <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,-1,0,0" />
+  </Style>
+  <Style Selector="Border.composer-chip Button.chip-remove:pointerover TextBlock.chip-remove-icon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="Border.composer-chip Button.chip-remove:pointerover PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
   <!-- Error state for chips (e.g., MCP server failed to connect) -->
@@ -754,9 +1314,9 @@
     <Setter Property="Background" Value="#00000000" />
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Padding" Value="10,8" />
-    <Setter Property="Margin" Value="2,1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="8,7,10,7" />
+    <Setter Property="Margin" Value="0,1" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Transitions">
       <Transitions>
@@ -766,35 +1326,42 @@
     </Setter>
   </Style>
   <Style Selector="Border.autocomplete-item:pointerover">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
   </Style>
   <Style Selector="Border.autocomplete-item.selected">
-    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolActive}" />
   </Style>
   <Style Selector="TextBlock.autocomplete-header">
     <Setter Property="FontSize" Value="10.5" />
     <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.3" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
     <Setter Property="Margin" Value="10,8,10,4" />
   </Style>
   <Style Selector="Border.autocomplete-item Border.autocomplete-glyph-wrap">
-    <Setter Property="Width" Value="26" />
-    <Setter Property="Height" Value="26" />
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Background" Value="{DynamicResource Brush.PickerTile}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.PickerTileBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="8" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Center" />
   </Style>
   <Style Selector="Border.autocomplete-item.selected Border.autocomplete-glyph-wrap">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.PickerTileSelected}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
   </Style>
   <Style Selector="Border.autocomplete-item TextBlock.autocomplete-glyph">
     <Setter Property="FontSize" Value="13" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="Border.autocomplete-item controls|StrataLineIcon.autocomplete-icon">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
   </Style>
   <Style Selector="Border.autocomplete-item TextBlock.autocomplete-name">
     <Setter Property="FontSize" Value="12.5" />
@@ -808,15 +1375,15 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
   </Style>
   <Style Selector="Border.autocomplete-item Border.autocomplete-trailing-badge">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.PickerTile}" />
     <Setter Property="CornerRadius" Value="999" />
-    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="Padding" Value="7,2" />
     <Setter Property="Margin" Value="10,0,0,0" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Right" />
   </Style>
   <Style Selector="Border.autocomplete-item.selected Border.autocomplete-trailing-badge">
-    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="Background" Value="Transparent" />
   </Style>
   <Style Selector="Border.autocomplete-item TextBlock.autocomplete-trailing-text">
     <Setter Property="FontSize" Value="9.5" />
@@ -906,19 +1473,10 @@
     <Setter Property="Expansion" Value="0" />
   </Style>
 
-  <!-- Round, finger-sized action buttons instead of 28dp squares. -->
-  <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_AttachButton,
-                   controls|StrataChatComposer.mobile /template/ Button#PART_MentionButton,
-                   controls|StrataChatComposer.mobile /template/ Button#PART_VoiceButton">
-    <Setter Property="Width" Value="48" />
-    <Setter Property="Height" Value="48" />
-    <Setter Property="CornerRadius" Value="24" />
-    <Setter Property="Margin" Value="0,0,4,0" />
-  </Style>
-
-  <!-- Mobile hosts attach inside its own non-wrapping toolbar content so attach + run settings stay
-       on one row at 360dp. The desktop template part remains available outside the mobile variant. -->
-  <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_AttachButton">
+  <!-- Mobile hosts attach inside their own non-wrapping toolbar content so attach + run settings stay
+       on one row at 360dp, and reach chats, skills and agents through their own sheets: the desktop
+       + menu stays out of the row. -->
+  <Style Selector="controls|StrataChatComposer.mobile /template/ Panel#PART_AddWrap">
     <Setter Property="IsVisible" Value="False" />
   </Style>
 
@@ -958,11 +1516,6 @@
   <Style Selector="controls|StrataChatComposer.mobile /template/ Panel#PART_McpPanel">
     <Setter Property="IsVisible" Value="False" />
   </Style>
-  <!-- Mentioning an agent or skill is a desktop power-move; on a phone the glyph read as a stray
-       mark next to the model pill and cost a 42dp slot the attach button needs. -->
-  <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_MentionButton">
-    <Setter Property="IsVisible" Value="False" />
-  </Style>
   <Style Selector="controls|StrataChatComposer.mobile /template/ Button#PART_ActionA,
                    controls|StrataChatComposer.mobile /template/ Button#PART_ActionB,
                    controls|StrataChatComposer.mobile /template/ Button#PART_ActionC,
@@ -987,5 +1540,10 @@
   </Style>
   <Style Selector="controls|StrataChatComposer.mobile /template/ WrapPanel#PART_ChipsRow">
     <Setter Property="Margin" Value="16,12,16,0" />
+  </Style>
+
+  <!-- Skills and chats are desktop pickers; a phone reaches them through the host's own sheets. -->
+  <Style Selector="controls|StrataChatComposer.mobile /template/ controls|StrataComposerPicker">
+    <Setter Property="IsVisible" Value="False" />
   </Style>
 </Styles>

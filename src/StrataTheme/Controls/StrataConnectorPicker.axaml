@@ -200,29 +200,20 @@
           <ControlTemplate>
             <Panel>
               <Button Name="PART_Button"
-                      Classes="subtle"
-                      Height="28"
+                      Classes="composer-tool"
+                      Height="32"
                       MinHeight="0"
-                      MinWidth="0"
-                      Padding="8,4,10,4"
-                      CornerRadius="14"
-                      Background="{DynamicResource Brush.Surface2}"
-                      BorderThickness="0"
+                      MinWidth="32"
+                      Padding="0"
+                      CornerRadius="16"
                       VerticalAlignment="Center"
-                      Cursor="Hand"
                       ToolTip.Tip="{TemplateBinding ButtonToolTip}"
                       AutomationProperties.HelpText="{TemplateBinding ButtonToolTip}">
-                <Button.Transitions>
-                  <Transitions>
-                    <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
-                  </Transitions>
-                </Button.Transitions>
-                <StackPanel Orientation="Horizontal" Spacing="6">
+                <StackPanel Name="PART_ButtonContent" Orientation="Horizontal" Spacing="7" Margin="10,0,12,0" VerticalAlignment="Center">
                   <Panel VerticalAlignment="Center">
-                    <PathIcon Name="PART_ButtonIcon"
-                              Data="{StaticResource ConnectorPicker.Plug}"
-                              Width="14" Height="14"
-                              FlowDirection="LeftToRight" />
+                    <controls:StrataLineIcon Name="PART_ButtonIcon"
+                                             Data="{x:Static controls:StrataIcons.Plug}"
+                                             Width="16" Height="16" />
                     <!-- A connector in this chat needs attention. -->
                     <Ellipse Name="PART_AttentionDot"
                              Width="7" Height="7"
@@ -231,14 +222,31 @@
                              Fill="{DynamicResource Brush.WarningDefault}"
                              IsVisible="False" />
                   </Panel>
-                  <TextBlock Name="PART_ButtonLabel"
-                             MaxWidth="120"
-                             FontSize="12"
+                  <TextBlock Name="PART_ButtonText"
+                             Text="{TemplateBinding Label}"
+                             FontSize="13"
                              FontWeight="Medium"
-                             Foreground="{DynamicResource Brush.TextSecondary}"
-                             TextTrimming="CharacterEllipsis"
                              VerticalAlignment="Center"
                              IsVisible="False" />
+                  <!-- How many are on ("Off" when none): information, not a state, so it stays neutral. -->
+                  <Border Name="PART_CountBadge"
+                          MinWidth="18"
+                          Height="18"
+                          Padding="5,0"
+                          CornerRadius="9"
+                          VerticalAlignment="Center"
+                          Background="{DynamicResource Brush.PickerTile}"
+                          IsVisible="{Binding #PART_ButtonLabel.IsVisible}">
+                    <TextBlock Name="PART_ButtonLabel"
+                               MaxWidth="120"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brush.TextSecondary}"
+                               TextTrimming="CharacterEllipsis"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               IsVisible="False" />
+                  </Border>
                 </StackPanel>
               </Button>
 
@@ -624,18 +632,12 @@
           </ControlTemplate>
         </Setter>
 
-        <!-- Trigger: the plug takes the connector hue while any connector is on. -->
-        <Style Selector="^ /template/ PathIcon#PART_ButtonIcon">
-          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-        </Style>
-        <Style Selector="^:has-selection /template/ PathIcon#PART_ButtonIcon">
-          <Setter Property="Foreground" Value="{DynamicResource Brush.ConnectorHue}" />
+        <!-- Pill: a toolbar tool like the others; only a connector that needs attention adds colour. -->
+        <Style Selector="^:has-label /template/ TextBlock#PART_ButtonText">
+          <Setter Property="IsVisible" Value="True" />
         </Style>
         <Style Selector="^:has-errors /template/ Ellipse#PART_AttentionDot">
           <Setter Property="IsVisible" Value="True" />
-        </Style>
-        <Style Selector="^:open /template/ Button#PART_Button">
-          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
         </Style>
 
         <!-- The composer's Strata line, drawn along the header while search has focus. -->
@@ -705,7 +707,10 @@
   </Styles.Resources>
 
   <!-- App-wide styles are limited to the collapsed button; row styles are scoped to the list above. -->
-  <Style Selector="controls|StrataConnectorPicker /template/ Button#PART_Button:pointerover /template/ Border#PART_Surface">
-    <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+  <Style Selector="controls|StrataConnectorPicker:open /template/ Button#PART_Button">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataConnectorPicker:open /template/ Button#PART_Button /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolCatchPressed}" />
   </Style>
 </Styles>

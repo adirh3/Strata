@@ -95,7 +95,7 @@ public sealed class TextBoxFocusVisualTests
                 .OfType<Border>()
                 .Single(border => border.Name == "PART_FocusLine");
             Assert.Equal(2, composerLine.Height);
-            Assert.Equal(new Thickness(14, 0), composerLine.Margin);
+            Assert.Equal(new Thickness(18, 0), composerLine.Margin);
             Assert.Equal(new Thickness(0), composerLine.BorderThickness);
             Assert.Equal(Avalonia.Layout.VerticalAlignment.Bottom, composerLine.VerticalAlignment);
 

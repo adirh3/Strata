@@ -100,6 +100,7 @@ public class StrataChatShell : TemplatedControl
     private bool _isTranscriptScrolling;
     private Button? _scrollToBottomButton;
     private bool _hasNewContent;
+    private bool _isContentUnderComposer;
     private Control? _headerChrome;
     private Control? _composerHost;
     private Control? _scrollContent;
@@ -144,6 +145,15 @@ public class StrataChatShell : TemplatedControl
     public static readonly DirectProperty<StrataChatShell, bool> HasNewContentProperty =
         AvaloniaProperty.RegisterDirect<StrataChatShell, bool>(
             nameof(HasNewContent), o => o.HasNewContent);
+
+    /// <summary>
+    /// Read-only mirror of <c>:content-under-composer</c>: true while scrolled history passes behind a
+    /// floating composer. Lets chrome that floats outside the shell — a host's own composer layer —
+    /// frost only when there is something beneath it.
+    /// </summary>
+    public static readonly DirectProperty<StrataChatShell, bool> IsContentUnderComposerProperty =
+        AvaloniaProperty.RegisterDirect<StrataChatShell, bool>(
+            nameof(IsContentUnderComposer), o => o.IsContentUnderComposer);
 
     /// <summary>
     /// Runs the transcript edge to edge underneath the header and composer, which then float above it.
@@ -225,6 +235,13 @@ public class StrataChatShell : TemplatedControl
     {
         get => _hasNewContent;
         private set => SetAndRaise(HasNewContentProperty, ref _hasNewContent, value);
+    }
+
+    /// <inheritdoc cref="IsContentUnderComposerProperty"/>
+    public bool IsContentUnderComposer
+    {
+        get => _isContentUnderComposer;
+        private set => SetAndRaise(IsContentUnderComposerProperty, ref _isContentUnderComposer, value);
     }
 
     public bool IsFollowingTail => _scrollPolicy.IsFollowingTail;
@@ -524,9 +541,10 @@ public class StrataChatShell : TemplatedControl
         var hasScroll = _scrollViewer is not null;
         PseudoClasses.Set(":content-under-header",
             OverlaysHeader && hasScroll && _topChromeInset > 0 && _scrollViewer!.Offset.Y > 0.5);
-        PseudoClasses.Set(":content-under-composer",
-            ExtendsTranscriptBehindChrome && hasScroll && _bottomChromeInset > 0 && !IsFollowingTail
-            && DistanceFromBottom(_scrollViewer!) > ChatScrollPolicy.DefaultBottomTolerance);
+        var underComposer = ExtendsTranscriptBehindChrome && hasScroll && _bottomChromeInset > 0 && !IsFollowingTail
+            && DistanceFromBottom(_scrollViewer!) > ChatScrollPolicy.DefaultBottomTolerance;
+        PseudoClasses.Set(":content-under-composer", underComposer);
+        IsContentUnderComposer = underComposer;
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
