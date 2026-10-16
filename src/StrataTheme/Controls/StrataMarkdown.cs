@@ -161,6 +161,7 @@ public partial class StrataMarkdown : ContentControl
     // chat), so a streaming/finishing update would otherwise parse + syntax-highlight on the UI
     // thread while off-screen and freeze the foreground chat. Parsing is deferred until reattach.
     private bool _isAttachedToVisualTree;
+    private bool _rebuildDeferredWhileHidden;
 
     // ── Reusable buffers to avoid per-rebuild allocations ──
     private readonly List<string> _evictBuffer = new();
@@ -282,6 +283,7 @@ public partial class StrataMarkdown : ContentControl
         _rebuildDelayCts?.Dispose();
         _rebuildDelayCts = null;
         _rebuildQueued = false;
+        _rebuildDeferredWhileHidden = false;
 
         DetachLinkHandlers();
         _linkRuns.Clear();
@@ -395,6 +397,13 @@ public partial class StrataMarkdown : ContentControl
         }
     }
 
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        if (_rebuildDeferredWhileHidden && _isAttachedToVisualTree && IsEffectivelyVisible)
+            FlushQueuedRebuild();
+        return base.MeasureOverride(availableSize);
+    }
+
     /// <summary>Detach Tapped/PointerMoved handlers from all SelectableTextBlocks in the content host.</summary>
     private void DetachLinkHandlers()
     {
@@ -505,6 +514,14 @@ public partial class StrataMarkdown : ContentControl
         if (RetainContentOnDetach && !_isAttachedToVisualTree)
             return;
 
+        if (RetainContentOnDetach && !IsEffectivelyVisible)
+        {
+            _rebuildDeferredWhileHidden = true;
+            InvalidateMeasure();
+            return;
+        }
+
+        _rebuildDeferredWhileHidden = false;
         _rebuildQueued = false;
         _lastRebuildAtUtc = DateTime.UtcNow;
         _rebuildDelayCts?.Dispose();
@@ -686,6 +703,12 @@ public partial class StrataMarkdown : ContentControl
 
     private void Rebuild()
     {
+        if (RetainContentOnDetach && (!_isAttachedToVisualTree || !IsEffectivelyVisible))
+        {
+            ScheduleRebuild();
+            return;
+        }
+
         var rebuildStart = Stopwatch.GetTimestamp();
 
         try
