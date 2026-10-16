@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.56" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.57" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -176,6 +176,10 @@ while the shell scrolls.
 User-message side actions retain their labelled hover, keyboard-focus, and touch-tap reveal behavior.
 The overflow menu reuses the message context menu, including formatted copy and optional
 branching (`CanFork`). Copy briefly shows a confirmation checkmark.
+
+The floating Reply pill over selected text fades out in place when the selection is dismissed.
+Its placement anchor is released only after the popup host closes; selecting another excerpt
+during the exit keeps the new selection's position and quote.
 
 Set `TimestampToolTip` to the full date/time while keeping `Timestamp` short. Hosts can
 localize `CopyLabel`, `CopySelectionLabel`, `CopyMarkdownLabel`, `CopyRichTextLabel`,

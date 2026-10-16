@@ -1342,10 +1342,10 @@ public class StrataChatMessage : TemplatedControl
             return;
 
         var popup = EnsureSelectionReplyPopup();
-        TrackSelectionReplySource(textBlock);
-        _selectionReplyText = selectedText;
         popup.PlacementTarget = textBlock;
         popup.PlacementRect = GetSelectionAnchor(textBlock, releasePoint);
+        TrackSelectionReplySource(textBlock);
+        _selectionReplyText = selectedText;
         popup.Open();
     }
 
@@ -1452,12 +1452,8 @@ public class StrataChatMessage : TemplatedControl
     {
         _selectionReplyText = null;
         StopTrackingSelectionReplySource();
-        if (_selectionReplyPopup is { } popup)
-        {
-            if (popup.IsOpen)
-                popup.Close();
-            popup.PlacementTarget = null;
-        }
+        if (_selectionReplyPopup is { IsOpen: true } popup)
+            popup.Close();
     }
 
     private void OnSelectionReplyPopupClosed(object? sender, EventArgs e)
@@ -1465,6 +1461,16 @@ public class StrataChatMessage : TemplatedControl
         // Light dismiss closes the popup directly; drop the selection it was tracking.
         _selectionReplyText = null;
         StopTrackingSelectionReplySource();
+        if (sender is Popup popup)
+        {
+            // Keep the anchor through the animated exit. A new selection can reopen or retarget
+            // the popup during Closed, so release it only after the host is gone and stays closed.
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!popup.IsOpen && popup.Child?.IsAttachedToVisualTree() != true)
+                    popup.PlacementTarget = null;
+            }, DispatcherPriority.Background);
+        }
     }
 
     private void TrackSelectionReplySource(SelectableTextBlock textBlock)
