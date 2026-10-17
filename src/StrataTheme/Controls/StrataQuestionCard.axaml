@@ -180,7 +180,7 @@
                              MaxWidth="260" />
                 </StackPanel>
               </Border>
-              <TextBlock Text="{TemplateBinding Question}"
+              <TextBlock Text="{TemplateBinding QuestionLine}"
                          FontSize="12.5"
                          VerticalAlignment="Center"
                          Foreground="{DynamicResource Brush.TextSecondary}"
