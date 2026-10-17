@@ -174,4 +174,16 @@
   <SolidColorBrush x:Key="Brush.AccentGlowSoft" Color="{DynamicResource Color.AccentSubtle}" />
   <SolidColorBrush x:Key="Brush.AccentGlowStrong" Color="{DynamicResource Color.AccentDefault}" />
 
+  <!-- High contrast: transcript glass is solid, with full-strength rims and no shadows -->
+  <SolidColorBrush x:Key="Brush.GlassFill" Color="{DynamicResource Color.Surface1}" />
+  <SolidColorBrush x:Key="Brush.GlassFillHover" Color="{DynamicResource Color.Surface2}" />
+  <SolidColorBrush x:Key="Brush.GlassRim" Color="{DynamicResource Color.BorderDefault}" />
+  <SolidColorBrush x:Key="Brush.GlassRimHover" Color="{DynamicResource Color.AccentDefault}" />
+  <SolidColorBrush x:Key="Brush.GlassDivider" Color="{DynamicResource Color.BorderDefault}" />
+  <SolidColorBrush x:Key="Brush.GlassRowHover" Color="{DynamicResource Color.Surface2}" />
+  <SolidColorBrush x:Key="Brush.GlassWell" Color="{DynamicResource Color.Background}" />
+  <SolidColorBrush x:Key="Brush.GlassAccentTint" Color="{DynamicResource Color.AccentSubtle}" />
+  <BoxShadows x:Key="Shadow.GlassChip">0 0 0 0 #00000000</BoxShadows>
+  <BoxShadows x:Key="Shadow.GlassCard">0 0 0 0 #00000000</BoxShadows>
+
 </ResourceDictionary>

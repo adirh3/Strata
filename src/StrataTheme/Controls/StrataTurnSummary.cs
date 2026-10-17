@@ -12,8 +12,8 @@ namespace StrataTheme.Controls;
 /// <summary>
 /// A lightweight, borderless disclosure that collapses completed AI turn blocks
 /// (tool-call groups and reasoning traces) into a single summary line.
-/// Collapsed: a thin inline row with status dot and label.
-/// Expanded: the original blocks beneath a subtle left accent bar. A reader's own toggle reveals them
+/// Collapsed: a quiet inline row with a status icon, the label and a chevron.
+/// Expanded: the original blocks hanging from a hairline under the icon. A reader's own toggle reveals them
 /// from the top while they fade in, and folds them away the same way.
 /// </summary>
 /// <remarks>

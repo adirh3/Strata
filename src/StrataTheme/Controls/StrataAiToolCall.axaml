@@ -11,155 +11,178 @@
         <Setter Property="VerticalAlignment" Value="Top" />
         <Setter Property="Template">
           <ControlTemplate>
-            <Panel>
-              <Border Name="PART_FocusRing"
-                      CornerRadius="10"
-                      BorderThickness="2"
-                      BorderBrush="Transparent"
-                      Margin="-2"
-                      IsHitTestVisible="False" />
+            <!-- One row of a card: what the step is, what it worked on and how long it took. -->
+            <Border Name="PART_Root"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    BorderThickness="1"
+                    CornerRadius="9"
+                    ClipToBounds="True">
+              <Border.Transitions>
+                <Transitions>
+                  <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.14" />
+                  <sa:PremultipliedBrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                </Transitions>
+              </Border.Transitions>
 
-              <Border Name="PART_Root"
-                      Background="{DynamicResource Brush.Surface0}"
-                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                      BorderThickness="1"
-                      CornerRadius="8"
-                      ClipToBounds="True">
-                <Border.Transitions>
-                  <Transitions>
-                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
-                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
-                  </Transitions>
-                </Border.Transitions>
+              <StackPanel Spacing="0">
+                <Border Name="PART_Header"
+                        Cursor="Hand"
+                        Padding="7,6,8,6"
+                        CornerRadius="8"
+                        Background="Transparent">
+                  <Border.Transitions>
+                    <Transitions>
+                      <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.12" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <!-- DockPanel, not Grid: the name and detail are measured against the space that is
+                       left, so they trim instead of pushing the time past the row's edge. -->
+                  <DockPanel>
+                    <Border Name="PART_StateDot"
+                            DockPanel.Dock="Left"
+                            Width="6" Height="6"
+                            Margin="4,0,12,0"
+                            CornerRadius="3"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource Brush.TextTertiary}" />
+                    <controls:StrataLineIcon Name="PART_Icon"
+                                             DockPanel.Dock="Left"
+                                             Width="14" Height="14"
+                                             Margin="0,0,8,0"
+                                             VerticalAlignment="Center"
+                                             IsVisible="False"
+                                             Data="{TemplateBinding Icon}"
+                                             Foreground="{DynamicResource Brush.TextTertiary}" />
+                    <controls:StrataLineIcon Name="PART_ExpandIcon"
+                                             DockPanel.Dock="Right"
+                                             Width="11" Height="11"
+                                             Margin="8,0,0,0"
+                                             VerticalAlignment="Center"
+                                             Opacity="0"
+                                             StrokeThickness="2"
+                                             Data="{x:Static controls:StrataIcons.ChevronDown}"
+                                             Foreground="{DynamicResource Brush.TextTertiary}"
+                                             RenderTransformOrigin="50%,50%"
+                                             RenderTransform="rotate(0deg)">
+                      <controls:StrataLineIcon.Transitions>
+                        <Transitions>
+                          <DoubleTransition Property="Opacity" Duration="0:0:0.14" />
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                        </Transitions>
+                      </controls:StrataLineIcon.Transitions>
+                    </controls:StrataLineIcon>
+                    <TextBlock Name="PART_StatusText"
+                               DockPanel.Dock="Right"
+                               Margin="12,0,0,0"
+                               Text="{Binding GlanceText, RelativeSource={RelativeSource TemplatedParent}}"
+                               IsVisible="{Binding GlanceText, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               FontSize="11.5"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource Brush.TextTertiary}" />
+                    <ContentPresenter Name="PART_HeaderAction"
+                                      DockPanel.Dock="Right"
+                                      Margin="8,0,0,0"
+                                      Content="{TemplateBinding HeaderAction}"
+                                      VerticalAlignment="Center"
+                                      IsVisible="{Binding HeaderAction, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <TextBlock Name="PART_ToolName"
+                               DockPanel.Dock="Left"
+                               Margin="0,0,7,0"
+                               Text="{TemplateBinding ToolName}"
+                               FontSize="12.5"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource Brush.TextSecondary}"
+                               TextTrimming="CharacterEllipsis"
+                               MaxLines="1" />
+                    <TextBlock Name="PART_DetailText"
+                               Text="{TemplateBinding Detail}"
+                               IsVisible="False"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource Brush.TextTertiary}"
+                               TextTrimming="CharacterEllipsis"
+                               MaxLines="1" />
+                  </DockPanel>
+                </Border>
 
-                <StackPanel Spacing="0">
-                  <Border Name="PART_Stratum"
-                          Height="2"
-                          Background="{DynamicResource Brush.AccentGradient}"
-                          Opacity="0.75" />
+                <!-- Details and output, recessed under the name. -->
+                <Border Name="PART_Detail"
+                        ClipToBounds="True"
+                        IsVisible="False"
+                        MaxHeight="0"
+                        Opacity="0"
+                        Margin="29,0,8,8"
+                        CornerRadius="10"
+                        BorderThickness="1"
+                        Background="{DynamicResource Brush.GlassWell}"
+                        BorderBrush="{DynamicResource Brush.GlassDivider}"
+                        RenderTransformOrigin="0.5,0"
+                        RenderTransform="translateY(-4px) scaleY(0.96)">
+                  <Border.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="MaxHeight" Duration="0:0:0.26" Easing="CubicEaseOut" />
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Border.Transitions>
 
-                  <Border Name="PART_Header"
-                          Cursor="Hand"
-                          Padding="10,5"
-                          Background="Transparent">
-                    <Grid ColumnDefinitions="Auto,6,*,Auto,6,Auto">
-                      <Border Name="PART_StateDot"
-                              Width="6" Height="6"
-                              CornerRadius="3"
-                              VerticalAlignment="Center"
-                              Background="{DynamicResource Brush.AccentDefault}" />
-
-                      <TextBlock Grid.Column="2"
-                                 Text="{TemplateBinding ToolName}"
-                                 FontSize="12"
-                                 FontWeight="SemiBold"
-                                 VerticalAlignment="Center"
-                                 TextTrimming="CharacterEllipsis" />
-
-                      <ContentPresenter Name="PART_HeaderAction"
-                                        Grid.Column="3"
-                                        Content="{TemplateBinding HeaderAction}"
-                                        VerticalAlignment="Center"
-                                        IsVisible="{Binding HeaderAction, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}" />
-
-                      <Border Name="PART_StatusPill"
-                              Grid.Column="5"
-                              Padding="7,2"
-                              CornerRadius="999"
-                              Background="{DynamicResource Brush.AccentSubtle}">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                          <TextBlock Name="PART_StatusText"
-                                     Text="{Binding StatusText, RelativeSource={RelativeSource TemplatedParent}}"
-                                     FontSize="10"
-                                     FontWeight="SemiBold"
-                                     VerticalAlignment="Center"
-                                     Foreground="{DynamicResource Brush.AccentDefault}" />
-                          <TextBlock Name="PART_ElapsedText"
-                                     Text="{Binding ElapsedText, RelativeSource={RelativeSource TemplatedParent}}"
-                                     IsVisible="{Binding ElapsedText, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                     FontSize="10"
-                                     FontWeight="SemiBold"
-                                     VerticalAlignment="Center"
-                                     Opacity="0.75"
-                                     Foreground="{DynamicResource Brush.AccentDefault}" />
-                        </StackPanel>
-                      </Border>
-                    </Grid>
-                  </Border>
-
-                  <Border Name="PART_Detail"
-                          ClipToBounds="True"
-                      IsVisible="False"
-                          MaxHeight="0"
-                          Opacity="0"
-                          Padding="10,0,10,8"
-                          RenderTransformOrigin="0.5,0"
-                          RenderTransform="translateY(-4px) scaleY(0.96)">
-                    <Border.Transitions>
-                      <Transitions>
-                        <DoubleTransition Property="MaxHeight" Duration="0:0:0.26" Easing="CubicEaseOut" />
-                        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
-                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
-                      </Transitions>
-                    </Border.Transitions>
-
-                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                  VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="8">
-                      <Border Name="PART_Input"
-                              IsVisible="False"
-                              Background="{DynamicResource Brush.Surface1}"
-                              CornerRadius="6"
-                              Padding="10,8">
-                        <StackPanel Spacing="4">
-                          <TextBlock Text="Details"
-                                     FontSize="10.5"
-                                     FontWeight="SemiBold"
-                                     Foreground="{DynamicResource Brush.TextTertiary}" />
-                          <controls:StrataMarkdown Name="PART_InputMarkdown"
-                                                   IsInline="True" />
-                        </StackPanel>
-                      </Border>
-
-                      <Border Name="PART_Info"
-                              IsVisible="False"
-                              Background="{DynamicResource Brush.Surface1}"
-                              CornerRadius="6"
-                              Padding="10,8">
-                        <StackPanel Spacing="4">
-                          <TextBlock Text="More info"
-                                     FontSize="10.5"
-                                     FontWeight="SemiBold"
-                                     Foreground="{DynamicResource Brush.TextTertiary}" />
-                          <controls:StrataMarkdown Name="PART_InfoMarkdown"
-                                                   IsInline="True" />
-                        </StackPanel>
-                      </Border>
-
-                    </StackPanel>
-                    </ScrollViewer>
-                  </Border>
-                </StackPanel>
-              </Border>
-            </Panel>
+                  <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                VerticalScrollBarVisibility="Auto">
+                    <controls:StrataToolDetails Name="PART_Details" Margin="12,10,12,11" />
+                  </ScrollViewer>
+                </Border>
+              </StackPanel>
+            </Border>
           </ControlTemplate>
         </Setter>
 
-        <Style Selector="^:expanded /template/ Border#PART_Detail">
+        <!-- ─── What it is ─── -->
+        <Style Selector="^:has-icon /template/ Border#PART_StateDot">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:has-icon /template/ controls|StrataLineIcon#PART_Icon">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-detail /template/ TextBlock#PART_DetailText">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- ─── Hover and open: the row's header tints; a row with details shows its chevron ─── -->
+        <Style Selector="^ /template/ Border#PART_Header:pointerover">
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassRowHover}" />
+        </Style>
+        <Style Selector="^:pointerover /template/ TextBlock#PART_ToolName">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:pointerover:has-params /template/ controls|StrataLineIcon#PART_ExpandIcon, ^:pointerover:has-info /template/ controls|StrataLineIcon#PART_ExpandIcon">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- Open: only a row with something to show opens; the chevron turns and the well reveals it. -->
+        <Style Selector="^:expanded:has-params /template/ controls|StrataLineIcon#PART_ExpandIcon, ^:expanded:has-info /template/ controls|StrataLineIcon#PART_ExpandIcon">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+        <Style Selector="^:expanded:has-params /template/ Border#PART_Detail, ^:expanded:has-info /template/ Border#PART_Detail">
           <Setter Property="IsVisible" Value="True" />
           <Setter Property="MaxHeight" Value="600" />
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
         </Style>
-
-        <Style Selector="^:has-params /template/ Border#PART_Input">
-          <Setter Property="IsVisible" Value="True" />
+        <Style Selector="^:focus-visible /template/ Border#PART_Root">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
         </Style>
 
-        <Style Selector="^:has-info /template/ Border#PART_Info">
-          <Setter Property="IsVisible" Value="True" />
+        <!-- ─── Running: the accent marks it and the time counts up ─── -->
+        <Style Selector="^:inprogress /template/ controls|StrataLineIcon#PART_Icon">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
         </Style>
-
+        <Style Selector="^:inprogress /template/ TextBlock#PART_ToolName">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:inprogress /template/ TextBlock#PART_StatusText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
         <Style Selector="^:inprogress /template/ Border#PART_StateDot">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
           <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
@@ -169,83 +192,51 @@
           <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
 
-        <Style Selector="^:inprogress /template/ Border#PART_StatusPill">
-          <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+        <!-- ─── Failed: the icon and the word say so; nothing else changes ─── -->
+        <Style Selector="^:failed /template/ controls|StrataLineIcon#PART_Icon">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
         </Style>
-
-        <Style Selector="^:inprogress /template/ TextBlock#PART_StatusText">
-          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
-        </Style>
-
-        <Style Selector="^:inprogress /template/ Border#PART_Stratum">
-          <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
-          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.55" />
-          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="1" />
-          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.1" />
-          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
-        </Style>
-
-        <Style Selector="^:completed /template/ Border#PART_StateDot">
-          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
-        </Style>
-
-        <Style Selector="^:completed /template/ Border#PART_StatusPill">
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
-        </Style>
-
-        <Style Selector="^:completed /template/ TextBlock#PART_StatusText">
-          <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
-        </Style>
-
-        <Style Selector="^:completed /template/ Border#PART_Stratum">
-          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
-          <Setter Property="Opacity" Value="0.85" />
-        </Style>
-
         <Style Selector="^:failed /template/ Border#PART_StateDot">
           <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
         </Style>
-
-        <Style Selector="^:failed /template/ Border#PART_StatusPill">
-          <Setter Property="Background" Value="{DynamicResource Brush.DangerSubtle}" />
-        </Style>
-
         <Style Selector="^:failed /template/ TextBlock#PART_StatusText">
           <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
-        </Style>
-
-        <Style Selector="^:failed /template/ Border#PART_Stratum">
-          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
-          <Setter Property="Opacity" Value="0.85" />
-        </Style>
-
-        <Style Selector="^:stopped /template/ Border#PART_StateDot">
-          <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
-        </Style>
-
-        <Style Selector="^:stopped /template/ Border#PART_StatusPill">
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
-        </Style>
-
-        <Style Selector="^:stopped /template/ TextBlock#PART_StatusText">
-          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-        </Style>
-
-        <Style Selector="^:stopped /template/ Border#PART_Stratum">
-          <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
-          <Setter Property="Opacity" Value="0.85" />
-        </Style>
-
-        <Style Selector="^:pointerover /template/ Border#PART_Root">
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
-          <Setter Property="BoxShadow" Value="0 2 8 0 #12000000" />
-        </Style>
-
-        <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
         </Style>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
+
+  <!-- A step's opened details (StrataToolDetails): its fields in a key column, then what it reported.
+       Keys and values share an 18px line, so their first lines align. -->
+  <Style Selector="controls|StrataToolDetails TextBlock.tool-detail-key">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="LineHeight" Value="18" />
+    <Setter Property="MaxWidth" Value="140" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="controls|StrataToolDetails SelectableTextBlock.tool-detail-value">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="LineHeight" Value="18" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataToolDetails SelectableTextBlock.tool-detail-result">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="LineHeight" Value="18" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataToolDetails DockPanel.tool-detail-error SelectableTextBlock.tool-detail-result">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataToolDetails controls|StrataLineIcon.tool-detail-error-icon">
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+    <Setter Property="Margin" Value="0,2,8,0" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+  </Style>
+  <Style Selector="controls|StrataToolDetails Border.tool-detail-divider">
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Background" Value="{DynamicResource Brush.GlassDivider}" />
+  </Style>
 </Styles>

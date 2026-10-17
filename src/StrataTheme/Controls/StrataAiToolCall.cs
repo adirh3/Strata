@@ -24,28 +24,33 @@ public enum StrataAiToolCallStatus
 }
 
 /// <summary>
-/// Displays a compact, expandable card representing a single AI tool invocation.
-/// Shows a status dot, tool name, and a status pill. Clicking the header reveals
-/// optional input parameters, extra info, and duration.
+/// Displays one AI tool invocation as a quiet, expandable row: a line icon that says what the tool is, its
+/// name, one glanceable detail and how long it took. Clicking the header opens a recessed well with what the
+/// step was given (<see cref="InputParameters"/>, as fields when written as <c>**Key:** value</c> lines) and
+/// what it reported (<see cref="MoreInfo"/>, read as the error when the step failed).
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage:</b></para>
 /// <code>
-/// &lt;controls:StrataAiToolCall ToolName="search_code"
+/// &lt;controls:StrataAiToolCall ToolName="Searching the web"
+///                             Detail="best OLED TV"
+///                             Icon="{x:Static controls:StrataIcons.Search}"
 ///                             Status="Completed"
 ///                             DurationMs="340"
-///                             InputParameters='{"query": "hello"}'
+///                             InputParameters="**Query:** best OLED TV"
 ///                             MoreInfo="Found 12 results" /&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Header (Border), PART_StateDot (Border), PART_Detail (Border).</para>
-/// <para><b>Pseudo-classes:</b> :expanded, :inprogress, :completed, :failed, :has-params, :has-info, :has-duration.</para>
+/// <para><b>Template parts:</b> PART_Root (Border), PART_Header (Border), PART_StateDot (Border),
+/// PART_Icon (StrataLineIcon), PART_StatusText (TextBlock), PART_Detail (Border),
+/// PART_Details (<see cref="StrataToolDetails"/>).</para>
+/// <para><b>Pseudo-classes:</b> :expanded, :inprogress, :completed, :failed, :stopped, :has-params, :has-info,
+/// :has-duration, :has-icon, :has-detail.</para>
 /// </remarks>
 public class StrataAiToolCall : TemplatedControl
 {
     private Border? _header;
     private Border? _root;
-    private StrataMarkdown? _inputMarkdown;
-    private StrataMarkdown? _infoMarkdown;
+    private StrataToolDetails? _details;
     private ContextMenu? _contextMenu;
     private readonly RunningElapsedClock _elapsedClock;
     private bool _isAttached;
@@ -53,6 +58,14 @@ public class StrataAiToolCall : TemplatedControl
     /// <summary>Name of the tool being invoked (e.g. "search_code").</summary>
     public static readonly StyledProperty<string> ToolNameProperty =
         AvaloniaProperty.Register<StrataAiToolCall, string>(nameof(ToolName), "tool.call");
+
+    /// <summary>Optional line icon (24-unit grid) that says what kind of tool this is.</summary>
+    public static readonly StyledProperty<Geometry?> IconProperty =
+        AvaloniaProperty.Register<StrataAiToolCall, Geometry?>(nameof(Icon));
+
+    /// <summary>Optional one-line detail shown beside the name, such as the file or query the tool used.</summary>
+    public static readonly StyledProperty<string?> DetailProperty =
+        AvaloniaProperty.Register<StrataAiToolCall, string?>(nameof(Detail));
 
     /// <summary>Optional JSON or plain-text input parameters shown in the detail pane.</summary>
     public static readonly StyledProperty<string?> InputParametersProperty =
@@ -75,7 +88,7 @@ public class StrataAiToolCall : TemplatedControl
     public static readonly StyledProperty<DateTimeOffset?> RunningSinceProperty =
         AvaloniaProperty.Register<StrataAiToolCall, DateTimeOffset?>(nameof(RunningSince));
 
-    /// <summary>Current execution status. Drives the status pill colour and animation.</summary>
+    /// <summary>Current execution status: it colours the row's icon and says how the step ended.</summary>
     public static readonly StyledProperty<StrataAiToolCallStatus> StatusProperty =
         AvaloniaProperty.Register<StrataAiToolCall, StrataAiToolCallStatus>(nameof(Status), StrataAiToolCallStatus.InProgress);
 
@@ -94,9 +107,19 @@ public class StrataAiToolCall : TemplatedControl
     public static readonly DirectProperty<StrataAiToolCall, string> DurationTextProperty =
         AvaloniaProperty.RegisterDirect<StrataAiToolCall, string>(nameof(DurationText), control => control.DurationText);
 
+    /// <summary>How long a completed call took, for its row ("42 ms", "1.2s"). Empty while it runs, when it
+    /// did not complete, or when no duration was measured.</summary>
+    public static readonly DirectProperty<StrataAiToolCall, string> CompactDurationTextProperty =
+        AvaloniaProperty.RegisterDirect<StrataAiToolCall, string>(nameof(CompactDurationText), control => control.CompactDurationText);
+
+    /// <summary>What the row says about its state at a glance: how long it has been running, how long it
+    /// took, or the word for a call that failed or stopped.</summary>
+    public static readonly DirectProperty<StrataAiToolCall, string> GlanceTextProperty =
+        AvaloniaProperty.RegisterDirect<StrataAiToolCall, string>(nameof(GlanceText), control => control.GlanceText);
+
     /// <summary>Live "how long it has been running" readout, shown while the tool is in progress
     /// (e.g. "8s", "1m 04s"). Empty until the tool has been running for at least a second, and
-    /// cleared the moment it finishes so the status pill returns to its terminal state.</summary>
+    /// cleared the moment it finishes so the row says how it ended instead.</summary>
     public static readonly DirectProperty<StrataAiToolCall, string> ElapsedTextProperty =
         AvaloniaProperty.RegisterDirect<StrataAiToolCall, string>(nameof(ElapsedText), control => control.ElapsedText);
 
@@ -107,6 +130,8 @@ public class StrataAiToolCall : TemplatedControl
         InputParametersProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         MoreInfoProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         DurationMsProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
+        IconProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
+        DetailProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         RunningSinceProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.OnElapsedTick());
     }
 
@@ -119,6 +144,20 @@ public class StrataAiToolCall : TemplatedControl
     {
         get => GetValue(ToolNameProperty);
         set => SetValue(ToolNameProperty, value);
+    }
+
+    /// <summary>Gets or sets the tool's line icon; see <see cref="IconProperty"/>.</summary>
+    public Geometry? Icon
+    {
+        get => GetValue(IconProperty);
+        set => SetValue(IconProperty, value);
+    }
+
+    /// <summary>Gets or sets the glanceable detail; see <see cref="DetailProperty"/>.</summary>
+    public string? Detail
+    {
+        get => GetValue(DetailProperty);
+        set => SetValue(DetailProperty, value);
     }
 
     public string? InputParameters
@@ -176,12 +215,27 @@ public class StrataAiToolCall : TemplatedControl
         ? $"Duration \u00b7 {DurationMs / 1000d:F2}s"
         : $"Duration \u00b7 {DurationMs:F0} ms";
 
+    public string CompactDurationText => Status == StrataAiToolCallStatus.Completed
+        ? RunningElapsedClock.FormatDuration(DurationMs)
+        : "";
+
+    public string GlanceText => Status switch
+    {
+        StrataAiToolCallStatus.InProgress => ElapsedText,
+        StrataAiToolCallStatus.Completed => CompactDurationText,
+        _ => StatusText,
+    };
+
     private string _elapsedText = "";
 
     public string ElapsedText
     {
         get => _elapsedText;
-        private set => SetAndRaise(ElapsedTextProperty, ref _elapsedText, value);
+        private set
+        {
+            if (SetAndRaise(ElapsedTextProperty, ref _elapsedText, value))
+                RaisePropertyChanged(GlanceTextProperty, default!, GlanceText);
+        }
     }
 
     private void OnElapsedTick()
@@ -213,8 +267,7 @@ public class StrataAiToolCall : TemplatedControl
 
         _header = e.NameScope.Find<Border>("PART_Header");
         _root = e.NameScope.Find<Border>("PART_Root");
-        _inputMarkdown = e.NameScope.Find<StrataMarkdown>("PART_InputMarkdown");
-        _infoMarkdown = e.NameScope.Find<StrataMarkdown>("PART_InfoMarkdown");
+        _details = e.NameScope.Find<StrataToolDetails>("PART_Details");
 
         if (_header is not null)
             _header.PointerPressed += OnHeaderPointerPressed;
@@ -283,6 +336,8 @@ public class StrataAiToolCall : TemplatedControl
     {
         RaisePropertyChanged(StatusTextProperty, default!, StatusText);
         RaisePropertyChanged(DurationTextProperty, default!, DurationText);
+        RaisePropertyChanged(CompactDurationTextProperty, default!, CompactDurationText);
+        RaisePropertyChanged(GlanceTextProperty, default!, GlanceText);
 
         PseudoClasses.Set(":inprogress", Status == StrataAiToolCallStatus.InProgress);
         PseudoClasses.Set(":completed", Status == StrataAiToolCallStatus.Completed);
@@ -293,11 +348,15 @@ public class StrataAiToolCall : TemplatedControl
         PseudoClasses.Set(":has-params", !string.IsNullOrWhiteSpace(InputParameters));
         PseudoClasses.Set(":has-info", !string.IsNullOrWhiteSpace(MoreInfo));
         PseudoClasses.Set(":has-duration", DurationMs > 0);
+        PseudoClasses.Set(":has-icon", Icon is not null);
+        PseudoClasses.Set(":has-detail", !string.IsNullOrWhiteSpace(Detail));
 
-        if (_inputMarkdown is not null)
-            _inputMarkdown.Markdown = InputParameters ?? "";
-        if (_infoMarkdown is not null)
-            _infoMarkdown.Markdown = MoreInfo ?? "";
+        if (_details is not null)
+        {
+            _details.Parameters = InputParameters;
+            _details.Result = MoreInfo;
+            _details.IsFailed = Status == StrataAiToolCallStatus.Failed;
+        }
 
         if (Status == StrataAiToolCallStatus.InProgress)
             StartRunningActivity();

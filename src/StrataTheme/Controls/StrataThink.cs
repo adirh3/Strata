@@ -6,28 +6,31 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace StrataTheme.Controls;
 
 /// <summary>
-/// A small pill that seamlessly expands into a full reasoning trace.
-/// Designed for AI "thinking" disclosure. Collapsed shows a short label;
-/// click morphs the pill into a card with animated height, corner radius,
-/// and opacity — all via XAML transitions. C# only handles toggle + dot pulse.
+/// A glass chip that seamlessly expands into a card: an AI's reasoning, one of its steps, or a group of
+/// steps. Collapsed, it shows a line icon, a short label and an optional detail; a click grows the chip into
+/// a card that reveals its content. While <see cref="IsActive"/>, the icon takes the accent and a lone step
+/// carries the Strata line under it.
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage:</b></para>
 /// <code>
-/// &lt;controls:StrataThink Label="Reasoning…" IsActive="True"&gt;
+/// &lt;controls:StrataThink Label="Reasoning…" IsActive="True" Icon="{x:Static controls:StrataIcons.Lightbulb}"&gt;
 ///     &lt;controls:StrataThink.Content&gt;
 ///         &lt;TextBlock TextWrapping="Wrap" Text="Step 1: analyse the query..." /&gt;
 ///     &lt;/controls:StrataThink.Content&gt;
 /// &lt;/controls:StrataThink&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Dot (Border), PART_Pill (Border), PART_HeaderRow (Grid),
-/// PART_PreviewHost (ContentPresenter), PART_ContentScrollViewer (ScrollViewer).</para>
-/// <para><b>Pseudo-classes:</b> :active, :activity, :preview, :has-meta, :has-progress, :complete.</para>
+/// <para><b>Template parts:</b> PART_Pill (Border), PART_Header (Border), PART_HeaderRow (Grid),
+/// PART_Dot (Border), PART_Icon (StrataLineIcon), PART_Stratum (Border), PART_PreviewHost
+/// (ContentPresenter), PART_ContentScrollViewer (ScrollViewer).</para>
+/// <para><b>Pseudo-classes:</b> :active, :activity, :preview, :expanded, :has-icon, :error, :has-meta,
+/// :has-progress, :complete.</para>
 /// </remarks>
 public class StrataThink : TemplatedControl
 {
@@ -41,6 +44,7 @@ public class StrataThink : TemplatedControl
     private CancellationTokenSource? _expandedRevealCts;
     private bool _initialWidthTransitionSuppressed;
     private bool _isUserInteractionExpand;
+    private bool _isCollapsedWidthClamped;
     private object? _displayedContent;
     private object? _displayedPreviewContent;
 
@@ -49,6 +53,17 @@ public class StrataThink : TemplatedControl
 
     public static readonly StyledProperty<string?> MetaProperty =
         AvaloniaProperty.Register<StrataThink, string?>(nameof(Meta));
+
+    /// <summary>
+    /// Optional line icon (drawn on <see cref="StrataLineIcon"/>'s 24-unit grid) that says what this item is:
+    /// a lightbulb for reasoning, a page for a file, a terminal for a command. Without one, a dot stands in.
+    /// </summary>
+    public static readonly StyledProperty<Geometry?> IconProperty =
+        AvaloniaProperty.Register<StrataThink, Geometry?>(nameof(Icon));
+
+    /// <summary>Marks a step or group in which something failed: once it is no longer at work, its icon (or dot) turns the danger colour.</summary>
+    public static readonly StyledProperty<bool> HasErrorProperty =
+        AvaloniaProperty.Register<StrataThink, bool>(nameof(HasError));
 
     public static readonly StyledProperty<object?> ContentProperty =
         AvaloniaProperty.Register<StrataThink, object?>(nameof(Content));
@@ -111,11 +126,21 @@ public class StrataThink : TemplatedControl
             t.UpdatePseudoClasses();
             t.ApplyCollapsedWidth();
         });
+        IconProperty.Changed.AddClassHandler<StrataThink>((t, _) =>
+        {
+            t.UpdatePseudoClasses();
+            t.ApplyCollapsedWidth();
+        });
+        HasErrorProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdatePseudoClasses());
         ProgressValueProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdatePseudoClasses());
     }
 
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public string? Meta { get => GetValue(MetaProperty); set => SetValue(MetaProperty, value); }
+    /// <summary>Gets or sets the item's line icon; see <see cref="IconProperty"/>.</summary>
+    public Geometry? Icon { get => GetValue(IconProperty); set => SetValue(IconProperty, value); }
+    /// <summary>Gets or sets whether something in this item failed; see <see cref="HasErrorProperty"/>.</summary>
+    public bool HasError { get => GetValue(HasErrorProperty); set => SetValue(HasErrorProperty, value); }
     public object? Content { get => GetValue(ContentProperty); set => SetValue(ContentProperty, value); }
     /// <summary>Gets or sets the expanded content height limit; see <see cref="MaxContentHeightProperty"/>.</summary>
     public double MaxContentHeight { get => GetValue(MaxContentHeightProperty); set => SetValue(MaxContentHeightProperty, value); }
@@ -244,14 +269,27 @@ public class StrataThink : TemplatedControl
 
     private void UpdatePseudoClasses()
     {
-        if (_headerRow is Grid { ColumnDefinitions.Count: > 2 } headerGrid)
-            headerGrid.ColumnDefinitions[2].Width = HasActivityPresentation
+        // A card, or a pill narrowed to fit, fills its width; a collapsed pill otherwise hugs its row.
+        // When it fills, the detail takes the slack and trims first, so the label (what this is) stays
+        // readable; only a label without detail, or a live activity's status line, stretches instead.
+        if (_headerRow is Grid { ColumnDefinitions.Count: > 4 } headerGrid)
+        {
+            var fills = UsesCardWidth || _isCollapsedWidthClamped;
+            var metaFills = fills && !HasActivityPresentation && !string.IsNullOrWhiteSpace(Meta);
+            headerGrid.ColumnDefinitions[2].Width = fills && !metaFills
                 ? new GridLength(1, GridUnitType.Star)
                 : GridLength.Auto;
+            headerGrid.ColumnDefinitions[4].Width = metaFills
+                ? new GridLength(1, GridUnitType.Star)
+                : GridLength.Auto;
+        }
 
         PseudoClasses.Set(":active", IsActive);
         PseudoClasses.Set(":activity", HasActivityPresentation);
         PseudoClasses.Set(":preview", PreviewContent is not null && IsActive && !IsExpanded);
+        PseudoClasses.Set(":expanded", IsExpanded);
+        PseudoClasses.Set(":has-icon", Icon is not null);
+        PseudoClasses.Set(":error", HasError);
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Meta));
         PseudoClasses.Set(":has-progress", ProgressValue >= 0);
         PseudoClasses.Set(":complete", ProgressValue >= 99.999);
@@ -321,17 +359,30 @@ public class StrataThink : TemplatedControl
         if (_pill is null || _headerRow is null || UsesCardWidth)
             return;
 
-        _headerRow.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        var horizontalPadding = _pill.Padding.Left + _pill.Padding.Right;
-        var width = Math.Max(56, _headerRow.DesiredSize.Width + horizontalPadding);
+        // Measure the row's natural width, without the label stretch a narrowed pill uses.
+        if (_isCollapsedWidthClamped)
+            SetCollapsedWidthClamped(false);
 
-        if (Parent is Control parent && parent.Bounds.Width > 1)
+        _headerRow.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var horizontalChrome = _pill.Padding.Left + _pill.Padding.Right
+            + _pill.BorderThickness.Left + _pill.BorderThickness.Right
+            + (_header?.Padding.Left ?? 0) + (_header?.Padding.Right ?? 0);
+        var width = Math.Max(56, _headerRow.DesiredSize.Width + horizontalChrome);
+
+        if (Parent is Control parent && parent.Bounds.Width > 1 && width > parent.Bounds.Width)
         {
-            // Keep collapsed chip inside available transcript width.
-            width = Math.Min(width, parent.Bounds.Width);
+            // Keep the collapsed pill inside the available transcript width; the label then trims.
+            width = parent.Bounds.Width;
+            SetCollapsedWidthClamped(true);
         }
 
         _pill.Width = width;
+    }
+
+    private void SetCollapsedWidthClamped(bool clamped)
+    {
+        _isCollapsedWidthClamped = clamped;
+        UpdatePseudoClasses();
     }
 
     private void ApplyExpandedWidth()

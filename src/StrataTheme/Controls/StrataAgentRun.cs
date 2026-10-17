@@ -29,7 +29,8 @@ namespace StrataTheme.Controls;
 ///                           Status="InProgress" /&gt;
 /// </code>
 /// <para><b>Template parts:</b> PART_Root (Border), PART_FocusRing (Border), PART_Stratum (Border),
-/// PART_Header (Border), PART_Avatar (Border), PART_StatusArea (StackPanel), PART_StatusGlyph (PathIcon),
+/// PART_Header (Border), PART_AvatarHost (Panel), PART_Avatar (Border), PART_TitleRow (DockPanel),
+/// PART_StatusArea (DockPanel), PART_StatusGlyph (PathIcon), PART_StatusLineGlyph (StrataLineIcon),
 /// PART_StateDot (Border), PART_Progress (ProgressBar).</para>
 /// <para><b>Pseudo-classes:</b> :inprogress, :completed, :failed, :stopped, :finished, :has-timing,
 /// :has-activity, :has-progress, :progress-unknown, :has-model, :has-mode, :has-byline.</para>

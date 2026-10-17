@@ -23,7 +23,9 @@ namespace StrataTheme.Animation;
 /// <para>
 /// Premultiplying the colour before interpolating keeps the hue constant while only the alpha
 /// animates, which removes the flash. For fully opaque endpoints the result is numerically
-/// identical to the built-in transition, so this is a safe drop-in replacement everywhere.
+/// identical to the built-in transition, so this is a safe drop-in replacement everywhere. A brush's
+/// own <see cref="IBrush.Opacity"/> is folded into its colour first, so a faint tint (an opaque
+/// colour on a low-opacity brush) fades straight to its strength instead of overshooting it.
 /// </para>
 /// <para><b>XAML usage:</b></para>
 /// <code>
@@ -57,9 +59,11 @@ public sealed class PremultipliedBrushTransition : InterpolatingTransitionBase<I
 
         if (from is ISolidColorBrush a && to is ISolidColorBrush b)
         {
-            return new ImmutableSolidColorBrush(
-                InterpolateColorPremultiplied(progress, a.Color, b.Color),
-                Lerp(a.Opacity, b.Opacity, progress));
+            // Each brush's opacity is folded into its colour first. Interpolated apart, colour alpha and
+            // brush opacity multiply, and a faint tint (an opaque colour at 6% opacity) would peak
+            // several times brighter than its target mid-way.
+            return new ImmutableSolidColorBrush(InterpolateColorPremultiplied(
+                progress, WithOpacity(a.Color, a.Opacity), WithOpacity(b.Color, b.Opacity)));
         }
 
         // Incompatible brush kinds: fall back to a hard switch like Avalonia does.
@@ -84,8 +88,9 @@ public sealed class PremultipliedBrushTransition : InterpolatingTransitionBase<I
 
     private static IBrush InterpolateMatchingGradients(double progress, IGradientBrush from, IGradientBrush to)
     {
-        var stops = InterpolateStops(progress, from.GradientStops, to.GradientStops);
-        var opacity = Lerp(from.Opacity, to.Opacity, progress);
+        // As for solid brushes, the brushes' opacity is folded into their stops.
+        var stops = InterpolateStops(progress, from, to);
+        const double opacity = 1;
 
         switch (from)
         {
@@ -118,8 +123,10 @@ public sealed class PremultipliedBrushTransition : InterpolatingTransitionBase<I
     }
 
     private static IReadOnlyList<ImmutableGradientStop> InterpolateStops(
-        double progress, IReadOnlyList<IGradientStop> from, IReadOnlyList<IGradientStop> to)
+        double progress, IGradientBrush fromBrush, IGradientBrush toBrush)
     {
+        var from = fromBrush.GradientStops;
+        var to = toBrush.GradientStops;
         var count = Math.Max(from.Count, to.Count);
         var stops = new ImmutableGradientStop[count];
 
@@ -127,7 +134,10 @@ public sealed class PremultipliedBrushTransition : InterpolatingTransitionBase<I
         {
             stops[i] = new ImmutableGradientStop(
                 Lerp(from[fromIndex].Offset, to[toIndex].Offset, progress),
-                InterpolateColorPremultiplied(progress, from[fromIndex].Color, to[toIndex].Color));
+                InterpolateColorPremultiplied(
+                    progress,
+                    WithOpacity(from[fromIndex].Color, fromBrush.Opacity),
+                    WithOpacity(to[toIndex].Color, toBrush.Opacity)));
 
             if (fromIndex < from.Count - 1)
                 fromIndex++;
@@ -206,6 +216,9 @@ public sealed class PremultipliedBrushTransition : InterpolatingTransitionBase<I
         => transform is null ? null : new ImmutableTransform(transform.Value);
 
     private static double Lerp(double from, double to, double progress) => from + (to - from) * progress;
+
+    private static Color WithOpacity(Color color, double opacity)
+        => opacity >= 1d ? color : new Color((byte)Math.Round(color.A * Math.Clamp(opacity, 0d, 1d)), color.R, color.G, color.B);
 
     /// <summary>
     /// Interpolates two colours with premultiplied alpha in linear sRGB space. This matches Avalonia's

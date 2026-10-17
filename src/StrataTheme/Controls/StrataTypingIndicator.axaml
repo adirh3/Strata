@@ -4,7 +4,7 @@
 
   <!-- ═══════════════════════════════════════════
        StrataTypingIndicator
-       Inline status: pulsing accent dot + label
+       Inline status on the transcript's glass: three accent dots + label
        ═══════════════════════════════════════════ -->
 
   <Styles.Resources>
@@ -13,21 +13,16 @@
         <Setter Property="Margin" Value="0,4,0,0" />
         <Setter Property="Template">
           <ControlTemplate>
-            <Border Background="{DynamicResource Brush.Surface1}"
-                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
+            <Border Background="{DynamicResource Brush.GlassFill}"
+                    BorderBrush="{DynamicResource Brush.GlassRim}"
                     BorderThickness="1"
                     CornerRadius="999"
-                    Padding="8,4"
+                    BoxShadow="{DynamicResource Shadow.GlassChip}"
+                    Padding="12,7,13,7"
                     HorizontalAlignment="Left">
-              <Border.Transitions>
-                <Transitions>
-                  <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
-                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
-                </Transitions>
-              </Border.Transitions>
 
-              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="4">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                   <Border Name="PART_Dot1"
                           Width="5" Height="5" CornerRadius="2.5"
                           Background="{DynamicResource Brush.AccentDefault}" />
@@ -41,7 +36,8 @@
 
                 <TextBlock Grid.Column="1" Text="{TemplateBinding Label}"
                            TextTrimming="CharacterEllipsis"
-                           FontSize="12"
+                           FontSize="12.5"
+                           VerticalAlignment="Center"
                            Foreground="{DynamicResource Brush.TextSecondary}" />
               </Grid>
             </Border>
@@ -49,8 +45,7 @@
         </Setter>
 
         <Style Selector="^:active /template/ Border:pointerover">
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
-          <Setter Property="BoxShadow" Value="0 1 6 0 #12000000" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRimHover}" />
         </Style>
 
         <Style Selector="^:not(:active)">

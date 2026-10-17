@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.58" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.59" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -326,6 +326,36 @@ hosted while visible. Set `MaxWidth` to bound the responsive card in a transcrip
   </sc:StrataThink.Content>
 </sc:StrataThink>
 ```
+
+## Transcript glass
+
+The transcript controls share the glass of the chat header's pills and follow-up chips, with line
+icons and colour reserved for state. The tokens are `Brush.GlassFill`/`GlassFillHover`,
+`Brush.GlassRim`/`GlassRimHover`, `Brush.GlassDivider`, `Brush.GlassRowHover`, `Brush.GlassWell`
+(recessed details and console output), `Brush.GlassAccentTint` (a chosen answer), and
+`Shadow.GlassChip`/`Shadow.GlassCard`; high contrast uses solid fills without shadows. Their fill
+and rim transitions use `PremultipliedBrushTransition`: a plain `BrushTransition` from
+`Transparent` (white at zero alpha) flashes light grey on the way in and out.
+
+- `StrataThink` is a chip (`Icon` from `StrataIcons`, `Label`, `Meta`) that grows into a card when
+  opened or while it previews live work, with the Strata line as its progress. A collapsed chip at
+  work carries a feathered Strata line beneath it. `HasError` turns the icon the danger colour once
+  the work has settled.
+- `StrataAiToolCall` and `StrataTerminalPreview` are rows inside a card: icon, name, detail (a
+  command in the console typeface) and a short outcome, all 31px tall. Opening a row shows its
+  details or output in a well. `StrataToolDetails` lays out a step's details: parameters written as
+  `**Key:** value` lines become an aligned list of fields (anything else stays markdown), and the
+  result follows below a divider, as the error when the step failed. It builds its content when first
+  measured, so details that stay folded away cost nothing.
+- `StrataElapsedText` counts up from `Since` ("8s", "1m 04s") once a second while attached; live
+  rows use it for how long each step has been running.
+- `StrataTurnSummary` is a quiet fold line whose content hangs from a thin rail; it shows an alert
+  icon when something it folds failed.
+- `StrataQuestionCard` is a glass card with full-width option rows and an optional free-text field;
+  once answered it folds to one line with the answer.
+- `StrataAgentRun.inline` and `StrataTypingIndicator` wear the chip glass. An inline run is one
+  31px row (avatar, task, agent) that states its outcome as quiet text with a line icon, with
+  `HeaderAction` after it.
 
 ## Composer focus and entrance motion
 

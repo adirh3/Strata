@@ -215,6 +215,18 @@
   <SolidColorBrush x:Key="Brush.AccentGlowSoft" Color="#204F46E5" />
   <SolidColorBrush x:Key="Brush.AccentGlowStrong" Color="#384F46E5" />
 
+  <!-- ── Transcript glass: an AI's work on the floating header's material (see Colors.Dark) ── -->
+  <SolidColorBrush x:Key="Brush.GlassFill" Color="{DynamicResource Color.SurfaceOverlay}" Opacity="0.66" />
+  <SolidColorBrush x:Key="Brush.GlassFillHover" Color="{DynamicResource Color.SurfaceOverlay}" Opacity="0.88" />
+  <SolidColorBrush x:Key="Brush.GlassRim" Color="{DynamicResource Color.TextPrimary}" Opacity="0.1" />
+  <SolidColorBrush x:Key="Brush.GlassRimHover" Color="{DynamicResource Color.TextPrimary}" Opacity="0.16" />
+  <SolidColorBrush x:Key="Brush.GlassDivider" Color="{DynamicResource Color.TextPrimary}" Opacity="0.07" />
+  <SolidColorBrush x:Key="Brush.GlassRowHover" Color="{DynamicResource Color.TextPrimary}" Opacity="0.05" />
+  <SolidColorBrush x:Key="Brush.GlassWell" Color="{DynamicResource Color.Background}" Opacity="0.7" />
+  <SolidColorBrush x:Key="Brush.GlassAccentTint" Color="{DynamicResource Color.AccentDefault}" Opacity="0.1" />
+  <BoxShadows x:Key="Shadow.GlassChip">0 4 14 -6 #1A000000</BoxShadows>
+  <BoxShadows x:Key="Shadow.GlassCard">0 14 34 -14 #2E000000, 0 4 12 -4 #0F000000, inset 0 1 0 0 #B3FFFFFF</BoxShadows>
+
   <!-- Selection gradient: subtle left-to-right accent wash for DataGrid / table selection -->
   <LinearGradientBrush x:Key="Brush.SelectionGradient" StartPoint="0%,50%" EndPoint="100%,50%">
     <GradientStop Offset="0" Color="#184F46E5" />

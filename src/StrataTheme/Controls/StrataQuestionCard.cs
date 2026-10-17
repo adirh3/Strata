@@ -5,7 +5,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Layout;
 using Avalonia.Media;
 
 namespace StrataTheme.Controls;
@@ -22,14 +21,14 @@ namespace StrataTheme.Controls;
 ///                                AllowFreeText="True"
 ///                                FreeTextPlaceholder="Or type your own..." /&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Root (Border), PART_Stratum (Border),
-/// PART_OptionsPanel (WrapPanel), PART_FreeTextBox (TextBox),
+/// <para><b>Template parts:</b> PART_Root (Border), PART_QuestionText (StrataMarkdown),
+/// PART_OptionsPanel (Panel), PART_FreeTextBox (TextBox),
 /// PART_FreeTextSubmit (Button), PART_MultiSubmit (Button).</para>
 /// <para><b>Pseudo-classes:</b> :answered, :expired, :has-free-text, :multi-select.</para>
 /// </remarks>
 public class StrataQuestionCard : TemplatedControl
 {
-    private WrapPanel? _optionsPanel;
+    private Panel? _optionsPanel;
     private TextBox? _freeTextBox;
     private Button? _freeTextSubmit;
     private Button? _multiSubmit;
@@ -131,7 +130,7 @@ public class StrataQuestionCard : TemplatedControl
 
         base.OnApplyTemplate(e);
 
-        _optionsPanel = e.NameScope.Find<WrapPanel>("PART_OptionsPanel");
+        _optionsPanel = e.NameScope.Find<Panel>("PART_OptionsPanel");
         _freeTextBox = e.NameScope.Find<TextBox>("PART_FreeTextBox");
         _freeTextSubmit = e.NameScope.Find<Button>("PART_FreeTextSubmit");
         _multiSubmit = e.NameScope.Find<Button>("PART_MultiSubmit");
@@ -204,11 +203,9 @@ public class StrataQuestionCard : TemplatedControl
                     Text = opt,
                     TextWrapping = TextWrapping.Wrap,
                     TextTrimming = TextTrimming.CharacterEllipsis,
-                    TextAlignment = TextAlignment.Center,
                     MaxLines = 2,
                 },
                 Classes = { "question-option" },
-                HorizontalContentAlignment = HorizontalAlignment.Center,
                 Tag = opt,
             };
             ToolTip.SetTip(btn, opt);
