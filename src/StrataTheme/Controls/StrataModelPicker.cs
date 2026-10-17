@@ -38,7 +38,8 @@ namespace StrataTheme.Controls;
 /// </code>
 /// <para><b>Template parts:</b> PART_ModelPickerButton (Button), PART_ModelPickerPopup (Popup),
 /// PART_ModelPickerList (ListBox), PART_ModelPickerSearch (TextBox), PART_ModelPickerPanel (Border),
-/// PART_ModelPickerBackdrop (Border), PART_EffortSection (StackPanel), PART_ContextWindowSection (StackPanel).</para>
+/// PART_ModelPickerBackdrop (Border), PART_EffortSection (StackPanel), PART_ContextWindowSection (StackPanel),
+/// PART_ModelPickerNote (Border, shown while <see cref="SelectedModelNote"/> is set).</para>
 /// <para><b>Pseudo-classes:</b> :has-models, :has-quality, :has-context-window, :model-picker-open,
 /// :no-model-results, :can-filter-pinned, :has-model-settings.</para>
 /// <para><b>Rich items:</b> items implementing <see cref="IStrataModelOption"/> are identified by
@@ -150,6 +151,21 @@ public class StrataModelPicker : TemplatedControl
     /// <summary>Optional parameter for <see cref="PickerOpenedCommand"/>.</summary>
     public static readonly StyledProperty<object?> PickerOpenedCommandParameterProperty =
         AvaloniaProperty.Register<StrataModelPicker, object?>(nameof(PickerOpenedCommandParameter));
+
+    /// <summary>
+    /// Optional note about the selected model, shown along the bottom of the open picker (for example,
+    /// which plan or account it uses). The note row is hidden while this is null or empty.
+    /// </summary>
+    public static readonly StyledProperty<string?> SelectedModelNoteProperty =
+        AvaloniaProperty.Register<StrataModelPicker, string?>(nameof(SelectedModelNote));
+
+    /// <summary>Label of the link beside <see cref="SelectedModelNote"/>, such as "Manage usage".</summary>
+    public static readonly StyledProperty<string?> SelectedModelNoteActionLabelProperty =
+        AvaloniaProperty.Register<StrataModelPicker, string?>(nameof(SelectedModelNoteActionLabel));
+
+    /// <summary>Command run by the note's link. The link is hidden while this is null.</summary>
+    public static readonly StyledProperty<ICommand?> SelectedModelNoteCommandProperty =
+        AvaloniaProperty.Register<StrataModelPicker, ICommand?>(nameof(SelectedModelNoteCommand));
 
     /// <summary>Current search query. Search matches all words against names, ids and providers.</summary>
     public static readonly StyledProperty<string> SearchTextProperty =
@@ -322,6 +338,24 @@ public class StrataModelPicker : TemplatedControl
     {
         get => GetValue(PickerOpenedCommandParameterProperty);
         set => SetValue(PickerOpenedCommandParameterProperty, value);
+    }
+
+    public string? SelectedModelNote
+    {
+        get => GetValue(SelectedModelNoteProperty);
+        set => SetValue(SelectedModelNoteProperty, value);
+    }
+
+    public string? SelectedModelNoteActionLabel
+    {
+        get => GetValue(SelectedModelNoteActionLabelProperty);
+        set => SetValue(SelectedModelNoteActionLabelProperty, value);
+    }
+
+    public ICommand? SelectedModelNoteCommand
+    {
+        get => GetValue(SelectedModelNoteCommandProperty);
+        set => SetValue(SelectedModelNoteCommandProperty, value);
     }
 
     public string SearchText

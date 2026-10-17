@@ -524,7 +524,10 @@
                                                   ContextWindowTiers="{TemplateBinding ContextWindowTiers}"
                                                   SelectedContextWindowTier="{Binding SelectedContextWindowTier, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                                   PickerOpenedCommand="{TemplateBinding ModelPickerOpenedCommand}"
-                                                  PickerOpenedCommandParameter="{TemplateBinding ModelPickerOpenedCommandParameter}" />
+                                                  PickerOpenedCommandParameter="{TemplateBinding ModelPickerOpenedCommandParameter}"
+                                                  SelectedModelNote="{TemplateBinding ModelNote}"
+                                                  SelectedModelNoteActionLabel="{TemplateBinding ModelNoteActionLabel}"
+                                                  SelectedModelNoteCommand="{TemplateBinding ModelNoteCommand}" />
                     </Panel>
 
                     <Panel Name="PART_SendWrap" VerticalAlignment="Center">

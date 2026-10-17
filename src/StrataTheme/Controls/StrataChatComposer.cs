@@ -646,6 +646,18 @@ public partial class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<object?> ModelPickerOpenedCommandParameterProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(ModelPickerOpenedCommandParameter));
 
+    /// <summary>Optional note about the selected model, shown at the bottom of the model picker.</summary>
+    public static readonly StyledProperty<string?> ModelNoteProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ModelNote));
+
+    /// <summary>Label of the link beside <see cref="ModelNote"/>.</summary>
+    public static readonly StyledProperty<string?> ModelNoteActionLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ModelNoteActionLabel));
+
+    /// <summary>Command run by the link beside <see cref="ModelNote"/>; the link is hidden while null.</summary>
+    public static readonly StyledProperty<ICommand?> ModelNoteCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(ModelNoteCommand));
+
     /// <summary>Optional parameter for <see cref="AttachCommand"/>.</summary>
     public static readonly StyledProperty<object?> AttachCommandParameterProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(AttachCommandParameter));
@@ -983,6 +995,9 @@ public partial class StrataChatComposer : TemplatedControl
     public object? AttachCommandParameter { get => GetValue(AttachCommandParameterProperty); set => SetValue(AttachCommandParameterProperty, value); }
     public ICommand? ModelPickerOpenedCommand { get => GetValue(ModelPickerOpenedCommandProperty); set => SetValue(ModelPickerOpenedCommandProperty, value); }
     public object? ModelPickerOpenedCommandParameter { get => GetValue(ModelPickerOpenedCommandParameterProperty); set => SetValue(ModelPickerOpenedCommandParameterProperty, value); }
+    public string? ModelNote { get => GetValue(ModelNoteProperty); set => SetValue(ModelNoteProperty, value); }
+    public string? ModelNoteActionLabel { get => GetValue(ModelNoteActionLabelProperty); set => SetValue(ModelNoteActionLabelProperty, value); }
+    public ICommand? ModelNoteCommand { get => GetValue(ModelNoteCommandProperty); set => SetValue(ModelNoteCommandProperty, value); }
     public ICommand? VoiceCommand { get => GetValue(VoiceCommandProperty); set => SetValue(VoiceCommandProperty, value); }
     public object? VoiceCommandParameter { get => GetValue(VoiceCommandParameterProperty); set => SetValue(VoiceCommandParameterProperty, value); }
     public ICommand? MentionCommand { get => GetValue(MentionCommandProperty); set => SetValue(MentionCommandProperty, value); }

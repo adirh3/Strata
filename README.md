@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.60" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.61" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -98,6 +98,13 @@ Strata line. Segments share spare width evenly and shrink proportionally
 are each control's tooltip and every segment's accessible help text, and the
 control's accessible name reads the label with its current value (for example
 "Reasoning: High").
+
+Hosts can show a short note about the current model along the bottom of the open
+picker with `SelectedModelNote` (for example, the plan it uses), and a link beside
+it with `SelectedModelNoteActionLabel` and `SelectedModelNoteCommand`. The note row
+(`PART_ModelPickerNote`) is hidden while the note is empty, and its link while the
+command is null. `StrataChatComposer` forwards them as `ModelNote`,
+`ModelNoteActionLabel` and `ModelNoteCommand`.
 
 The search field has no outline; while it has focus, the composer's Strata line
 grows along the header divider. The popup stays in the window's overlay layer:
