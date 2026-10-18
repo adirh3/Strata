@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.61" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.62" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -59,6 +59,40 @@ second animation. To opt out, set both popup properties and the presenter's
 `PopupAnimationHelper.OpenAnimationDuration` optionally changes one popup's
 opening time, without changing its 150 ms exit or other popups. The model picker
 uses a 120 ms near-full-size scale/fade instead of expanding from its button's height.
+
+## Chat text selection and copying
+
+Chat shells share one selection across their transcript, including paragraphs, lists,
+tables, code and adjacent messages. Messages and standalone markdown also provide a
+selection scope on their own. Set `StrataTextSelection.IsSelectionScope="True"` on a
+custom transcript host to join its text blocks. Mouse dragging, edge scrolling,
+Shift-click extension and Ctrl+C / Cmd+C work across the scope. Ctrl+A / Cmd+A selects
+the focused message. Right-click and menu focus preserve the highlight; Escape clears it.
+Selection respects clipped inset content, and edge scrolling uses its own scroll area
+when selecting inside a table or reasoning panel. Edge scrolling starts when the pointer
+moves to drag a selection, not on a stationary click or Shift-click.
+Editable fields, buttons and touch scrolling keep their own interactions.
+
+Selection controllers are created on first use and shared by the outermost scope;
+nested messages and markdown do not allocate duplicate controllers. Keyboard selection
+does not create a scroll timer, and the transcript skips per-turn selection checks when
+no selection is active.
+
+The message's copy button copies the whole message. Its context menu has one `Copy as`
+group for Plain text, Markdown and Rich text, each copying the selection when there is
+one or the message otherwise. There are no separate selection-copy or whole-turn-copy
+entries. The footer button and Ctrl+C / Cmd+C supply HTML and readable text so the paste target chooses.
+Hosts localize `CopyAsLabel`, `CopyPlainTextLabel` and `SelectAllLabel` alongside the
+existing labels.
+A `CopyRequested` handler can set `ClipboardWriteTask`; Strata awaits it instead of
+writing to the clipboard again, and shows copied feedback only after success.
+
+Formatted copying converts cards and comparisons to headings and content, charts
+to data tables, confidence to a percentage and explanation, sources to links, and
+interactions to ordinary forms, lists and tables with their current values.
+Unanswered quizzes do not reveal their answer key. Markdown retains standard Mermaid
+fences; rich copying includes a rendered diagram image when its visual is available,
+otherwise readable Mermaid source. Invalid definitions are retained as code and logged.
 
 ## Model picker
 
@@ -189,8 +223,8 @@ Its placement anchor is released only after the popup host closes; selecting ano
 during the exit keeps the new selection's position and quote.
 
 Set `TimestampToolTip` to the full date/time while keeping `Timestamp` short. Hosts can
-localize `CopyLabel`, `CopySelectionLabel`, `CopyMarkdownLabel`, `CopyRichTextLabel`,
-`CopyTurnLabel`, `CopiedLabel`, and `MoreActionsLabel`, alongside the existing reply/fork labels.
+localize `CopyLabel`, `CopyAsLabel`, `CopyPlainTextLabel`, `CopyMarkdownLabel`, `CopyRichTextLabel`,
+`SelectAllLabel`, `CopiedLabel`, and `MoreActionsLabel`, alongside the existing reply/fork labels.
 Disable Edit and Retry when the host does not implement those actions.
 
 Set `IsProgressUpdate="True"` on an assistant message that is narration written while the

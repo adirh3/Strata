@@ -243,16 +243,17 @@ public class StrataChatMessageTests
                 .OfType<MenuItem>()
                 .Select(static item => item.Header?.ToString())
                 .ToArray();
-            Assert.Contains("Copy message", headers);
-            Assert.Contains("Copy as Markdown", headers);
-            Assert.Contains("Copy as rich text", headers);
-            Assert.Contains("Copy assistant turn", headers);
+            Assert.DoesNotContain("Copy message", headers);
+            Assert.Contains("Copy as", headers);
+            Assert.DoesNotContain("Markdown", headers);
+            Assert.DoesNotContain("Rich text", headers);
+            Assert.DoesNotContain("Copy entire response", headers);
             Assert.DoesNotContain("Copy selected text", headers);
         });
     }
 
     [Fact]
-    public async Task RebuildContextMenuItems_SelectionHidesWholeMessageFormats()
+    public async Task RebuildContextMenuItems_SelectionKeepsTheFormatSubmenu()
     {
         await _fixture.Dispatch(() =>
         {
@@ -272,10 +273,14 @@ public class StrataChatMessageTests
                 .OfType<MenuItem>()
                 .Select(static item => item.Header?.ToString())
                 .ToArray();
-            Assert.Contains("Copy selected text", headers);
+            Assert.DoesNotContain("Copy selected text", headers);
+            Assert.DoesNotContain("Copy entire response", headers);
             Assert.DoesNotContain("Copy message", headers);
-            Assert.DoesNotContain("Copy as Markdown", headers);
-            Assert.DoesNotContain("Copy as rich text", headers);
+            Assert.Contains("Copy as", headers);
+            var copyAs = Assert.IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource).OfType<MenuItem>()
+                .Single(item => item.Header?.ToString() == "Copy as");
+            Assert.Equal(new[] { "Plain text", "Markdown", "Rich text" },
+                copyAs.Items.OfType<MenuItem>().Select(item => item.Header?.ToString()));
         });
     }
 
@@ -335,7 +340,7 @@ public class StrataChatMessageTests
     }
 
     [Fact]
-    public async Task RebuildContextMenuItems_CanReplyOffersReplyFirst_ForTheWholeMessage()
+    public async Task RebuildContextMenuItems_CanReplyOffersReply_AfterTheCopyActions()
     {
         await _fixture.Dispatch(() =>
         {
@@ -353,9 +358,9 @@ public class StrataChatMessageTests
             InvokePrivate(message, "RebuildContextMenuItems");
 
             var items = Assert.IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource).ToArray();
-            var reply = Assert.IsType<MenuItem>(items[0]);
+            Assert.Equal("Copy as", Assert.IsType<MenuItem>(items[0]).Header);
+            var reply = items.OfType<MenuItem>().Single(item => item.Header?.ToString() == "Reply");
             Assert.Equal("Reply", reply.Header?.ToString());
-            Assert.IsType<Separator>(items[1]);
 
             reply.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
 
@@ -386,7 +391,8 @@ public class StrataChatMessageTests
 
             InvokePrivate(message, "RebuildContextMenuItems");
 
-            var reply = Assert.IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource).OfType<MenuItem>().First();
+            var reply = Assert.IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource).OfType<MenuItem>()
+                .Single(item => item.Header?.ToString() == "Ask about this");
             Assert.Equal("Ask about this", reply.Header?.ToString());
 
             reply.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
@@ -671,8 +677,9 @@ public class StrataChatMessageTests
             .GetValue(message) as Popup;
 
     [Theory]
-    [InlineData("Copy as Markdown", StrataCopyFormat.Markdown)]
-    [InlineData("Copy as rich text", StrataCopyFormat.RichText)]
+    [InlineData("Plain text", StrataCopyFormat.Text)]
+    [InlineData("Markdown", StrataCopyFormat.Markdown)]
+    [InlineData("Rich text", StrataCopyFormat.RichText)]
     public async Task CopyFormatMenuItem_RaisesTheChosenFormat(string header, StrataCopyFormat expectedFormat)
     {
         await _fixture.Dispatch(() =>
@@ -690,6 +697,8 @@ public class StrataChatMessageTests
             var item = Assert
                 .IsAssignableFrom<IEnumerable<object>>(menu.ItemsSource)
                 .OfType<MenuItem>()
+                .Single(menuItem => menuItem.Header?.ToString() == "Copy as")
+                .Items.OfType<MenuItem>()
                 .Single(menuItem => string.Equals(menuItem.Header?.ToString(), header, StringComparison.Ordinal));
             item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
 

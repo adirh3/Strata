@@ -12,6 +12,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Logging;
 using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Threading;
@@ -56,10 +57,10 @@ public class StrataEditConfirmedEventArgs : RoutedEventArgs
     }
 }
 
-/// <summary>Event arguments for <see cref="StrataChatMessage.CopyRequested"/> carrying the exact copied text.</summary>
+/// <summary>Describes a requested copy and an optional host clipboard write.</summary>
 public class StrataCopyRequestedEventArgs : RoutedEventArgs
 {
-    /// <summary>The text Strata copied to the clipboard before raising the event.</summary>
+    /// <summary>The requested text, before the clipboard write.</summary>
     public string Text { get; }
 
     /// <summary>True when the copy action targeted selected text instead of the whole message.</summary>
@@ -67,6 +68,9 @@ public class StrataCopyRequestedEventArgs : RoutedEventArgs
 
     /// <summary>The clipboard representation chosen by the user.</summary>
     public StrataCopyFormat Format { get; }
+
+    /// <summary>A host may supply its clipboard write; Strata awaits it instead of writing twice.</summary>
+    public Task? ClipboardWriteTask { get; set; }
 
     public StrataCopyRequestedEventArgs(
         RoutedEvent routedEvent,
@@ -232,11 +236,17 @@ public class StrataChatMessage : TemplatedControl
     public static readonly StyledProperty<string> CopySelectionLabelProperty =
         AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopySelectionLabel), "Copy selected text");
     public static readonly StyledProperty<string> CopyMarkdownLabelProperty =
-        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyMarkdownLabel), "Copy as Markdown");
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyMarkdownLabel), "Markdown");
     public static readonly StyledProperty<string> CopyRichTextLabelProperty =
-        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyRichTextLabel), "Copy as rich text");
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyRichTextLabel), "Rich text");
+    public static readonly StyledProperty<string> CopyAsLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyAsLabel), "Copy as");
+    public static readonly StyledProperty<string> CopyPlainTextLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyPlainTextLabel), "Plain text");
+    public static readonly StyledProperty<string> SelectAllLabelProperty =
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(SelectAllLabel), "Select message");
     public static readonly StyledProperty<string> CopyTurnLabelProperty =
-        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyTurnLabel), "Copy assistant turn");
+        AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopyTurnLabel), "Copy entire response");
     public static readonly StyledProperty<string> CopiedLabelProperty =
         AvaloniaProperty.Register<StrataChatMessage, string>(nameof(CopiedLabel), "Copied");
 
@@ -404,6 +414,7 @@ public class StrataChatMessage : TemplatedControl
 
     static StrataChatMessage()
     {
+        StrataTextSelection.IsSelectionScopeProperty.OverrideDefaultValue<StrataChatMessage>(true);
         RoleProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnRoleChanged());
         CanForkProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         CanReplyProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnCanReplyChanged());
@@ -427,6 +438,9 @@ public class StrataChatMessage : TemplatedControl
         CopySelectionLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         CopyMarkdownLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         CopyRichTextLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
+        CopyAsLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
+        CopyPlainTextLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
+        SelectAllLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         CopyTurnLabelProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.InvalidateContextMenu());
         IsHostScrollingProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnHostScrollingChanged());
         AuthorProperty.Changed.AddClassHandler<StrataChatMessage>((c, _) => c.OnMetaChanged());
@@ -485,6 +499,9 @@ public class StrataChatMessage : TemplatedControl
     public string CopySelectionLabel { get => GetValue(CopySelectionLabelProperty); set => SetValue(CopySelectionLabelProperty, value); }
     public string CopyMarkdownLabel { get => GetValue(CopyMarkdownLabelProperty); set => SetValue(CopyMarkdownLabelProperty, value); }
     public string CopyRichTextLabel { get => GetValue(CopyRichTextLabelProperty); set => SetValue(CopyRichTextLabelProperty, value); }
+    public string CopyAsLabel { get => GetValue(CopyAsLabelProperty); set => SetValue(CopyAsLabelProperty, value); }
+    public string CopyPlainTextLabel { get => GetValue(CopyPlainTextLabelProperty); set => SetValue(CopyPlainTextLabelProperty, value); }
+    public string SelectAllLabel { get => GetValue(SelectAllLabelProperty); set => SetValue(SelectAllLabelProperty, value); }
     public string CopyTurnLabel { get => GetValue(CopyTurnLabelProperty); set => SetValue(CopyTurnLabelProperty, value); }
     public string CopiedLabel { get => GetValue(CopiedLabelProperty); set => SetValue(CopiedLabelProperty, value); }
     public string MoreActionsLabel { get => GetValue(MoreActionsLabelProperty); set => SetValue(MoreActionsLabelProperty, value); }
@@ -577,6 +594,7 @@ public class StrataChatMessage : TemplatedControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        StrataTextSelection.UpdateSelectionScope(this);
 
         _isAttachedToVisualTree = true;
 
@@ -801,19 +819,18 @@ public class StrataChatMessage : TemplatedControl
             return;
         }
 
-        if (e.Key == Key.C && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        var commandModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        if (!e.Handled && e.Key == Key.C && e.KeyModifiers == commandModifier)
         {
             e.Handled = true;
-            var copy = await CopyMessageTextAsync(StrataCopyFormat.Text);
-            RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection));
-            CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
+            await CopyMessageAndNotifyAsync(StrataCopyFormat.RichText);
         }
     }
 
     private async void OnCopyButtonClick(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        await CopyMessageAndNotifyAsync(StrataCopyFormat.Text);
+        await CopyMessageAndNotifyAsync(StrataCopyFormat.RichText, wholeMessage: true);
     }
 
     private void OnMoreButtonClick(object? sender, RoutedEventArgs e)
@@ -884,6 +901,8 @@ public class StrataChatMessage : TemplatedControl
             return;
 
         CaptureContextMenuSelection();
+        if (!TargetHasOwnContextMenu(e.Source))
+            e.Handled = true;
     }
 
     private void InterceptRightClickRelease(object? sender, PointerReleasedEventArgs e)
@@ -919,6 +938,11 @@ public class StrataChatMessage : TemplatedControl
         {
             if (current is Control control && current is not TextBlock && current is not TextBox)
             {
+                if (control.Classes.Contains("strata-md-table") && HasSelectedText())
+                {
+                    current = current.GetVisualParent();
+                    continue;
+                }
                 if (control.ContextFlyout is not null)
                     return true;
 
@@ -943,7 +967,10 @@ public class StrataChatMessage : TemplatedControl
         => ResetContextMenuSelection();
 
     private void OnContextMenuOpened(object? sender, RoutedEventArgs e)
-        => PseudoClasses.Set(":menu-open", true);
+    {
+        PseudoClasses.Set(":menu-open", true);
+        RestoreContextMenuSelection();
+    }
 
     private void OnContextMenuClosed(object? sender, RoutedEventArgs e)
     {
@@ -963,7 +990,8 @@ public class StrataChatMessage : TemplatedControl
     private void CaptureContextMenuSelection()
     {
         _contextMenuSelectionSource = null;
-        _contextMenuSelectionText = null;
+        _contextMenuSelectionText = StrataTextSelection.GetSelectedText(this)
+            ?? ChatContentExtractor.ExtractSelectedText(Content);
 
         var selectedBlock = FindSelectedTextBlock(Content);
         if (selectedBlock is null)
@@ -972,11 +1000,11 @@ public class StrataChatMessage : TemplatedControl
         _contextMenuSelectionSource = selectedBlock;
         _contextMenuSelectionStart = selectedBlock.SelectionStart;
         _contextMenuSelectionEnd = selectedBlock.SelectionEnd;
-        _contextMenuSelectionText = selectedBlock.SelectedText;
     }
 
     private void RestoreContextMenuSelection()
     {
+        StrataTextSelection.PreserveSelection(this);
         if (_contextMenuSelectionSource is null || string.IsNullOrEmpty(_contextMenuSelectionText))
             return;
 
@@ -1072,27 +1100,41 @@ public class StrataChatMessage : TemplatedControl
 
         var items = new List<object>();
 
-        if (CanReply && !IsEditing)
+        var copyAs = new MenuItem { Name = "CopyAsMenuItem", Header = CopyAsLabel };
+        foreach (var (label, format) in new[]
         {
+            (CopyPlainTextLabel, StrataCopyFormat.Text),
+            (CopyMarkdownLabel, StrataCopyFormat.Markdown),
+            (CopyRichTextLabel, StrataCopyFormat.RichText)
+        })
+        {
+            var formatItem = new MenuItem { Name = $"Copy{format}MenuItem", Header = label };
+            formatItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(format);
+            copyAs.Items.Add(formatItem);
+        }
+        items.Add(copyAs);
+
+        var selectAll = new MenuItem
+        {
+            Header = SelectAllLabel,
+            InputGesture = new KeyGesture(Key.A, OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control)
+        };
+        selectAll.Click += (_, _) => StrataTextSelection.SelectAll(this);
+        items.Add(selectAll);
+
+        var selectionIsWithinMessage = StrataTextSelection.GetSelection(this)
+            .All(range => this.IsVisualAncestorOf(range.Block));
+        if (CanReply && !IsEditing && selectionIsWithinMessage)
+        {
+            items.Add(new Separator());
             var replyItem = new MenuItem
             {
                 Header = hasSelection ? ReplySelectionLabel : ReplyLabel,
                 Icon = CreateReplyMenuIcon()
             };
-            // Resolved at click time (not captured here): the menu is reused across openings while
-            // the selection underneath it changes.
             replyItem.Click += (_, _) => RequestReplyFromContextMenu();
             items.Add(replyItem);
-            items.Add(new Separator());
         }
-
-        var copyItem = new MenuItem
-        {
-            Header = hasSelection ? CopySelectionLabel : CopyLabel,
-            Icon = CreateMenuIcon("\uE8C8")
-        };
-        copyItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.Text);
-        items.Add(copyItem);
 
         if (CanShare && !IsStreaming && !IsEditing && Role != StrataChatRole.System)
         {
@@ -1103,35 +1145,6 @@ public class StrataChatMessage : TemplatedControl
             };
             shareItem.Click += OnShareButtonClick;
             items.Add(shareItem);
-        }
-
-        if (!hasSelection)
-        {
-            var markdownItem = new MenuItem
-            {
-                Header = CopyMarkdownLabel,
-                Icon = CreateMenuIcon("\uE8C8")
-            };
-            markdownItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.Markdown);
-            items.Add(markdownItem);
-
-            var richTextItem = new MenuItem
-            {
-                Header = CopyRichTextLabel,
-                Icon = CreateMenuIcon("\uE8C8")
-            };
-            richTextItem.Click += async (_, _) => await CopyMessageAndNotifyAsync(StrataCopyFormat.RichText);
-            items.Add(richTextItem);
-        }
-
-        if (!IsEditing && Role is StrataChatRole.Assistant or StrataChatRole.Tool)
-        {
-            var copyTurnItem = new MenuItem { Header = CopyTurnLabel, Icon = CreateMenuIcon("\uE8C8") };
-            copyTurnItem.Click += (_, _) =>
-            {
-                RaiseEvent(new RoutedEventArgs(CopyTurnRequestedEvent));
-            };
-            items.Add(copyTurnItem);
         }
 
         if (!IsEditing && CanFork)
@@ -1213,16 +1226,30 @@ public class StrataChatMessage : TemplatedControl
 
     private readonly record struct MessageCopyResult(string Text, bool IsSelection);
 
-    private async Task CopyMessageAndNotifyAsync(StrataCopyFormat format)
+    private async Task CopyMessageAndNotifyAsync(StrataCopyFormat format, bool wholeMessage = false)
     {
-        var copy = await CopyMessageTextAsync(format);
-        RaiseEvent(new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection, format));
-        CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
-        if (!string.IsNullOrWhiteSpace(copy.Text) && TopLevel.GetTopLevel(this)?.Clipboard is not null)
+        var copy = wholeMessage
+            ? new MessageCopyResult(ChatContentExtractor.ExtractCopyMarkdown(Content).Trim(), false)
+            : ExtractCopyText();
+        if (string.IsNullOrWhiteSpace(copy.Text))
+            return;
+        try
         {
+            var request = new StrataCopyRequestedEventArgs(CopyRequestedEvent, copy.Text, copy.IsSelection, format);
+            RaiseEvent(request);
+            if (request.ClipboardWriteTask is { } hostWrite)
+                await hostWrite;
+            else
+                await CopyMessageTextAsync(copy, format);
+            CommandHelper.Execute(CopyCommand, CopyCommandParameter ?? copy.Text);
             ResetCopyFeedback();
             PseudoClasses.Set(":copied", true);
             _copyFeedbackReset = DispatcherTimer.RunOnce(ResetCopyFeedback, TimeSpan.FromSeconds(2));
+        }
+        catch (Exception error)
+        {
+            Logger.TryGet(LogEventLevel.Error, "Clipboard")?.Log(
+                this, "Could not copy message: {Error}", error.Message);
         }
     }
 
@@ -1233,26 +1260,26 @@ public class StrataChatMessage : TemplatedControl
         PseudoClasses.Set(":copied", false);
     }
 
-    private async Task<MessageCopyResult> CopyMessageTextAsync(StrataCopyFormat format)
+    private async Task CopyMessageTextAsync(MessageCopyResult copy, StrataCopyFormat format)
     {
-        var copy = ExtractCopyText();
         var text = copy.Text;
-        if (string.IsNullOrWhiteSpace(text))
-            return copy;
-
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel?.Clipboard is not null)
+        if (copy.IsSelection)
         {
-            var data = format switch
-            {
-                StrataCopyFormat.Markdown => ChatClipboardData.CreateMarkdown(text),
-                StrataCopyFormat.RichText => ChatClipboardData.CreateRichText(text),
-                _ => ChatClipboardData.CreateText(text),
-            };
-            await topLevel.Clipboard.SetDataAsync(data);
+            var ranges = StrataTextSelection.GetSelection(this);
+            if (ranges.Count > 0)
+                text = ChatClipboardData.SelectionMarkdown(ranges);
         }
-
-        return copy;
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard
+            ?? throw new InvalidOperationException("The system clipboard is unavailable.");
+        using var data = format switch
+        {
+            StrataCopyFormat.Markdown => ChatClipboardData.CreateMarkdown(text),
+            StrataCopyFormat.RichText => ChatClipboardData.CreateRichText(text,
+                copy.IsSelection ? StrataTextSelection.GetSelectionRoot(this) : Content as Control),
+            _ => ChatClipboardData.CreateText(copy.IsSelection && StrataTextSelection.GetSelection(this).Count == 0
+                ? copy.Text : MarkdownClipboardFormatter.ToPlainText(text)),
+        };
+        await clipboard.SetDataAsync(data);
     }
 
     private MessageCopyResult ExtractCopyText()
@@ -1260,17 +1287,18 @@ public class StrataChatMessage : TemplatedControl
         if (IsEditing && !string.IsNullOrWhiteSpace(EditText))
             return new MessageCopyResult(EditText!, false);
 
-        var selected = _contextMenuSelectionText;
+        var selected = StrataTextSelection.GetSelectedText(this) ?? _contextMenuSelectionText;
         if (string.IsNullOrEmpty(selected))
             selected = ChatContentExtractor.ExtractSelectedText(Content);
         if (!string.IsNullOrEmpty(selected))
             return new MessageCopyResult(selected, true);
 
-        return new MessageCopyResult(ChatContentExtractor.ExtractText(Content).Trim(), false);
+        return new MessageCopyResult(ChatContentExtractor.ExtractCopyMarkdown(Content).Trim(), false);
     }
 
     private bool HasSelectedText()
-        => !string.IsNullOrEmpty(_contextMenuSelectionText)
+        => !string.IsNullOrEmpty(StrataTextSelection.GetSelectedText(this))
+           || !string.IsNullOrEmpty(_contextMenuSelectionText)
            || !string.IsNullOrEmpty(ChatContentExtractor.ExtractSelectedText(Content));
 
     // ── Replies ─────────────────────────────────────────
@@ -1334,10 +1362,10 @@ public class StrataChatMessage : TemplatedControl
     /// Shows the floating Reply pill above the selection the pointer just finished in
     /// <paramref name="textBlock"/>, or nothing when the release left nothing selected (a plain click).
     /// </summary>
-    private void ShowSelectionReply(SelectableTextBlock textBlock, Point releasePoint)
+    internal void ShowSelectionReply(SelectableTextBlock textBlock, Point releasePoint)
     {
         HideSelectionReply();
-        var selectedText = textBlock.SelectedText;
+        var selectedText = StrataTextSelection.GetActiveSelectedText(this) ?? textBlock.SelectedText;
         if (!CanReply || IsEditing || !_isAttachedToVisualTree || string.IsNullOrWhiteSpace(selectedText))
             return;
 

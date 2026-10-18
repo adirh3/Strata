@@ -65,6 +65,25 @@ public partial class StrataMarkdown
             _localInteractionStates[request.Definition.Id] = request.StateJson;
     }
 
+    internal string GetCopyMarkdown() =>
+        MarkdownClipboardFormatter.ToPortableMarkdown(Markdown ?? "", GetCopyInteractionStates());
+
+    private IReadOnlyDictionary<string, string> GetCopyInteractionStates()
+    {
+        var states = new Dictionary<string, string>(_localInteractionStates);
+        if (InteractionStates is not null)
+        {
+            foreach (var state in InteractionStates)
+                states[state.Key] = state.Value;
+        }
+        foreach (var control in _interactionCache.Values)
+        {
+            if (control.Definition is { } definition && !string.IsNullOrEmpty(control.StateJson))
+                states[definition.Id] = control.StateJson;
+        }
+        return states;
+    }
+
     private static string InteractionCacheKey(MdBlock block) => block.Language.ToLowerInvariant() + ":" + block.Content.Trim();
 
     private Control CreateInteractiveControl(MdBlock block)

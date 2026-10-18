@@ -7,9 +7,9 @@ using Avalonia.Interactivity;
 namespace StrataTheme.Controls;
 
 /// <summary>
-/// Controls touch and pen text selection without changing desktop mouse selection.
+/// Controls desktop selection scopes and touch/pen text selection.
 /// </summary>
-public sealed class StrataTextSelection
+public sealed partial class StrataTextSelection
 {
     private const double DragThreshold = 4;
     private static readonly ConditionalWeakTable<SelectableTextBlock, GuardState> States = new();
@@ -22,6 +22,8 @@ public sealed class StrataTextSelection
 
     static StrataTextSelection()
     {
+        IsSelectionScopeProperty.Changed.AddClassHandler<Control>(
+            static (control, _) => UpdateSelectionScope(control));
         IsTouchSelectionEnabledProperty.Changed.AddClassHandler<SelectableTextBlock>(
             static (textBlock, _) => Update(textBlock));
     }

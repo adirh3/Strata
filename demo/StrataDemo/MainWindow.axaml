@@ -1300,7 +1300,7 @@
                            Text="{Binding Strings[Chat.MessageActionsDescription]}" />
               </StackPanel>
 
-              <StackPanel Spacing="6">
+              <StackPanel Spacing="6" sc:StrataTextSelection.IsSelectionScope="True">
                 <StackPanel.Styles>
                   <Style Selector="sc|StrataChatMessage:user">
                     <Setter Property="HorizontalAlignment" Value="Right" />
@@ -1337,15 +1337,16 @@
                                       ReplySelectionLabel="{Binding Strings[Chat.ReplyToSelection]}"
                                       CopyLabel="{Binding Strings[Chat.CopyMessage]}"
                                       CopySelectionLabel="{Binding Strings[Chat.CopySelection]}"
+                                      CopyAsLabel="{Binding Strings[Chat.CopyAs]}"
+                                      CopyPlainTextLabel="{Binding Strings[Chat.CopyPlainText]}"
+                                      SelectAllLabel="{Binding Strings[Chat.SelectMessage]}"
                                       CopyMarkdownLabel="{Binding Strings[Chat.CopyMarkdown]}"
                                       CopyRichTextLabel="{Binding Strings[Chat.CopyRichText]}"
                                       CopyTurnLabel="{Binding Strings[Chat.CopyTurn]}"
                                       CopiedLabel="{Binding Strings[Chat.Copied]}"
                                       MoreActionsLabel="{Binding Strings[Chat.MoreActions]}">
                   <sc:StrataChatMessage.Content>
-                    <SelectableTextBlock TextWrapping="Wrap" FontSize="13"
-                                         Foreground="{DynamicResource Brush.TextPrimary}"
-                                         Text="{Binding Strings[Chat.Assistant1]}" />
+                    <sc:StrataMarkdown IsInline="True" Markdown="{Binding Strings[Chat.SelectionSample]}" />
                   </sc:StrataChatMessage.Content>
                 </sc:StrataChatMessage>
 

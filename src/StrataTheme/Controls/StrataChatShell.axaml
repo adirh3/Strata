@@ -103,7 +103,7 @@
                                   HorizontalScrollBarVisibility="Disabled"
                                   IsScrollChainingEnabled="False"
                                   BringIntoViewOnFocusChange="False">
-                      <Border Name="PART_ScrollContent">
+                      <Border Name="PART_ScrollContent" controls:StrataTextSelection.IsSelectionScope="True">
                         <ContentPresenter Content="{TemplateBinding Transcript}" />
                       </Border>
                     </ScrollViewer>
