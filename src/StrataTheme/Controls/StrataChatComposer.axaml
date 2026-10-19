@@ -504,8 +504,12 @@
                     </Button>
                       </WrapPanel>
 
-                  <!-- Right: the model, then the one button that dictates, sends and stops -->
+                  <!-- Right: how the chat runs (host settings, then the model), then the one button that dictates, sends and stops -->
                   <StackPanel Name="PART_PrimaryActions" Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom" Margin="0,0,0,5">
+                    <ContentPresenter Name="PART_TrailingContent"
+                                      Content="{TemplateBinding TrailingContent}"
+                                      IsVisible="{TemplateBinding TrailingContent, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                      VerticalAlignment="Center" />
                     <Panel Name="PART_ModelPickerWrap" VerticalAlignment="Center">
                       <controls:StrataModelPicker Name="PART_ModelPicker"
                                                   Classes="quiet"

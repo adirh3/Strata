@@ -537,6 +537,13 @@ public partial class StrataChatComposer : TemplatedControl
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(LeadingContent));
 
     /// <summary>
+    /// Optional host content at the end of the toolbar, just before the model picker: settings that
+    /// shape how the chat runs, like the model does, rather than something a message brings in.
+    /// </summary>
+    public static readonly StyledProperty<object?> TrailingContentProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(TrailingContent));
+
+    /// <summary>
     /// Additional clipboard data formats the host wants to handle itself before
     /// the composer falls back to inserting plain text.
     /// </summary>
@@ -971,6 +978,7 @@ public partial class StrataChatComposer : TemplatedControl
     public bool PreferAutoCompleteAbove { get => GetValue(PreferAutoCompleteAboveProperty); set => SetValue(PreferAutoCompleteAboveProperty, value); }
     public object? ToolbarContent { get => GetValue(ToolbarContentProperty); set => SetValue(ToolbarContentProperty, value); }
     public object? LeadingContent { get => GetValue(LeadingContentProperty); set => SetValue(LeadingContentProperty, value); }
+    public object? TrailingContent { get => GetValue(TrailingContentProperty); set => SetValue(TrailingContentProperty, value); }
     public IEnumerable? ClipboardPasteInterceptFormats { get => GetValue(ClipboardPasteInterceptFormatsProperty); set => SetValue(ClipboardPasteInterceptFormatsProperty, value); }
 
     /// <summary>

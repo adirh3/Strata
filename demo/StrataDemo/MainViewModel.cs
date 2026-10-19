@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using Avalonia.Media;
 using StrataDemo.Localization;
 using StrataTheme.Controls;
 
@@ -11,6 +13,29 @@ public sealed record DemoProviderModel(string ModelId, string Name, string Provi
 {
     public bool IsPinned => false;
     public string DisplayName => Name;
+}
+
+/// <summary>One choice of how much an agent may do on its own, as the mode picker demo lists it.</summary>
+public sealed record DemoApprovalMode(string Title, string Summary, Geometry Icon, StrataModeTone Tone)
+{
+    public static IReadOnlyList<DemoApprovalMode> CreateAll()
+    {
+        var strings = Localization.Strings.Instance;
+        return
+        [
+            new(strings["Approvals.FullAccess"], strings["Approvals.FullAccessSummary"], StrataIcons.Bolt, StrataModeTone.Neutral),
+            new(strings["Approvals.AutoReview"], strings["Approvals.AutoReviewSummary"], StrataIcons.Shield, StrataModeTone.Accent),
+            new(strings["Approvals.AskFirst"], strings["Approvals.AskFirstSummary"], StrataIcons.Hand, StrataModeTone.Caution),
+        ];
+    }
+}
+
+/// <summary>A command for demo choices that need no extra state.</summary>
+public sealed class DemoCommand(Action<object?> execute) : ICommand
+{
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
+    public bool CanExecute(object? parameter) => true;
+    public void Execute(object? parameter) => execute(parameter);
 }
 
 public class MainViewModel : INotifyPropertyChanged
@@ -67,6 +92,39 @@ public class MainViewModel : INotifyPropertyChanged
         };
         Localization.Strings.Instance.Culture = culture;
         Strings = Localization.Strings.Instance.CreateProxy();
+        var mode = Math.Max(0, IndexOf(ApprovalModes, SelectedApprovalMode));
+        ApprovalModes = DemoApprovalMode.CreateAll();
+        SelectedApprovalMode = ApprovalModes[mode];
+    }
+
+    // ── Mode picker demo: how much the agent may do on its own ──
+    private IReadOnlyList<DemoApprovalMode> _approvalModes = DemoApprovalMode.CreateAll();
+    public IReadOnlyList<DemoApprovalMode> ApprovalModes
+    {
+        get => _approvalModes;
+        private set { _approvalModes = value; OnPropertyChanged(); }
+    }
+
+    private DemoApprovalMode? _selectedApprovalMode;
+    public DemoApprovalMode SelectedApprovalMode
+    {
+        get => _selectedApprovalMode ??= ApprovalModes[^1];
+        set { _selectedApprovalMode = value; OnPropertyChanged(); }
+    }
+
+    public ICommand SelectApprovalModeCommand => _selectApprovalModeCommand ??= new DemoCommand(parameter =>
+    {
+        if (parameter is DemoApprovalMode mode)
+            SelectedApprovalMode = mode;
+    });
+    private ICommand? _selectApprovalModeCommand;
+
+    private static int IndexOf(IReadOnlyList<DemoApprovalMode> modes, DemoApprovalMode mode)
+    {
+        for (var index = 0; index < modes.Count; index++)
+            if (ReferenceEquals(modes[index], mode))
+                return index;
+        return -1;
     }
 
     private string _sampleText = "Sample input text";

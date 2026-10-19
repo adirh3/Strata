@@ -187,6 +187,18 @@ public static class StrataIcons
     /// <summary>Failed: a cross.</summary>
     public static Geometry Cross => Parse("M7 7l10 10 M17 7 7 17");
 
+    /// <summary>Approvals and what an assistant may do: a shield.</summary>
+    public static Geometry Shield => Parse("M12 3.2 5 6v5.2c0 4.4 3 8.2 7 9.6 4-1.4 7-5.2 7-9.6V6z");
+
+    /// <summary>Checked before it runs: a shield with a check.</summary>
+    public static Geometry ShieldCheck => Parse("M12 3.2 5 6v5.2c0 4.4 3 8.2 7 9.6 4-1.4 7-5.2 7-9.6V6z M9 12.2l2.2 2.2 3.9-4.2");
+
+    /// <summary>Acting freely: a lightning bolt.</summary>
+    public static Geometry Bolt => Parse("M13.2 3 5.5 13.6h5.6L10.4 21l7.7-10.6h-5.6z");
+
+    /// <summary>Asking first: a raised hand.</summary>
+    public static Geometry Hand => Parse("M8.5 12.5V6.2a1.4 1.4 0 0 1 2.8 0v5.3 M11.3 11V4.9a1.4 1.4 0 0 1 2.8 0V11 M14.1 11V6.4a1.4 1.4 0 0 1 2.8 0v6.8c0 4.2-2.6 7.3-6.4 7.3-2.3 0-3.7-.9-4.9-2.9l-2.1-3.5a1.35 1.35 0 0 1 2.2-1.5l2.3 2.5");
+
     /// <summary>Stopped: a square in a circle.</summary>
     public static Geometry StopCircle => Parse("M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17z M9.5 9.5h5v5h-5z");
 

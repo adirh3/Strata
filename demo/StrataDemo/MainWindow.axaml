@@ -1484,7 +1484,80 @@
                     <TextBlock Text="{Binding Name}" />
                   </DataTemplate>
                 </sc:StrataChatComposer.ModelItemTemplate>
+                <!-- A setting chosen like the model, beside it: how much the agent may do on its own. -->
+                <sc:StrataChatComposer.TrailingContent>
+                  <sc:StrataModePicker Icon="{Binding SelectedApprovalMode.Icon}"
+                                       Label="{Binding SelectedApprovalMode.Title}"
+                                       ShowLabel="True"
+                                       Tone="{Binding SelectedApprovalMode.Tone}"
+                                       ButtonToolTip="{Binding Strings[Approvals.ModeHeader]}"
+                                       Header="{Binding Strings[Approvals.ModeHeader]}"
+                                       Description="{Binding Strings[Approvals.ModeDescription]}"
+                                       Items="{Binding ApprovalModes}"
+                                       SelectedItem="{Binding SelectedApprovalMode}"
+                                       SelectCommand="{Binding SelectApprovalModeCommand}">
+                    <sc:StrataModePicker.ItemTemplate>
+                      <DataTemplate x:DataType="local:DemoApprovalMode">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                          <sc:StrataLineIcon Width="16" Height="16" StrokeThickness="1.8"
+                                             VerticalAlignment="Top" Margin="0,2,0,0"
+                                             Data="{Binding Icon}"
+                                             Foreground="{DynamicResource Brush.TextSecondary}" />
+                          <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                            <TextBlock Classes="caption tertiary" Text="{Binding Summary}" TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Grid>
+                      </DataTemplate>
+                    </sc:StrataModePicker.ItemTemplate>
+                  </sc:StrataModePicker>
+                </sc:StrataChatComposer.TrailingContent>
               </sc:StrataChatComposer>
+            </StackPanel>
+          </Border>
+
+          <!-- ── StrataApprovalCard ── -->
+          <Border Classes="strata-card" Padding="24,20">
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="subtitle" Text="StrataApprovalCard" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="{Binding Strings[Approvals.Subtitle]}" />
+              </StackPanel>
+
+              <StackPanel Spacing="8">
+                <!-- Waiting for a person, with the reviewer's reason -->
+                <sc:StrataApprovalCard Icon="{x:Static sc:StrataIcons.Terminal}"
+                                       Title="{Binding Strings[Approvals.RunCommand]}"
+                                       StatusText="{Binding Strings[Approvals.NeedsYou]}"
+                                       Intention="{Binding Strings[Approvals.CommandIntention]}"
+                                       Subject="Remove-Item ~/Downloads/* -Include *.zip,*.msi"
+                                       IsSubjectCode="True"
+                                       NoteLabel="{Binding Strings[Approvals.Reviewer]}"
+                                       Note="{Binding Strings[Approvals.ReviewerNote]}"
+                                       Status="Pending">
+                  <sc:StrataApprovalCard.Actions>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Button Classes="accent" Content="{Binding Strings[Approvals.Allow]}"
+                              Padding="14,6" MinHeight="0" CornerRadius="10" />
+                      <Button Classes="subtle" Content="{Binding Strings[Approvals.Deny]}"
+                              Padding="12,6" MinHeight="0" CornerRadius="10" />
+                    </StackPanel>
+                  </sc:StrataApprovalCard.Actions>
+                </sc:StrataApprovalCard>
+
+                <!-- Answered: each folds into a one-line receipt -->
+                <sc:StrataApprovalCard Icon="{x:Static sc:StrataIcons.Pencil}"
+                                       Title="{Binding Strings[Approvals.EditFile]}"
+                                       Subject="notes.md"
+                                       Status="Approved"
+                                       Receipt="{Binding Strings[Approvals.AllowedByYou]}" />
+                <sc:StrataApprovalCard Icon="{x:Static sc:StrataIcons.Globe}"
+                                       Title="{Binding Strings[Approvals.UseBrowser]}"
+                                       Subject="shop.example.com"
+                                       Status="Denied"
+                                       Receipt="{Binding Strings[Approvals.DeniedByYou]}" />
+              </StackPanel>
             </StackPanel>
           </Border>
 
