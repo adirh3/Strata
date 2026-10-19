@@ -7,23 +7,25 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
-  <Style Selector="TextBlock.strata-md-title">
+  <!-- Renderer helpers belong to their markdown tree, not every control in the application.
+       Image-viewer helpers stay global because the full-screen overlay is hosted separately. -->
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-title">
     <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
     <Setter Property="Margin" Value="2,0,0,0" />
   </Style>
 
-  <Style Selector="Border.strata-md-bullet-dot">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-bullet-dot">
     <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
   </Style>
 
-  <Style Selector="Border.strata-md-hr">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-hr">
     <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
   </Style>
 
   <!-- Blockquote: left accent bar with subtle background -->
-  <Style Selector="Border.strata-md-blockquote">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-blockquote">
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
     <Setter Property="BorderThickness" Value="3,0,0,0" />
     <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
@@ -32,7 +34,7 @@
     <Setter Property="Margin" Value="0,2,0,2" />
   </Style>
 
-  <Style Selector="Button.strata-md-link">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-link">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Padding" Value="2,0" />
@@ -42,12 +44,12 @@
     <Setter Property="MinWidth" Value="0" />
   </Style>
 
-  <Style Selector="TextBlock.strata-md-link-text">
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-link-text">
     <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
     <Setter Property="TextDecorations" Value="Underline" />
   </Style>
 
-  <Style Selector="Border.strata-md-image">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-image">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -56,11 +58,11 @@
     <Setter Property="Margin" Value="0,4" />
   </Style>
 
-  <Style Selector="Border.strata-md-image:pointerover">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-image:pointerover">
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
   </Style>
 
-  <Style Selector="Button.strata-md-image-expand, Button.strata-md-image-viewer-close">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-image-expand, Button.strata-md-image-viewer-close">
     <Setter Property="Width" Value="{DynamicResource Size.ControlHeightS}" />
     <Setter Property="Height" Value="{DynamicResource Size.ControlHeightS}" />
     <Setter Property="MinWidth" Value="0" />
@@ -75,12 +77,12 @@
     <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
 
-  <Style Selector="Button.strata-md-image-expand">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-image-expand">
     <Setter Property="Margin" Value="6" />
     <Setter Property="Opacity" Value="0.8" />
   </Style>
 
-  <Style Selector="Button.strata-md-image-expand:pointerover, Button.strata-md-image-expand:focus-visible">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-image-expand:pointerover, :is(controls|StrataMarkdown) Button.strata-md-image-expand:focus-visible">
     <Setter Property="Opacity" Value="1" />
   </Style>
 
@@ -88,7 +90,7 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
 
-  <Style Selector="TextBlock.strata-md-image-placeholder">
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-image-placeholder">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
 
@@ -100,7 +102,7 @@
     <Setter Property="Margin" Value="12,0,12,10" />
   </Style>
 
-  <Style Selector="Image.strata-md-image-content">
+  <Style Selector=":is(controls|StrataMarkdown) Image.strata-md-image-content">
     <Setter Property="Transitions">
       <Transitions>
         <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
@@ -108,40 +110,40 @@
     </Setter>
   </Style>
 
-  <Style Selector="Button.strata-md-link:pointerover /template/ Border#PART_Surface">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-link:pointerover /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
     <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
   </Style>
-  <Style Selector="Button.strata-md-link:pointerover /template/ Border#PART_Aurora">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-link:pointerover /template/ Border#PART_Aurora">
     <Setter Property="Opacity" Value="0" />
   </Style>
 
-  <Style Selector="Button.strata-md-link:pointerover TextBlock.strata-md-link-text">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-link:pointerover TextBlock.strata-md-link-text">
     <Setter Property="Foreground" Value="{DynamicResource Brush.AccentHover}" />
   </Style>
 
-  <Style Selector="Button.strata-md-link:focus-visible">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-link:focus-visible">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
 
-  <Style Selector="TextBlock.strata-md-code-text">
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-code-text">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
-  <Style Selector="SelectableTextBlock.strata-md-code-text">
+  <Style Selector=":is(controls|StrataMarkdown) SelectableTextBlock.strata-md-code-text">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
-  <Style Selector="Border.strata-md-inline-code">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-inline-code">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
   </Style>
 
-  <Style Selector="Border.strata-md-inline-code TextBlock">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-inline-code TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
-  <Style Selector="Border.strata-md-surface">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-surface">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -149,19 +151,19 @@
     <Setter Property="Padding" Value="12,10" />
   </Style>
 
-  <Style Selector="Border.strata-md-surface:pointerover">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-surface:pointerover">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
   </Style>
 
-  <Style Selector="Border.strata-md-surface-inline">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-surface-inline">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="0" />
     <Setter Property="Padding" Value="0" />
   </Style>
 
-  <Style Selector="Border.strata-md-code-block">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-code-block">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -170,7 +172,7 @@
     <Setter Property="FlowDirection" Value="LeftToRight" />
   </Style>
 
-  <Style Selector=":is(Border).strata-md-table">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -178,41 +180,41 @@
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
 
-  <Style Selector="Button.strata-md-table-copy-button">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-table-copy-button">
     <Setter Property="Opacity" Value="0.68" />
   </Style>
 
-  <Style Selector="Button.strata-md-table-copy-button TextBlock">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-table-copy-button TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
 
-  <Style Selector="Border.strata-md-table:pointerover Button.strata-md-table-copy-button">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-table:pointerover Button.strata-md-table-copy-button">
     <Setter Property="Opacity" Value="1" />
   </Style>
 
-  <Style Selector="Button.strata-md-table-copy-button:focus-visible">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-table-copy-button:focus-visible">
     <Setter Property="Opacity" Value="1" />
   </Style>
 
-  <Style Selector="Border.strata-md-table:pointerover Button.strata-md-table-copy-button TextBlock">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-table:pointerover Button.strata-md-table-copy-button TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
-  <Style Selector="Border.strata-md-table-header-cell">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-table-header-cell">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="0,0,1,1" />
     <Setter Property="Padding" Value="8,6" />
   </Style>
 
-  <Style Selector="Border.strata-md-table-cell">
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-table-cell">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="0,0,1,1" />
     <Setter Property="Padding" Value="8,6" />
   </Style>
 
-  <Style Selector="TextBlock.strata-md-code-lang">
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-code-lang">
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
@@ -235,23 +237,23 @@
   </Style>
 
   <!-- StrataCodeBlock: syntax-highlighted code display -->
-  <Style Selector="controls|StrataCodeBlock.strata-md-code-editor > SelectableTextBlock">
+  <Style Selector=":is(controls|StrataMarkdown) controls|StrataCodeBlock.strata-md-code-editor > SelectableTextBlock">
     <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
     <Setter Property="FontSize" Value="13" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
   <!-- Horizontal scrollbar within the code block ScrollViewer -->
-  <Style Selector="ScrollViewer.strata-md-code-scroll ScrollBar:horizontal">
+  <Style Selector=":is(controls|StrataMarkdown) ScrollViewer.strata-md-code-scroll ScrollBar:horizontal">
     <Setter Property="Margin" Value="0,8,0,0" />
     <Setter Property="Height" Value="7" />
   </Style>
 
-  <Style Selector="ScrollViewer.strata-md-code-scroll ScrollBar:horizontal /template/ Thumb">
+  <Style Selector=":is(controls|StrataMarkdown) ScrollViewer.strata-md-code-scroll ScrollBar:horizontal /template/ Thumb">
     <Setter Property="Background" Value="{DynamicResource Brush.BorderStrong}" />
   </Style>
 
-  <Style Selector="ScrollViewer.strata-md-code-scroll ScrollBar:horizontal:pointerover /template/ Thumb">
+  <Style Selector=":is(controls|StrataMarkdown) ScrollViewer.strata-md-code-scroll ScrollBar:horizontal:pointerover /template/ Thumb">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentHover}" />
   </Style>
 
