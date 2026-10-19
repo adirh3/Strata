@@ -294,7 +294,7 @@
                          strata:PopupAnimationHelper.EnableOpenAnimation="False"
                          strata:PopupAnimationHelper.EnableOverlayAnimation="True"
                          strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
-                    <Panel MinWidth="280" MaxWidth="560">
+                    <Panel MinWidth="280" MaxWidth="560" TextOptions.TextRenderingMode="Antialias">
                       <Border CornerRadius="14" ClipToBounds="True" IsHitTestVisible="False">
                         <controls:StrataBackdropBlur CornerRadius="14" BlurRadius="22" Saturation="1.4" />
                       </Border>
@@ -390,7 +390,7 @@
                              strata:PopupAnimationHelper.EnableOpenAnimation="False"
                              strata:PopupAnimationHelper.EnableOverlayAnimation="True"
                              strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
-                        <Panel Width="300" Margin="10">
+                        <Panel Width="300" Margin="10" TextOptions.TextRenderingMode="Antialias">
                           <Border CornerRadius="16" ClipToBounds="True" IsHitTestVisible="False">
                             <controls:StrataBackdropBlur CornerRadius="16" BlurRadius="24" Saturation="1.5" />
                           </Border>

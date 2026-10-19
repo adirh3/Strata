@@ -266,6 +266,7 @@
                      strata:PopupAnimationHelper.EnableOverlayAnimation="True"
                      strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
                 <Border Name="PART_Panel"
+                        TextOptions.TextRenderingMode="Antialias"
                         Width="344"
                         Margin="10"
                         Background="Transparent"
