@@ -1,7 +1,10 @@
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using StrataTheme.Controls;
 using TextMateSharp.Grammars;
@@ -213,6 +216,97 @@ public class StrataCodeBlockTests
         Assert.Equal(lines, Presenter(block).TextLayout.TextLines.Count);
         Assert.Equal(lines * StrataCodeBlock.CodeLineHeight, block.DesiredSize.Height, 1);
     });
+
+    [Fact]
+    public Task LongCodeDrawsOnlyNearbyLinesAndUpdatesAfterScrollJumps() => _fixture.Dispatch(() =>
+    {
+        var block = Present(string.Join("\n", Enumerable.Range(0, 300).Select(i => $"line {i}")));
+        block.MinHeight = 300 * StrataCodeBlock.CodeLineHeight;
+        var presenter = Presenter(block);
+        var scroll = new ScrollContentPresenter
+        {
+            Content = block,
+            CanVerticallyScroll = true,
+            ClipToBounds = true
+        };
+        var window = new Window { Width = 400, Height = 180, Content = scroll };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Equal(300, presenter.TextLayout.TextLines.Count);
+            Assert.InRange(DrawGlyphs(presenter).Length, 1, 60);
+            foreach (var offset in new[] { 2200d, 5000d, 0d })
+            {
+                scroll.Offset = new Vector(0, offset);
+                window.UpdateLayout();
+                Assert.Equal(offset, scroll.Offset.Y, 1);
+                var glyphs = DrawGlyphs(presenter);
+                Assert.InRange(glyphs.Length, 1, 60);
+                Assert.Contains($"line {(int)(offset / StrataCodeBlock.CodeLineHeight)}",
+                    string.Concat(glyphs.Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+            }
+            Assert.Equal(300 * StrataCodeBlock.CodeLineHeight, block.Bounds.Height, 1);
+
+            presenter.SelectionStart = 0;
+            presenter.SelectionEnd = presenter.Text!.Length;
+            Assert.Equal(presenter.Text, presenter.SelectedText);
+            Assert.Equal(300, DrawGlyphs(presenter).Length);
+            presenter.SelectionEnd = 0;
+
+            window.Width = 280;
+            window.Height = 540;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            var resized = DrawGlyphs(presenter);
+            Assert.InRange(resized.Length, 1, 100);
+            Assert.Contains("line 29", string.Concat(resized.Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+
+            window.Content = null;
+            Assert.Equal(300, DrawGlyphs(presenter).Length);
+            window.Content = scroll;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            scroll.Offset = new Vector(0, 3000);
+            window.UpdateLayout();
+            var reattached = DrawGlyphs(presenter);
+            Assert.InRange(reattached.Length, 1, 100);
+            Assert.Contains("line 166", string.Concat(reattached.Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+
+            block.Text += "\nappended line";
+            block.MinHeight = 301 * StrataCodeBlock.CodeLineHeight;
+            window.UpdateLayout();
+            scroll.Offset = new Vector(0, scroll.Extent.Height - scroll.Viewport.Height);
+            window.UpdateLayout();
+            var appended = DrawGlyphs(presenter);
+            Assert.InRange(appended.Length, 1, 100);
+            Assert.Contains("appended line", string.Concat(appended.Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        // A detached control used for an image/export must render the complete document.
+        Assert.Equal(301, DrawGlyphs(presenter).Length);
+    });
+
+    private static GlyphRunDrawing[] DrawGlyphs(SelectableTextBlock presenter)
+    {
+        var drawing = new DrawingGroup();
+        using (var context = drawing.Open())
+            presenter.Render(context);
+        return Enumerate(drawing).ToArray();
+
+        static IEnumerable<GlyphRunDrawing> Enumerate(Drawing drawing) => drawing switch
+        {
+            GlyphRunDrawing glyph => [glyph],
+            DrawingGroup group => group.Children.SelectMany(Enumerate),
+            _ => []
+        };
+    }
 
     [Fact]
     public Task HighlightedCode_IsStyledByItsTextLayoutWithoutInlineElements() => _fixture.Dispatch(() =>

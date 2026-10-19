@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.62" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.63" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -77,6 +77,11 @@ Selection controllers are created on first use and shared by the outermost scope
 nested messages and markdown do not allocate duplicate controllers. Keyboard selection
 does not create a scroll timer, and the transcript skips per-turn selection checks when
 no selection is active.
+
+Code blocks keep their complete text layout and scroll extent, but record only nearby lines for
+unselected text. A viewport of prepared lines on either side avoids rebuilding drawing commands
+on every small scroll. Selection and detached image/export rendering retain the complete-text path;
+no bitmap caches or extra GPU textures are used.
 
 The message's copy button copies the whole message. Its context menu has one `Copy as`
 group for Plain text, Markdown and Rich text, each copying the selection when there is

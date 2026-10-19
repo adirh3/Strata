@@ -444,6 +444,7 @@ public class StrataCodeBlock : Control
     private sealed class CodeTextBlock : SelectableTextBlock
     {
         private IReadOnlyList<CodeSpan>? _spans;
+        private Rect? _renderViewport;
 
         // TextBlock rebuilds its layout on every arrange; like its own cache, this keeps the shaped runs
         // so only line layout is redone when the width alone changes.
@@ -454,9 +455,58 @@ public class StrataCodeBlock : Control
         // One properties object per style rather than per token: each resolves its font once.
         private readonly Dictionary<RunStyle, TextRunProperties> _runProperties = new();
 
+        public CodeTextBlock()
+        {
+            EffectiveViewportChanged += (_, e) =>
+            {
+                var viewport = e.EffectiveViewport;
+                if (viewport.Height <= 0 || !double.IsFinite(viewport.Height))
+                {
+                    _renderViewport = null;
+                    return;
+                }
+
+                // Keep a screen of prepared lines on each side so small scrolls only move
+                // retained drawing commands, rather than rebuilding them every frame.
+                if (_renderViewport is { } current
+                    && current.Top < viewport.Top - CodeLineHeight
+                    && current.Bottom > viewport.Bottom + CodeLineHeight)
+                    return;
+
+                _renderViewport = viewport.Inflate(new Thickness(0, viewport.Height));
+                InvalidateVisual();
+            };
+        }
+
         protected override Type StyleKeyOverride => typeof(SelectableTextBlock);
 
         internal IReadOnlyList<CodeSpan>? Spans => _spans;
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            _renderViewport = null;
+            base.OnDetachedFromVisualTree(e);
+        }
+
+        protected override void RenderTextLayout(DrawingContext context, Point origin)
+        {
+            // Keep the framework's selection rendering and the unrooted bitmap/export path.
+            if (_renderViewport is not { } viewport || SelectionStart != SelectionEnd)
+            {
+                base.RenderTextLayout(context, origin);
+                return;
+            }
+
+            var y = origin.Y;
+            foreach (var line in TextLayout.TextLines)
+            {
+                if (y > viewport.Bottom)
+                    break;
+                if (y + line.Height >= viewport.Top)
+                    line.Draw(context, new Point(origin.X, y));
+                y += line.Height;
+            }
+        }
 
         internal void SetCode(string text, IReadOnlyList<CodeSpan>? spans)
         {
