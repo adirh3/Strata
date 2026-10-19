@@ -26,7 +26,7 @@ namespace StrataTheme.Controls;
 /// <para><b>Template parts:</b> PART_Root (Border), PART_QuestionText (StrataMarkdown),
 /// PART_OptionsPanel (Panel), PART_FreeTextBox (TextBox),
 /// PART_FreeTextSubmit (Button), PART_MultiSubmit (Button).</para>
-/// <para><b>Pseudo-classes:</b> :answered, :expired, :has-free-text, :multi-select.</para>
+/// <para><b>Pseudo-classes:</b> :answered, :expired, :has-free-text, :multi-select, :touch.</para>
 /// </remarks>
 public class StrataQuestionCard : TemplatedControl
 {
@@ -68,6 +68,9 @@ public class StrataQuestionCard : TemplatedControl
     public static readonly StyledProperty<bool> IsExpiredProperty =
         AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(IsExpired));
 
+    public static readonly StyledProperty<bool> TouchModeProperty =
+        AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(TouchMode));
+
     public static readonly DirectProperty<StrataQuestionCard, string?> QuestionLineProperty =
         AvaloniaProperty.RegisterDirect<StrataQuestionCard, string?>(nameof(QuestionLine), card => card.QuestionLine);
 
@@ -95,6 +98,7 @@ public class StrataQuestionCard : TemplatedControl
         IsExpiredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnIsExpiredChanged());
         AllowFreeTextProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         AllowMultiSelectProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
+        TouchModeProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnTouchModeChanged());
     }
 
     /// <summary>The question text displayed as the card header.</summary>
@@ -123,6 +127,12 @@ public class StrataQuestionCard : TemplatedControl
 
     /// <summary>Whether the question has expired (session stopped or user moved on).</summary>
     public bool IsExpired { get => GetValue(IsExpiredProperty); set => SetValue(IsExpiredProperty, value); }
+
+    /// <summary>
+    /// Sizes the card for a finger rather than a pointer: every option becomes a 48px target at the body
+    /// size and the reply field and its buttons grow to match. Sets the <c>:touch</c> pseudo-class.
+    /// </summary>
+    public bool TouchMode { get => GetValue(TouchModeProperty); set => SetValue(TouchModeProperty, value); }
 
     /// <summary>The question's first line as plain text, for the card's one-line answered form.</summary>
     public string? QuestionLine
@@ -255,6 +265,8 @@ public class StrataQuestionCard : TemplatedControl
                 Classes = { "question-option" },
                 Tag = opt,
             };
+            // The options are built here rather than by the template, so they carry the card's touch sizing.
+            btn.Classes.Set("touch", TouchMode);
             ToolTip.SetTip(btn, opt);
             ToolTip.SetShowDelay(btn, 500);
             btn.Click += OnOptionClick;
@@ -405,5 +417,18 @@ public class StrataQuestionCard : TemplatedControl
         PseudoClasses.Set(":expired", IsExpired);
         PseudoClasses.Set(":has-free-text", AllowFreeText);
         PseudoClasses.Set(":multi-select", AllowMultiSelect);
+        PseudoClasses.Set(":touch", TouchMode);
+    }
+
+    private void OnTouchModeChanged()
+    {
+        UpdatePseudoClasses();
+        if (_optionsPanel is null) return;
+
+        foreach (var child in _optionsPanel.Children)
+        {
+            if (child is Button option)
+                option.Classes.Set("touch", TouchMode);
+        }
     }
 }

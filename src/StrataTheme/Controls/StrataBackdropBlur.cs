@@ -28,7 +28,8 @@ public enum StrataBackdropFade
 
 /// <summary>
 /// Frosted-glass backdrop. Renders a blurred, optionally saturated copy of whatever was drawn beneath
-/// its bounds earlier in the same frame, clipped to <see cref="CornerRadius"/>.
+/// its bounds (and, with <see cref="SamplesBeyondEdges"/>, just around them) earlier in the same frame,
+/// clipped to <see cref="CornerRadius"/>.
 /// </summary>
 /// <remarks>
 /// <para>The control is a leaf that draws no tint, border or content of its own and never takes hit
@@ -66,6 +67,14 @@ public class StrataBackdropBlur : Control
     public static readonly StyledProperty<double> FadeLengthProperty =
         AvaloniaProperty.Register<StrataBackdropBlur, double>(nameof(FadeLength));
 
+    /// <summary>
+    /// Whether the frost also takes in what lies just beyond its edges, as glass does, so content nearing
+    /// the rim blurs into it gradually instead of the rim stretching whatever crosses it. The capture
+    /// grows by three blur radii on every side, which suits small floating glass such as a navigation pill.
+    /// </summary>
+    public static readonly StyledProperty<bool> SamplesBeyondEdgesProperty =
+        AvaloniaProperty.Register<StrataBackdropBlur, bool>(nameof(SamplesBeyondEdges));
+
     /// <summary>Quiet period after the last partial redraw before every glass is repainted together.</summary>
     internal static readonly TimeSpan HealDelay = TimeSpan.FromMilliseconds(250);
 
@@ -81,7 +90,8 @@ public class StrataBackdropBlur : Control
     static StrataBackdropBlur()
     {
         AffectsRender<StrataBackdropBlur>(
-            BlurRadiusProperty, SaturationProperty, CornerRadiusProperty, FadeProperty, FadeLengthProperty);
+            BlurRadiusProperty, SaturationProperty, CornerRadiusProperty, FadeProperty, FadeLengthProperty,
+            SamplesBeyondEdgesProperty);
         IsHitTestVisibleProperty.OverrideDefaultValue<StrataBackdropBlur>(false);
         FocusableProperty.OverrideDefaultValue<StrataBackdropBlur>(false);
     }
@@ -121,6 +131,13 @@ public class StrataBackdropBlur : Control
         set => SetValue(FadeLengthProperty, value);
     }
 
+    /// <inheritdoc cref="SamplesBeyondEdgesProperty"/>
+    public bool SamplesBeyondEdges
+    {
+        get => GetValue(SamplesBeyondEdgesProperty);
+        set => SetValue(SamplesBeyondEdgesProperty, value);
+    }
+
     /// <inheritdoc />
     public override void Render(DrawingContext context)
     {
@@ -129,7 +146,8 @@ public class StrataBackdropBlur : Control
             return;
 
         context.Custom(new BackdropOperation(
-            new Rect(size), BlurRadius, Saturation, CornerRadius, Fade, FadeLength));
+            new Rect(size), BlurRadius, Saturation, CornerRadius, Fade, FadeLength,
+            SamplesBeyondEdges ? 3 * BlurRadius : 0));
     }
 
     /// <inheritdoc />
@@ -178,6 +196,19 @@ public class StrataBackdropBlur : Control
     /// </summary>
     internal static bool ShouldRecompute(bool hasCache, SKRectI cachedVisible, SKRectI visible) =>
         !hasCache || Contains(visible, cachedVisible) || !Contains(cachedVisible, visible);
+
+    /// <summary>
+    /// The device pixels a glass captures in this redraw: its own bounds, widened by <paramref name="margin"/>
+    /// when it samples beyond its edges, limited to the pixels redrawn this frame. Nothing when the glass
+    /// itself was not redrawn.
+    /// </summary>
+    internal static SKRectI CaptureRegion(SKRectI glass, int margin, SKRectI redrawn)
+    {
+        if (!glass.IntersectsWith(redrawn))
+            return SKRectI.Empty;
+
+        return SKRectI.Intersect(margin > 0 ? SKRectI.Inflate(glass, margin, margin) : glass, redrawn);
+    }
 
     /// <summary>Rec. 709 saturation matrix with no translation.</summary>
     internal static float[] CreateSaturationMatrix(double saturation)
@@ -263,6 +294,7 @@ public class StrataBackdropBlur : Control
         private readonly CornerRadius _cornerRadius;
         private readonly StrataBackdropFade _fade;
         private readonly double _fadeLength;
+        private readonly double _sampleMargin;
 
         // Render-thread state. A new operation is created for every UI-thread render, and a changed operation
         // always repaints the control's whole bounds, so each instance starts from a full frame. The unblurred
@@ -296,7 +328,8 @@ public class StrataBackdropBlur : Control
             double saturation,
             CornerRadius cornerRadius,
             StrataBackdropFade fade,
-            double fadeLength)
+            double fadeLength,
+            double sampleMargin)
         {
             Bounds = bounds;
             _blurRadius = blurRadius;
@@ -304,6 +337,7 @@ public class StrataBackdropBlur : Control
             _cornerRadius = cornerRadius;
             _fade = fade;
             _fadeLength = fadeLength;
+            _sampleMargin = sampleMargin;
         }
 
         public Rect Bounds { get; }
@@ -356,7 +390,8 @@ public class StrataBackdropBlur : Control
             var device = matrix.MapRect(new SKRect(
                 (float)Bounds.Left, (float)Bounds.Top, (float)Bounds.Right, (float)Bounds.Bottom));
             var deviceBounds = SKRectI.Ceiling(device, outwards: true);
-            var visible = SKRectI.Intersect(deviceBounds, canvas.DeviceClipBounds);
+            var margin = (int)Math.Ceiling(_sampleMargin * (scaleX + scaleY) / 2);
+            var visible = CaptureRegion(deviceBounds, margin, canvas.DeviceClipBounds);
             if (visible.Width <= 0 || visible.Height <= 0)
                 return;
 

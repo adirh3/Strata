@@ -97,6 +97,14 @@
                   <Style Selector="Button.question-option.selected:disabled">
                     <Setter Property="Opacity" Value="1" />
                   </Style>
+                  <!-- Touch: each option is a finger's target at the body size. The card builds its
+                       options itself, so they carry the card's TouchMode as a class. -->
+                  <Style Selector="Button.question-option.touch">
+                    <Setter Property="MinHeight" Value="48" />
+                    <Setter Property="Padding" Value="16,12" />
+                    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+                    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
+                  </Style>
                 </StackPanel.Styles>
               </StackPanel>
 
@@ -224,6 +232,32 @@
     <Style Selector="^:expired /template/ Border#PART_Root">
       <Setter Property="Opacity" Value="0.55" />
       <Setter Property="BoxShadow" Value="{DynamicResource Shadow.GlassChip}" />
+    </Style>
+
+    <!-- ─── Touch: the reply field and its buttons are finger targets at the body size ─── -->
+    <Style Selector="^:touch /template/ StackPanel#PART_OptionsPanel">
+      <Setter Property="Spacing" Value="8" />
+    </Style>
+    <Style Selector="^:touch /template/ TextBox#PART_FreeTextBox">
+      <Setter Property="MinHeight" Value="48" />
+      <Setter Property="Padding" Value="14,12" />
+      <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
+    </Style>
+    <Style Selector="^:touch /template/ Button#PART_FreeTextSubmit">
+      <Setter Property="Width" Value="48" />
+      <Setter Property="Height" Value="48" />
+      <Setter Property="CornerRadius" Value="24" />
+    </Style>
+    <Style Selector="^:touch /template/ Button#PART_FreeTextSubmit > controls|StrataLineIcon">
+      <Setter Property="Width" Value="18" />
+      <Setter Property="Height" Value="18" />
+    </Style>
+    <Style Selector="^:touch /template/ Button#PART_MultiSubmit">
+      <Setter Property="Height" Value="48" />
+      <Setter Property="Padding" Value="20,0" />
+      <Setter Property="CornerRadius" Value="24" />
+      <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
     </Style>
 
   </ControlTheme>

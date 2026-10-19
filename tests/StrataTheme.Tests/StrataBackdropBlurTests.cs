@@ -27,6 +27,22 @@ public sealed class StrataBackdropBlurTests
     }
 
     [Fact]
+    public void GlassThatSamplesBeyondItsEdgesCapturesAMarginWithinTheRedrawnPixels()
+    {
+        var glass = new SKRectI(100, 200, 400, 260);
+        var everything = new SKRectI(0, 0, 1000, 1000);
+
+        // By default the glass captures exactly what lies beneath it.
+        Assert.Equal(glass, StrataBackdropBlur.CaptureRegion(glass, 0, everything));
+        Assert.Equal(new SKRectI(100, 200, 400, 230), StrataBackdropBlur.CaptureRegion(glass, 0, new SKRectI(0, 0, 1000, 230)));
+        // Sampling beyond its edges takes in a margin all round, as far as this frame's redrawn pixels reach.
+        Assert.Equal(new SKRectI(58, 158, 442, 302), StrataBackdropBlur.CaptureRegion(glass, 42, everything));
+        Assert.Equal(new SKRectI(58, 158, 442, 280), StrataBackdropBlur.CaptureRegion(glass, 42, new SKRectI(0, 0, 1000, 280)));
+        // A redraw beside the glass that misses the glass itself captures nothing.
+        Assert.True(StrataBackdropBlur.CaptureRegion(glass, 42, new SKRectI(0, 0, 1000, 190)).IsEmpty);
+    }
+
+    [Fact]
     public void SaturationMatrixPreservesNeutralsAndIsIdentityAtOne()
     {
         var identity = StrataBackdropBlur.CreateSaturationMatrix(1);

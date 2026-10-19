@@ -155,6 +155,21 @@ public class StrataNavigationDrawer : ContentControl
         private set => SetAndRaise(ProgressProperty, ref _progress, value);
     }
 
+    /// <summary>
+    /// Ends the movement toward <see cref="IsOpen"/> at once: a settle in progress lands on its open or
+    /// closed state without sliding the rest of the way. For changes that are not navigation the user
+    /// should watch, such as switching to another top-level place. A drag in progress is left to the
+    /// finger.
+    /// </summary>
+    public void CompleteMotion()
+    {
+        if (_dragging)
+            return;
+
+        StopSettle();
+        ApplyProgress(IsOpen ? 1 : 0, animate: false);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);

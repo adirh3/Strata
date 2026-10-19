@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.63" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.64" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -398,7 +398,8 @@ and rim transitions use `PremultipliedBrushTransition`: a plain `BrushTransition
 - `StrataTurnSummary` is a quiet fold line whose content hangs from a thin rail; it shows an alert
   icon when something it folds failed.
 - `StrataQuestionCard` is a glass card with full-width option rows and an optional free-text field;
-  once answered it folds to one line with the answer.
+  once answered it folds to one line with the answer. `TouchMode` makes every option, the reply
+  field and its buttons 48px targets at the body size (`:touch`).
 - `StrataAgentRun.inline` and `StrataTypingIndicator` wear the chip glass. An inline run is one
   31px row (avatar, task, agent) that states its outcome as quiet text with a line icon, with
   `HeaderAction` after it.
@@ -531,7 +532,10 @@ detaching an activity indicator also stops its loop; hosts do not need to clear 
 `StrataBackdropBlur` frosts whatever was drawn beneath its bounds earlier in the frame: a blurred,
 optionally saturated copy clipped to `CornerRadius`. It draws no tint or content, so place it
 directly under a translucent surface that supplies both. `Fade` (`Top`/`Bottom`) with `FadeLength`
-dissolves the frost toward one edge for scroll-edge bands. The glass samples only pixels redrawn
+dissolves the frost toward one edge for scroll-edge bands. `SamplesBeyondEdges` also takes in what
+lies just around the glass (three blur radii on every side), so content nearing the rim blurs into
+it as real glass does instead of the clamped edge stretching it; it suits small floating glass such
+as a navigation pill, whose host must not clip it. The glass samples only pixels redrawn
 in the current frame and keeps its unblurred backdrop, so a partial redraw (a caret, button
 feedback, an animation beneath) patches just that region and never samples the glass's own
 foreground. Once partial redraws settle, all glass is repainted together, which updates the frost
@@ -562,7 +566,9 @@ or block the conversation. A docked host can follow `Progress` to move and resiz
 alongside the pane, keeping the released area filled during gestures and button animation.
 `CanOpenFromAnywhere` enables chat-area
 swipes while preserving vertical scrolling, editable text and consumable horizontal scrolling.
-Scrim taps dismiss on release so they do not interrupt a closing swipe.
+Scrim taps dismiss on release so they do not interrupt a closing swipe. `CompleteMotion()` lands a
+settle in progress at its open or closed state at once, for changes the user should not watch slide
+(such as switching top-level places); a drag in progress is left to the finger.
 
 `StrataBottomSheet.SheetMargin` insets only the sheet, leaving the scrim edge-to-edge. Include
 the host's safe-area and keyboard insets in that margin instead of padding the entire overlay.

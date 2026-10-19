@@ -186,6 +186,47 @@ public sealed class MobileSurfaceMotionTests(AvaloniaFixture fixture)
         });
 
     [Fact]
+    public Task CompleteMotionLandsASettleWithoutSlidingAndLeavesADragToTheFinger() =>
+        fixture.Dispatch(async () =>
+        {
+            var drawer = new StrataNavigationDrawer { Panel = new Border(), PanelWidth = 320 };
+            var window = CreateWindow(drawer);
+            try
+            {
+                var panel = drawer.GetVisualDescendants().OfType<ContentPresenter>()
+                    .Single(control => control.Name == "PART_Panel");
+                var progress = new List<double>();
+                drawer.PropertyChanged += (_, change) =>
+                {
+                    if (change.Property == StrataNavigationDrawer.ProgressProperty)
+                        progress.Add(drawer.Progress);
+                };
+
+                // Opening starts a settle; completing it lands open at once, and the frames the settle
+                // had asked for move nothing afterwards.
+                drawer.IsOpen = true;
+                drawer.CompleteMotion();
+                Assert.Equal(1, drawer.Progress);
+                Assert.Equal(0, Assert.IsType<TranslateTransform>(panel.RenderTransform).X);
+                Assert.True(panel.IsHitTestVisible);
+                await Task.Delay(260);
+                Assert.Equal([1d], progress);
+
+                drawer.IsOpen = false;
+                drawer.CompleteMotion();
+                Assert.Equal(0, drawer.Progress);
+                Assert.False(panel.IsHitTestVisible);
+
+                // A finger mid-drag keeps the panel where it is.
+                drawer.RaiseEvent(new EdgeDragEventArgs(EdgeDragGestureRecognizer.EdgeDragEvent, 64, 70));
+                drawer.CompleteMotion();
+                Assert.Equal(64d / 320, drawer.Progress, precision: 6);
+                drawer.RaiseEvent(new EdgeDragEndedEventArgs(EdgeDragGestureRecognizer.EdgeDragEndedEvent, 0));
+            }
+            finally { window.Close(); }
+        });
+
+    [Fact]
     public Task DrawerLayoutResetCancelsPendingAnimationFrames() =>
         fixture.Dispatch(async () =>
         {
