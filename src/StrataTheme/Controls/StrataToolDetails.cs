@@ -10,7 +10,8 @@ namespace StrataTheme.Controls;
 /// <summary>
 /// The opened details of a tool step: what it was given, as an aligned list of fields, then what it
 /// reported back. Parameters written as <c>**Key:** value</c> lines become fields; anything else, such
-/// as a code block or prose, renders as markdown. A failed step's result reads as its error.
+/// as a code block or prose, renders as markdown. Progress updates also render as markdown, while a
+/// failed step's result reads as its plain-text error.
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage:</b></para>
@@ -39,6 +40,10 @@ public class StrataToolDetails : Decorator
     public static readonly StyledProperty<string?> ResultProperty =
         AvaloniaProperty.Register<StrataToolDetails, string?>(nameof(Result));
 
+    /// <summary>The latest progress update, rendered as markdown between the parameters and result.</summary>
+    public static readonly StyledProperty<string?> ProgressProperty =
+        AvaloniaProperty.Register<StrataToolDetails, string?>(nameof(Progress));
+
     /// <summary>The step failed, so its result is shown as the error.</summary>
     public static readonly StyledProperty<bool> IsFailedProperty =
         AvaloniaProperty.Register<StrataToolDetails, bool>(nameof(IsFailed));
@@ -49,6 +54,7 @@ public class StrataToolDetails : Decorator
     {
         ParametersProperty.Changed.AddClassHandler<StrataToolDetails>((control, _) => control.MarkStale());
         ResultProperty.Changed.AddClassHandler<StrataToolDetails>((control, _) => control.MarkStale());
+        ProgressProperty.Changed.AddClassHandler<StrataToolDetails>((control, _) => control.MarkStale());
         IsFailedProperty.Changed.AddClassHandler<StrataToolDetails>((control, _) => control.MarkStale());
     }
 
@@ -62,6 +68,13 @@ public class StrataToolDetails : Decorator
     {
         get => GetValue(ResultProperty);
         set => SetValue(ResultProperty, value);
+    }
+
+    /// <summary>Gets or sets the full markdown progress update; see <see cref="ProgressProperty"/>.</summary>
+    public string? Progress
+    {
+        get => GetValue(ProgressProperty);
+        set => SetValue(ProgressProperty, value);
     }
 
     public bool IsFailed
@@ -81,13 +94,13 @@ public class StrataToolDetails : Decorator
         if (_isStale)
         {
             _isStale = false;
-            Child = Build(Parameters, Result, IsFailed);
+            Child = Build(Parameters, Progress, Result, IsFailed);
         }
 
         return base.MeasureOverride(availableSize);
     }
 
-    private static Control? Build(string? parameters, string? result, bool isFailed)
+    private static Control? Build(string? parameters, string? progress, string? result, bool isFailed)
     {
         var root = new StackPanel { Spacing = 9 };
 
@@ -95,6 +108,20 @@ public class StrataToolDetails : Decorator
             root.Children.Add(BuildFields(fields));
         else if (!string.IsNullOrWhiteSpace(parameters))
             root.Children.Add(new StrataMarkdown { Markdown = parameters, IsInline = true, FontSize = 12.5 });
+
+        if (!string.IsNullOrWhiteSpace(progress))
+        {
+            if (root.Children.Count > 0)
+                root.Children.Add(new Border { Classes = { "tool-detail-divider" } });
+
+            root.Children.Add(new StrataMarkdown
+            {
+                Markdown = progress,
+                IsInline = true,
+                FontSize = 12.5,
+                Classes = { "tool-detail-progress" },
+            });
+        }
 
         if (!string.IsNullOrWhiteSpace(result))
         {

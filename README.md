@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.66" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.67" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -106,6 +106,14 @@ interactions to ordinary forms, lists and tables with their current values.
 Unanswered quizzes do not reveal their answer key. Markdown retains standard Mermaid
 fences; rich copying includes a rendered diagram image when its visual is available,
 otherwise readable Mermaid source. Invalid definitions are retained as code and logged.
+
+## Tool progress
+
+Set `StrataAiToolCall.Progress` to the latest complete Markdown update from a running tool.
+Its expanded details render headings, lists, links and code, and refresh when `Progress` changes.
+The progress is hidden when the call completes, fails or stops. `StrataToolDetails.Progress`
+provides the same Markdown surface for custom hosts; parameters and plain-text results/errors
+keep their existing presentation.
 
 ## Model picker
 

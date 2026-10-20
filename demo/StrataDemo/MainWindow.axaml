@@ -1806,9 +1806,10 @@ async def analyze_incident(report):
                                         MoreInfo="Found 3 correlated spikes near serializer allocation bursts." />
                     <sc:StrataAiToolCall ToolName="validate_policy_guardrails"
                                         Status="InProgress"
+                                        IsExpanded="True"
                                         DurationMs="236"
                                         InputParameters="{}{ policy: rollout.guardrail.v2 }"
-                                        MoreInfo="Checking compliance constraints before continue." />
+                                        Progress="**Checking compliance**&#10;&#10;- Policy loaded&#10;- Validating `rollout.guardrail.v2`" />
                   </StackPanel>
                   <StackPanel Grid.Column="2" Spacing="8">
                     <sc:StrataAiToolCall ToolName="execute_rollout_stage"

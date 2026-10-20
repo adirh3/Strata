@@ -75,6 +75,10 @@ public class StrataAiToolCall : TemplatedControl
     public static readonly StyledProperty<string?> MoreInfoProperty =
         AvaloniaProperty.Register<StrataAiToolCall, string?>(nameof(MoreInfo));
 
+    /// <summary>The latest progress update, rendered as markdown in the details while the tool runs.</summary>
+    public static readonly StyledProperty<string?> ProgressProperty =
+        AvaloniaProperty.Register<StrataAiToolCall, string?>(nameof(Progress));
+
     /// <summary>Execution duration in milliseconds. Formatted automatically as ms or seconds.</summary>
     public static readonly StyledProperty<double> DurationMsProperty =
         AvaloniaProperty.Register<StrataAiToolCall, double>(nameof(DurationMs), 0);
@@ -129,6 +133,7 @@ public class StrataAiToolCall : TemplatedControl
         IsExpandedProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         InputParametersProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         MoreInfoProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
+        ProgressProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         DurationMsProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         IconProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         DetailProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
@@ -170,6 +175,13 @@ public class StrataAiToolCall : TemplatedControl
     {
         get => GetValue(MoreInfoProperty);
         set => SetValue(MoreInfoProperty, value);
+    }
+
+    /// <summary>Gets or sets the full markdown progress update; see <see cref="ProgressProperty"/>.</summary>
+    public string? Progress
+    {
+        get => GetValue(ProgressProperty);
+        set => SetValue(ProgressProperty, value);
     }
 
     public double DurationMs
@@ -346,7 +358,8 @@ public class StrataAiToolCall : TemplatedControl
 
         PseudoClasses.Set(":expanded", IsExpanded);
         PseudoClasses.Set(":has-params", !string.IsNullOrWhiteSpace(InputParameters));
-        PseudoClasses.Set(":has-info", !string.IsNullOrWhiteSpace(MoreInfo));
+        var progress = Status == StrataAiToolCallStatus.InProgress ? Progress : null;
+        PseudoClasses.Set(":has-info", !string.IsNullOrWhiteSpace(MoreInfo) || !string.IsNullOrWhiteSpace(progress));
         PseudoClasses.Set(":has-duration", DurationMs > 0);
         PseudoClasses.Set(":has-icon", Icon is not null);
         PseudoClasses.Set(":has-detail", !string.IsNullOrWhiteSpace(Detail));
@@ -354,6 +367,7 @@ public class StrataAiToolCall : TemplatedControl
         if (_details is not null)
         {
             _details.Parameters = InputParameters;
+            _details.Progress = progress;
             _details.Result = MoreInfo;
             _details.IsFailed = Status == StrataAiToolCallStatus.Failed;
         }

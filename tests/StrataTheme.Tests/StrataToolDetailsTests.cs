@@ -90,6 +90,48 @@ public sealed class StrataToolDetailsTests
     }
 
     [Fact]
+    public async Task Progress_RendersAndUpdatesMarkdown_WithoutReformattingResults()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            const string progress = "## Searching **Microsoft 365**\n\n- Reading `mail`";
+            const string result = "**Literal result** with `code`";
+            var details = new StrataToolDetails
+            {
+                Parameters = "**Query:** project update",
+                Progress = progress,
+                Result = result,
+                IsFailed = true,
+            };
+            Assert.Null(details.Child);
+            var window = new Window { Width = 480, Height = 400, Content = details };
+            window.Show();
+            try
+            {
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(progress, Assert.Single(details.GetVisualDescendants().OfType<StrataMarkdown>()).Markdown);
+                Assert.Contains(details.GetVisualDescendants().OfType<SelectableTextBlock>(),
+                    text => text.Text == result);
+
+                details.Progress += "\n- Finding documents";
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(details.Progress, Assert.Single(details.GetVisualDescendants().OfType<StrataMarkdown>()).Markdown);
+
+                details.Progress = null;
+                Dispatcher.UIThread.RunJobs();
+                Assert.Empty(details.GetVisualDescendants().OfType<StrataMarkdown>());
+                Assert.Contains(details.GetVisualDescendants().OfType<SelectableTextBlock>(),
+                    text => text.Text == result);
+            }
+            finally
+            {
+                window.Close();
+                Dispatcher.UIThread.RunJobs();
+            }
+        });
+    }
+
+    [Fact]
     public async Task ElapsedText_CountsFromItsStart_AndStaysEmptyForTheFirstSecond()
     {
         await _fixture.Dispatch(() =>
