@@ -17,7 +17,9 @@ namespace StrataTheme.Controls;
 /// <code>
 /// &lt;controls:StrataTypingIndicator Label="Agent is thinking…" IsActive="True" /&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Dot1 (Border), PART_Dot2 (Border), PART_Dot3 (Border).</para>
+/// <para><b>Template parts:</b> PART_Surface (Border), PART_Dot1 (Border), PART_Dot2 (Border), PART_Dot3 (Border),
+/// PART_Backdrop (StrataBackdropBlur). PART_Backdrop is hidden by default; a host that floats the indicator over
+/// moving content styles it visible, so the content beneath shows through the translucent pill as frost.</para>
 /// <para><b>Pseudo-classes:</b> :active.</para>
 /// </remarks>
 public class StrataTypingIndicator : TemplatedControl

@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.67" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.68" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -566,8 +566,9 @@ Floating controls can be glass of their own. `StrataGlassButton` is an opt-in bu
 the surface's tint, rim and shadow, with matching bounds, corner radius and press transform.
 The filter never resamples the foreground chrome. Give the button a translucent `Background`.
 `StrataChatComposer` exposes a hidden `PART_Backdrop` behind its
-surface, and the chat shell's scroll-to-bottom button a hidden `PART_ScrollToBottomBackdrop`;
-hosts enable either by style. `Classes="glass"` turns the composer's on (14 px, saturation 1.3), under a
+surface, the chat shell's scroll-to-bottom button a hidden `PART_ScrollToBottomBackdrop`, and
+`StrataTypingIndicator` a hidden `PART_Backdrop` behind its pill (`PART_Surface`), for hosts that
+float it over moving content; hosts enable any of them by style. `Classes="glass"` turns the composer's on (14 px, saturation 1.3), under a
 translucent surface: the theme's overlay surface at two thirds with a hairline rim, so it stays a shade
 above whatever it floats on. The composer does not clip to its bounds, so the card's shadow falls softly past its
 rounded corners. Hosts can keep the frost off until content actually runs beneath the composer, for

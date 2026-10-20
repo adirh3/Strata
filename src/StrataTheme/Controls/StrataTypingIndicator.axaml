@@ -13,7 +13,14 @@
         <Setter Property="Margin" Value="0,4,0,0" />
         <Setter Property="Template">
           <ControlTemplate>
-            <Border Background="{DynamicResource Brush.GlassFill}"
+            <Panel HorizontalAlignment="Left">
+            <!-- Optional frost behind the translucent pill, for hosts that float it over moving content;
+                 they turn it on by style. -->
+            <controls:StrataBackdropBlur Name="PART_Backdrop"
+                                         IsVisible="False"
+                                         CornerRadius="{Binding CornerRadius, ElementName=PART_Surface}" />
+            <Border Name="PART_Surface"
+                    Background="{DynamicResource Brush.GlassFill}"
                     BorderBrush="{DynamicResource Brush.GlassRim}"
                     BorderThickness="1"
                     CornerRadius="999"
@@ -41,10 +48,11 @@
                            Foreground="{DynamicResource Brush.TextSecondary}" />
               </Grid>
             </Border>
+            </Panel>
           </ControlTemplate>
         </Setter>
 
-        <Style Selector="^:active /template/ Border:pointerover">
+        <Style Selector="^:active /template/ Border#PART_Surface:pointerover">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRimHover}" />
         </Style>
 
