@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.65" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.66" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -48,7 +48,10 @@ An entrance stays pending until asynchronously populated content has a non-zero 
 Closing immediately disables popup input, finishes the exit before releasing the host,
 and a quick reopen continues from the current animated state instead of snapping.
 If the placement target is hidden or detached, the host is released immediately instead
-of continuing its exit animation against an unavailable anchor.
+of continuing its exit animation against an unavailable anchor. Tooltips retain
+their entrance animation but dismiss immediately: Avalonia clears their placement bindings
+and theme context on close, so retaining the host for an exit would make the tooltip jump
+and recolor before disappearing.
 
 `PopupAnimationHelper.EnableOpenAnimation` opts into expansion and takes precedence
 over `EnableOverlayAnimation`, which the theme enables for other popups. Existing

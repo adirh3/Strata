@@ -611,24 +611,58 @@ public sealed class PopupAnimationTests
         });
 
     [Fact]
-    public Task ToolTipOwnerKeepsItsContentAttachedForExit() =>
+    public Task ToolTipDismissalNeverRendersWithoutItsPlacementAndThemeContext() =>
         _fixture.Dispatch(async () =>
         {
-            var target = new Button { Content = "Tooltip target" };
+            var target = new Button
+            {
+                Content = "Tooltip target",
+                Margin = new Thickness(80, 60, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
             var tip = new ToolTip { Content = "Tooltip content" };
             ToolTip.SetTip(target, tip);
+            ToolTip.SetShouldUseOverlayLayer(target, true);
+            ToolTip.SetPlacement(target, PlacementMode.Top);
+            ToolTip.SetVerticalOffset(target, -6);
             var window = CreateWindow(target, theme: true);
+            window.RequestedThemeVariant = ThemeVariant.Dark;
             try
             {
                 ToolTip.SetIsOpen(target, true);
                 RenderFrame(window);
                 RenderFrame(window);
+                Assert.True(ToolTip.GetIsOpen(target));
                 var popup = tip.FindLogicalAncestorOfType<Popup>();
                 Assert.NotNull(popup);
+                Assert.True(popup.IsUsingOverlayLayer);
                 Assert.Equal(1, PopupAnimationHelper.GetOpenAnimationCount(popup));
+                Assert.Equal(ThemeVariant.Dark, tip.ActualThemeVariant);
+                var foreground = Assert.IsAssignableFrom<IBrush>(tip.Foreground);
+                Assert.Equal(PlacementMode.Top, popup.Placement);
+                Assert.Equal(-6, popup.VerticalOffset);
+                Assert.True(tip.Bounds.Width > 0);
+
                 ToolTip.SetIsOpen(target, false);
-                Assert.True(tip.IsAttachedToVisualTree());
+                Assert.False(ToolTip.GetIsOpen(target));
+                Assert.False(tip.IsAttachedToVisualTree());
+                Assert.False(popup.IsOpen);
+                RenderFrame(window);
+
+                ToolTip.SetIsOpen(target, true);
+                RenderFrame(window);
+                RenderFrame(window);
                 await Task.Delay(300);
+                Assert.True(tip.IsAttachedToVisualTree());
+                Assert.True(popup.IsOpen);
+                Assert.Equal(ThemeVariant.Dark, tip.ActualThemeVariant);
+                Assert.Equal(foreground, tip.Foreground);
+                Assert.Equal(PlacementMode.Top, popup.Placement);
+                Assert.Equal(-6, popup.VerticalOffset);
+                Assert.Equal(2, PopupAnimationHelper.GetOpenAnimationCount(popup));
+
+                ToolTip.SetIsOpen(target, false);
                 Assert.False(tip.IsAttachedToVisualTree());
             }
             finally

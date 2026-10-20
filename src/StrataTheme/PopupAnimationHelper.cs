@@ -281,6 +281,10 @@ public static class PopupAnimationHelper
         {
             if (_allowClose || _disposed || e.Cancel || _child is null)
                 return;
+            // ToolTip.Close clears placement bindings and theme context even if closing is cancelled.
+            // Its host must close with its owner; other popup owners retain their exit animation.
+            if (_child is ToolTip)
+                return;
             if (_visual is null || !_child.IsAttachedToVisualTree() ||
                 (_target is { } target &&
                     (!target.IsAttachedToVisualTree() || !target.IsEffectivelyVisible)))
