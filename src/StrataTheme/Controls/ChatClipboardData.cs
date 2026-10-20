@@ -2,11 +2,16 @@ using System;
 using System.Globalization;
 using System.Net;
 using System.Text;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
-internal static class ChatClipboardData
+internal static partial class ChatClipboardData
 {
     private static readonly DataFormat<string> MarkdownClipboardFormat =
         DataFormat.CreateStringPlatformFormat("text/markdown");
@@ -26,14 +31,20 @@ internal static class ChatClipboardData
 
     internal static DataTransfer CreateMarkdown(string markdown)
     {
+        markdown = MarkdownClipboardFormatter.ToPortableMarkdown(markdown);
         var item = new DataTransferItem();
         item.SetText(markdown);
         item.Set(MarkdownClipboardFormat, markdown);
         return CreateTransfer(item);
     }
 
-    internal static DataTransfer CreateRichText(string markdown)
-        => CreateHtml(MarkdownClipboardFormatter.ToHtmlFragment(markdown), markdown);
+    internal static DataTransfer CreateRichText(string markdown, Control? renderedContent = null)
+    {
+        markdown = MarkdownClipboardFormatter.ToPortableMarkdown(markdown);
+        return CreateHtml(
+            MarkdownClipboardFormatter.ToHtmlFragment(markdown, renderedContent),
+            MarkdownClipboardFormatter.ToPlainText(markdown));
+    }
 
     internal static DataTransfer CreateHtml(string htmlFragment, string plainText)
     {
@@ -91,13 +102,14 @@ internal static class ChatClipboardData
     }
 }
 
-internal static class MarkdownClipboardFormatter
+internal static partial class MarkdownClipboardFormatter
 {
     private const string TableCellStyle =
         "border:1px solid #d1d5db;padding:6px 10px;text-align:left;vertical-align:top;";
 
-    internal static string ToHtmlFragment(string markdown)
+    internal static string ToHtmlFragment(string markdown, Control? renderedContent = null)
     {
+        markdown = ToPortableMarkdown(markdown);
         var normalized = MarkdownParser.NormalizeLineEndings(markdown);
         var blocks = MarkdownParser.Parse(normalized);
         var builder = new StringBuilder(Math.Max(markdown.Length + 128, 256));
@@ -179,12 +191,37 @@ internal static class MarkdownClipboardFormatter
                     break;
 
                 case MdBlockKind.CodeBlock:
-                case MdBlockKind.Chart:
+                    AppendCodeBlockHtml(builder, block.Content, block.Language);
+                    break;
+
                 case MdBlockKind.Mermaid:
+                    var diagram = renderedContent?.GetVisualDescendants().Prepend(renderedContent)
+                        .OfType<StrataMermaid>().FirstOrDefault(control =>
+                            string.Equals(control.Source?.Trim(), block.Content.Trim(), StringComparison.Ordinal));
+                    if (diagram is not null && Dispatcher.UIThread.CheckAccess()
+                        && diagram.Bounds.Width > 0 && diagram.Bounds.Height > 0)
+                    {
+                        var scale = Math.Min(2, 2048 / Math.Max(diagram.Bounds.Width, diagram.Bounds.Height));
+                        using var bitmap = new RenderTargetBitmap(
+                            new PixelSize((int)Math.Ceiling(diagram.Bounds.Width * scale),
+                                (int)Math.Ceiling(diagram.Bounds.Height * scale)),
+                            new Vector(96 * scale, 96 * scale));
+                        bitmap.Render(diagram);
+                        using var image = new System.IO.MemoryStream();
+                        bitmap.Save(image);
+                        builder.Append("<p><img alt=\"Diagram\" style=\"max-width:100%;height:auto;\" src=\"data:image/png;base64,")
+                            .Append(Convert.ToBase64String(image.ToArray())).Append("\" /></p>");
+                    }
+                    else
+                        AppendCodeBlockHtml(builder, block.Content, "mermaid");
+                    break;
+
+                case MdBlockKind.Chart:
                 case MdBlockKind.Confidence:
                 case MdBlockKind.Comparison:
                 case MdBlockKind.Card:
                 case MdBlockKind.Sources:
+                case MdBlockKind.Interactive:
                     AppendCodeBlockHtml(builder, block.Content, block.Language);
                     break;
             }
@@ -305,6 +342,13 @@ internal static class MarkdownClipboardFormatter
             {
                 builder.Append("<br />");
                 index++;
+                continue;
+            }
+
+            if (text[index] == '\\' && index + 1 < text.Length && "`*_[]<>#~".Contains(text[index + 1]))
+            {
+                builder.Append(WebUtility.HtmlEncode(text[index + 1].ToString()));
+                index += 2;
                 continue;
             }
 
@@ -467,7 +511,7 @@ internal static class MarkdownClipboardFormatter
     }
 
     private static bool IsInlineSpecial(char value)
-        => value is '\n' or '`' or '!' or '[' or '*' or '_' or '~';
+        => value is '\n' or '`' or '!' or '[' or '*' or '_' or '~' or '\\';
 
     private enum HtmlListKind
     {

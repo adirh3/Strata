@@ -4,6 +4,7 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Rendering.Composition;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.Collections.ObjectModel;
@@ -53,8 +54,134 @@ public sealed class StrataChatShellTemplateTests
         });
     }
 
+    [Fact]
+    public async Task GlassComposer_ComesForwardWholeWhileWriting_AndDrawsAFinerStrataLine()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var composer = new StrataChatComposer();
+            composer.Classes.Add("glass");
+            var elsewhere = new TextBox();
+            var window = new Window { Width = 640, Height = 360 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+            });
+            window.Content = new DockPanel { Children = { elsewhere, composer } };
+            DockPanel.SetDock(elsewhere, Dock.Top);
+
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            composer.ApplyTemplate();
+            Dispatcher.UIThread.RunJobs();
+            Border Part(string name) => composer.GetVisualDescendants().OfType<Border>().First(border => border.Name == name);
+            var root = Part("PART_Root");
+            var line = Part("PART_FocusLine");
+            var input = composer.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "PART_Input");
+            var visual = ElementComposition.GetElementVisual(composer);
+            Assert.NotNull(visual);
+
+            // One glass surface, whose shadow a clip at the control's bounds would cut off square at the corners.
+            Assert.False(composer.ClipToBounds);
+            Assert.Equal(new Thickness(0), root.Margin);
+            var resting = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(root.Background);
+            Assert.True(root.BoxShadow.Count > 0);
+
+            // At rest the whole composer sits back a little, about its bottom edge, from the moment it shows.
+            Assert.Equal(StrataChatComposer.RestingDepthScale, composer.FocusDepthScale);
+            Assert.False(composer.FocusDepthAnimated);
+            Assert.Equal(new Vector3D(composer.Bounds.Width / 2, composer.Bounds.Height, 0), visual!.CenterPoint);
+            var bounds = composer.Bounds;
+            var inputBounds = input.Bounds;
+
+            Assert.True(input.Focus());
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(":engaged", composer.Classes);
+
+            // Writing brings it forward, whole, to full size: scaled on the render thread, so nothing is laid out
+            // again, and the glass stays as clear.
+            Assert.Equal(1, composer.FocusDepthScale);
+            Assert.True(composer.FocusDepthAnimated);
+            Assert.Equal(bounds, composer.Bounds);
+            Assert.Equal(inputBounds, input.Bounds);
+            Assert.Same(resting, root.Background);
+
+            // Leaving sends it back.
+            Assert.True(elsewhere.Focus());
+            Dispatcher.UIThread.RunJobs();
+            Assert.DoesNotContain(":engaged", composer.Classes);
+            Assert.Equal(StrataChatComposer.RestingDepthScale, composer.FocusDepthScale);
+            Assert.True(composer.FocusDepthAnimated);
+
+            // Without motion, and on touch, it stays at full size, taken up at once.
+            composer.Classes.Add("mobile");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, composer.FocusDepthScale);
+            Assert.False(composer.FocusDepthAnimated);
+            composer.Classes.Remove("mobile");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(StrataChatComposer.RestingDepthScale, composer.FocusDepthScale);
+            Assert.False(composer.FocusDepthAnimated);
+            // Without motion the line also settles at once, so the rest reads its looks.
+            composer.Classes.Add("motion-disabled");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, composer.FocusDepthScale);
+            Assert.False(composer.FocusDepthAnimated);
+
+            Assert.True(input.Focus());
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, composer.FocusDepthScale);
+
+            // The Strata line: finer than the plain composer's, and feathered at its ends.
+            Assert.True(line.IsEffectivelyVisible);
+            Assert.Equal(1, line.Opacity);
+            Assert.Equal(1.5, line.Height);
+            Assert.NotNull(line.OpacityMask);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task DesktopComposer_GivesTheTextRoom_LessBelowChips_AndLeavesTouchAlone()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var composer = new StrataChatComposer();
+            var window = new Window { Width = 640, Height = 360 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+            });
+            window.Content = composer;
+
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            composer.ApplyTemplate();
+            Dispatcher.UIThread.RunJobs();
+            var input = composer.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "PART_Input");
+            var toolbar = composer.GetVisualDescendants().OfType<Grid>().Single(grid => grid.Name == "PART_Toolbar");
+
+            Assert.Equal(new Thickness(18, 18, 18, 8), input.Padding);
+            Assert.Equal(48, input.MinHeight);
+            Assert.Equal(new Thickness(10), toolbar.Margin);
+
+            composer.AgentName = "Coding Lumi";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(new Thickness(18, 12, 18, 8), input.Padding);
+
+            composer.Classes.Add("mobile");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(new Thickness(12, 10, 12, 10), input.Padding);
+            Assert.Equal(48, input.MinHeight);
+            Assert.Equal(new Thickness(0), toolbar.Margin);
+
+            window.Close();
+        });
+    }
+
     [Theory]
-    [InlineData(false, 16)]
+    [InlineData(false, 18)]
     [InlineData(true, 48)]
     public async Task ComposerChipRemovalTargetsKeepDesktopDensityAndMeetMobileTouchFloor(
         bool mobile,

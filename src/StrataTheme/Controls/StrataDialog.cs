@@ -25,7 +25,7 @@ namespace StrataTheme.Controls;
 ///     &lt;/StackPanel&gt;
 /// &lt;/controls:StrataDialog&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Scrim (Border), PART_Card (Border), PART_CloseButton (Button).</para>
+/// <para><b>Template parts:</b> PART_Scrim (Border), PART_Card (Border), PART_CloseButton (Button), PART_Footer (Border).</para>
 /// <para><b>Pseudo-classes:</b> :open.</para>
 /// </remarks>
 public class StrataDialog : TemplatedControl
@@ -39,6 +39,13 @@ public class StrataDialog : TemplatedControl
 
     public static readonly StyledProperty<object?> DialogContentProperty =
         AvaloniaProperty.Register<StrataDialog, object?>(nameof(DialogContent));
+
+    /// <summary>
+    /// Optional content pinned below the scrolling body, above the card's bottom edge. Use it for the
+    /// dialog's actions so they stay reachable however long <see cref="DialogContent"/> grows.
+    /// </summary>
+    public static readonly StyledProperty<object?> DialogFooterProperty =
+        AvaloniaProperty.Register<StrataDialog, object?>(nameof(DialogFooter));
 
     public static readonly StyledProperty<bool> IsDialogOpenProperty =
         AvaloniaProperty.Register<StrataDialog, bool>(nameof(IsDialogOpen));
@@ -69,6 +76,13 @@ public class StrataDialog : TemplatedControl
     {
         get => GetValue(DialogContentProperty);
         set => SetValue(DialogContentProperty, value);
+    }
+
+    /// <summary>Gets or sets content pinned below the scrolling body (typically the dialog's actions).</summary>
+    public object? DialogFooter
+    {
+        get => GetValue(DialogFooterProperty);
+        set => SetValue(DialogFooterProperty, value);
     }
 
     public bool IsDialogOpen

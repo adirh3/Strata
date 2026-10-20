@@ -60,6 +60,26 @@ internal sealed class RunningElapsedClock : IDisposable
     public void Dispose() => Stop();
 
     /// <summary>
+    /// Formats a measured duration for a row: "42 ms", "1.2s", then "1m 04s" from a minute on.
+    /// Empty when nothing was measured.
+    /// </summary>
+    public static string FormatDuration(double milliseconds)
+    {
+        if (!(milliseconds > 0))
+            return "";
+
+        // The unit is chosen after rounding, so 999.6 ms reads "1.0s" rather than "1000 ms", and
+        // 59.96 s reads "1m 00s" rather than "60.0s".
+        if (Math.Round(milliseconds) < 1000)
+            return $"{milliseconds:F0} ms";
+
+        var seconds = Math.Round(milliseconds / 1000d, 1);
+        return seconds < 60
+            ? $"{seconds:F1}s"
+            : Format(TimeSpan.FromSeconds(Math.Round(milliseconds / 1000d)));
+    }
+
+    /// <summary>
     /// Formats an elapsed span as a compact, human-friendly readout. Seconds under a minute
     /// ("8s"), minutes-and-seconds under an hour ("1m 04s"), hours-and-minutes beyond ("1h 12m").
     /// </summary>

@@ -1,0 +1,612 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:sa="using:StrataTheme.Animation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls"
+        xmlns:strata="using:StrataTheme">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       StrataComposerPicker
+       A composer toolbar pill (icon, label, count) that opens a glass,
+       searchable list of things to bring into a message — skills,
+       other chats. Rows are built in code; their styles live on the
+       list so no other control pays for them.
+       ═══════════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <!-- A tool that holds something takes a soft wash of Lumi's light with a fine rim. -->
+          <LinearGradientBrush x:Key="Brush.ComposerToolActive" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#1F6366F1" />
+            <GradientStop Offset="1" Color="#178B5CF6" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="Brush.ComposerToolActiveHover" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#2B6366F1" />
+            <GradientStop Offset="1" Color="#218B5CF6" />
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="Brush.ComposerToolActiveText" Color="#3F37C9" />
+          <BoxShadows x:Key="Shadow.ComposerToolActive">inset 0 0 0 1 #294F46E5, 0 6 14 -8 #594F46E5</BoxShadows>
+          <SolidColorBrush x:Key="Brush.ComposerCountFill" Color="#1F4F46E5" />
+          <SolidColorBrush x:Key="Brush.ComposerCountText" Color="#4338CA" />
+          <!-- Pointing at a tool catches a little of Lumi's light. -->
+          <RadialGradientBrush x:Key="Brush.ComposerToolCatch" Center="50%,50%" GradientOrigin="50%,50%" RadiusX="50%" RadiusY="50%">
+            <GradientStop Offset="0" Color="#296366F1" />
+            <GradientStop Offset="0.7" Color="#0F8B5CF6" />
+            <GradientStop Offset="1" Color="#0A000000" />
+          </RadialGradientBrush>
+          <RadialGradientBrush x:Key="Brush.ComposerToolCatchPressed" Center="50%,50%" GradientOrigin="50%,50%" RadiusX="50%" RadiusY="50%">
+            <GradientStop Offset="0" Color="#3D6366F1" />
+            <GradientStop Offset="0.7" Color="#1A8B5CF6" />
+            <GradientStop Offset="1" Color="#12000000" />
+          </RadialGradientBrush>
+          <SolidColorBrush x:Key="Brush.PickerTile" Color="#0A000000" />
+          <SolidColorBrush x:Key="Brush.PickerTileBorder" Color="#0F000000" />
+          <SolidColorBrush x:Key="Brush.PickerTileSelected" Color="#1A4F46E5" />
+          <SolidColorBrush x:Key="Brush.PickerCheckRing" Color="#33000000" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <LinearGradientBrush x:Key="Brush.ComposerToolActive" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#3D818CF8" />
+            <GradientStop Offset="1" Color="#29A78BFA" />
+          </LinearGradientBrush>
+          <LinearGradientBrush x:Key="Brush.ComposerToolActiveHover" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#52818CF8" />
+            <GradientStop Offset="1" Color="#3DA78BFA" />
+          </LinearGradientBrush>
+          <SolidColorBrush x:Key="Brush.ComposerToolActiveText" Color="#DCDFFF" />
+          <BoxShadows x:Key="Shadow.ComposerToolActive">inset 0 0 0 1 #2EA5B4FC, 0 6 16 -8 #99818CF8</BoxShadows>
+          <SolidColorBrush x:Key="Brush.ComposerCountFill" Color="#24FFFFFF" />
+          <SolidColorBrush x:Key="Brush.ComposerCountText" Color="#FFFFFF" />
+          <RadialGradientBrush x:Key="Brush.ComposerToolCatch" Center="50%,50%" GradientOrigin="50%,50%" RadiusX="50%" RadiusY="50%">
+            <GradientStop Offset="0" Color="#47818CF8" />
+            <GradientStop Offset="0.7" Color="#1AA78BFA" />
+            <GradientStop Offset="1" Color="#0AFFFFFF" />
+          </RadialGradientBrush>
+          <RadialGradientBrush x:Key="Brush.ComposerToolCatchPressed" Center="50%,50%" GradientOrigin="50%,50%" RadiusX="50%" RadiusY="50%">
+            <GradientStop Offset="0" Color="#5C818CF8" />
+            <GradientStop Offset="0.7" Color="#29A78BFA" />
+            <GradientStop Offset="1" Color="#14FFFFFF" />
+          </RadialGradientBrush>
+          <SolidColorBrush x:Key="Brush.PickerTile" Color="#10FFFFFF" />
+          <SolidColorBrush x:Key="Brush.PickerTileBorder" Color="#14FFFFFF" />
+          <SolidColorBrush x:Key="Brush.PickerTileSelected" Color="#2E818CF8" />
+          <SolidColorBrush x:Key="Brush.PickerCheckRing" Color="#3DFFFFFF" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <!-- Borderless search field: the header draws the divider and the Strata line under it. -->
+      <ControlTheme x:Key="ComposerPickerSearchTheme" TargetType="TextBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="13.5" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource Brush.SelectionBackground}" />
+        <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Brush.SelectionText}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource Brush.TextPrimary}" />
+        <Setter Property="Cursor" Value="IBeam" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel Background="{TemplateBinding Background}">
+              <TextBlock Name="PART_Placeholder"
+                         Text="{TemplateBinding PlaceholderText}"
+                         FontSize="{TemplateBinding FontSize}"
+                         Foreground="{DynamicResource Brush.TextTertiary}"
+                         IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                         IsHitTestVisible="False"
+                         TextTrimming="CharacterEllipsis"
+                         VerticalAlignment="Center"
+                         Margin="{TemplateBinding Padding}" />
+              <ScrollViewer Name="PART_ScrollViewer"
+                            HorizontalScrollBarVisibility="Hidden"
+                            VerticalScrollBarVisibility="Disabled">
+                <TextPresenter Name="PART_TextPresenter"
+                               Text="{TemplateBinding Text, Mode=TwoWay}"
+                               CaretBrush="{TemplateBinding CaretBrush}"
+                               CaretIndex="{TemplateBinding CaretIndex}"
+                               SelectionStart="{TemplateBinding SelectionStart}"
+                               SelectionEnd="{TemplateBinding SelectionEnd}"
+                               SelectionBrush="{TemplateBinding SelectionBrush}"
+                               SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                               TextAlignment="{TemplateBinding TextAlignment}"
+                               TextWrapping="NoWrap"
+                               LetterSpacing="{TemplateBinding LetterSpacing}"
+                               LineHeight="{TemplateBinding LineHeight}"
+                               Margin="{TemplateBinding Padding}"
+                               VerticalAlignment="Center" />
+              </ScrollViewer>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <!-- Quiet text action for the footer: its text and icon take the button's foreground. -->
+      <ControlTheme x:Key="ComposerPickerLinkTheme" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Background="{TemplateBinding Background}"
+                              BorderBrush="Transparent"
+                              BorderThickness="1"
+                              CornerRadius="{TemplateBinding CornerRadius}"
+                              Content="{TemplateBinding Content}"
+                              Foreground="{TemplateBinding Foreground}"
+                              Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}">
+              <ContentPresenter.Transitions>
+                <Transitions>
+                  <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
+                </Transitions>
+              </ContentPresenter.Transitions>
+            </ContentPresenter>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+        </Style>
+        <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+        </Style>
+      </ControlTheme>
+
+      <ControlTheme x:Key="{x:Type controls:StrataComposerPicker}" TargetType="controls:StrataComposerPicker">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Panel>
+              <Button Name="PART_Button"
+                      Classes="composer-tool"
+                      Height="32"
+                      MinWidth="32"
+                      Padding="0"
+                      CornerRadius="16"
+                      VerticalAlignment="Center">
+                <StackPanel Name="PART_ButtonContent" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                  <controls:StrataLineIcon Name="PART_ButtonIcon"
+                                           Data="{TemplateBinding Icon}"
+                                           Width="16" Height="16"
+                                           VerticalAlignment="Center" />
+                  <TextBlock Name="PART_ButtonLabel"
+                             Text="{TemplateBinding Label}"
+                             FontSize="13"
+                             FontWeight="Medium"
+                             VerticalAlignment="Center" />
+                  <Border Name="PART_CountBadge"
+                          MinWidth="18"
+                          Height="18"
+                          Padding="5,0"
+                          CornerRadius="9"
+                          VerticalAlignment="Center"
+                          IsVisible="False">
+                    <TextBlock Name="PART_CountText"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                  </Border>
+                </StackPanel>
+              </Button>
+
+              <!-- In-window, like the connector and model pickers: SlideX keeps the panel on screen
+                   when the pill sits near the edge of a narrow composer. -->
+              <Popup Name="PART_Popup"
+                     IsLightDismissEnabled="True"
+                     ShouldUseOverlayLayer="True"
+                     Placement="AnchorAndGravity"
+                     PlacementAnchor="Bottom"
+                     PlacementGravity="Top"
+                     PlacementConstraintAdjustment="FlipY,ResizeY,SlideX"
+                     VerticalOffset="4"
+                     WindowManagerAddShadowHint="False"
+                     strata:PopupAnimationHelper.EnableOpenAnimation="False"
+                     strata:PopupAnimationHelper.EnableOverlayAnimation="True"
+                     strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
+                <Border Name="PART_Panel"
+                        TextOptions.TextRenderingMode="Antialias"
+                        Width="360"
+                        Margin="10"
+                        Background="Transparent"
+                        BorderBrush="{DynamicResource Brush.BorderDefault}"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        BoxShadow="0 18 48 -10 #48000000, 0 4 14 0 #22000000"
+                        AutomationProperties.Name="{TemplateBinding Label}"
+                        ClipToBounds="False">
+                  <Panel>
+                    <!-- Sample only the pixels beneath the panel, without repainting the window. -->
+                    <Border CornerRadius="13" ClipToBounds="True" IsHitTestVisible="False">
+                      <controls:StrataBackdropBlur CornerRadius="13" BlurRadius="22" Saturation="1.4" />
+                    </Border>
+                    <Border CornerRadius="13"
+                            Background="{DynamicResource Brush.Surface1Glass}"
+                            IsHitTestVisible="False" />
+
+                    <DockPanel>
+                      <Grid Name="PART_Header"
+                            DockPanel.Dock="Top"
+                            Height="46"
+                            Background="Transparent"
+                            ColumnDefinitions="Auto,*">
+                        <Path Data="M7 2.25 A4.75 4.75 0 1 1 7 11.75 A4.75 4.75 0 1 1 7 2.25 Z M10.5 10.5 L14 14"
+                              Width="16"
+                              Height="16"
+                              Stretch="None"
+                              Stroke="{DynamicResource Brush.TextTertiary}"
+                              StrokeThickness="1.5"
+                              StrokeLineCap="Round"
+                              StrokeJoin="Round"
+                              Margin="15,0,9,0"
+                              VerticalAlignment="Center"
+                              IsHitTestVisible="False" />
+                        <TextBox Name="PART_SearchBox"
+                                 Grid.Column="1"
+                                 Theme="{StaticResource ComposerPickerSearchTheme}"
+                                 Text="{TemplateBinding SearchText, Mode=TwoWay}"
+                                 PlaceholderText="{TemplateBinding SearchWatermark}"
+                                 AutomationProperties.Name="{TemplateBinding SearchWatermark}"
+                                 Margin="0,0,15,0"
+                                 VerticalAlignment="Stretch" />
+                        <Border Grid.ColumnSpan="2"
+                                Height="1"
+                                VerticalAlignment="Bottom"
+                                Background="{DynamicResource Brush.BorderSubtle}"
+                                IsHitTestVisible="False" />
+                        <Border Name="PART_SearchLine"
+                                Grid.ColumnSpan="2"
+                                Height="2"
+                                Margin="15,0"
+                                VerticalAlignment="Bottom"
+                                CornerRadius="1"
+                                Background="{DynamicResource Brush.StratumLine}"
+                                Opacity="0"
+                                RenderTransformOrigin="0%,50%"
+                                RenderTransform="scaleX(0)"
+                                IsHitTestVisible="False">
+                          <Border.Transitions>
+                            <Transitions>
+                              <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                            </Transitions>
+                          </Border.Transitions>
+                        </Border>
+                      </Grid>
+
+                      <!-- A tip on how to reach the same list while typing, and the way to manage it. -->
+                      <Border Name="PART_Footer"
+                              DockPanel.Dock="Bottom"
+                              BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                              BorderThickness="0,1,0,0"
+                              Padding="14,6,8,6"
+                              MinHeight="40"
+                              IsVisible="False">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                          <TextBlock Name="PART_HintText"
+                                     Text="{TemplateBinding HintText}"
+                                     FontSize="11.5"
+                                     Foreground="{DynamicResource Brush.TextTertiary}"
+                                     TextTrimming="CharacterEllipsis"
+                                     VerticalAlignment="Center" />
+                          <Button Name="PART_ManageButton"
+                                  Grid.Column="1"
+                                  Theme="{StaticResource ComposerPickerLinkTheme}"
+                                  Classes="picker-link"
+                                  VerticalAlignment="Center"
+                                  AutomationProperties.Name="{TemplateBinding ManageLabel}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                              <TextBlock Text="{TemplateBinding ManageLabel}" />
+                              <PathIcon Data="M9.3 5.3a1 1 0 0 1 1.4 0l6 6a1 1 0 0 1 0 1.4l-6 6a1 1 0 0 1-1.4-1.4l5.3-5.3-5.3-5.3a1 1 0 0 1 0-1.4z"
+                                        Width="9" Height="9" />
+                            </StackPanel>
+                          </Button>
+                        </Grid>
+                      </Border>
+
+                      <Panel Name="PART_Body" MinHeight="72">
+                        <ScrollViewer Name="PART_ListScroller"
+                                      MaxHeight="360"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                          <StackPanel Name="PART_List" Margin="6,4,6,6">
+                            <StackPanel.Styles>
+                              <Style Selector="TextBlock.picker-group-header">
+                                <Setter Property="FontSize" Value="10.5" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter Property="LetterSpacing" Value="0.6" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                              </Style>
+                              <!-- One calm plate marks the active row; it follows the pointer and the
+                                   arrow keys alike. -->
+                              <Style Selector="Border.picker-row">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Transitions">
+                                  <Transitions>
+                                    <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
+                                  </Transitions>
+                                </Setter>
+                              </Style>
+                              <Style Selector="Border.picker-row.active">
+                                <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+                              </Style>
+                              <Style Selector="Border.picker-tile">
+                                <Setter Property="Background" Value="{DynamicResource Brush.PickerTile}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource Brush.PickerTileBorder}" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Setter Property="Transitions">
+                                  <Transitions>
+                                    <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.14" />
+                                  </Transitions>
+                                </Setter>
+                              </Style>
+                              <Style Selector="Border.picker-row.selected Border.picker-tile">
+                                <Setter Property="Background" Value="{DynamicResource Brush.PickerTileSelected}" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                              </Style>
+                              <Style Selector="TextBlock.picker-glyph">
+                                <Setter Property="FontSize" Value="14" />
+                              </Style>
+                              <Style Selector="controls|StrataLineIcon.picker-icon">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+                              </Style>
+                              <Style Selector="Border.picker-row.selected controls|StrataLineIcon.picker-icon">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+                              </Style>
+                              <Style Selector="TextBlock.picker-name">
+                                <Setter Property="FontSize" Value="13" />
+                                <Setter Property="FontWeight" Value="Medium" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                <Setter Property="MaxLines" Value="1" />
+                              </Style>
+                              <Style Selector="TextBlock.picker-caption">
+                                <Setter Property="FontSize" Value="11.5" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                <Setter Property="MaxLines" Value="1" />
+                              </Style>
+                              <Style Selector="TextBlock.picker-meta">
+                                <Setter Property="FontSize" Value="11" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+                                <Setter Property="MaxWidth" Value="120" />
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                              </Style>
+                              <!-- A ring that fills with the accent once chosen. One-off lists (chats)
+                                   show only the filled check. -->
+                              <Style Selector="Border.picker-check">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource Brush.PickerCheckRing}" />
+                                <Setter Property="BorderThickness" Value="1.5" />
+                                <Setter Property="Transitions">
+                                  <Transitions>
+                                    <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.12" />
+                                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                                  </Transitions>
+                                </Setter>
+                              </Style>
+                              <Style Selector="Border.picker-check PathIcon.picker-check-icon">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+                                <Setter Property="Opacity" Value="0" />
+                              </Style>
+                              <Style Selector="Border.picker-row.selected Border.picker-check">
+                                <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                              </Style>
+                              <Style Selector="Border.picker-row.selected Border.picker-check PathIcon.picker-check-icon">
+                                <Setter Property="Opacity" Value="1" />
+                              </Style>
+                              <Style Selector="Border.picker-row.single:not(.selected) Border.picker-check">
+                                <Setter Property="Opacity" Value="0" />
+                              </Style>
+                            </StackPanel.Styles>
+                          </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Nothing matches the search. -->
+                        <TextBlock Name="PART_NoResultsText"
+                                   FontSize="12.5"
+                                   Foreground="{DynamicResource Brush.TextTertiary}"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Margin="24,26"
+                                   IsVisible="False" />
+
+                        <!-- Nothing to offer at all: what these are, and where to make some. -->
+                        <StackPanel Name="PART_Empty"
+                                    Spacing="8"
+                                    Margin="28,24,28,22"
+                                    HorizontalAlignment="Center"
+                                    IsVisible="False">
+                          <Border Width="44" Height="44"
+                                  CornerRadius="13"
+                                  Background="{DynamicResource Brush.PickerTile}"
+                                  BorderBrush="{DynamicResource Brush.PickerTileBorder}"
+                                  BorderThickness="1"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,0,0,6">
+                            <controls:StrataLineIcon Data="{TemplateBinding Icon}"
+                                                     Width="20" Height="20"
+                                                     FlowDirection="LeftToRight"
+                                                     Foreground="{DynamicResource Brush.AccentDefault}" />
+                          </Border>
+                          <TextBlock Text="{TemplateBinding EmptyTitle}"
+                                     FontSize="14"
+                                     FontWeight="SemiBold"
+                                     Foreground="{DynamicResource Brush.TextPrimary}"
+                                     TextAlignment="Center"
+                                     TextWrapping="Wrap" />
+                          <TextBlock Text="{TemplateBinding EmptyText}"
+                                     FontSize="12.5"
+                                     LineHeight="18"
+                                     Foreground="{DynamicResource Brush.TextSecondary}"
+                                     TextAlignment="Center"
+                                     TextWrapping="Wrap"
+                                     IsVisible="{TemplateBinding EmptyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                          <Button Name="PART_EmptyManageButton"
+                                  Classes="accent"
+                                  HorizontalAlignment="Center"
+                                  Padding="14,6"
+                                  CornerRadius="9"
+                                  Margin="0,8,0,0"
+                                  Content="{TemplateBinding ManageLabel}"
+                                  AutomationProperties.Name="{TemplateBinding ManageLabel}" />
+                        </StackPanel>
+                      </Panel>
+                    </DockPanel>
+                  </Panel>
+                </Border>
+              </Popup>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <!-- Pill: icon and label follow the button's foreground, quiet at rest; once anything is
+             chosen the pill takes a wash of Lumi's light (see the global styles below) and a count. -->
+        <Style Selector="^:has-selection /template/ Border#PART_CountBadge">
+          <Setter Property="IsVisible" Value="True" />
+          <Setter Property="Background" Value="{DynamicResource Brush.ComposerCountFill}" />
+        </Style>
+        <Style Selector="^ /template/ TextBlock#PART_CountText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.ComposerCountText}" />
+        </Style>
+        <Style Selector="^ /template/ StackPanel#PART_ButtonContent">
+          <Setter Property="Margin" Value="10,0,12,0" />
+        </Style>
+        <Style Selector="^:has-selection /template/ StackPanel#PART_ButtonContent">
+          <Setter Property="Margin" Value="10,0,8,0" />
+        </Style>
+        <Style Selector="^:icon-only /template/ TextBlock#PART_ButtonLabel">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:icon-only /template/ StackPanel#PART_ButtonContent">
+          <Setter Property="Margin" Value="8,0" />
+        </Style>
+        <Style Selector="^:icon-only:has-selection /template/ StackPanel#PART_ButtonContent">
+          <Setter Property="Margin" Value="8,0,6,0" />
+        </Style>
+
+        <Style Selector="^ /template/ Grid#PART_Header:focus-within Border#PART_SearchLine">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="scaleX(1)" />
+        </Style>
+
+        <Style Selector="^:no-results /template/ ScrollViewer#PART_ListScroller">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-results /template/ TextBlock#PART_NoResultsText">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:has-hint /template/ Border#PART_Footer">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:can-manage /template/ Border#PART_Footer">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:not(:can-manage) /template/ Button#PART_ManageButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(:can-manage) /template/ Button#PART_EmptyManageButton">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <!-- Nothing to offer: the panel becomes a short introduction. -->
+        <Style Selector="^:no-items /template/ Grid#PART_Header">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-items /template/ ScrollViewer#PART_ListScroller">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-items /template/ Border#PART_Footer">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:no-items /template/ StackPanel#PART_Empty">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- ── Composer toolbar tools ──
+       Quiet controls on the composer's surface: secondary text at rest, no fill; pointing at one
+       catches a little of Lumi's light and brightens it; pressing sinks it slightly. Shared by the
+       composer's own buttons and every picker pill, so the toolbar reads as one family. Outside the
+       ControlThemes so they outrank Strata's Button styles. -->
+  <Style Selector="Button.composer-tool">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="Button.composer-tool:pointerover, Button.composer-tool:pressed, Button.composer-tool:focus-visible">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="Button.composer-tool /template/ Border#PART_Surface">
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.12" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.09" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.composer-tool /template/ Border#PART_Aurora">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="Button.composer-tool:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolCatch}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="Button.composer-tool:pressed /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolCatchPressed}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+    <Setter Property="RenderTransform" Value="scale(0.96)" />
+  </Style>
+  <Style Selector="controls|StrataComposerPicker:has-selection /template/ Button#PART_Button">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ComposerToolActiveText}" />
+  </Style>
+  <Style Selector="controls|StrataComposerPicker:has-selection /template/ Button#PART_Button /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolActive}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerToolActive}" />
+  </Style>
+  <Style Selector="controls|StrataComposerPicker:has-selection /template/ Button#PART_Button:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolActiveHover}" />
+  </Style>
+  <Style Selector="controls|StrataComposerPicker:open /template/ Button#PART_Button">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataComposerPicker:open /template/ Button#PART_Button /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolCatchPressed}" />
+  </Style>
+
+  <Style Selector="Button.picker-link TextBlock">
+    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+    <Setter Property="FontSize" Value="{Binding FontSize, RelativeSource={RelativeSource AncestorType=Button}}" />
+  </Style>
+  <Style Selector="Button.picker-link PathIcon">
+    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+  </Style>
+</Styles>

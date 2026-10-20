@@ -6,6 +6,12 @@
 
       <ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
         <Setter Property="(strata:OverlayAnimationHelper.AnimateOpen)" Value="True" />
+        <!-- A tooltip only describes; it never takes input. With overlay popups the tip is part of the
+             window, so a hit-testable tip that lands under the cursor (pointer placement near an edge
+             flips or slides it there) swallows the click meant for the control beneath it, and
+             ToolTipService keeps a tip open while the pointer is over it. Passing input through lets
+             clicks reach their target and the tip close as soon as the pointer moves on. -->
+        <Setter Property="IsHitTestVisible" Value="False" />
         <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
@@ -46,8 +52,8 @@
           always matches, so Avalonia never emits an "unmatch" on detach and never
           disposes the animation instance — pinning the tooltip's composition subtree
           to the app-lifetime Compositor for every tooltip ever shown (a steady leak).
-          The open fade is handled by OverlayAnimationHelper.AnimateOpen + the
-          Opacity DoubleTransition above; a resting tooltip should not breathe.
+          Open and close motion is handled by the shared PopupAnimationHelper
+          through OverlayAnimationHelper; a resting tooltip should not breathe.
         -->
       </ControlTheme>
 

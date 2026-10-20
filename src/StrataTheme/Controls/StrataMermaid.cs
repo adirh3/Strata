@@ -7,7 +7,6 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -45,12 +44,8 @@ public class StrataMermaid : TemplatedControl
     private MermaidCanvas? _canvas;
     private Button? _zoomIn, _zoomOut, _zoomReset, _actualSize, _expand;
     private TextBlock? _zoomLabel;
-    private OverlayLayer? _expandedLayer;
-    private Border? _expandedOverlay;
+    private StrataFullScreenOverlay? _expandedView;
     private StrataMermaid? _expandedDiagram, _expandedOwner;
-    private IInputElement? _previousFocus;
-    private Window? _expandedWindow;
-    private WindowState _previousWindowState;
 
     /// <summary>Identifies the <see cref="Source"/> styled property.</summary>
     public static readonly StyledProperty<string?> SourceProperty =
@@ -126,17 +121,7 @@ public class StrataMermaid : TemplatedControl
             _expandedOwner.CloseExpandedView();
             return;
         }
-        if (_expandedOverlay is not null) return;
-        var layer = OverlayLayer.GetOverlayLayer(this);
-        if (layer is null)
-        {
-            Avalonia.Logging.Logger.TryGet(Avalonia.Logging.LogEventLevel.Warning, "Control")
-                ?.Log(this, "The diagram viewer requires a top-level overlay layer.");
-            return;
-        }
-
-        _previousFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
-        _expandedLayer = layer;
+        if (_expandedView is not null) return;
         _expandedDiagram = new StrataMermaid
         {
             Name = "ExpandedMermaid",
@@ -146,60 +131,24 @@ public class StrataMermaid : TemplatedControl
             VerticalAlignment = VerticalAlignment.Stretch,
             _expandedOwner = this
         };
-        _expandedOverlay = new Border
+        _expandedView = StrataFullScreenOverlay.Open(
+            this,
+            "MermaidFullScreen",
+            _expandedDiagram,
+            () => _expandedDiagram?._canvas?.Focus());
+        if (_expandedView is null)
         {
-            Name = "MermaidFullScreen",
-            Background = ResolveBrush("Brush.Background", Color.Parse("#161616")),
-            Child = new ThemeVariantScope { RequestedThemeVariant = ActualThemeVariant, Child = _expandedDiagram },
-            ZIndex = int.MaxValue
+            _expandedDiagram = null;
+            return;
+        }
+        _expandedView.Closed += (_, _) =>
+        {
+            _expandedView = null;
+            _expandedDiagram = null;
         };
-        _expandedOverlay.Bind(WidthProperty, new Binding("Bounds.Width") { Source = layer });
-        _expandedOverlay.Bind(HeightProperty, new Binding("Bounds.Height") { Source = layer });
-        KeyboardNavigation.SetTabNavigation(_expandedOverlay, KeyboardNavigationMode.Cycle);
-        _expandedOverlay.AddHandler(KeyDownEvent, OnExpandedKeyDown, RoutingStrategies.Tunnel);
-        layer.Children.Add(_expandedOverlay);
-        if (TopLevel.GetTopLevel(this) is Window window)
-        {
-            _expandedWindow = window;
-            _previousWindowState = window.WindowState;
-            window.WindowState = WindowState.FullScreen;
-        }
-        Dispatcher.UIThread.Post(() => _expandedDiagram?._canvas?.Focus(), DispatcherPriority.Loaded);
     }
 
-    private void OnExpandedKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Escape) return;
-        CloseExpandedView();
-        e.Handled = true;
-    }
-
-    private void CloseExpandedView(bool restoreFocus = true)
-    {
-        var overlay = _expandedOverlay;
-        if (overlay is null) return;
-        _expandedOverlay = null;
-        overlay.RemoveHandler(KeyDownEvent, OnExpandedKeyDown);
-        _expandedLayer?.Children.Remove(overlay);
-        overlay.Child = null;
-        _expandedLayer = null;
-        _expandedDiagram = null;
-        if (_expandedWindow is { } window)
-        {
-            _expandedWindow = null;
-            if (window.WindowState == WindowState.FullScreen)
-                window.WindowState = _previousWindowState;
-        }
-        var focus = _previousFocus;
-        _previousFocus = null;
-        if (restoreFocus) focus?.Focus();
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        CloseExpandedView(restoreFocus: false);
-        base.OnDetachedFromVisualTree(e);
-    }
+    private void CloseExpandedView() => _expandedView?.Close();
 
     private void OnZoomIn(object? s, Avalonia.Interactivity.RoutedEventArgs e)
     {

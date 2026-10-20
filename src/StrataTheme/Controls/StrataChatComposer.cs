@@ -28,24 +28,36 @@ namespace StrataTheme.Controls;
 /// <summary>Lightweight chip data for agent, skill, or MCP display in the composer.</summary>
 /// <param name="Name">Primary display label.</param>
 /// <param name="Glyph">Single-character icon or fallback marker (default "✦").</param>
-/// <param name="ErrorMessage">If set, the chip displays in an error state with this tooltip.</param>
+/// <param name="ErrorMessage">
+/// If set, the chip is in an error state. Keep it short and human: it is the one-line reason the MCP
+/// picker shows under the item, and the chip's tooltip.
+/// </param>
 /// <param name="SecondaryText">Optional supporting text shown in richer autocomplete rows and used as a secondary search field.</param>
 /// <param name="Value">Optional backing value used when the display label differs from the payload.</param>
 /// <param name="SourceLabel">Optional short provenance hint (for example "Lumi", "Project" or "Plugin · foo") shown as a trailing badge in autocomplete rows.</param>
+/// <param name="ErrorDetails">Optional complete technical details behind <paramref name="ErrorMessage"/>, revealed only on request.</param>
+/// <param name="StatusMessage">
+/// Optional neutral status that is not a problem, such as "Still starting". The MCP picker shows it
+/// under the item without the error state's attention cues or actions.
+/// </param>
+/// <param name="Group">Optional heading the MCP picker lists the item under, such as "Yours".</param>
 public record StrataComposerChip(
     string Name,
     string Glyph = "✦",
     string? ErrorMessage = null,
     string? SecondaryText = null,
     string? Value = null,
-    string? SourceLabel = null)
+    string? SourceLabel = null,
+    string? ErrorDetails = null,
+    string? StatusMessage = null,
+    string? Group = null)
 {
     /// <summary>True when the chip has an error (e.g., MCP server failed to connect).</summary>
     public bool HasError => ErrorMessage is not null;
 }
 
 /// <summary>The kind of autocomplete entry or chip.</summary>
-public enum ChipKind { Agent, Skill, Mcp, Project, File }
+public enum ChipKind { Agent, Skill, Mcp, Project, File, Chat }
 
 /// <summary>Optional editor contract for hosts that replace the templated Avalonia TextBox.</summary>
 public interface IStrataComposerEditor
@@ -106,37 +118,44 @@ public class FileSelectedEventArgs : EventArgs
 ///                                SendRequested="OnSend"
 ///                                StopRequested="OnStop" /&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Input (TextBox), PART_EditorContent (ContentPresenter),
-/// PART_SendButton (Button),
-/// PART_AttachButton (Button), PART_MentionButton (Button), PART_VoiceButton (Button),
-/// PART_ModelPickerButton (Button), PART_ModelPickerPopup (Popup),
-/// PART_ModelPickerList (StackPanel),
+/// <para><b>Template parts:</b> PART_Root (Border), PART_Input (TextBox),
+/// PART_EditorContent (ContentPresenter),
+/// PART_SendButton (Button: sends, steers, stops, and dictates while there is nothing to send),
+/// PART_AddButton (Button), PART_AddPopup (Popup), PART_AddPanel (Border), PART_AddMenuList (StackPanel),
+/// PART_ModelPicker (StrataModelPicker),
 /// PART_ActionA (Button), PART_ActionB (Button), PART_ActionC (Button),
 /// PART_ChipsRow (WrapPanel), PART_AgentChip (Border),
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_FocusLine (Border), PART_FocusSweep (Border), PART_AutoCompletePopup (Popup),
-/// PART_AutoCompletePanel (StackPanel).</para>
+/// PART_AutoCompletePanel (StackPanel), PART_McpPanel (Panel) hosting PART_ConnectorPicker (StrataConnectorPicker),
+/// PART_SkillPicker, PART_ChatPicker and PART_AgentPicker (StrataComposerPicker).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :external-editor, :editor-content-hidden, :compact,
 /// :can-attach, :can-send-without-prompt,
 /// :can-voice, :editing, :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
-/// :has-agent, :has-project, :has-skills, :has-chips, :suggestions-generating.</para>
+/// :has-agent, :has-project, :has-skills, :has-chats, :has-chips, :has-skill-options,
+/// :has-chat-options, :has-add-options, :add-open, :engaged, :voice, :recording, :narrow, :suggestions-generating.</para>
+/// <para><b>Glass:</b> the <c>glass</c> class turns the surface translucent over a frosted backdrop, for hosts
+/// whose content runs beneath the composer. A glass composer sits back a little at rest and comes forward,
+/// whole, while the user writes (its focus depth, scaled on the render thread); <c>motion-disabled</c> and
+/// <c>mobile</c> keep it at full size.</para>
 /// </remarks>
-public class StrataChatComposer : TemplatedControl
+public partial class StrataChatComposer : TemplatedControl
 {
     private TextBox? _input;
     private Border? _focusSweep;
     private readonly EffectiveVisibilityObserver _focusSweepVisibility;
     private IDisposable? _focusSweepTimer;
     private bool _focusSweepPlayed;
+    // The composer's own lists (the + menu, pickers, the model list) open in the overlay layer, so the
+    // keyboard leaves the composer's visual tree while one is open. They still count as writing here.
+    private readonly HashSet<Popup> _openOwnPopups = new();
+    private bool _engagedHold;
+    private bool _engagedHoldCheckQueued;
     private Button? _sendButton;
     private WrapPanel? _chipsRow;
     private Popup? _autoCompletePopup;
     private StackPanel? _autoCompletePanel;
     private ScrollViewer? _autoCompleteScrollViewer;
-    private Popup? _mcpPopup;
-    private StackPanel? _mcpPopupPanel;
-    private TextBlock? _mcpCountText;
-    private Button? _mcpButton;
     private Popup? _modelPickerPopup;
     private StackPanel? _modelPickerList;
     private Avalonia.Controls.Shapes.Path? _modelPickerChevron;
@@ -154,10 +173,18 @@ public class StrataChatComposer : TemplatedControl
     private char _triggerChar;
     private bool _suppressAutoComplete;
     private INotifyCollectionChanged? _subscribedSkillCollection;
-    private INotifyCollectionChanged? _subscribedMcpCollection;
+    private INotifyCollectionChanged? _subscribedChatCollection;
     private INotifyCollectionChanged? _subscribedAvailableMcpCollection;
     private INotifyCollectionChanged? _subscribedAvailableFileCollection;
     private bool _fileAutoCompleteRefreshQueued;
+    private StrataComposerPicker? _skillPicker;
+    private StrataComposerPicker? _chatPicker;
+    // The # reference being typed, kept while its list waits for the host's files: the popup closes
+    // when nothing matches yet, but the reference stays live until it is dismissed or finished.
+    private int _referenceTriggerIndex = -1;
+    // The # list closed only because nothing matches yet. Its Closed event arrives after the closing fade,
+    // so this lasts until the list shows again rather than just while it closes.
+    private bool _awaitingReferenceFiles;
     private static readonly string[] DefaultModels = ["GPT-5.3-Codex", "GPT-4o", "o3"];
     private static readonly string[] DefaultQualityLevels = ["Medium", "High", "Extra High"];
 
@@ -204,6 +231,52 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<string?> ModelUnpinToolTipProperty =
         AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ModelUnpinToolTip));
 
+    /// <summary>Tooltip for the MCP server button. Hosts that name MCP servers differently, such as "Connectors", set their own.</summary>
+    public static readonly StyledProperty<string> McpToolTipProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpToolTip), "MCP Servers");
+
+    /// <summary>
+    /// Accessible name of the MCP server list, forwarded to <see cref="StrataConnectorPicker.Header"/>. Like
+    /// <see cref="McpToolTip"/>, hosts may name it their way.
+    /// </summary>
+    public static readonly StyledProperty<string> McpHeaderProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpHeader), "MCP Servers");
+
+    /// <summary>
+    /// Action offered on MCP list items whose server reports an error, such as "Fix with Lumi".
+    /// The parameter is the affected <see cref="StrataComposerChip"/>. Choosing it closes the list.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> McpErrorActionCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(McpErrorActionCommand));
+
+    /// <summary>Label of <see cref="McpErrorActionCommand"/>. The action is hidden while this is empty.</summary>
+    public static readonly StyledProperty<string?> McpErrorActionLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(McpErrorActionLabel));
+
+    /// <summary>Label of the toggle that reveals an MCP error's <see cref="StrataComposerChip.ErrorDetails"/>.</summary>
+    public static readonly StyledProperty<string> McpErrorDetailsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpErrorDetailsLabel), "Details");
+
+    /// <summary>Tooltip and accessible name of the button that copies an MCP error's details.</summary>
+    public static readonly StyledProperty<string> McpCopyErrorDetailsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(McpCopyErrorDetailsLabel), "Copy details");
+
+    /// <summary>
+    /// Finds new MCP servers, forwarded to <see cref="StrataConnectorPicker.BrowseCommand"/>. The parameter
+    /// is the picker's search text, or null. While set, the MCP button shows even before any server
+    /// exists, so the host's servers can be found from the composer.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> McpBrowseCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(McpBrowseCommand));
+
+    /// <summary>Opens the host's MCP server settings, forwarded to <see cref="StrataConnectorPicker.ManageCommand"/>.</summary>
+    public static readonly StyledProperty<ICommand?> McpManageCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(McpManageCommand));
+
+    /// <summary>True while the host is still discovering MCP servers, forwarded to <see cref="StrataConnectorPicker.IsLoading"/>.</summary>
+    public static readonly StyledProperty<bool> McpIsLoadingProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(McpIsLoading));
+
     /// <summary>Items source for the quality/effort selector ComboBox.</summary>
     public static readonly StyledProperty<IEnumerable?> QualityLevelsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(QualityLevels));
@@ -243,12 +316,12 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<bool> SendWithEnterProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(SendWithEnter), true);
 
-    /// <summary>Whether to show the attach (+) button.</summary>
+    /// <summary>Whether the + menu offers files.</summary>
     public static readonly StyledProperty<bool> CanAttachProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanAttach), true);
 
-    /// <summary>Whether the voice (push-to-talk) button is shown. Hidden when false — e.g. on
-    /// platforms without a speech recognizer. Defaults to true.</summary>
+    /// <summary>Whether the send button dictates while there is nothing to send (on the desktop). False
+    /// on platforms without a speech recognizer. Defaults to true.</summary>
     public static readonly StyledProperty<bool> CanVoiceProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanVoice), true);
 
@@ -311,8 +384,8 @@ public class StrataChatComposer : TemplatedControl
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableSkills));
 
     /// <summary>
-    /// Items source for MCP server chips displayed in the composer.
-    /// Use <see cref="StrataComposerChip"/> items for icon+name display.
+    /// The MCP servers that are on, as <see cref="StrataComposerChip"/>s, forwarded to
+    /// <see cref="StrataConnectorPicker.SelectedItems"/>: an <see cref="IList"/> the picker edits directly.
     /// </summary>
     public static readonly StyledProperty<IEnumerable?> McpItemsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(McpItems));
@@ -329,7 +402,7 @@ public class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<IEnumerable?> AvailableProjectsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableProjects));
 
-    /// <summary>Catalog of MCP servers available for selection via the MCP button popup.</summary>
+    /// <summary>Every MCP server the host offers, forwarded to <see cref="StrataConnectorPicker.Items"/>.</summary>
     public static readonly StyledProperty<IEnumerable?> AvailableMcpsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableMcps));
 
@@ -340,6 +413,76 @@ public class StrataChatComposer : TemplatedControl
     /// </summary>
     public static readonly StyledProperty<IEnumerable?> AvailableFilesProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableFiles));
+
+    /// <summary>
+    /// Other chats brought into the next message, shown as chips. Must be an <see cref="IList"/>: the
+    /// composer adds and removes chips in it directly. Chats are told apart by
+    /// <see cref="StrataComposerChip.Value"/> (for example the chat id), since titles can repeat.
+    /// </summary>
+    public static readonly StyledProperty<IEnumerable?> ChatItemsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(ChatItems));
+
+    /// <summary>
+    /// Chats the user can bring into a message, most relevant first, offered by the Chats picker and
+    /// above the files in the # autocomplete. Null hides both, for hosts without chat history.
+    /// </summary>
+    public static readonly StyledProperty<IEnumerable?> AvailableChatsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(AvailableChats));
+
+    /// <summary>
+    /// Executed before chats are offered — when the Chats picker opens or a # reference starts — so the
+    /// host can refresh <see cref="AvailableChats"/> only when it is about to be seen.
+    /// </summary>
+    public static readonly StyledProperty<ICommand?> ChatsRequestedCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(ChatsRequestedCommand));
+
+    /// <summary>Opens the host's skill settings from the Skills picker. Hidden while null.</summary>
+    public static readonly StyledProperty<ICommand?> SkillsManageCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(SkillsManageCommand));
+
+    /// <summary>The + button's tooltip and accessible name.</summary>
+    public static readonly StyledProperty<string> AddButtonToolTipProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddButtonToolTip), "Add files, chats and more");
+
+    /// <summary>The + menu row that attaches files (through <see cref="AttachCommand"/>).</summary>
+    public static readonly StyledProperty<string> AddFilesLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddFilesLabel), "Files & photos");
+
+    /// <summary>Heading of the most recent chats, listed in the + menu itself.</summary>
+    public static readonly StyledProperty<string> AddRecentChatsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddRecentChatsLabel), "Recent chats");
+
+    /// <summary>The + menu row that lists every chat to bring in.</summary>
+    public static readonly StyledProperty<string> AddAllChatsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddAllChatsLabel), "All chats");
+
+    public static readonly StyledProperty<string> AddSkillsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddSkillsLabel), "Skills");
+
+    public static readonly StyledProperty<string> AddAgentsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddAgentsLabel), "Agents");
+
+    public static readonly StyledProperty<string> AddConnectorsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddConnectorsLabel), "Connectors");
+
+    /// <summary>How many connectors are on, beside Connectors in the + menu: {0} is the count.</summary>
+    public static readonly StyledProperty<string> AddConnectorsCountFormatProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddConnectorsCountFormat), "{0} on");
+
+    public static readonly StyledProperty<string> AddProjectLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddProjectLabel), "Project");
+
+    /// <summary>The send button's name while it would start dictation.</summary>
+    public static readonly StyledProperty<string> DictateLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(DictateLabel), "Dictate");
+
+    /// <summary>The send button's name while dictation is listening.</summary>
+    public static readonly StyledProperty<string> StopDictatingLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string>(nameof(StopDictatingLabel), "Stop dictating");
+
+    /// <summary>A tip at the foot of the + menu, such as the characters that reach the same lists while typing.</summary>
+    public static readonly StyledProperty<string?> AddMenuHintProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(AddMenuHint), "Or type # for chats and files, / for skills, @ for agents");
 
     /// <summary>Optional content displayed between the text input and the toolbar (e.g. coding project toolbar, status bar).</summary>
     public static readonly StyledProperty<object?> StatusContentProperty =
@@ -394,6 +537,13 @@ public class StrataChatComposer : TemplatedControl
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(LeadingContent));
 
     /// <summary>
+    /// Optional host content at the end of the toolbar, just before the model picker: settings that
+    /// shape how the chat runs, like the model does, rather than something a message brings in.
+    /// </summary>
+    public static readonly StyledProperty<object?> TrailingContentProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(TrailingContent));
+
+    /// <summary>
     /// Additional clipboard data formats the host wants to handle itself before
     /// the composer falls back to inserting plain text.
     /// </summary>
@@ -413,7 +563,7 @@ public class StrataChatComposer : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> StopAndSendRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(StopAndSendRequested), RoutingStrategies.Bubble);
 
-    /// <summary>Raised when the user clicks the attach (+) button.</summary>
+    /// <summary>Raised when the user chooses to attach files from the + menu.</summary>
     public static readonly RoutedEvent<RoutedEventArgs> AttachRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(AttachRequested), RoutingStrategies.Bubble);
 
@@ -433,11 +583,18 @@ public class StrataChatComposer : TemplatedControl
     public static readonly RoutedEvent<ComposerChipRemovedEventArgs> McpRemovedEvent =
         RoutedEvent.Register<StrataChatComposer, ComposerChipRemovedEventArgs>(nameof(McpRemoved), RoutingStrategies.Bubble);
 
-    /// <summary>Raised when the user clicks the mention (@) button to add agents or skills.</summary>
+    /// <summary>Raised after the user removes a chat from the next message (its chip, or the Chats picker).</summary>
+    public static readonly RoutedEvent<ComposerChipRemovedEventArgs> ChatRemovedEvent =
+        RoutedEvent.Register<StrataChatComposer, ComposerChipRemovedEventArgs>(nameof(ChatRemoved), RoutingStrategies.Bubble);
+
+    /// <summary>Raised when the user starts an @ mention from the + menu, in a template without an agent list.</summary>
     public static readonly RoutedEvent<RoutedEventArgs> MentionRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(MentionRequested), RoutingStrategies.Bubble);
 
-    /// <summary>Raised when the user clicks the voice (microphone) button.</summary>
+    /// <summary>
+    /// Raised when the user starts or stops dictation from the send button: it dictates while there is
+    /// nothing to send (and <see cref="CanVoice"/>), and finishes dictation while <see cref="IsRecording"/>.
+    /// </summary>
     public static readonly RoutedEvent<RoutedEventArgs> VoiceRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(VoiceRequested), RoutingStrategies.Bubble);
 
@@ -495,6 +652,18 @@ public class StrataChatComposer : TemplatedControl
     /// <summary>Optional parameter for <see cref="ModelPickerOpenedCommand"/>.</summary>
     public static readonly StyledProperty<object?> ModelPickerOpenedCommandParameterProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(ModelPickerOpenedCommandParameter));
+
+    /// <summary>Optional note about the selected model, shown at the bottom of the model picker.</summary>
+    public static readonly StyledProperty<string?> ModelNoteProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ModelNote));
+
+    /// <summary>Label of the link beside <see cref="ModelNote"/>.</summary>
+    public static readonly StyledProperty<string?> ModelNoteActionLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(ModelNoteActionLabel));
+
+    /// <summary>Command run by the link beside <see cref="ModelNote"/>; the link is hidden while null.</summary>
+    public static readonly StyledProperty<ICommand?> ModelNoteCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(ModelNoteCommand));
 
     /// <summary>Optional parameter for <see cref="AttachCommand"/>.</summary>
     public static readonly StyledProperty<object?> AttachCommandParameterProperty =
@@ -575,7 +744,9 @@ public class StrataChatComposer : TemplatedControl
     static StrataChatComposer()
     {
         IsKeyboardFocusWithinProperty.Changed.AddClassHandler<StrataChatComposer>(
-            static (c, _) => c.UpdateFocusSweep());
+            static (c, _) => c.UpdateEngaged());
+        Popup.IsOpenProperty.Changed.AddClassHandler<Popup>(
+            static (popup, e) => OwningComposer(popup)?.OnOwnPopupOpenChanged(popup, e.NewValue is true));
         PromptTextProperty.Changed.AddClassHandler<StrataChatComposer>((c, e) =>
         {
             // Clamp selection to new text length to prevent Avalonia crash in
@@ -603,6 +774,8 @@ public class StrataChatComposer : TemplatedControl
         CanVoiceProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanSendWithoutPromptProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsRecordingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        DictateLabelProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        StopDictatingLabelProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsSuggestionsGeneratingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
         {
             c.Sync();
@@ -637,12 +810,21 @@ public class StrataChatComposer : TemplatedControl
             c.Sync();
             c.AnimateSuggestionsIfNeeded();
         });
-        AgentNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        AgentNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
+        {
+            c.ForgetStaleAgentValue();
+            c.Sync();
+        });
         AgentGlyphProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         ProjectNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
-        McpItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnMcpItemsChanged());
+        ChatItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnChatItemsChanged());
+        AvailableSkillsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        AvailableChatsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        AvailableAgentsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        AvailableProjectsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         AvailableMcpsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnAvailableMcpsChanged());
+        McpBrowseCommandProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         AvailableFilesProperty.Changed.AddClassHandler<StrataChatComposer>(
             (c, _) => c.OnAvailableFilesChanged());
         ModelsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => { c.EnsureSelectedValues(); c.RefreshModelPickerIfOpen(); });
@@ -657,7 +839,17 @@ public class StrataChatComposer : TemplatedControl
     public StrataChatComposer()
     {
         _focusSweepVisibility = new EffectiveVisibilityObserver(this, UpdateFocusSweep);
-        Classes.CollectionChanged += (_, _) => UpdateFocusSweep();
+        Classes.CollectionChanged += (_, e) =>
+        {
+            // Pseudo-classes live in Classes too; only the host's classes (glass, mobile, motion-disabled)
+            // change anything here.
+            if (!ChangesHostClass(e))
+                return;
+
+            UpdateFocusSweep();
+            UpdateFocusDepth();
+            Sync();
+        };
 
         if (Models is null)
             Models = DefaultModels;
@@ -666,6 +858,25 @@ public class StrataChatComposer : TemplatedControl
             QualityLevels = DefaultQualityLevels;
 
         EnsureSelectedValues();
+    }
+
+    private static bool ChangesHostClass(NotifyCollectionChangedEventArgs e)
+        => e.Action == NotifyCollectionChangedAction.Reset
+           || HasHostClass(e.NewItems)
+           || HasHostClass(e.OldItems);
+
+    private static bool HasHostClass(IList? classes)
+    {
+        if (classes is null)
+            return false;
+
+        foreach (var name in classes)
+        {
+            if (name is string { Length: > 0 } text && text[0] != ':')
+                return true;
+        }
+
+        return false;
     }
 
     public event EventHandler<RoutedEventArgs>? SendRequested
@@ -682,6 +893,8 @@ public class StrataChatComposer : TemplatedControl
     { add => AddHandler(SkillRemovedEvent, value); remove => RemoveHandler(SkillRemovedEvent, value); }
     public event EventHandler<ComposerChipRemovedEventArgs>? McpRemoved
     { add => AddHandler(McpRemovedEvent, value); remove => RemoveHandler(McpRemovedEvent, value); }
+    public event EventHandler<ComposerChipRemovedEventArgs>? ChatRemoved
+    { add => AddHandler(ChatRemovedEvent, value); remove => RemoveHandler(ChatRemovedEvent, value); }
     public event EventHandler<RoutedEventArgs>? ProjectRemoved
     { add => AddHandler(ProjectRemovedEvent, value); remove => RemoveHandler(ProjectRemovedEvent, value); }
     public event EventHandler<RoutedEventArgs>? MentionRequested
@@ -700,6 +913,15 @@ public class StrataChatComposer : TemplatedControl
     public ICommand? ModelPinCommand { get => GetValue(ModelPinCommandProperty); set => SetValue(ModelPinCommandProperty, value); }
     public string? ModelPinToolTip { get => GetValue(ModelPinToolTipProperty); set => SetValue(ModelPinToolTipProperty, value); }
     public string? ModelUnpinToolTip { get => GetValue(ModelUnpinToolTipProperty); set => SetValue(ModelUnpinToolTipProperty, value); }
+    public string McpToolTip { get => GetValue(McpToolTipProperty); set => SetValue(McpToolTipProperty, value); }
+    public string McpHeader { get => GetValue(McpHeaderProperty); set => SetValue(McpHeaderProperty, value); }
+    public ICommand? McpErrorActionCommand { get => GetValue(McpErrorActionCommandProperty); set => SetValue(McpErrorActionCommandProperty, value); }
+    public string? McpErrorActionLabel { get => GetValue(McpErrorActionLabelProperty); set => SetValue(McpErrorActionLabelProperty, value); }
+    public string McpErrorDetailsLabel { get => GetValue(McpErrorDetailsLabelProperty); set => SetValue(McpErrorDetailsLabelProperty, value); }
+    public string McpCopyErrorDetailsLabel { get => GetValue(McpCopyErrorDetailsLabelProperty); set => SetValue(McpCopyErrorDetailsLabelProperty, value); }
+    public ICommand? McpBrowseCommand { get => GetValue(McpBrowseCommandProperty); set => SetValue(McpBrowseCommandProperty, value); }
+    public ICommand? McpManageCommand { get => GetValue(McpManageCommandProperty); set => SetValue(McpManageCommandProperty, value); }
+    public bool McpIsLoading { get => GetValue(McpIsLoadingProperty); set => SetValue(McpIsLoadingProperty, value); }
 
     public IEnumerable? QualityLevels{ get => GetValue(QualityLevelsProperty); set => SetValue(QualityLevelsProperty, value); }
     public object? SelectedQuality { get => GetValue(SelectedQualityProperty); set => SetValue(SelectedQualityProperty, value); }
@@ -728,6 +950,22 @@ public class StrataChatComposer : TemplatedControl
     public string? ProjectValue { get => GetValue(ProjectValueProperty); set => SetValue(ProjectValueProperty, value); }
     public IEnumerable? AvailableProjects { get => GetValue(AvailableProjectsProperty); set => SetValue(AvailableProjectsProperty, value); }
     public IEnumerable? AvailableFiles { get => GetValue(AvailableFilesProperty); set => SetValue(AvailableFilesProperty, value); }
+    public IEnumerable? ChatItems { get => GetValue(ChatItemsProperty); set => SetValue(ChatItemsProperty, value); }
+    public IEnumerable? AvailableChats { get => GetValue(AvailableChatsProperty); set => SetValue(AvailableChatsProperty, value); }
+    public ICommand? ChatsRequestedCommand { get => GetValue(ChatsRequestedCommandProperty); set => SetValue(ChatsRequestedCommandProperty, value); }
+    public ICommand? SkillsManageCommand { get => GetValue(SkillsManageCommandProperty); set => SetValue(SkillsManageCommandProperty, value); }
+    public string AddButtonToolTip { get => GetValue(AddButtonToolTipProperty); set => SetValue(AddButtonToolTipProperty, value); }
+    public string AddFilesLabel { get => GetValue(AddFilesLabelProperty); set => SetValue(AddFilesLabelProperty, value); }
+    public string AddRecentChatsLabel { get => GetValue(AddRecentChatsLabelProperty); set => SetValue(AddRecentChatsLabelProperty, value); }
+    public string AddAllChatsLabel { get => GetValue(AddAllChatsLabelProperty); set => SetValue(AddAllChatsLabelProperty, value); }
+    public string AddSkillsLabel { get => GetValue(AddSkillsLabelProperty); set => SetValue(AddSkillsLabelProperty, value); }
+    public string AddAgentsLabel { get => GetValue(AddAgentsLabelProperty); set => SetValue(AddAgentsLabelProperty, value); }
+    public string AddConnectorsLabel { get => GetValue(AddConnectorsLabelProperty); set => SetValue(AddConnectorsLabelProperty, value); }
+    public string AddConnectorsCountFormat { get => GetValue(AddConnectorsCountFormatProperty); set => SetValue(AddConnectorsCountFormatProperty, value); }
+    public string AddProjectLabel { get => GetValue(AddProjectLabelProperty); set => SetValue(AddProjectLabelProperty, value); }
+    public string? AddMenuHint { get => GetValue(AddMenuHintProperty); set => SetValue(AddMenuHintProperty, value); }
+    public string DictateLabel { get => GetValue(DictateLabelProperty); set => SetValue(DictateLabelProperty, value); }
+    public string StopDictatingLabel { get => GetValue(StopDictatingLabelProperty); set => SetValue(StopDictatingLabelProperty, value); }
     public bool IsRecording { get => GetValue(IsRecordingProperty); set => SetValue(IsRecordingProperty, value); }
     public bool IsEditing { get => GetValue(IsEditingProperty); set => SetValue(IsEditingProperty, value); }
     public ICommand? CancelEditCommand { get => GetValue(CancelEditCommandProperty); set => SetValue(CancelEditCommandProperty, value); }
@@ -740,6 +978,7 @@ public class StrataChatComposer : TemplatedControl
     public bool PreferAutoCompleteAbove { get => GetValue(PreferAutoCompleteAboveProperty); set => SetValue(PreferAutoCompleteAboveProperty, value); }
     public object? ToolbarContent { get => GetValue(ToolbarContentProperty); set => SetValue(ToolbarContentProperty, value); }
     public object? LeadingContent { get => GetValue(LeadingContentProperty); set => SetValue(LeadingContentProperty, value); }
+    public object? TrailingContent { get => GetValue(TrailingContentProperty); set => SetValue(TrailingContentProperty, value); }
     public IEnumerable? ClipboardPasteInterceptFormats { get => GetValue(ClipboardPasteInterceptFormatsProperty); set => SetValue(ClipboardPasteInterceptFormatsProperty, value); }
 
     /// <summary>
@@ -764,6 +1003,9 @@ public class StrataChatComposer : TemplatedControl
     public object? AttachCommandParameter { get => GetValue(AttachCommandParameterProperty); set => SetValue(AttachCommandParameterProperty, value); }
     public ICommand? ModelPickerOpenedCommand { get => GetValue(ModelPickerOpenedCommandProperty); set => SetValue(ModelPickerOpenedCommandProperty, value); }
     public object? ModelPickerOpenedCommandParameter { get => GetValue(ModelPickerOpenedCommandParameterProperty); set => SetValue(ModelPickerOpenedCommandParameterProperty, value); }
+    public string? ModelNote { get => GetValue(ModelNoteProperty); set => SetValue(ModelNoteProperty, value); }
+    public string? ModelNoteActionLabel { get => GetValue(ModelNoteActionLabelProperty); set => SetValue(ModelNoteActionLabelProperty, value); }
+    public ICommand? ModelNoteCommand { get => GetValue(ModelNoteCommandProperty); set => SetValue(ModelNoteCommandProperty, value); }
     public ICommand? VoiceCommand { get => GetValue(VoiceCommandProperty); set => SetValue(VoiceCommandProperty, value); }
     public object? VoiceCommandParameter { get => GetValue(VoiceCommandParameterProperty); set => SetValue(VoiceCommandParameterProperty, value); }
     public ICommand? MentionCommand { get => GetValue(MentionCommandProperty); set => SetValue(MentionCommandProperty, value); }
@@ -788,11 +1030,18 @@ public class StrataChatComposer : TemplatedControl
         base.OnAttachedToVisualTree(e);
         _focusSweepVisibility.Subscribe();
         OnAvailableFilesChanged();
-        UpdateFocusSweep();
+        // Detaching drops the chip collections' handlers; follow them again, and catch up on changes.
+        OnSkillItemsChanged();
+        OnChatItemsChanged();
+        UpdateEngaged();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        CloseAddMenu();
+        _openOwnPopups.Clear();
+        _engagedHold = false;
+        PseudoClasses.Set(":engaged", false);
         _focusSweepVisibility.Unsubscribe();
         StopFocusSweep();
         _focusSweepPlayed = false;
@@ -811,10 +1060,10 @@ public class StrataChatComposer : TemplatedControl
             _subscribedSkillCollection = null;
         }
 
-        if (_subscribedMcpCollection is not null)
+        if (_subscribedChatCollection is not null)
         {
-            _subscribedMcpCollection.CollectionChanged -= OnMcpCollectionChanged;
-            _subscribedMcpCollection = null;
+            _subscribedChatCollection.CollectionChanged -= OnChatCollectionChanged;
+            _subscribedChatCollection = null;
         }
 
         if (_subscribedAvailableMcpCollection is not null)
@@ -828,6 +1077,9 @@ public class StrataChatComposer : TemplatedControl
             _subscribedAvailableFileCollection = null;
         }
         _fileAutoCompleteRefreshQueued = false;
+        // The visual goes with the tree; the next attach brings a new one.
+        _depthVisual = null;
+        _depthScale = null;
 
         base.OnDetachedFromVisualTree(e);
     }
@@ -856,22 +1108,7 @@ public class StrataChatComposer : TemplatedControl
             _input.ContextMenu = BuildInputContextMenu(_input);
         }
 
-        Wire(e, "PART_SendButton", () => HandleSendAction());
-        Wire(e, "PART_AttachButton", () =>
-        {
-            RaiseEvent(new RoutedEventArgs(AttachRequestedEvent));
-            CommandHelper.Execute(AttachCommand, AttachCommandParameter);
-        });
-        Wire(e, "PART_MentionButton", () =>
-        {
-            ShowMentionPopup();
-            CommandHelper.Execute(MentionCommand, MentionCommandParameter);
-        });
-        Wire(e, "PART_VoiceButton", () =>
-        {
-            RaiseEvent(new RoutedEventArgs(VoiceRequestedEvent));
-            CommandHelper.Execute(VoiceCommand, VoiceCommandParameter);
-        });
+        Wire(e, "PART_SendButton", HandleSendButton);
         Wire(e, "PART_AgentRemoveButton", () =>
         {
             RaiseEvent(new RoutedEventArgs(AgentRemovedEvent));
@@ -883,11 +1120,25 @@ public class StrataChatComposer : TemplatedControl
             CommandHelper.Execute(ProjectRemovedCommand, ProjectRemovedCommandParameter);
         });
         _chipsRow = e.NameScope.Find<WrapPanel>("PART_ChipsRow");
-        _mcpPopup = e.NameScope.Find<Popup>("PART_McpPopup");
-        _mcpPopupPanel = e.NameScope.Find<StackPanel>("PART_McpPopupPanel");
-        _mcpCountText = e.NameScope.Find<TextBlock>("PART_McpCount");
-        _mcpButton = e.NameScope.Find<Button>("PART_McpButton");
-        Wire(e, "PART_McpButton", () => ShowMcpPopup());
+        if (_skillPicker is not null)
+            _skillPicker.ItemToggled -= OnSkillPickerToggled;
+        if (_chatPicker is not null)
+        {
+            _chatPicker.ItemToggled -= OnChatPickerToggled;
+            _chatPicker.DropDownOpening -= OnChatPickerOpening;
+            _chatPicker.DropDownClosed -= OnAddListClosed;
+        }
+        _skillPicker = e.NameScope.Find<StrataComposerPicker>("PART_SkillPicker");
+        _chatPicker = e.NameScope.Find<StrataComposerPicker>("PART_ChatPicker");
+        if (_skillPicker is not null)
+            _skillPicker.ItemToggled += OnSkillPickerToggled;
+        if (_chatPicker is not null)
+        {
+            _chatPicker.ItemToggled += OnChatPickerToggled;
+            _chatPicker.DropDownOpening += OnChatPickerOpening;
+            _chatPicker.DropDownClosed += OnAddListClosed;
+        }
+        ApplyAddMenuTemplate(e);
         _modelPickerPopup = e.NameScope.Find<Popup>("PART_ModelPickerPopup");
         _modelPickerList = e.NameScope.Find<StackPanel>("PART_ModelPickerList");
         _modelPickerChevron = e.NameScope.Find<Avalonia.Controls.Shapes.Path>("PART_ModelPickerChevron");
@@ -912,7 +1163,7 @@ public class StrataChatComposer : TemplatedControl
             UpdateAutoCompletePlacementTarget();
             _autoCompletePopup.Closed += OnAutoCompletePopupClosed;
         }
-        RebuildSkillChips();
+        RebuildContextChips();
         Wire(e, "PART_ActionA", () => Fire(SuggestionA));
         Wire(e, "PART_ActionB", () => Fire(SuggestionB));
         Wire(e, "PART_ActionC", () => Fire(SuggestionC));
@@ -922,14 +1173,75 @@ public class StrataChatComposer : TemplatedControl
         _hadSuggestions = HasAnySuggestions();
         EnsureSelectedValues();
         Sync();
-        UpdateFocusSweep();
+        _openOwnPopups.Clear();
+        UpdateEngaged();
     }
 
+    /// <summary>
+    /// Whether the user is writing here: the keyboard is in the composer, or in one of its own lists (which
+    /// open in the overlay layer, outside its visual tree), or such a list has just closed and is handing the
+    /// keyboard back. Shown as <c>:engaged</c>; the focus line's sweep and the focus depth follow it, so using
+    /// the + menu or a picker neither sends the composer back nor replays the line.
+    /// </summary>
+    private bool IsEngaged => IsKeyboardFocusWithin || _openOwnPopups.Count > 0 || _engagedHold;
+
+    private void UpdateEngaged()
+    {
+        PseudoClasses.Set(":engaged", IsEngaged);
+        UpdateFocusSweep();
+        UpdateFocusDepth();
+    }
+
+    /// <summary>
+    /// The composer whose template, or a picker in it, holds <paramref name="popup"/>. A context menu's popup
+    /// belongs to the control it opened on (the input's, say), so it is followed from there.
+    /// </summary>
+    private static StrataChatComposer? OwningComposer(Popup popup)
+    {
+        var owner = popup.TemplatedParent ?? popup.Parent;
+        for (var depth = 0; owner is not null && depth < 3; depth++)
+        {
+            if (owner is StrataChatComposer composer)
+                return composer;
+            owner = (owner as StyledElement)?.TemplatedParent;
+        }
+
+        return null;
+    }
+
+    private void OnOwnPopupOpenChanged(Popup popup, bool open)
+    {
+        if (open)
+        {
+            _openOwnPopups.Add(popup);
+        }
+        else if (_openOwnPopups.Remove(popup) && !IsKeyboardFocusWithin)
+        {
+            // A list that closes after a choice hands the keyboard back on a later dispatcher turn (see
+            // FocusInput); wait for it rather than sending the composer back and replaying the line in between.
+            _engagedHold = true;
+            if (!_engagedHoldCheckQueued)
+            {
+                _engagedHoldCheckQueued = true;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _engagedHoldCheckQueued = false;
+                    _engagedHold = false;
+                    UpdateEngaged();
+                }, DispatcherPriority.Background);
+            }
+        }
+
+        UpdateEngaged();
+    }
+
+    // Glass keeps its line while the user writes, the composer's own lists included; the plain composer's line
+    // follows keyboard focus, so it replays whenever focus comes back.
     private bool CanAnimateFocusSweep =>
         _focusSweep is not null
         && this.IsAttachedToVisualTree()
         && IsEffectivelyVisible
-        && IsKeyboardFocusWithin
+        && (Classes.Contains("glass") ? IsEngaged : IsKeyboardFocusWithin)
         && !Classes.Contains("motion-disabled");
 
     private void UpdateFocusSweep()
@@ -1134,6 +1446,8 @@ public class StrataChatComposer : TemplatedControl
     {
         _triggerIndex = -1;
         _autoCompleteSelectedIndex = -1;
+        if (!_awaitingReferenceFiles)
+            _referenceTriggerIndex = -1;
     }
 
     private void Fire(string suggestion)
@@ -1182,6 +1496,7 @@ public class StrataChatComposer : TemplatedControl
                     }
                     break;
                 case Key.Escape:
+                    _referenceTriggerIndex = -1;
                     CloseAutoComplete();
                     e.Handled = true;
                     return;
@@ -1307,6 +1622,31 @@ public class StrataChatComposer : TemplatedControl
         textBox.CaretIndex = lo + text.Length;
     }
 
+    /// <summary>
+    /// The send button: finishes dictation while listening, dictates while there is nothing to send
+    /// (when the host can listen), and otherwise sends, steers or stops like Enter.
+    /// </summary>
+    private void HandleSendButton()
+    {
+        // Decide on what is in the field now, which a pending binding may not have pushed yet.
+        CommitInputText();
+        if (ShouldDictate())
+        {
+            RaiseEvent(new RoutedEventArgs(VoiceRequestedEvent));
+            CommandHelper.Execute(VoiceCommand, VoiceCommandParameter);
+            return;
+        }
+
+        HandleSendAction();
+    }
+
+    private bool ShouldDictate() =>
+        CanVoice
+        && !Classes.Contains("mobile")
+        && !IsEditing
+        && (IsRecording
+            || !IsBusy && !CanSendWithoutPrompt && string.IsNullOrWhiteSpace(PromptText));
+
     private void HandleSendAction()
     {
         var promptText = CommitInputText();
@@ -1393,13 +1733,19 @@ public class StrataChatComposer : TemplatedControl
     private void ShowMentionPopup()
     {
         RaiseEvent(new RoutedEventArgs(MentionRequestedEvent));
+        ShowTriggerPopup('@');
+    }
+
+    /// <summary>Starts a <paramref name="trigger"/> reference at the caret, as typing it would, and lists its choices.</summary>
+    private void ShowTriggerPopup(char trigger)
+    {
         if (_input is null && EditorContent is not IStrataComposerEditor)
             return;
 
         var text = PromptText ?? "";
         var caret = GetEditorCaretIndex();
         var prefix = caret > 0 && caret <= text.Length && text[caret - 1] is not (' ' or '\n' or '\r')
-            ? " @" : "@";
+            ? " " + trigger : trigger.ToString();
 
         _suppressAutoComplete = true;
         PromptText = text.Insert(caret, prefix);
@@ -1410,7 +1756,7 @@ public class StrataChatComposer : TemplatedControl
         {
             FocusEditorAt(newCaret);
             _triggerIndex = newCaret - 1;
-            _triggerChar = '@';
+            _triggerChar = trigger;
             ShowAutoCompleteItems("");
         }, DispatcherPriority.Input);
     }
@@ -1430,6 +1776,7 @@ public class StrataChatComposer : TemplatedControl
 
         if (caret <= 0 || caret > text.Length)
         {
+            _referenceTriggerIndex = -1;
             CloseAutoComplete();
             return;
         }
@@ -1449,13 +1796,25 @@ public class StrataChatComposer : TemplatedControl
                     var query = text.Substring(i + 1, caret - i - 1);
                     if (ch == '#')
                     {
+                        // One request per reference, so the host refreshes its chats before they are
+                        // offered rather than on every keystroke.
+                        var isNewReference = _referenceTriggerIndex != i;
+                        _referenceTriggerIndex = i;
+                        if (isNewReference && AvailableChats is not null)
+                            CommandHelper.Execute(ChatsRequestedCommand, null);
+
                         // Fire event so the consumer can populate AvailableFiles.
-                        // ShowAutoCompleteItems will be called when AvailableFiles is set.
+                        // ShowAutoCompleteItems will be called again when AvailableFiles is set.
                         FileQueryChanged?.Invoke(this, new FileQueryChangedEventArgs(query));
                         CommandHelper.Execute(FileQueryChangedCommand, FileQueryChangedCommandParameter ?? query);
+
+                        // Chats are already here, so they show at once; files join when found.
+                        if (AvailableChats is not null)
+                            ShowAutoCompleteItems(query);
                     }
                     else
                     {
+                        _referenceTriggerIndex = -1;
                         ShowAutoCompleteItems(query);
                     }
                     return;
@@ -1464,6 +1823,7 @@ public class StrataChatComposer : TemplatedControl
             }
         }
 
+        _referenceTriggerIndex = -1;
         CloseAutoComplete();
     }
 
@@ -1503,7 +1863,15 @@ public class StrataChatComposer : TemplatedControl
                     rankResults: true);
                 break;
             case '#':
-                // File results are already ranked by the host app, so preserve that order here.
+                // Chats lead: they are few, resolved locally, and the reason most people reach for
+                // a reference. Files follow in the order the host ranked them.
+                AddAutoCompleteEntries(
+                    AvailableChats,
+                    ChipKind.Chat,
+                    query,
+                    chip => !IsAlreadyReferencedChat(chip),
+                    rankResults: true,
+                    maxEntries: string.IsNullOrWhiteSpace(query) ? 4 : 5);
                 AddAutoCompleteEntries(
                     AvailableFiles,
                     ChipKind.File,
@@ -1515,10 +1883,13 @@ public class StrataChatComposer : TemplatedControl
 
         if (_autoCompleteEntries.Count == 0)
         {
+            // An empty reference list can still fill with files the host is searching for.
+            _awaitingReferenceFiles = _triggerChar == '#';
             CloseAutoComplete();
             return;
         }
 
+        _awaitingReferenceFiles = false;
         _autoCompleteSelectedIndex = 0;
         UpdateAutoCompleteHighlight();
         PositionPopupAtTrigger();
@@ -1530,9 +1901,10 @@ public class StrataChatComposer : TemplatedControl
         ChipKind kind,
         string query,
         Func<StrataComposerChip, bool> includePredicate,
-        bool rankResults)
+        bool rankResults,
+        int maxEntries = int.MaxValue)
     {
-        if (_autoCompletePanel is null || items is null)
+        if (_autoCompletePanel is null || items is null || maxEntries <= 0)
             return;
 
         var headerAdded = false;
@@ -1543,7 +1915,7 @@ public class StrataChatComposer : TemplatedControl
                 .Where(chip => MatchesAutoCompleteQuery(chip, query))
                 .ToList();
 
-        foreach (var chip in chips)
+        foreach (var chip in chips.Take(maxEntries))
         {
             if (!headerAdded)
             {
@@ -1579,6 +1951,7 @@ public class StrataChatComposer : TemplatedControl
             ChipKind.Agent => $"Agents · {action} to select",
             ChipKind.Skill => $"Skills · {action} to add",
             ChipKind.Project => $"Projects · {action} to switch",
+            ChipKind.Chat => $"Chats · {action} to bring in",
             ChipKind.File => $"Files · {action} to attach",
             ChipKind.Mcp => "MCPs",
             _ => "Suggestions",
@@ -1715,9 +2088,14 @@ public class StrataChatComposer : TemplatedControl
                     ProjectValue = chip.Value;
                     ProjectName = chip.Name;
                     break;
+                case ChipKind.Chat:
+                    if (ChatItems is IList chatList && !IsAlreadyReferencedChat(chip))
+                        chatList.Add(chip);
+                    break;
             }
         }
 
+        _referenceTriggerIndex = -1;
         CloseAutoComplete();
         FocusEditorAt(focusCaret);
     }
@@ -1748,6 +2126,32 @@ public class StrataChatComposer : TemplatedControl
 
         removeLength = caret - _triggerIndex;
         return removeLength > 0;
+    }
+
+    /// <summary>
+    /// <see cref="AgentValue"/> names the chosen agent's chip. When the host clears or changes the agent by
+    /// name alone, the value would still point at the previous one and keep it out of the @ list.
+    /// </summary>
+    private void ForgetStaleAgentValue()
+    {
+        if (string.IsNullOrEmpty(AgentValue))
+            return;
+
+        var stale = string.IsNullOrWhiteSpace(AgentName);
+        if (!stale && AvailableAgents is not null)
+        {
+            foreach (var item in AvailableAgents)
+            {
+                if (item is StrataComposerChip chip && string.Equals(chip.Value, AgentValue, StringComparison.Ordinal))
+                {
+                    stale = !string.Equals(chip.Name, AgentName, StringComparison.Ordinal);
+                    break;
+                }
+            }
+        }
+
+        if (stale)
+            SetCurrentValue(AgentValueProperty, null);
     }
 
     private static bool MatchesSelection(StrataComposerChip chip, string? name, string? value) =>
@@ -1795,26 +2199,85 @@ public class StrataChatComposer : TemplatedControl
         return false;
     }
 
-    private bool IsAlreadyActiveMcp(StrataComposerChip chip)
+    private static StrataComposerChip AsChip(object? item)
+        => item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
+
+    private bool IsAlreadyReferencedChat(StrataComposerChip chip)
     {
-        if (McpItems is null) return false;
-        foreach (var item in McpItems)
+        if (ChatItems is null) return false;
+        foreach (var item in ChatItems)
         {
-            if (item is StrataComposerChip sc && sc.Name == chip.Name) return true;
-            if (item?.ToString() == chip.Name) return true;
+            if (StrataComposerPicker.SameItem(AsChip(item), chip))
+                return true;
         }
         return false;
     }
 
-    private StrataComposerChip? FindActiveMcpChip(string name)
+    /// <summary>Takes <paramref name="chip"/> out of the next message's chats and tells the host.</summary>
+    private void RemoveReferencedChat(StrataComposerChip chip)
     {
-        if (McpItems is null) return null;
-        foreach (var item in McpItems)
+        if (ChatItems is not IList list)
+            return;
+
+        for (var i = 0; i < list.Count; i++)
         {
-            if (item is StrataComposerChip sc && sc.Name == name) return sc;
+            if (!StrataComposerPicker.SameItem(AsChip(list[i]), chip))
+                continue;
+
+            var removed = list[i];
+            list.RemoveAt(i);
+            RaiseEvent(new ComposerChipRemovedEventArgs(ChatRemovedEvent, removed));
+            return;
         }
-        return null;
     }
+
+    private void OnSkillPickerToggled(object? sender, ComposerPickerToggledEventArgs e)
+    {
+        if (e.IsSelected)
+        {
+            // The same path as choosing a skill from the / list.
+            if (SkillItems is IList list && !IsAlreadyActiveSkill(e.Chip))
+                list.Add(e.Chip);
+            return;
+        }
+
+        // The same path as the skill chip's remove button.
+        object? selected = null;
+        if (SkillItems is not null)
+        {
+            foreach (var item in SkillItems)
+            {
+                if (StrataComposerPicker.SameItem(AsChip(item), e.Chip))
+                {
+                    selected = item;
+                    break;
+                }
+            }
+        }
+
+        var name = selected is null ? e.Chip.Name : AsChip(selected).Name;
+        RaiseEvent(new ComposerChipRemovedEventArgs(SkillRemovedEvent, selected ?? e.Chip));
+        CommandHelper.Execute(SkillRemovedCommand, SkillRemovedCommandParameter ?? name);
+    }
+
+    private void OnChatPickerToggled(object? sender, ComposerPickerToggledEventArgs e)
+    {
+        if (e.IsSelected)
+        {
+            if (ChatItems is IList list && !IsAlreadyReferencedChat(e.Chip))
+                list.Add(e.Chip);
+        }
+        else
+        {
+            RemoveReferencedChat(e.Chip);
+        }
+
+        // A chat is brought in to talk about it: go straight back to writing.
+        FocusInput();
+    }
+
+    private void OnChatPickerOpening(object? sender, EventArgs e)
+        => CommandHelper.Execute(ChatsRequestedCommand, null);
 
     private static Control CreateSectionHeader(string label)
     {
@@ -1825,9 +2288,19 @@ public class StrataChatComposer : TemplatedControl
 
     private Border CreateAutoCompleteEntry(StrataComposerChip chip, ChipKind kind)
     {
-        var glyphDisplay = kind == ChipKind.File ? "📄" : chip.Glyph;
-        var glyph = new TextBlock { Text = glyphDisplay };
-        glyph.Classes.Add("autocomplete-glyph");
+        Control glyph;
+        if (kind == ChipKind.Chat)
+        {
+            var icon = new StrataLineIcon { Data = StrataIcons.Chat, Width = 14, Height = 14, StrokeThickness = 2 };
+            icon.Classes.Add("autocomplete-icon");
+            glyph = icon;
+        }
+        else
+        {
+            var glyphText = new TextBlock { Text = kind == ChipKind.File ? "📄" : chip.Glyph };
+            glyphText.Classes.Add("autocomplete-glyph");
+            glyph = glyphText;
+        }
 
         var glyphWrap = new Border
         {
@@ -1998,23 +2471,28 @@ public class StrataChatComposer : TemplatedControl
         var hasAgent = !string.IsNullOrWhiteSpace(AgentName);
         var hasProject = !string.IsNullOrWhiteSpace(ProjectName);
         var hasSkills = HasAnySkills();
-        var mcpCount = CountMcps();
-        var totalMcpCount = CountAvailableMcps();
+        var hasChats = HasAnyChats();
         PseudoClasses.Set(":has-agent", hasAgent);
         PseudoClasses.Set(":has-project", hasProject);
         PseudoClasses.Set(":has-skills", hasSkills);
-        PseudoClasses.Set(":has-mcps", mcpCount > 0);
-        PseudoClasses.Set(":has-chips", hasAgent || hasProject || hasSkills);
-        PseudoClasses.Set(":mcp-partial", mcpCount > 0 && mcpCount < totalMcpCount);
-        UpdateMcpCountText(mcpCount, totalMcpCount);
+        PseudoClasses.Set(":has-chats", hasChats);
+        PseudoClasses.Set(":has-chips", hasAgent || hasProject || hasSkills || hasChats);
+        PseudoClasses.Set(":has-skill-options", AvailableSkills is not null);
+        PseudoClasses.Set(":has-chat-options", AvailableChats is not null);
         PseudoClasses.Set(":recording", IsRecording);
         PseudoClasses.Set(":suggestions-generating", IsSuggestionsGenerating);
-        PseudoClasses.Set(":has-mcp-options", HasAnyAvailableMcps());
+        PseudoClasses.Set(":has-mcp-options", HasAnyAvailableMcps() || McpBrowseCommand is not null);
+        PseudoClasses.Set(":has-add-options", HasAddOptions());
+        PseudoClasses.Set(":voice", ShouldDictate() && !IsRecording);
 
         if (_sendButton is not null)
         {
             var actionLabel = IsEditing
                 ? EditingSubmitLabel
+                : CanVoice && IsRecording
+                    ? StopDictatingLabel
+                : ShouldDictate()
+                    ? DictateLabel
                 : effectiveBusy
                     ? canSendWhileBusy
                         ? SteerWhileBusy ? "Send to steer" : "Stop & send"
@@ -2111,20 +2589,21 @@ public class StrataChatComposer : TemplatedControl
         return false;
     }
 
-    private int CountMcps()
+    private bool HasAnyChats()
     {
-        if (McpItems is null) return 0;
-        var count = 0;
-        foreach (var _ in McpItems) count++;
-        return count;
+        if (ChatItems is null) return false;
+        foreach (var _ in ChatItems) return true;
+        return false;
     }
 
-    private int CountAvailableMcps()
+    /// <summary>Below this width the toolbar's labelled pickers shrink to their icons.</summary>
+    private const double NarrowWidth = 600;
+
+    protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
-        if (AvailableMcps is null) return 0;
-        var count = 0;
-        foreach (var _ in AvailableMcps) count++;
-        return count;
+        base.OnSizeChanged(e);
+        PseudoClasses.Set(":narrow", e.NewSize.Width < NarrowWidth);
+        UpdateFocusDepthCenter();
     }
 
     private bool HasAnyAvailableMcps()
@@ -2132,208 +2611,6 @@ public class StrataChatComposer : TemplatedControl
         if (AvailableMcps is null) return false;
         foreach (var _ in AvailableMcps) return true;
         return false;
-    }
-
-    private void UpdateMcpCountText(int active, int total)
-    {
-        if (_mcpCountText is null) return;
-        if (total == 0)
-        {
-            _mcpCountText.Text = "";
-        }
-        else
-        {
-            // Check if any active MCP has an error
-            var hasErrors = McpItems is not null && McpItems.OfType<StrataComposerChip>().Any(c => c.HasError);
-            if (hasErrors)
-                _mcpCountText.Text = active == total ? $"⚠ ({total})" : $"⚠ {active}/{total}";
-            else if (active == total)
-                _mcpCountText.Text = $"All ({total})";
-            else
-                _mcpCountText.Text = $"{active}/{total}";
-        }
-    }
-
-    // ── MCP button popup ───────────────────────────────────────────
-
-    private void ShowMcpPopup()
-    {
-        if (_mcpPopup is null || _mcpPopupPanel is null || AvailableMcps is null)
-            return;
-
-        _mcpPopupPanel.Children.Clear();
-
-        var checkboxes = new List<(CheckBox Cb, StrataComposerChip Chip)>();
-
-        foreach (var item in AvailableMcps)
-        {
-            var chip = item as StrataComposerChip ?? new StrataComposerChip(item?.ToString() ?? "");
-            var isActive = IsAlreadyActiveMcp(chip);
-
-            // Check if the active chip has an error (e.g., MCP server failed to connect)
-            var activeChip = isActive ? FindActiveMcpChip(chip.Name) : null;
-            var hasError = activeChip?.HasError == true;
-
-            var cb = new CheckBox
-            {
-                IsChecked = isActive,
-                Margin = new Thickness(0),
-                Padding = new Thickness(0),
-                MinWidth = 0,
-                MinHeight = 0,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            var nameText = new TextBlock
-            {
-                Text = chip.Name,
-                FontSize = 12,
-                VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis
-            };
-
-            // Build row with DockPanel for better layout
-            var dp = new DockPanel { LastChildFill = true };
-            dp.Children.Add(cb);
-            DockPanel.SetDock(cb, Dock.Left);
-            nameText.Margin = new Thickness(10, 0, 0, 0);
-
-            if (hasError)
-            {
-                nameText.Opacity = 0.6;
-                var statusDot = new Border
-                {
-                    Width = 6, Height = 6,
-                    CornerRadius = new CornerRadius(3),
-                    Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E05252")),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 6, 0)
-                };
-                dp.Children.Add(statusDot);
-                DockPanel.SetDock(statusDot, Dock.Right);
-            }
-
-            if (!string.IsNullOrWhiteSpace(chip.SourceLabel))
-            {
-                var sourceText = new TextBlock
-                {
-                    Text = chip.SourceLabel,
-                    FontSize = 10,
-                    Opacity = 0.55,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(8, 0, 0, 0)
-                };
-                dp.Children.Add(sourceText);
-                DockPanel.SetDock(sourceText, Dock.Right);
-            }
-
-            // Added last so LastChildFill gives the name the remaining width.
-            dp.Children.Add(nameText);
-
-            var outerPanel = new StackPanel { Spacing = 2 };
-            outerPanel.Children.Add(dp);
-
-            if (hasError && activeChip?.ErrorMessage is { } errMsg)
-            {
-                var errorText = new TextBlock
-                {
-                    Text = errMsg,
-                    FontSize = 10,
-                    Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E05252")),
-                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                    Margin = new Thickness(26, 0, 0, 0),
-                    Opacity = 0.9
-                };
-                outerPanel.Children.Add(errorText);
-            }
-
-            var border = new Border
-            {
-                Child = outerPanel,
-                Padding = new Thickness(10, 7),
-                CornerRadius = new CornerRadius(6),
-                Cursor = new Cursor(StandardCursorType.Hand)
-            };
-            border.Classes.Add("mcp-popup-item");
-
-            var capturedChip = chip;
-            var capturedCb = cb;
-            checkboxes.Add((cb, chip));
-
-            border.PointerPressed += (_, pe) =>
-            {
-                if (!pe.GetCurrentPoint(border).Properties.IsLeftButtonPressed) return;
-                capturedCb.IsChecked = !capturedCb.IsChecked;
-                pe.Handled = true;
-            };
-
-            cb.IsCheckedChanged += (_, _) =>
-            {
-                if (cb.IsChecked == true)
-                {
-                    if (McpItems is System.Collections.IList list && !IsAlreadyActiveMcp(capturedChip))
-                        list.Add(capturedChip);
-                }
-                else
-                {
-                    if (McpItems is System.Collections.IList list)
-                    {
-                        for (var i = list.Count - 1; i >= 0; i--)
-                        {
-                            var existing = list[i];
-                            var existingName = existing is StrataComposerChip sc ? sc.Name : existing?.ToString() ?? "";
-                            if (existingName == capturedChip.Name)
-                            {
-                                list.RemoveAt(i);
-                                break;
-                            }
-                        }
-                    }
-                }
-                Sync();
-            };
-
-            _mcpPopupPanel.Children.Add(border);
-        }
-
-        // Separator line before action buttons
-        var separator = new Border
-        {
-            Height = 1,
-            Margin = new Thickness(4, 4)
-        };
-        separator.Classes.Add("mcp-popup-separator");
-        _mcpPopupPanel.Children.Add(separator);
-
-        // Select All / Deselect All buttons at the bottom
-        var selectAll = new Button { Content = "Select All", Padding = new Thickness(10, 4), MinHeight = 0, MinWidth = 0, FontSize = 11 };
-        selectAll.Classes.Add("subtle");
-        selectAll.Click += (_, _) =>
-        {
-            foreach (var (cb, _) in checkboxes)
-                cb.IsChecked = true;
-        };
-
-        var deselectAll = new Button { Content = "Deselect All", Padding = new Thickness(10, 4), MinHeight = 0, MinWidth = 0, FontSize = 11 };
-        deselectAll.Classes.Add("subtle");
-        deselectAll.Click += (_, _) =>
-        {
-            foreach (var (cb, _) in checkboxes)
-                cb.IsChecked = false;
-        };
-
-        var actionsRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 4,
-            Margin = new Thickness(4, 0, 4, 2),
-            HorizontalAlignment = HorizontalAlignment.Right
-        };
-        actionsRow.Children.Add(selectAll);
-        actionsRow.Children.Add(deselectAll);
-        _mcpPopupPanel.Children.Add(actionsRow);
-
-        _mcpPopup.IsOpen = true;
     }
 
     // ═══════════════════════════════════════════════════
@@ -3022,34 +3299,34 @@ public class StrataChatComposer : TemplatedControl
             _subscribedSkillCollection = ncc;
         }
 
-        RebuildSkillChips();
+        RebuildContextChips();
     }
 
     private void OnSkillCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        RebuildSkillChips();
+        RebuildContextChips();
     }
 
-    private void OnMcpItemsChanged()
+    private void OnChatItemsChanged()
     {
-        if (_subscribedMcpCollection is not null)
+        if (_subscribedChatCollection is not null)
         {
-            _subscribedMcpCollection.CollectionChanged -= OnMcpCollectionChanged;
-            _subscribedMcpCollection = null;
+            _subscribedChatCollection.CollectionChanged -= OnChatCollectionChanged;
+            _subscribedChatCollection = null;
         }
 
-        if (McpItems is INotifyCollectionChanged ncc)
+        if (ChatItems is INotifyCollectionChanged ncc)
         {
-            ncc.CollectionChanged += OnMcpCollectionChanged;
-            _subscribedMcpCollection = ncc;
+            ncc.CollectionChanged += OnChatCollectionChanged;
+            _subscribedChatCollection = ncc;
         }
 
-        Sync();
+        RebuildContextChips();
     }
 
-    private void OnMcpCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void OnChatCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        Sync();
+        RebuildContextChips();
     }
 
     private void OnAvailableMcpsChanged()
@@ -3106,23 +3383,27 @@ public class StrataChatComposer : TemplatedControl
 
     private void RefreshFileAutoComplete()
     {
-        if (_triggerChar != '#' || _triggerIndex < 0)
+        // The live reference, not the popup: its list closes while nothing matches yet.
+        var triggerIndex = _referenceTriggerIndex;
+        if (triggerIndex < 0)
             return;
 
         var text = PromptText ?? "";
         var caret = GetEditorCaretIndex();
-        if (_triggerIndex < text.Length && caret <= text.Length && caret > _triggerIndex)
+        if (triggerIndex < text.Length && text[triggerIndex] == '#' && caret <= text.Length && caret > triggerIndex)
         {
-            var query = text.Substring(_triggerIndex + 1, caret - _triggerIndex - 1);
+            _triggerIndex = triggerIndex;
+            _triggerChar = '#';
+            var query = text.Substring(triggerIndex + 1, caret - triggerIndex - 1);
             ShowAutoCompleteItems(query);
         }
     }
 
-    private void RebuildSkillChips()
+    private void RebuildContextChips()
     {
         if (_chipsRow is null) return;
 
-        // Remove previous skill chips (PART_AgentChip at 0, PART_ProjectChip at 1 stay)
+        // Remove the previous skill and chat chips (PART_AgentChip at 0, PART_ProjectChip at 1 stay)
         while (_chipsRow.Children.Count > 2)
             _chipsRow.Children.RemoveAt(_chipsRow.Children.Count - 1);
 
@@ -3130,6 +3411,12 @@ public class StrataChatComposer : TemplatedControl
         {
             foreach (var item in SkillItems)
                 _chipsRow.Children.Add(CreateChip(item, SkillRemovedEvent, "composer-skill-chip"));
+        }
+
+        if (ChatItems is not null)
+        {
+            foreach (var item in ChatItems)
+                _chipsRow.Children.Add(CreateChip(item, ChatRemovedEvent, "composer-chat-chip"));
         }
 
         Sync();
@@ -3141,10 +3428,27 @@ public class StrataChatComposer : TemplatedControl
         var glyph = item is StrataComposerChip sc ? sc.Glyph : "✦";
         var hasError = item is StrataComposerChip ec && ec.HasError;
         var errorMessage = item is StrataComposerChip emc ? emc.ErrorMessage : null;
+        var isChat = removedEvent == ChatRemovedEvent;
 
-        var glyphText = new TextBlock { Text = hasError ? "⚠" : glyph };
-        glyphText.Classes.Add("chip-glyph");
-        if (hasError) glyphText.Classes.Add("chip-error");
+        // The kind's mark sits on a small tile: a chat shows its bubble; a skill the wand on the desktop
+        // and its own glyph on touch, where the chip is a larger target with room for it.
+        Control mark;
+        if (isChat || (!hasError && removedEvent == SkillRemovedEvent && !Classes.Contains("mobile")))
+        {
+            var icon = new StrataLineIcon { Data = isChat ? StrataIcons.Chat : StrataIcons.Wand };
+            icon.Classes.Add("chip-icon");
+            mark = icon;
+        }
+        else
+        {
+            var glyphText = new TextBlock { Text = hasError ? "⚠" : glyph };
+            glyphText.Classes.Add("chip-glyph");
+            if (hasError) glyphText.Classes.Add("chip-error");
+            mark = glyphText;
+        }
+
+        var tile = new Border { Child = mark, VerticalAlignment = VerticalAlignment.Center };
+        tile.Classes.Add("chip-tile");
 
         var nameText = new TextBlock { Text = name, TextTrimming = TextTrimming.CharacterEllipsis };
         nameText.Classes.Add("chip-name");
@@ -3153,12 +3457,9 @@ public class StrataChatComposer : TemplatedControl
         var removeIcon = new TextBlock { Text = "×" };
         removeIcon.Classes.Add("chip-remove-icon");
 
+        // Size and shape come from styles, so a touch host can grow the target.
         var removeBtn = new Button
         {
-            Width = 16, Height = 16,
-            Padding = new Thickness(0),
-            MinHeight = 0, MinWidth = 0,
-            CornerRadius = new CornerRadius(8),
             VerticalAlignment = VerticalAlignment.Center,
             Content = removeIcon,
             Cursor = new Cursor(StandardCursorType.Hand)
@@ -3170,6 +3471,13 @@ public class StrataChatComposer : TemplatedControl
         var capturedItem = item;
         removeBtn.Click += (_, _) =>
         {
+            if (isChat)
+            {
+                RemoveReferencedChat(AsChip(capturedItem));
+                FocusInput();
+                return;
+            }
+
             RaiseEvent(new ComposerChipRemovedEventArgs(removedEvent, capturedItem));
             // Fire the matching command with the chip name as default parameter
             var chipName = capturedItem is StrataComposerChip cc ? cc.Name : capturedItem?.ToString() ?? "";
@@ -3182,7 +3490,7 @@ public class StrataChatComposer : TemplatedControl
         var panel = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
-            ColumnSpacing = 4
+            ColumnSpacing = 6
         };
         var surface = new Border { IsHitTestVisible = false };
         surface.Classes.Add("composer-chip-surface");
@@ -3190,11 +3498,12 @@ public class StrataChatComposer : TemplatedControl
         Grid.SetColumn(nameText, 1);
         Grid.SetColumn(removeBtn, 2);
         panel.Children.Add(surface);
-        panel.Children.Add(glyphText);
+        panel.Children.Add(tile);
         panel.Children.Add(nameText);
         panel.Children.Add(removeBtn);
 
         var border = new Border { Child = panel };
+        border.Classes.Add("composer-chip");
         border.Classes.Add(cssClass);
         if (hasError)
         {

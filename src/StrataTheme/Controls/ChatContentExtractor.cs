@@ -22,6 +22,12 @@ public static class ChatContentExtractor
     /// Unknown controls are searched visually before being skipped.
     /// </summary>
     public static string ExtractText(object? content)
+        => ExtractTextCore(content, forCopy: false);
+
+    internal static string ExtractCopyMarkdown(object? content)
+        => ExtractTextCore(content, forCopy: true);
+
+    private static string ExtractTextCore(object? content, bool forCopy)
     {
         if (content is null)
             return string.Empty;
@@ -33,10 +39,11 @@ public static class ChatContentExtractor
             return textBlock.Text ?? string.Empty;
 
         if (content is SelectableTextBlock selectableTextBlock)
-            return selectableTextBlock.Text ?? string.Empty;
+            return selectableTextBlock.Inlines is { Count: > 0 } inlines
+                ? inlines.Text : selectableTextBlock.Text ?? string.Empty;
 
         if (content is StrataMarkdown markdown)
-            return markdown.Markdown ?? string.Empty;
+            return forCopy ? markdown.GetCopyMarkdown() : markdown.Markdown ?? string.Empty;
 
         if (content is StrataFileAttachment fileAttachment)
         {
@@ -57,15 +64,15 @@ public static class ChatContentExtractor
 
         if (content is ContentControl contentControl)
         {
-            var directText = ExtractText(contentControl.Content);
+            var directText = ExtractTextCore(contentControl.Content, forCopy);
             if (!string.IsNullOrWhiteSpace(directText))
                 return directText;
 
-            return ExtractTextFromVisualChildren(contentControl);
+            return ExtractTextFromVisualChildren(contentControl, forCopy);
         }
 
         if (content is Decorator decorator)
-            return ExtractText(decorator.Child);
+            return ExtractTextCore(decorator.Child, forCopy);
 
         if (content is Panel panel)
         {
@@ -76,7 +83,7 @@ public static class ChatContentExtractor
             var sb = new StringBuilder();
             for (var i = 0; i < children.Count; i++)
             {
-                var line = ExtractText(children[i]);
+                var line = ExtractTextCore(children[i], forCopy);
                 if (string.IsNullOrWhiteSpace(line))
                     continue;
                 if (sb.Length > 0)
@@ -87,10 +94,10 @@ public static class ChatContentExtractor
         }
 
         if (content is IEnumerable enumerable)
-            return ExtractTextFromEnumerable(enumerable);
+            return ExtractTextFromEnumerable(enumerable, forCopy);
 
         if (content is Control control)
-            return ExtractTextFromVisualChildren(control);
+            return ExtractTextFromVisualChildren(control, forCopy);
 
         var toString = content.GetType().GetMethod(nameof(ToString), Type.EmptyTypes);
         if (toString?.DeclaringType == typeof(object))
@@ -108,6 +115,9 @@ public static class ChatContentExtractor
     {
         if (content is null)
             return null;
+
+        if (content is Control owner && StrataTextSelection.GetSelectedText(owner) is { } selection)
+            return selection;
 
         if (content is SelectableTextBlock stb)
             return HasSelection(stb) ? stb.SelectedText : null;
@@ -147,12 +157,12 @@ public static class ChatContentExtractor
         return null;
     }
 
-    private static string ExtractTextFromEnumerable(IEnumerable enumerable)
+    private static string ExtractTextFromEnumerable(IEnumerable enumerable, bool forCopy)
     {
         StringBuilder? sb = null;
         foreach (var item in enumerable)
         {
-            var line = ExtractText(item);
+            var line = ExtractTextCore(item, forCopy);
             if (string.IsNullOrWhiteSpace(line))
                 continue;
 
@@ -165,21 +175,21 @@ public static class ChatContentExtractor
         return sb?.ToString() ?? string.Empty;
     }
 
-    private static string ExtractTextFromVisualChildren(Control root)
+    private static string ExtractTextFromVisualChildren(Control root, bool forCopy)
     {
         StringBuilder? sb = null;
-        CollectVisualText(root, ref sb);
+        CollectVisualText(root, ref sb, forCopy);
         return sb?.ToString() ?? string.Empty;
     }
 
-    private static void CollectVisualText(Control control, ref StringBuilder? sb)
+    private static void CollectVisualText(Control control, ref StringBuilder? sb, bool forCopy)
     {
         foreach (var child in control.GetVisualChildren())
         {
             if (child is not Control childControl)
                 continue;
 
-            var text = ExtractText(childControl);
+            var text = ExtractTextCore(childControl, forCopy);
             if (string.IsNullOrWhiteSpace(text))
                 continue;
 

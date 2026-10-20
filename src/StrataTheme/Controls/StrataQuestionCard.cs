@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Layout;
 using Avalonia.Media;
 
 namespace StrataTheme.Controls;
@@ -22,18 +23,23 @@ namespace StrataTheme.Controls;
 ///                                AllowFreeText="True"
 ///                                FreeTextPlaceholder="Or type your own..." /&gt;
 /// </code>
-/// <para><b>Template parts:</b> PART_Root (Border), PART_Stratum (Border),
-/// PART_OptionsPanel (WrapPanel), PART_FreeTextBox (TextBox),
+/// <para><b>Template parts:</b> PART_Root (Border), PART_QuestionText (StrataMarkdown),
+/// PART_OptionsPanel (Panel), PART_FreeTextBox (TextBox),
 /// PART_FreeTextSubmit (Button), PART_MultiSubmit (Button).</para>
-/// <para><b>Pseudo-classes:</b> :answered, :expired, :has-free-text, :multi-select.</para>
+/// <para><b>Pseudo-classes:</b> :answered, :expired, :has-free-text, :multi-select, :touch.</para>
 /// </remarks>
 public class StrataQuestionCard : TemplatedControl
 {
-    private WrapPanel? _optionsPanel;
+    private Panel? _optionsPanel;
     private TextBox? _freeTextBox;
     private Button? _freeTextSubmit;
     private Button? _multiSubmit;
     private readonly HashSet<string> _selectedOptions = new();
+    private bool _hasInput;
+
+    public static readonly DirectProperty<StrataQuestionCard, bool> HasInputProperty =
+        AvaloniaProperty.RegisterDirect<StrataQuestionCard, bool>(
+            nameof(HasInput), card => card.HasInput);
 
     public static readonly StyledProperty<string?> QuestionProperty =
         AvaloniaProperty.Register<StrataQuestionCard, string?>(nameof(Question));
@@ -62,14 +68,37 @@ public class StrataQuestionCard : TemplatedControl
     public static readonly StyledProperty<bool> IsExpiredProperty =
         AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(IsExpired));
 
+    public static readonly StyledProperty<bool> TouchModeProperty =
+        AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(TouchMode));
+
+    public static readonly DirectProperty<StrataQuestionCard, string?> QuestionLineProperty =
+        AvaloniaProperty.RegisterDirect<StrataQuestionCard, string?>(nameof(QuestionLine), card => card.QuestionLine);
+
+    private static readonly Regex MarkdownLink = new(@"!?\[([^\]]*)\]\([^)]*\)", RegexOptions.CultureInvariant);
+    private static readonly Regex MarkdownCode = new(@"`([^`]+)`", RegexOptions.CultureInvariant);
+    private static readonly Regex MarkdownStrong = new(@"(\*\*|__)(.+?)\1", RegexOptions.CultureInvariant);
+    private static readonly Regex MarkdownEmphasis = new(@"(?<![\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])", RegexOptions.CultureInvariant);
+    private static readonly Regex MarkdownLineMarker = new(@"^(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)", RegexOptions.CultureInvariant);
+    private static readonly Regex CodePlaceholder = new("\u0001(\\d+)\u0001", RegexOptions.CultureInvariant);
+
+    private string? _questionLine;
+
     static StrataQuestionCard()
     {
+        QuestionProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.QuestionLine = ToPlainLine(c.Question));
         OptionsProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.RebuildOptions());
         OptionsListProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.RebuildOptions());
-        IsAnsweredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
+        IsAnsweredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) =>
+        {
+            c.UpdatePseudoClasses();
+            // The confirm button's visibility is set locally while picking, which outranks the
+            // :answered style, so an answered card hides it here.
+            c.UpdateMultiSubmitVisibility();
+        });
         IsExpiredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnIsExpiredChanged());
         AllowFreeTextProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         AllowMultiSelectProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
+        TouchModeProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnTouchModeChanged());
     }
 
     /// <summary>The question text displayed as the card header.</summary>
@@ -99,6 +128,47 @@ public class StrataQuestionCard : TemplatedControl
     /// <summary>Whether the question has expired (session stopped or user moved on).</summary>
     public bool IsExpired { get => GetValue(IsExpiredProperty); set => SetValue(IsExpiredProperty, value); }
 
+    /// <summary>
+    /// Sizes the card for a finger rather than a pointer: every option becomes a 48px target at the body
+    /// size and the reply field and its buttons grow to match. Sets the <c>:touch</c> pseudo-class.
+    /// </summary>
+    public bool TouchMode { get => GetValue(TouchModeProperty); set => SetValue(TouchModeProperty, value); }
+
+    /// <summary>The question's first line as plain text, for the card's one-line answered form.</summary>
+    public string? QuestionLine
+    {
+        get => _questionLine;
+        private set => SetAndRaise(QuestionLineProperty, ref _questionLine, value);
+    }
+
+    /// <summary>
+    /// The first line of a markdown question without its markdown (emphasis, code ticks, links, and
+    /// heading, quote or list markers), for a line too short to render it.
+    /// </summary>
+    internal static string? ToPlainLine(string? markdown)
+    {
+        var line = markdown?.Split('\n').Select(static text => text.Trim()).FirstOrDefault(static text => text.Length > 0);
+        if (line is null)
+            return null;
+
+        // Code keeps its text as written (__init__.py, **/*.cs): it is set aside while the rest loses its markdown.
+        var code = new List<string>();
+        line = MarkdownCode.Replace(line, match =>
+        {
+            code.Add(match.Groups[1].Value);
+            return $"\u0001{code.Count - 1}\u0001";
+        });
+        line = MarkdownLineMarker.Replace(line, "");
+        line = MarkdownLink.Replace(line, "$1");
+        line = MarkdownStrong.Replace(line, "$2");
+        line = MarkdownEmphasis.Replace(line, "$1");
+        line = CodePlaceholder.Replace(line, match => code[int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture)]);
+        return line.Trim();
+    }
+
+    /// <summary>Whether the card contains free text or selected options.</summary>
+    public bool HasInput => _hasInput;
+
     /// <summary>Raised when the user selects an option or submits free text.</summary>
     public event EventHandler<string>? AnswerSubmitted;
 
@@ -117,7 +187,7 @@ public class StrataQuestionCard : TemplatedControl
 
         base.OnApplyTemplate(e);
 
-        _optionsPanel = e.NameScope.Find<WrapPanel>("PART_OptionsPanel");
+        _optionsPanel = e.NameScope.Find<Panel>("PART_OptionsPanel");
         _freeTextBox = e.NameScope.Find<TextBox>("PART_FreeTextBox");
         _freeTextSubmit = e.NameScope.Find<Button>("PART_FreeTextSubmit");
         _multiSubmit = e.NameScope.Find<Button>("PART_MultiSubmit");
@@ -148,9 +218,9 @@ public class StrataQuestionCard : TemplatedControl
         if (_freeTextBox is not null)
         {
             _freeTextBox.PropertyChanged -= OnFreeTextBoxPropertyChanged;
-            if (AllowMultiSelect)
-                _freeTextBox.PropertyChanged += OnFreeTextBoxPropertyChanged;
+            _freeTextBox.PropertyChanged += OnFreeTextBoxPropertyChanged;
         }
+        UpdateMultiSubmitVisibility();
     }
 
     private void OnFreeTextBoxPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -190,13 +260,13 @@ public class StrataQuestionCard : TemplatedControl
                     Text = opt,
                     TextWrapping = TextWrapping.Wrap,
                     TextTrimming = TextTrimming.CharacterEllipsis,
-                    TextAlignment = TextAlignment.Center,
                     MaxLines = 2,
                 },
                 Classes = { "question-option" },
-                HorizontalContentAlignment = HorizontalAlignment.Center,
                 Tag = opt,
             };
+            // The options are built here rather than by the template, so they carry the card's touch sizing.
+            btn.Classes.Set("touch", TouchMode);
             ToolTip.SetTip(btn, opt);
             ToolTip.SetShowDelay(btn, 500);
             btn.Click += OnOptionClick;
@@ -246,6 +316,8 @@ public class StrataQuestionCard : TemplatedControl
 
     private void UpdateMultiSubmitVisibility()
     {
+        SetAndRaise(HasInputProperty, ref _hasInput,
+            _selectedOptions.Count > 0 || !string.IsNullOrEmpty(_freeTextBox?.Text));
         if (_multiSubmit is not null)
             _multiSubmit.IsVisible = AllowMultiSelect && (_selectedOptions.Count > 0 || HasPendingFreeText) && !IsAnswered;
     }
@@ -345,5 +417,18 @@ public class StrataQuestionCard : TemplatedControl
         PseudoClasses.Set(":expired", IsExpired);
         PseudoClasses.Set(":has-free-text", AllowFreeText);
         PseudoClasses.Set(":multi-select", AllowMultiSelect);
+        PseudoClasses.Set(":touch", TouchMode);
+    }
+
+    private void OnTouchModeChanged()
+    {
+        UpdatePseudoClasses();
+        if (_optionsPanel is null) return;
+
+        foreach (var child in _optionsPanel.Children)
+        {
+            if (child is Button option)
+                option.Classes.Set("touch", TouchMode);
+        }
     }
 }

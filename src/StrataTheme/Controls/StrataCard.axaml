@@ -107,8 +107,8 @@
                                 Data="M5,4 H13 V14 H5 Z M3,10 H1 V1 H10 V2" />
                         </Button>
                         <Button Name="PART_ExpandButton" Classes="subtle"
-                                ToolTip.Tip="Toggle card details"
-                                AutomationProperties.Name="Toggle card details"
+                                ToolTip.Tip="{TemplateBinding ToggleDetailsLabel}"
+                                AutomationProperties.Name="{TemplateBinding ToggleDetailsLabel}"
                                 Width="{DynamicResource Size.ControlHeightS}"
                                 MinHeight="{DynamicResource Size.ControlHeightS}"
                                 Padding="0">

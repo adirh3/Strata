@@ -11,12 +11,14 @@ using System.Threading.Tasks;
 namespace StrataTheme.Controls;
 
 /// <summary>
-/// Displays a terminal-like preview card showing a running command and its output.
-/// Used to visualize PowerShell/terminal tool executions in the chat transcript.
+/// Displays a command an AI ran as a row in its work — a terminal icon, the step's name and the command
+/// itself — that opens onto a console with the command and its output.
 /// </summary>
 /// <remarks>
-/// <para><b>Template parts:</b> PART_Root, PART_Header, PART_StateDot, PART_OutputText.</para>
-/// <para><b>Pseudo-classes:</b> :expanded, :inprogress, :completed, :failed, :running-bg, :has-output.</para>
+/// <para><b>Template parts:</b> PART_Root, PART_Header, PART_Icon, PART_StatusText, PART_TerminalBody,
+/// PART_OutputScroll, PART_OutputText.</para>
+/// <para><b>Pseudo-classes:</b> :expanded, :inprogress, :completed, :failed, :stopped, :running-bg, :has-output,
+/// :has-command.</para>
 /// </remarks>
 public class StrataTerminalPreview : TemplatedControl
 {
@@ -43,7 +45,7 @@ public class StrataTerminalPreview : TemplatedControl
     /// <summary>
     /// True when the underlying tool call has finished (the launch returned) but the OS process it
     /// started is still running in the background — e.g. an <c>async</c> shell the agent left running
-    /// after ending its turn. The card keeps its live "running" affordance (pulsing dot + elapsed
+    /// after ending its turn. The row keeps its live "running" affordance (accent icon + elapsed
     /// clock, labelled "Running in background") instead of falsely collapsing to "Completed", so a
     /// long-lived background process never looks stuck or finished before it actually is.
     /// </summary>
@@ -78,11 +80,16 @@ public class StrataTerminalPreview : TemplatedControl
     public static readonly DirectProperty<StrataTerminalPreview, string> ElapsedTextProperty =
         AvaloniaProperty.RegisterDirect<StrataTerminalPreview, string>(nameof(ElapsedText), c => c.ElapsedText);
 
-    /// <summary>Frozen "how long it took" readout, shown once the command has finished (e.g. "2.68s",
-    /// "559 ms"). Empty while it is still running, or when no duration was measured — so the pill
-    /// never shows a fabricated time.</summary>
+    /// <summary>Frozen "how long it took" readout, once the command has finished (e.g. "2.68s",
+    /// "559 ms"). Empty while it is still running, or when no duration was measured — so it never
+    /// shows a fabricated time.</summary>
     public static readonly DirectProperty<StrataTerminalPreview, string> DurationTextProperty =
         AvaloniaProperty.RegisterDirect<StrataTerminalPreview, string>(nameof(DurationText), c => c.DurationText);
+
+    /// <summary>What the row says about the command at a glance: how long it has been running, how long it
+    /// took, or the word for a command that failed, stopped or still runs in the background.</summary>
+    public static readonly DirectProperty<StrataTerminalPreview, string> GlanceTextProperty =
+        AvaloniaProperty.RegisterDirect<StrataTerminalPreview, string>(nameof(GlanceText), c => c.GlanceText);
 
     static StrataTerminalPreview()
     {
@@ -91,6 +98,8 @@ public class StrataTerminalPreview : TemplatedControl
         IsExpandedProperty.Changed.AddClassHandler<StrataTerminalPreview>((c, _) => c.UpdateState());
         OutputProperty.Changed.AddClassHandler<StrataTerminalPreview>((c, _) => c.UpdateState());
         DurationMsProperty.Changed.AddClassHandler<StrataTerminalPreview>((c, _) => c.UpdateState());
+        CommandProperty.Changed.AddClassHandler<StrataTerminalPreview>((c, _) =>
+            c.PseudoClasses.Set(":has-command", !string.IsNullOrWhiteSpace(c.Command)));
         RunningSinceProperty.Changed.AddClassHandler<StrataTerminalPreview>((c, _) => c.OnElapsedTick());
     }
 
@@ -163,7 +172,11 @@ public class StrataTerminalPreview : TemplatedControl
     public string ElapsedText
     {
         get => _elapsedText;
-        private set => SetAndRaise(ElapsedTextProperty, ref _elapsedText, value);
+        private set
+        {
+            if (SetAndRaise(ElapsedTextProperty, ref _elapsedText, value))
+                RaisePropertyChanged(GlanceTextProperty, default!, GlanceText);
+        }
     }
 
     public string DurationText
@@ -172,6 +185,22 @@ public class StrataTerminalPreview : TemplatedControl
             : DurationMs >= 1000
                 ? $"{DurationMs / 1000d:F2}s"
                 : $"{DurationMs:F0} ms";
+
+    public string GlanceText
+    {
+        get
+        {
+            if (IsRunningInBackground && Status != StrataAiToolCallStatus.InProgress)
+                return string.IsNullOrEmpty(ElapsedText) ? StatusText : $"{StatusText} \u00b7 {ElapsedText}";
+
+            return Status switch
+            {
+                StrataAiToolCallStatus.InProgress => ElapsedText,
+                StrataAiToolCallStatus.Completed => RunningElapsedClock.FormatDuration(DurationMs),
+                _ => StatusText,
+            };
+        }
+    }
 
     private void OnElapsedTick()
     {
@@ -208,6 +237,7 @@ public class StrataTerminalPreview : TemplatedControl
         if (_header is not null)
             _header.PointerPressed += OnHeaderPointerPressed;
 
+        PseudoClasses.Set(":has-command", !string.IsNullOrWhiteSpace(Command));
         UpdateState();
 
         Dispatcher.UIThread.Post(() =>
@@ -246,7 +276,7 @@ public class StrataTerminalPreview : TemplatedControl
     private void UpdateState()
     {
         // "Running" is true while the tool call is in progress OR while the OS process it launched
-        // is still alive in the background. This keeps the live affordance (pulse + elapsed clock)
+        // is still alive in the background. This keeps the live affordance (accent + elapsed clock)
         // going and defers the collapse-to-completed until the process has actually finished.
         var running = Status == StrataAiToolCallStatus.InProgress || IsRunningInBackground;
 
@@ -256,6 +286,7 @@ public class StrataTerminalPreview : TemplatedControl
 
         RaisePropertyChanged(StatusTextProperty, default!, StatusText);
         RaisePropertyChanged(DurationTextProperty, default!, DurationText);
+        RaisePropertyChanged(GlanceTextProperty, default!, GlanceText);
 
         PseudoClasses.Set(":inprogress", running);
         PseudoClasses.Set(":completed", !running && Status == StrataAiToolCallStatus.Completed);

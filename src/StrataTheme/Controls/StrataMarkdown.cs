@@ -161,6 +161,7 @@ public partial class StrataMarkdown : ContentControl
     // chat), so a streaming/finishing update would otherwise parse + syntax-highlight on the UI
     // thread while off-screen and freeze the foreground chat. Parsing is deferred until reattach.
     private bool _isAttachedToVisualTree;
+    private bool _rebuildDeferredWhileHidden;
 
     // ── Reusable buffers to avoid per-rebuild allocations ──
     private readonly List<string> _evictBuffer = new();
@@ -228,6 +229,7 @@ public partial class StrataMarkdown : ContentControl
 
     static StrataMarkdown()
     {
+        StrataTextSelection.IsSelectionScopeProperty.OverrideDefaultValue<StrataMarkdown>(true);
         MarkdownProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         TitleProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateTitle());
         ShowTitleProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.UpdateTitle());
@@ -235,6 +237,7 @@ public partial class StrataMarkdown : ContentControl
         FlowDirectionProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         EnableAppendTailParsingProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
         StreamingRebuildThrottleMsProperty.Changed.AddClassHandler<StrataMarkdown>((control, _) => control.ScheduleRebuild());
+        InitializeInteractionProperties();
     }
 
     public static StrataMarkdownDiagnosticsSnapshot CaptureDiagnostics() => new(
@@ -281,6 +284,7 @@ public partial class StrataMarkdown : ContentControl
         _rebuildDelayCts?.Dispose();
         _rebuildDelayCts = null;
         _rebuildQueued = false;
+        _rebuildDeferredWhileHidden = false;
 
         DetachLinkHandlers();
         _linkRuns.Clear();
@@ -304,6 +308,9 @@ public partial class StrataMarkdown : ContentControl
         _sourcesKeysUsed.Clear();
         _tableCache.Clear();
         _tableKeysUsed.Clear();
+        _interactionCache.Clear();
+        _interactionKeysUsed.Clear();
+        _interactionIdsUsed.Clear();
         ClearImageCache();
         _imageKeysUsed.Clear();
 
@@ -346,6 +353,7 @@ public partial class StrataMarkdown : ContentControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        StrataTextSelection.UpdateSelectionScope(this);
 
         _isAttachedToVisualTree = true;
 
@@ -389,6 +397,13 @@ public partial class StrataMarkdown : ContentControl
         {
             ScheduleRebuild();
         }
+    }
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        if (_rebuildDeferredWhileHidden && _isAttachedToVisualTree && IsEffectivelyVisible)
+            FlushQueuedRebuild();
+        return base.MeasureOverride(availableSize);
     }
 
     /// <summary>Detach Tapped/PointerMoved handlers from all SelectableTextBlocks in the content host.</summary>
@@ -501,6 +516,14 @@ public partial class StrataMarkdown : ContentControl
         if (RetainContentOnDetach && !_isAttachedToVisualTree)
             return;
 
+        if (RetainContentOnDetach && !IsEffectivelyVisible)
+        {
+            _rebuildDeferredWhileHidden = true;
+            InvalidateMeasure();
+            return;
+        }
+
+        _rebuildDeferredWhileHidden = false;
         _rebuildQueued = false;
         _lastRebuildAtUtc = DateTime.UtcNow;
         _rebuildDelayCts?.Dispose();
@@ -558,6 +581,7 @@ public partial class StrataMarkdown : ContentControl
 
     public StrataMarkdown()
     {
+        AddHandler(StrataInteractiveBlock.RequestedEvent, OnInteractiveRequest);
         System.Threading.Interlocked.Increment(ref _diagnosticInstanceCount);
 
         _title = new TextBlock();
@@ -681,11 +705,19 @@ public partial class StrataMarkdown : ContentControl
 
     private void Rebuild()
     {
+        if (RetainContentOnDetach && (!_isAttachedToVisualTree || !IsEffectivelyVisible))
+        {
+            ScheduleRebuild();
+            return;
+        }
+
         var rebuildStart = Stopwatch.GetTimestamp();
 
         try
         {
             _bodyFontSize = GetBodyFontSize();
+            _interactionKeysUsed.Clear();
+            _interactionIdsUsed.Clear();
             _chartKeysUsed.Clear();
             _diagramKeysUsed.Clear();
             _confidenceKeysUsed.Clear();
@@ -1059,6 +1091,8 @@ public partial class StrataMarkdown : ContentControl
     {
         _contentHost.Children.Clear();
         _linkRuns.Clear();
+        // Every group is created again below, so interaction ids claimed earlier in this pass are released.
+        _interactionIdsUsed.Clear();
         foreach (var group in groups)
         {
             var control = group.Count > 1
@@ -1088,6 +1122,9 @@ public partial class StrataMarkdown : ContentControl
         {
             case MdBlockKind.Chart:
                 _chartKeysUsed.Add(block.Content.Trim());
+                break;
+            case MdBlockKind.Interactive:
+                TrackInteraction(block);
                 break;
             case MdBlockKind.Mermaid:
                 var trimmed = block.Content.Trim();
@@ -1152,6 +1189,7 @@ public partial class StrataMarkdown : ContentControl
             MdBlockKind.Comparison => CreateComparisonControl(block.Content, block.IsClosed),
             MdBlockKind.Card => CreateCardControl(block.Content, block.IsClosed),
             MdBlockKind.Sources => CreateSourcesControl(block.Content, block.IsClosed),
+            MdBlockKind.Interactive => CreateInteractiveControl(block),
             _ => new Border(),
         };
     }
@@ -1165,6 +1203,7 @@ public partial class StrataMarkdown : ContentControl
         EvictFromCache(_cardCache, _cardKeysUsed);
         EvictFromCache(_sourcesCache, _sourcesKeysUsed);
         EvictFromCache(_tableCache, _tableKeysUsed);
+        EvictFromCache(_interactionCache, _interactionKeysUsed);
         EvictStaleImageCache();
     }
 
@@ -3173,6 +3212,8 @@ public partial class StrataMarkdown : ContentControl
         return null;
     }
 
+    internal string? GetLinkTarget(Run run) => _linkRuns.GetValueOrDefault(run);
+
     private string? GetLinkAtRenderedPoint(SelectableTextBlock tb, Point point)
     {
         if (tb.Inlines == null || _linkRuns.Count == 0)
@@ -3592,6 +3633,9 @@ public partial class StrataMarkdown : ContentControl
         return tableView;
     }
 
+    internal static (Control Table, int Row, int Column, IReadOnlyList<string> Headers)? GetSelectionTableCell(
+        SelectableTextBlock block) => block.FindAncestorOfType<MarkdownTableView>()?.GetSelectionCell(block);
+
     private static void TrackTableDiagnostics(int columnCount, int rowCount, bool reused)
     {
         System.Threading.Interlocked.Increment(ref _diagnosticTableRenderCount);
@@ -3662,7 +3706,7 @@ public partial class StrataMarkdown : ContentControl
             _copyButton.Classes.Add("strata-md-table-copy-button");
             ToolTip.SetTip(_copyButton, "Copy this table.");
             AutomationProperties.SetName(_copyButton, "Copy table");
-            AutomationProperties.SetHelpText(_copyButton, "Choose whether to copy this table as markdown or HTML.");
+            AutomationProperties.SetHelpText(_copyButton, "Copy this table with formatting. Right-click for other formats.");
             _copyButton.ContextMenu = CreateCopyFormatMenu();
             _copyButton.Click += OnCopyButtonClick;
 
@@ -3750,6 +3794,13 @@ public partial class StrataMarkdown : ContentControl
             Update(owner, _headers, _rows);
         }
 
+        public (Control Table, int Row, int Column, IReadOnlyList<string> Headers)? GetSelectionCell(
+            SelectableTextBlock block)
+        {
+            var cell = _grid.Children.FirstOrDefault(child => child.IsVisualAncestorOf(block));
+            return cell is null ? null : (this, Grid.GetRow(cell), Grid.GetColumn(cell), _headers);
+        }
+
         private void OnTableSizeChanged(object? sender, SizeChangedEventArgs e)
         {
             if (e.WidthChanged)
@@ -3808,35 +3859,47 @@ public partial class StrataMarkdown : ContentControl
 
         private async void OnKeyDown(object? sender, KeyEventArgs e)
         {
-            if (e.Key != Key.C || !e.KeyModifiers.HasFlag(KeyModifiers.Control))
+            var command = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+            if (e.Handled || e.Key != Key.C || e.KeyModifiers != command)
                 return;
 
             e.Handled = true;
-            await CopyTableAsync(TableCopyFormat.Markdown);
+            await CopyTableAsync(TableCopyFormat.Html);
         }
 
-        private void OnCopyButtonClick(object? sender, RoutedEventArgs e)
+        private async void OnCopyButtonClick(object? sender, RoutedEventArgs e)
         {
             e.Handled = true;
-            _copyButton.ContextMenu?.Open(_copyButton);
+            await CopyTableAsync(TableCopyFormat.Html);
         }
 
         private ContextMenu CreateCopyFormatMenu()
         {
-            var markdownItem = new MenuItem { Header = "Copy as Markdown" };
+            var plainItem = new MenuItem { Header = "Plain text" };
+            plainItem.Click += async (_, _) => await CopyTableAsync(TableCopyFormat.Text);
+            var markdownItem = new MenuItem { Header = "Markdown" };
             markdownItem.Click += async (_, _) => await CopyTableAsync(TableCopyFormat.Markdown);
 
-            var htmlItem = new MenuItem { Header = "Copy as HTML" };
+            var htmlItem = new MenuItem { Header = "Rich text" };
             htmlItem.Click += async (_, _) => await CopyTableAsync(TableCopyFormat.Html);
 
-            return new ContextMenu
+            var menu = new ContextMenu
             {
                 Items =
                 {
+                    plainItem,
                     markdownItem,
                     htmlItem,
                 },
             };
+            menu.Opening += (_, _) =>
+            {
+                var message = this.FindAncestorOfType<StrataChatMessage>();
+                plainItem.Header = message?.CopyPlainTextLabel ?? "Plain text";
+                markdownItem.Header = message?.CopyMarkdownLabel ?? "Markdown";
+                htmlItem.Header = message?.CopyRichTextLabel ?? "Rich text";
+            };
+            return menu;
         }
 
         private async Task CopyTableAsync(TableCopyFormat format)
@@ -3850,12 +3913,12 @@ public partial class StrataMarkdown : ContentControl
 
             try
             {
-                var text = format == TableCopyFormat.Html
-                    ? HtmlText
-                    : MarkdownText;
-                var data = format == TableCopyFormat.Html
-                    ? ChatClipboardData.CreateHtml(text, text)
-                    : ChatClipboardData.CreateMarkdown(text);
+                using var data = format switch
+                {
+                    TableCopyFormat.Html => ChatClipboardData.CreateRichText(MarkdownText),
+                    TableCopyFormat.Text => ChatClipboardData.CreateText(MarkdownClipboardFormatter.ToPlainText(MarkdownText)),
+                    _ => ChatClipboardData.CreateMarkdown(MarkdownText)
+                };
                 await topLevel.Clipboard.SetDataAsync(data);
 
                 await ShowCopyStatusAsync("\uE73E");
@@ -3882,8 +3945,6 @@ public partial class StrataMarkdown : ContentControl
 
         public string MarkdownText => BuildTableMarkdownForClipboard(_headers, _rows);
 
-        private string HtmlText => BuildTableHtmlForClipboard(_headers, _rows);
-
         private static string BuildTableMarkdownForClipboard(string[] headers, IReadOnlyList<string[]> rows)
         {
             var builder = new StringBuilder();
@@ -3900,35 +3961,9 @@ public partial class StrataMarkdown : ContentControl
             return builder.ToString();
         }
 
-        private static string BuildTableHtmlForClipboard(string[] headers, IReadOnlyList<string[]> rows)
-        {
-            var builder = new StringBuilder("<table><thead><tr>");
-            foreach (var header in headers)
-            {
-                builder.Append("<th>");
-                builder.Append(WebUtility.HtmlEncode(NormalizeCellForClipboard(header)));
-                builder.Append("</th>");
-            }
-
-            builder.Append("</tr></thead><tbody>");
-            foreach (var row in rows)
-            {
-                builder.Append("<tr>");
-                for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
-                {
-                    builder.Append("<td>");
-                    builder.Append(WebUtility.HtmlEncode(NormalizeCellForClipboard(columnIndex < row.Length ? row[columnIndex] : string.Empty)));
-                    builder.Append("</td>");
-                }
-                builder.Append("</tr>");
-            }
-
-            builder.Append("</tbody></table>");
-            return builder.ToString();
-        }
-
         private enum TableCopyFormat
         {
+            Text,
             Markdown,
             Html,
         }
@@ -3963,9 +3998,7 @@ public partial class StrataMarkdown : ContentControl
 
         private static string EscapeMarkdownTableCell(string text)
         {
-            return NormalizeCellForClipboard(text)
-                .Replace("\\", "\\\\", StringComparison.Ordinal)
-                .Replace("|", "\\|", StringComparison.Ordinal);
+            return MarkdownClipboardFormatter.EscapeTableCell(NormalizeCellForClipboard(text));
         }
 
         private static string NormalizeCellForClipboard(string text)

@@ -1,7 +1,11 @@
 using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Documents;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using StrataTheme.Controls;
 using TextMateSharp.Grammars;
 using TextMateSharp.Registry;
@@ -161,112 +165,179 @@ public class StrataCodeBlockTests
         Assert.Same(first, second);
     }
 
-    // ─── AppendPlainTextLines ───────────────────────────────────
+    // ─── Presentation ───────────────────────────────────────────
+
+    private const string KotlinCode =
+        "fun main() = (1..100).forEach {\n" +
+        "    println(when {\n" +
+        "        it % 15 == 0 -> \"FizzBuzz\"\n" +
+        "        it % 3 == 0 -> \"Fizz\"\n" +
+        "        it % 5 == 0 -> \"Buzz\"\n" +
+        "        else -> \"$it\"\n" +
+        "    })\n" +
+        "}";
+
+    private static StrataCodeBlock Present(string text, string? language = null)
+    {
+        var block = new StrataCodeBlock { Language = language, Text = text };
+        block.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return block;
+    }
+
+    private static SelectableTextBlock Presenter(StrataCodeBlock block) =>
+        block.GetVisualChildren().OfType<SelectableTextBlock>().Single();
 
     [Fact]
-    public void AppendPlainTextLines_SingleLine_OneRun()
+    public Task PlainText_IsPresentedUnchangedWithoutStyles() => _fixture.Dispatch(() =>
     {
-        var tb = new SelectableTextBlock();
-        var inlines = tb.Inlines ??= new InlineCollection();
+        var block = Present("hello world");
 
-        StrataCodeBlock.AppendPlainTextLines(inlines, "hello world");
+        Assert.Equal("hello world", block.PresentedText);
+        Assert.Empty(block.PresentedSpans);
+    });
 
-        Assert.Single(inlines);
-        Assert.IsType<Run>(inlines[0]);
-        Assert.Equal("hello world", ((Run)inlines[0]).Text);
+    [Fact]
+    public Task CarriageReturns_AreRemovedFromLineEndings() => _fixture.Dispatch(() =>
+    {
+        var block = Present("line1\r\nline2\r\nline3\r", "csharp");
+
+        Assert.Equal("line1\nline2\nline3", block.PresentedText);
+    });
+
+    [Theory]
+    [InlineData("line1\nline2\nline3", null, 3)]
+    [InlineData("a\n\nb", null, 3)]
+    [InlineData("int a = 1;\n\nint b = 2;", "csharp", 3)]
+    [InlineData(KotlinCode, "kotlin", 8)]
+    public Task EveryLineIsLaidOut(string text, string? language, int lines) => _fixture.Dispatch(() =>
+    {
+        var block = Present(text, language);
+
+        Assert.Equal(lines, Presenter(block).TextLayout.TextLines.Count);
+        Assert.Equal(lines * StrataCodeBlock.CodeLineHeight, block.DesiredSize.Height, 1);
+    });
+
+    [Fact]
+    public Task LongCodeDrawsOnlyNearbyLinesAndUpdatesAfterScrollJumps() => _fixture.Dispatch(() =>
+    {
+        var block = Present(string.Join("\n", Enumerable.Range(0, 300).Select(i => $"line {i}")));
+        block.MinHeight = 300 * StrataCodeBlock.CodeLineHeight;
+        var presenter = Presenter(block);
+        var scroll = new ScrollContentPresenter
+        {
+            Content = block,
+            CanVerticallyScroll = true,
+            ClipToBounds = true
+        };
+        var window = new Window { Width = 400, Height = 180, Content = scroll };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            Assert.Equal(300, presenter.TextLayout.TextLines.Count);
+            Assert.InRange(DrawGlyphs(presenter).Length, 1, 60);
+            foreach (var offset in new[] { 2200d, 5000d, 0d })
+            {
+                scroll.Offset = new Vector(0, offset);
+                window.UpdateLayout();
+                Assert.Equal(offset, scroll.Offset.Y, 1);
+                var glyphs = DrawGlyphs(presenter);
+                Assert.InRange(glyphs.Length, 1, 60);
+                Assert.Contains($"line {(int)(offset / StrataCodeBlock.CodeLineHeight)}",
+                    string.Concat(glyphs.Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+            }
+            Assert.Equal(300 * StrataCodeBlock.CodeLineHeight, block.Bounds.Height, 1);
+
+            presenter.SelectionStart = 0;
+            presenter.SelectionEnd = presenter.Text!.Length;
+            Assert.Equal(presenter.Text, presenter.SelectedText);
+            Assert.Equal(300, DrawGlyphs(presenter).Length);
+            presenter.SelectionEnd = 0;
+
+            window.Width = 280;
+            window.Height = 540;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            var resized = DrawGlyphs(presenter);
+            Assert.InRange(resized.Length, 1, 100);
+            Assert.Contains("line 29", string.Concat(resized.Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+
+            window.Content = null;
+            Assert.Equal(300, DrawGlyphs(presenter).Length);
+            window.Content = scroll;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            scroll.Offset = new Vector(0, 3000);
+            window.UpdateLayout();
+            var reattached = DrawGlyphs(presenter);
+            Assert.InRange(reattached.Length, 1, 100);
+            Assert.Contains("line 166", string.Concat(reattached.Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+
+            block.Text += "\nappended line";
+            block.MinHeight = 301 * StrataCodeBlock.CodeLineHeight;
+            window.UpdateLayout();
+            scroll.Offset = new Vector(0, scroll.Extent.Height - scroll.Viewport.Height);
+            window.UpdateLayout();
+            var appended = DrawGlyphs(presenter);
+            Assert.InRange(appended.Length, 1, 100);
+            Assert.Contains("appended line", string.Concat(appended.Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        // A detached control used for an image/export must render the complete document.
+        Assert.Equal(301, DrawGlyphs(presenter).Length);
+    });
+
+    private static GlyphRunDrawing[] DrawGlyphs(SelectableTextBlock presenter)
+    {
+        var drawing = new DrawingGroup();
+        using (var context = drawing.Open())
+            presenter.Render(context);
+        return Enumerate(drawing).ToArray();
+
+        static IEnumerable<GlyphRunDrawing> Enumerate(Drawing drawing) => drawing switch
+        {
+            GlyphRunDrawing glyph => [glyph],
+            DrawingGroup group => group.Children.SelectMany(Enumerate),
+            _ => []
+        };
     }
 
     [Fact]
-    public void AppendPlainTextLines_MultipleLines_RunsWithLineBreaks()
+    public Task HighlightedCode_IsStyledByItsTextLayoutWithoutInlineElements() => _fixture.Dispatch(() =>
     {
-        var tb = new SelectableTextBlock();
-        var inlines = tb.Inlines ??= new InlineCollection();
+        const string code = "public class Sample\n{\n    // a comment\n    private int value = 42;\n}";
+        var block = Present(code, "csharp");
+        var presenter = Presenter(block);
+        var spans = block.PresentedSpans;
 
-        StrataCodeBlock.AppendPlainTextLines(inlines, "line1\nline2\nline3");
+        Assert.Equal(code, block.PresentedText);
+        Assert.True(presenter.Inlines is null || presenter.Inlines.Count == 0);
+        Assert.NotEmpty(spans);
+        for (var i = 0; i < spans.Count; i++)
+        {
+            Assert.InRange(spans[i].Start, 0, code.Length - 1);
+            Assert.InRange(spans[i].End, spans[i].Start + 1, code.Length);
+            if (i > 0)
+            {
+                // Neighbouring tokens that share a style are merged into one range.
+                Assert.True(spans[i].Start >= spans[i - 1].End);
+                if (spans[i].Start == spans[i - 1].End)
+                    Assert.False(spans[i].HasSameStyle(spans[i - 1]));
+            }
+        }
 
-        // Expected: Run("line1"), LineBreak, Run("line2"), LineBreak, Run("line3")
-        Assert.Equal(5, inlines.Count);
-        Assert.IsType<Run>(inlines[0]);
-        Assert.Equal("line1", ((Run)inlines[0]).Text);
-        Assert.IsType<LineBreak>(inlines[1]);
-        Assert.IsType<Run>(inlines[2]);
-        Assert.Equal("line2", ((Run)inlines[2]).Text);
-        Assert.IsType<LineBreak>(inlines[3]);
-        Assert.IsType<Run>(inlines[4]);
-        Assert.Equal("line3", ((Run)inlines[4]).Text);
-    }
-
-    [Fact]
-    public void AppendPlainTextLines_CrLf_StripsCarriageReturn()
-    {
-        var tb = new SelectableTextBlock();
-        var inlines = tb.Inlines ??= new InlineCollection();
-
-        StrataCodeBlock.AppendPlainTextLines(inlines, "line1\r\nline2\r\nline3");
-
-        Assert.Equal(5, inlines.Count);
-        Assert.Equal("line1", ((Run)inlines[0]).Text);
-        Assert.Equal("line2", ((Run)inlines[2]).Text);
-        Assert.Equal("line3", ((Run)inlines[4]).Text);
-    }
-
-    [Fact]
-    public void AppendPlainTextLines_TrailingNewline_AddsEmptyLine()
-    {
-        var tb = new SelectableTextBlock();
-        var inlines = tb.Inlines ??= new InlineCollection();
-
-        StrataCodeBlock.AppendPlainTextLines(inlines, "line1\n");
-
-        // Expected: Run("line1"), LineBreak (empty trailing line has no run, just the break)
-        Assert.Equal(2, inlines.Count);
-        Assert.IsType<Run>(inlines[0]);
-        Assert.IsType<LineBreak>(inlines[1]);
-    }
-
-    [Fact]
-    public void AppendPlainTextLines_EmptyLines_PreservesBlankLines()
-    {
-        var tb = new SelectableTextBlock();
-        var inlines = tb.Inlines ??= new InlineCollection();
-
-        StrataCodeBlock.AppendPlainTextLines(inlines, "a\n\nb");
-
-        // Expected: Run("a"), LineBreak, LineBreak, Run("b")
-        Assert.Equal(4, inlines.Count);
-        Assert.IsType<Run>(inlines[0]);
-        Assert.Equal("a", ((Run)inlines[0]).Text);
-        Assert.IsType<LineBreak>(inlines[1]);
-        Assert.IsType<LineBreak>(inlines[2]);
-        Assert.IsType<Run>(inlines[3]);
-        Assert.Equal("b", ((Run)inlines[3]).Text);
-    }
-
-    [Fact]
-    public void AppendPlainTextLines_KotlinCodeBlock_AllLinesPresent()
-    {
-        var tb = new SelectableTextBlock();
-        var inlines = tb.Inlines ??= new InlineCollection();
-
-        var kotlinCode = "fun main() = (1..100).forEach {\n" +
-                         "    println(when {\n" +
-                         "        it % 15 == 0 -> \"FizzBuzz\"\n" +
-                         "        it % 3 == 0 -> \"Fizz\"\n" +
-                         "        it % 5 == 0 -> \"Buzz\"\n" +
-                         "        else -> \"$it\"\n" +
-                         "    })\n" +
-                         "}";
-
-        StrataCodeBlock.AppendPlainTextLines(inlines, kotlinCode);
-
-        // 8 lines → 8 Runs + 7 LineBreaks = 15 inlines
-        int runCount = inlines.Count(i => i is Run);
-        int lineBreakCount = inlines.Count(i => i is LineBreak);
-
-        Assert.Equal(8, runCount);
-        Assert.Equal(7, lineBreakCount);
-    }
-
+        var keyword = Assert.Single(spans, span => span.Start == 0);
+        Assert.NotNull(keyword.Foreground);
+        var firstRun = presenter.TextLayout.TextLines[0].TextRuns[0];
+        Assert.Same(keyword.Foreground, firstRun.Properties?.ForegroundBrush);
+        Assert.Equal(5, presenter.TextLayout.TextLines.Count);
+    });
     // ─── Grammar availability for specific languages ────────────
 
     [Theory]
@@ -300,7 +371,7 @@ public class StrataCodeBlockTests
     public void ResolveGrammar_UnavailableInTextMateSharp_ReturnsNull(string language)
     {
         // These languages have aliases in MapLanguageAlias but TextMateSharp.Grammars
-        // does not bundle their grammars. The plain-text fallback (AppendPlainTextLines)
+        // does not bundle their grammars. The plain-text fallback
         // handles these correctly with proper line breaks.
         var options = new RegistryOptions(ThemeName.DarkPlus);
         var registry = new Registry(options);
@@ -312,55 +383,28 @@ public class StrataCodeBlockTests
     // ─── Edge cases ─────────────────────────────────────────────
 
     [Fact]
-    public void AppendPlainTextLines_OnlyNewlines_ProducesLineBreaksOnly()
+    public Task OnlyNewlines_PresentAsEmptyCode() => _fixture.Dispatch(() =>
     {
-        var tb = new SelectableTextBlock();
-        var inlines = tb.Inlines ??= new InlineCollection();
+        var block = Present("\n\n\n");
 
-        StrataCodeBlock.AppendPlainTextLines(inlines, "\n\n\n");
-
-        // 3 newlines → 3 LineBreaks (no runs since all lines are empty)
-        int lineBreakCount = inlines.Count(i => i is LineBreak);
-        int runCount = inlines.Count(i => i is Run);
-
-        Assert.Equal(3, lineBreakCount);
-        Assert.Equal(0, runCount);
-    }
+        Assert.Equal("", block.PresentedText);
+        Assert.Contains(":empty", block.Classes);
+    });
 
     [Fact]
-    public void AppendPlainTextLines_SingleCharacter_OneRun()
+    public Task SingleCharacter_IsPresented() => _fixture.Dispatch(() =>
     {
-        var tb = new SelectableTextBlock();
-        var inlines = tb.Inlines ??= new InlineCollection();
-
-        StrataCodeBlock.AppendPlainTextLines(inlines, "x");
-
-        Assert.Single(inlines);
-        Assert.Equal("x", ((Run)inlines[0]).Text);
-    }
+        Assert.Equal("x", Present("x").PresentedText);
+    });
 
     [Fact]
-    public void AppendPlainTextLines_MixedLineEndings_HandledCorrectly()
+    public Task MixedLineEndings_PresentEachLineWithoutCarriageReturns() => _fixture.Dispatch(() =>
     {
-        var tb = new SelectableTextBlock();
-        var inlines = tb.Inlines ??= new InlineCollection();
+        var block = Present("a\r\nb\nc");
 
-        StrataCodeBlock.AppendPlainTextLines(inlines, "a\r\nb\nc");
-
-        int runCount = inlines.Count(i => i is Run);
-        Assert.Equal(3, runCount);
-        Assert.Equal("a", ((Run)inlines[0]).Text);
-        Assert.Equal("b", ((Run)inlines[2]).Text);
-        Assert.Equal("c", ((Run)inlines[4]).Text);
-
-        // No \r in any run text
-        foreach (var inline in inlines)
-        {
-            if (inline is Run run)
-                Assert.DoesNotContain("\r", run.Text);
-        }
-    }
-
+        Assert.Equal("a\nb\nc", block.PresentedText);
+        Assert.Equal(3, Presenter(block).TextLayout.TextLines.Count);
+    });
     [Fact]
     public async Task MarkdownCodeBlock_AllowsVerticalScrollingWhenContentExceedsMaxHeight()
     {

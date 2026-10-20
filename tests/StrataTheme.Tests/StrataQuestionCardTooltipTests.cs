@@ -77,4 +77,43 @@ public class StrataQuestionCardTooltipTests
             window.Close();
         });
     }
+
+    [Theory]
+    [InlineData("Should I update **`ChatView.axaml`** first?", "Should I update ChatView.axaml first?")]
+    [InlineData("## Pick one\nThe rest of the details", "Pick one")]
+    [InlineData("\n  - Use the [design doc](https://example.com) or *skip* it", "Use the design doc or skip it")]
+    [InlineData("Keep snake_case and 2 * 3 as they are", "Keep snake_case and 2 * 3 as they are")]
+    [InlineData("Should I rename `__init__.py` or search `**/*.cs`?", "Should I rename __init__.py or search **/*.cs?")]
+    [InlineData("   ", null)]
+    public void AnsweredLine_ReadsTheQuestionWithoutItsMarkdown(string question, string? expected)
+        => Assert.Equal(expected, StrataQuestionCard.ToPlainLine(question));
+
+    [Fact]
+    public async Task AnsweredCard_FoldsToThePlainFirstLine()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var card = new StrataQuestionCard
+            {
+                Question = "Should I use **this** one?\nMore detail.",
+                Options = "Yes,No",
+                SelectedAnswer = "Yes",
+                IsAnswered = true,
+            };
+            var window = new Window { Width = 520, Height = 200 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/Controls/StrataQuestionCard.axaml"),
+            });
+            window.Content = card;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var row = card.GetVisualDescendants().OfType<DockPanel>().Single(panel => panel.Name == "PART_AnsweredRow");
+            Assert.True(row.IsVisible);
+            Assert.Contains("Should I use this one?", row.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text));
+
+            window.Close();
+        });
+    }
 }

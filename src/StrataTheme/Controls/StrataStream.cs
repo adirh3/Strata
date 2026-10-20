@@ -157,7 +157,7 @@ public class StrataStream : TemplatedControl
 
     private void OnEffectiveVisibilityChanged()
     {
-        if (IsEffectivelyVisible)
+        if (IsEffectivelyVisible && !LifecycleOpacityPulse.GetIsPaused(this))
             StartStreamAnimation();
         else
             HideStreamBar();
@@ -224,6 +224,7 @@ public class StrataStream : TemplatedControl
         if (!_isAttached ||
             !IsStreaming ||
             !IsEffectivelyVisible ||
+            LifecycleOpacityPulse.GetIsPaused(this) ||
             _streamBar is null ||
             _streamTrack is null)
             return;

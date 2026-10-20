@@ -1,7 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:sa="using:StrataTheme.Animation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:StrataTheme.Controls">
+        xmlns:controls="using:StrataTheme.Controls"
+        xmlns:sa="using:StrataTheme.Animation">
   <Styles.Resources>
     <ResourceDictionary>
       <ControlTheme x:Key="{x:Type controls:StrataTurnSummary}" TargetType="controls:StrataTurnSummary">
@@ -11,98 +11,109 @@
           <ControlTemplate>
             <StackPanel Spacing="0">
 
-              <!-- Clickable header row — no card, just an inline disclosure -->
+              <!-- A quiet line that says how the work went; hovering it lifts it onto glass. -->
               <Border Name="PART_Header"
                       Cursor="Hand"
-                      Background="#00000000"
-                      CornerRadius="{DynamicResource Radius.Base}"
-                      Padding="4,5,8,5">
-
-                <Grid ColumnDefinitions="Auto,6,*">
-                  <!-- Status dot -->
-                  <Border Name="PART_Dot"
-                          Width="6" Height="6"
-                          CornerRadius="3"
-                          VerticalAlignment="Center"
-                          Background="{DynamicResource Brush.SuccessDefault}">
-                    <Border.Transitions>
-                      <Transitions>
-                        <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.2" />
-                      </Transitions>
-                    </Border.Transitions>
-                  </Border>
-
-                  <!-- Label -->
-                  <TextBlock Text="{TemplateBinding Label}"
-                             Grid.Column="2"
-                             FontSize="{DynamicResource Font.SizeCaption}"
-                             FontWeight="SemiBold"
-                             Foreground="{DynamicResource Brush.TextTertiary}"
-                             VerticalAlignment="Center"
-                             TextTrimming="CharacterEllipsis" />
-                </Grid>
-              </Border>
-
-              <!-- Expandable content area with left accent bar -->
-              <Border Name="PART_ContentHost"
-                      ClipToBounds="True"
-                      IsVisible="False"
-                      MaxHeight="0"
-                      Opacity="0"
-                      RenderTransformOrigin="0.5,0"
-                      RenderTransform="translateY(-4px) scaleY(0.97)">
+                      HorizontalAlignment="Left"
+                      Background="Transparent"
+                      BorderBrush="Transparent"
+                      BorderThickness="1"
+                      CornerRadius="14"
+                      Padding="8,5,10,5">
+                <!-- Premultiplied: from Transparent (white at zero alpha) a plain brush transition
+                     fades through light grey, a flash over the dark transcript. -->
                 <Border.Transitions>
                   <Transitions>
-                    <DoubleTransition Property="MaxHeight" Duration="0:0:0.28" Easing="CubicEaseOut" />
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24" Easing="CubicEaseOut" />
+                    <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.16" />
+                    <sa:PremultipliedBrushTransition Property="BorderBrush" Duration="0:0:0.16" />
                   </Transitions>
                 </Border.Transitions>
 
-                <Border Padding="12,4,0,4"
-                        BorderThickness="2,0,0,0"
-                        BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                        Margin="3,2,0,0">
-                  <Border.Transitions>
-                    <Transitions>
-                      <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
-                    </Transitions>
-                  </Border.Transitions>
+                <DockPanel>
+                  <Panel DockPanel.Dock="Left" Margin="0,0,7,0" VerticalAlignment="Center">
+                    <controls:StrataLineIcon Name="PART_Glyph"
+                                             Width="14" Height="14"
+                                             Data="{x:Static controls:StrataIcons.CheckCircle}"
+                                             Foreground="{DynamicResource Brush.TextTertiary}" />
+                    <controls:StrataLineIcon Name="PART_FailureGlyph"
+                                             Width="14" Height="14"
+                                             IsVisible="False"
+                                             Data="{x:Static controls:StrataIcons.Alert}"
+                                             Foreground="{DynamicResource Brush.DangerDefault}" />
+                  </Panel>
+                  <controls:StrataLineIcon Name="PART_ExpandIcon"
+                                           DockPanel.Dock="Right"
+                                           Width="11" Height="11"
+                                           Margin="7,0,0,0"
+                                           VerticalAlignment="Center"
+                                           StrokeThickness="2"
+                                           Data="{x:Static controls:StrataIcons.ChevronDown}"
+                                           Foreground="{DynamicResource Brush.TextTertiary}"
+                                           RenderTransformOrigin="50%,50%"
+                                           RenderTransform="rotate(0deg)">
+                    <controls:StrataLineIcon.Transitions>
+                      <Transitions>
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </controls:StrataLineIcon.Transitions>
+                  </controls:StrataLineIcon>
+                  <TextBlock Name="PART_Label"
+                             Text="{TemplateBinding Label}"
+                             FontSize="12.5"
+                             Foreground="{DynamicResource Brush.TextTertiary}"
+                             VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis"
+                             MaxLines="1" />
+                </DockPanel>
+              </Border>
+
+              <!-- The folded work hangs on a hairline under the icon. The control reveals it from the
+                   top while it fades in; the content keeps its natural layout throughout. -->
+              <controls:TurnSummaryRevealHost Name="PART_ContentHost"
+                                              IsVisible="False"
+                                              Reveal="0"
+                                              Opacity="0">
+                <Border Padding="16,4,0,4"
+                        BorderThickness="1,0,0,0"
+                        BorderBrush="{DynamicResource Brush.GlassDivider}"
+                        Margin="15,2,0,0"
+                        controls:StrataTurnSummary.IsWithinSummary="True">
                   <ContentPresenter Content="{TemplateBinding DisplayedContent}" />
                 </Border>
-              </Border>
+              </controls:TurnSummaryRevealHost>
 
             </StackPanel>
           </ControlTemplate>
         </Setter>
 
-        <!-- Expanded state -->
-        <Style Selector="^:expanded /template/ Border#PART_ContentHost">
+        <!-- Something failed: the line says so with its icon -->
+        <Style Selector="^:has-failures /template/ controls|StrataLineIcon#PART_Glyph">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:has-failures /template/ controls|StrataLineIcon#PART_FailureGlyph">
           <Setter Property="IsVisible" Value="True" />
-          <Setter Property="MaxHeight" Value="4000" />
-          <Setter Property="Opacity" Value="1" />
-          <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
         </Style>
 
-        <!-- Failure state dot -->
-        <Style Selector="^:has-failures /template/ Border#PART_Dot">
-          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
-        </Style>
-
-        <!-- Hover -->
+        <!-- Hover: the line sits on the transcript's glass -->
         <Style Selector="^ /template/ Border#PART_Header:pointerover">
-          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassFill}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRim}" />
+        </Style>
+        <Style Selector="^ /template/ Border#PART_Header:pointerover TextBlock#PART_Label">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
         </Style>
 
-        <!-- Pressed -->
-        <Style Selector="^:pressed /template/ Border#PART_Header">
-          <Setter Property="Background" Value="{DynamicResource Brush.ControlPressed}" />
+        <!-- Open: the chevron turns -->
+        <Style Selector="^:expanded /template/ controls|StrataLineIcon#PART_ExpandIcon">
+          <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+        <Style Selector="^:expanded /template/ TextBlock#PART_Label">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
         </Style>
 
         <!-- Focus -->
         <Style Selector="^:focus-visible /template/ Border#PART_Header">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
-          <Setter Property="BorderThickness" Value="1.5" />
         </Style>
 
       </ControlTheme>

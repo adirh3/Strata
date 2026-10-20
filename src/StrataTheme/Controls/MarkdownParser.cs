@@ -23,6 +23,7 @@ public enum MdBlockKind
     Sources,
     Blockquote,
     TaskItem,
+    Interactive,
 }
 
 /// <summary>
@@ -447,6 +448,7 @@ public sealed class MarkdownParser
         if (language.Equals("comparison", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Comparison;
         if (language.Equals("card", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Card;
         if (language.Equals("sources", StringComparison.OrdinalIgnoreCase)) return MdBlockKind.Sources;
+        if (InteractiveDefinition.IsSupported(language)) return MdBlockKind.Interactive;
         return MdBlockKind.CodeBlock;
     }
 
@@ -743,8 +745,50 @@ public sealed class MarkdownParser
     {
         var trimmed = line.Trim();
         if (trimmed.StartsWith('|')) trimmed = trimmed[1..];
-        if (trimmed.EndsWith('|')) trimmed = trimmed[..^1];
-        return trimmed.Split('|');
+        if (!trimmed.Contains('\\'))
+        {
+            if (trimmed.EndsWith('|')) trimmed = trimmed[..^1];
+            return trimmed.Split('|');
+        }
+
+        var cells = new List<string>();
+        var cell = new StringBuilder();
+        var inCode = false;
+        for (var index = 0; index < trimmed.Length; index++)
+        {
+            var character = trimmed[index];
+            if (character == '\\' && index + 1 < trimmed.Length)
+            {
+                var next = trimmed[index + 1];
+                if (next == '|' || next == '\\' && !inCode)
+                {
+                    cell.Append(next);
+                    index++;
+                    continue;
+                }
+                if (next == '\\')
+                {
+                    cell.Append('\\').Append('\\');
+                    index++;
+                    continue;
+                }
+            }
+            if (character == '|')
+            {
+                cells.Add(cell.ToString());
+                cell.Clear();
+                inCode = false;
+            }
+            else
+            {
+                if (character == '`' && (inCode || index == 0 || trimmed[index - 1] != '\\'))
+                    inCode = !inCode;
+                cell.Append(character);
+            }
+        }
+        if (cell.Length > 0 || trimmed.Length == 0 || trimmed[^1] != '|')
+            cells.Add(cell.ToString());
+        return cells.ToArray();
     }
 
     /// <summary>Trims each cell string in-place, avoiding LINQ Select/ToArray allocation.</summary>

@@ -1,5 +1,14 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:strata="using:StrataTheme">
+
+  <Style Selector="Popup">
+    <Setter Property="(strata:PopupAnimationHelper.EnableOverlayAnimation)" Value="True" />
+  </Style>
+
+  <Style Selector="PopupRoot, OverlayPopupHost">
+    <Setter Property="(strata:OverlayAnimationHelper.AnimateOpen)" Value="True" />
+  </Style>
 
   <!-- ═══════════════════════════════════════════════════════════
        STRATA UI – PopupRoot

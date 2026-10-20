@@ -1,0 +1,273 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+
+  <ControlTheme x:Key="{x:Type controls:StrataApprovalCard}" TargetType="controls:StrataApprovalCard">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="MaxWidth" Value="640" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <!-- While it waits: a glass card with the choices. -->
+          <Border Name="PART_Card"
+                  Background="{DynamicResource Brush.GlassFill}"
+                  BorderBrush="{DynamicResource Brush.GlassRim}"
+                  BorderThickness="1"
+                  CornerRadius="16"
+                  BoxShadow="{DynamicResource Shadow.GlassCard}"
+                  ClipToBounds="True">
+            <Grid ColumnDefinitions="3,*">
+              <!-- The needs-you edge: one quiet line of colour, not an alarm. -->
+              <Border Name="PART_Edge" Background="{DynamicResource Brush.WarningDefault}" Opacity="0.85" />
+
+              <StackPanel Grid.Column="1" Margin="14,13,16,14" Spacing="0">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                  <Border Name="PART_IconChip"
+                          Width="28" Height="28"
+                          CornerRadius="9"
+                          Background="{DynamicResource Brush.GlassWell}"
+                          BorderBrush="{DynamicResource Brush.GlassDivider}"
+                          BorderThickness="1"
+                          VerticalAlignment="Center">
+                    <controls:StrataLineIcon Width="15" Height="15"
+                                             StrokeThickness="1.7"
+                                             Data="{TemplateBinding Icon}"
+                                             Foreground="{DynamicResource Brush.TextSecondary}"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <TextBlock Grid.Column="1"
+                             Text="{TemplateBinding Title}"
+                             FontSize="13.5"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap"
+                             VerticalAlignment="Center"
+                             Foreground="{DynamicResource Brush.TextPrimary}" />
+                  <Border Name="PART_StatusPill" Grid.Column="2"
+                          CornerRadius="999"
+                          Padding="9,3"
+                          VerticalAlignment="Center"
+                          Background="{DynamicResource Brush.WarningSubtle}"
+                          IsVisible="{TemplateBinding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                      <Ellipse Name="PART_StatusDot" Width="6" Height="6" VerticalAlignment="Center"
+                               Fill="{DynamicResource Brush.WarningDefault}" />
+                      <TextBlock Text="{TemplateBinding StatusText}"
+                                 FontSize="11"
+                                 FontWeight="SemiBold"
+                                 VerticalAlignment="Center"
+                                 Foreground="{DynamicResource Brush.WarningDefault}" />
+                    </StackPanel>
+                  </Border>
+                </Grid>
+
+                <TextBlock Name="PART_Intention"
+                           Text="{TemplateBinding Intention}"
+                           Margin="38,4,0,0"
+                           FontSize="12.5"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource Brush.TextSecondary}" />
+
+                <!-- The exact thing to allow: a command reads as code. -->
+                <Border Name="PART_Subject"
+                        Margin="0,11,0,0"
+                        CornerRadius="10"
+                        Padding="12,9"
+                        Background="{DynamicResource Brush.GlassWell}"
+                        BorderBrush="{DynamicResource Brush.GlassDivider}"
+                        BorderThickness="1">
+                  <SelectableTextBlock Name="PART_SubjectText"
+                                       Text="{TemplateBinding Subject}"
+                                       FontSize="13"
+                                       TextWrapping="Wrap"
+                                       MaxLines="8"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource Brush.TextPrimary}" />
+                </Border>
+
+                <!-- A second opinion, such as the reviewer's reason. -->
+                <Grid Name="PART_Note" Margin="2,10,0,0" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                  <controls:StrataLineIcon Width="14" Height="14" StrokeThickness="1.7"
+                                           Data="{x:Static controls:StrataIcons.ShieldCheck}"
+                                           Foreground="{DynamicResource Brush.AccentDefault}"
+                                           VerticalAlignment="Top" Margin="0,1,0,0" />
+                  <TextBlock Grid.Column="1" TextWrapping="Wrap" FontSize="12.5"
+                             Foreground="{DynamicResource Brush.TextSecondary}">
+                    <Run Text="{Binding NoteLabel, RelativeSource={RelativeSource TemplatedParent}}" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextPrimary}" />
+                    <Run Text=" " />
+                    <Run Text="{Binding Note, RelativeSource={RelativeSource TemplatedParent}}" />
+                  </TextBlock>
+                </Grid>
+
+                <Grid Name="PART_Warning" Margin="2,10,0,0" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                  <controls:StrataLineIcon Width="14" Height="14" StrokeThickness="1.7"
+                                           Data="{x:Static controls:StrataIcons.Alert}"
+                                           Foreground="{DynamicResource Brush.WarningDefault}"
+                                           VerticalAlignment="Top" Margin="0,1,0,0" />
+                  <TextBlock Grid.Column="1" Text="{TemplateBinding Warning}" TextWrapping="Wrap" FontSize="12.5"
+                             Foreground="{DynamicResource Brush.TextSecondary}" />
+                </Grid>
+
+                <!-- Everything else, one click away. -->
+                <StackPanel Name="PART_DetailsArea" Margin="0,8,0,0" Spacing="6">
+                  <ToggleButton Name="PART_DetailsToggle"
+                                Classes="approval-disclosure"
+                                HorizontalAlignment="Left"
+                                IsChecked="{Binding IsDetailsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <TextBlock Text="{TemplateBinding DetailsLabel}" FontSize="12" VerticalAlignment="Center" />
+                      <controls:StrataLineIcon Name="PART_DetailsChevron" Width="12" Height="12" StrokeThickness="1.8"
+                                               Data="{x:Static controls:StrataIcons.ChevronDown}"
+                                               VerticalAlignment="Center"
+                                               RenderTransformOrigin="0.5,0.5" />
+                    </StackPanel>
+                  </ToggleButton>
+                  <Border Name="PART_Details"
+                          CornerRadius="10"
+                          Background="{DynamicResource Brush.GlassWell}"
+                          BorderBrush="{DynamicResource Brush.GlassDivider}"
+                          BorderThickness="1"
+                          ClipToBounds="True">
+                    <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                      <ContentPresenter Content="{TemplateBinding Details}" Margin="10,8" />
+                    </ScrollViewer>
+                  </Border>
+                </StackPanel>
+
+                <TextBlock Name="PART_Error"
+                           Text="{TemplateBinding Error}"
+                           Margin="2,10,0,0"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource Brush.DangerDefault}" />
+
+                <ContentPresenter Name="PART_Actions"
+                                  Content="{TemplateBinding Actions}"
+                                  Margin="0,13,0,0" />
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <!-- Once answered: one line that says what happened. -->
+          <Border Name="PART_Receipt" Padding="2,3" IsVisible="False">
+            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="7">
+              <Panel Width="16" Height="16" VerticalAlignment="Center">
+                <controls:StrataLineIcon Name="PART_ReceiptAllowed" Width="15" Height="15" StrokeThickness="1.9"
+                                         Data="{x:Static controls:StrataIcons.ShieldCheck}"
+                                         Foreground="{DynamicResource Brush.SuccessDefault}" IsVisible="False" />
+                <controls:StrataLineIcon Name="PART_ReceiptDenied" Width="15" Height="15" StrokeThickness="1.9"
+                                         Data="{x:Static controls:StrataIcons.Shield}"
+                                         Foreground="{DynamicResource Brush.DangerDefault}" IsVisible="False" />
+                <controls:StrataLineIcon Name="PART_ReceiptQuiet" Width="15" Height="15" StrokeThickness="1.9"
+                                         Data="{x:Static controls:StrataIcons.Clock}"
+                                         Foreground="{DynamicResource Brush.TextTertiary}" IsVisible="False" />
+              </Panel>
+              <TextBlock Grid.Column="1" Text="{TemplateBinding Receipt}"
+                         FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"
+                         Foreground="{DynamicResource Brush.TextSecondary}" />
+              <TextBlock Grid.Column="2" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource Brush.TextTertiary}">
+                <Run Text="· " />
+                <Run Text="{Binding Title, RelativeSource={RelativeSource TemplatedParent}}" />
+                <Run Text="  " />
+                <Run Text="{Binding Subject, RelativeSource={RelativeSource TemplatedParent}}" />
+              </TextBlock>
+            </Grid>
+          </Border>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^ /template/ TextBlock#PART_Intention">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:has-intention /template/ TextBlock#PART_Intention">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^ /template/ Border#PART_Subject">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:has-subject /template/ Border#PART_Subject">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:code /template/ SelectableTextBlock#PART_SubjectText">
+      <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
+      <Setter Property="FontSize" Value="12.5" />
+    </Style>
+    <Style Selector="^ /template/ Grid#PART_Note">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:has-note /template/ Grid#PART_Note">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^ /template/ Grid#PART_Warning">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:has-warning /template/ Grid#PART_Warning">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^ /template/ StackPanel#PART_DetailsArea">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:has-details /template/ StackPanel#PART_DetailsArea">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^ /template/ Border#PART_Details">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:details-open /template/ Border#PART_Details">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:details-open /template/ controls|StrataLineIcon#PART_DetailsChevron">
+      <Setter Property="RenderTransform" Value="rotate(180deg)" />
+    </Style>
+    <Style Selector="^ /template/ TextBlock#PART_Error">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:has-error /template/ TextBlock#PART_Error">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <!-- A request to leave a boundary reads as a warning, not a routine ask. -->
+    <Style Selector="^:escalation /template/ Border#PART_Edge">
+      <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+    </Style>
+
+    <!-- Answered: the card folds into its receipt. -->
+    <Style Selector="^:decided /template/ Border#PART_Card">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:decided /template/ Border#PART_Receipt">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:approved /template/ controls|StrataLineIcon#PART_ReceiptAllowed">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:denied /template/ controls|StrataLineIcon#PART_ReceiptDenied">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:skipped /template/ controls|StrataLineIcon#PART_ReceiptQuiet, ^:expired /template/ controls|StrataLineIcon#PART_ReceiptQuiet">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="^ /template/ ToggleButton.approval-disclosure">
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="^ /template/ ToggleButton.approval-disclosure:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    </Style>
+    <Style Selector="^ /template/ ToggleButton.approval-disclosure:checked">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    </Style>
+  </ControlTheme>
+
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

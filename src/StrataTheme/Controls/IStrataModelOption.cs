@@ -18,6 +18,13 @@ public interface IStrataModelOption
     /// <summary>Stable model identifier. Also the value the picker assigns when the row is chosen.</summary>
     string ModelId { get; }
 
+    /// <summary>Searchable model name. Defaults to the identifier for existing hosts.</summary>
+    string DisplayName => ModelId;
+
     /// <summary>True when the item should be listed in the picker's pinned section.</summary>
     bool IsPinned { get; }
+
+    /// <summary>Optional host-supplied provider/account label. When unset, grouping is derived
+    /// from the model id as before.</summary>
+    string? ProviderName => null;
 }

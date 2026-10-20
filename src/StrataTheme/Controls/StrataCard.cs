@@ -86,6 +86,10 @@ public class StrataCard : TemplatedControl
     public static readonly StyledProperty<string> CopyLabelProperty =
         AvaloniaProperty.Register<StrataCard, string>(nameof(CopyLabel), "Copy card");
 
+    /// <summary>Localizable tooltip and accessible name for the disclosure action.</summary>
+    public static readonly StyledProperty<string> ToggleDetailsLabelProperty =
+        AvaloniaProperty.Register<StrataCard, string>(nameof(ToggleDetailsLabel), "Toggle card details");
+
     static StrataCard()
     {
         IsExpandedProperty.Changed.AddClassHandler<StrataCard>((c, _) => c.UpdatePseudoClasses());
@@ -123,6 +127,8 @@ public class StrataCard : TemplatedControl
 
     /// <summary>Gets or sets the copy button's tooltip and accessible name.</summary>
     public string CopyLabel { get => GetValue(CopyLabelProperty); set => SetValue(CopyLabelProperty, value); }
+
+    public string ToggleDetailsLabel { get => GetValue(ToggleDetailsLabelProperty); set => SetValue(ToggleDetailsLabelProperty, value); }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

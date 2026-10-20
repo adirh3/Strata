@@ -197,6 +197,112 @@ public class StrataMarkdownReattachRebuildTests
             "An attached retain-content markdown must still parse content changes immediately.");
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RetainHidden_ContentChangesWaitForVisibleLayout(bool clearContent)
+    {
+        var result = await _fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                RetainContentOnDetach = true,
+                StreamingRebuildThrottleMs = 0,
+                FontSize = 14,
+                Markdown = "**bold** initial content"
+            };
+            var host = new Border { Child = markdown };
+            var window = new Window { Width = 400, Height = 300, Content = host };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            try
+            {
+                host.IsVisible = false;
+                Dispatcher.UIThread.RunJobs();
+                var before = StrataMarkdown.CaptureDiagnostics();
+                markdown.Markdown = "**bold** first hidden update";
+                Dispatcher.UIThread.RunJobs();
+                markdown.Markdown = clearContent ? null : "**bold** final hidden update";
+                Dispatcher.UIThread.RunJobs();
+                var hidden = StrataMarkdown.CaptureDiagnostics() - before;
+
+                host.IsVisible = true;
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+                var visible = StrataMarkdown.CaptureDiagnostics() - before;
+                var text = markdown.GetLogicalDescendants().OfType<SelectableTextBlock>()
+                    .Select(block => block.Text ?? string.Concat(block.Inlines?.OfType<Avalonia.Controls.Documents.Run>()
+                        .Select(run => run.Text) ?? []))
+                    .ToArray();
+                return (hidden, visible, text);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+        Assert.Equal(0, result.hidden.RebuildCount);
+        Assert.Equal(1, result.visible.RebuildCount);
+        if (clearContent)
+            Assert.Empty(result.text);
+        else
+            Assert.Contains(result.text, text => text.Contains("final hidden update"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RetainHidden_StyleChangesAreAppliedWhenShown(bool changeTheme)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            Avalonia.Application.Current!.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+            var markdown = new StrataMarkdown
+            {
+                RetainContentOnDetach = true,
+                StreamingRebuildThrottleMs = 0,
+                FontSize = 14,
+                Markdown = "**bold** retained text"
+            };
+            var host = new Border { Child = markdown };
+            var window = new Window
+            {
+                Width = 400,
+                Height = 300,
+                Content = host
+            };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            try
+            {
+                host.IsVisible = false;
+                Dispatcher.UIThread.RunJobs();
+                var before = StrataMarkdown.CaptureDiagnostics();
+                if (changeTheme)
+                    Avalonia.Application.Current.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
+                else
+                    markdown.FontSize = 21;
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(0, (StrataMarkdown.CaptureDiagnostics() - before).RebuildCount);
+
+                host.IsVisible = true;
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(1, (StrataMarkdown.CaptureDiagnostics() - before).RebuildCount);
+                var text = Assert.Single(markdown.GetLogicalDescendants().OfType<SelectableTextBlock>());
+                Assert.Equal(changeTheme ? 14 : 21, text.FontSize);
+                Assert.Equal(Avalonia.Application.Current.ActualThemeVariant, markdown.ActualThemeVariant);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     [Fact]
     public async Task ReleaseRetainedContent_AfterDetach_ClearsRenderedTree()
     {

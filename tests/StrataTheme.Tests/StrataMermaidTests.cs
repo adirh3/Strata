@@ -240,8 +240,7 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
             Assert.Equal(WindowState.Maximized, window.WindowState);
             Assert.Null(TopLevel.GetTopLevel(expanded));
             Assert.Null(Field<StrataMermaid?>(diagram, "_expandedDiagram"));
-            Assert.Null(Field<Window?>(diagram, "_expandedWindow"));
-            Assert.Null(Field<IInputElement?>(diagram, "_previousFocus"));
+            Assert.Null(Field<StrataFullScreenOverlay?>(diagram, "_expandedView"));
 
             diagram.Source = "flowchart LR\nAfter --> Close";
             Assert.Equal(updated, expanded.Source);

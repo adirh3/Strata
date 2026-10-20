@@ -159,6 +159,30 @@ public class PremultipliedBrushTransitionTests
         Assert.Same(solid, PremultipliedBrushTransition.InterpolateBrush(0.4, solid, null));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void FaintTint_FadesStraightToItsStrength(bool fadingIn)
+    {
+        // Glass tints are an opaque colour on a low-opacity brush (Brush.GlassRowHover is 6%).
+        IBrush clear = new ImmutableSolidColorBrush(Transparent);
+        IBrush tint = new ImmutableSolidColorBrush(new Color(0xFF, 0xE4, 0xE4, 0xE4), 0.06);
+
+        var previous = fadingIn ? 0d : 0.06;
+        for (var t = 0.0; t <= 1.0001; t += 0.05)
+        {
+            var brush = Assert.IsAssignableFrom<ISolidColorBrush>(PremultipliedBrushTransition.InterpolateBrush(
+                t, fadingIn ? clear : tint, fadingIn ? tint : clear));
+            var alpha = brush.Color.A / 255d * brush.Opacity;
+
+            Assert.True(alpha <= 0.06 + 0.004, $"t={t:F2}: {alpha:F3} is stronger than the tint");
+            Assert.True(fadingIn ? alpha >= previous - 0.004 : alpha <= previous + 0.004, $"t={t:F2}: {alpha:F3} after {previous:F3}");
+            if (brush.Color.A > 0)
+                Assert.InRange(brush.Color.R, 0xE0, 0xE8);
+            previous = alpha;
+        }
+    }
+
     private static readonly Color GBlack = new(0xFF, 0, 0, 0);
     private static readonly Color GWhite = new(0xFF, 0xFF, 0xFF, 0xFF);
 

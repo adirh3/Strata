@@ -277,6 +277,15 @@ public class MarkdownParserTests
 
     // ─── Tables ─────────────────────────────────────────────────
 
+    [Theory]
+    [InlineData(@"| First \| Second | C:\\Temp\\file.txt |", "First | Second", @"C:\Temp\file.txt")]
+    [InlineData(@"| `\\server\share\` | ending\| |", @"`\\server\share\`", "ending|")]
+    [InlineData(@"| escaped \\ | \\ |", @"escaped \", @"\")]
+    public void TableCells_PreserveEscapedPipesAndCodePaths(string row, string first, string second)
+    {
+        Assert.Equal(new[] { first, second }, MarkdownParser.TrimCells(MarkdownParser.SplitTableCells(row)));
+    }
+
     [Fact]
     public void Table_BasicTable()
     {

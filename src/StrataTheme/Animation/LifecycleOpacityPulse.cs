@@ -11,7 +11,7 @@ using Avalonia.VisualTree;
 namespace StrataTheme.Animation;
 
 /// <summary>
-/// Runs a compositor opacity pulse only while its target is active, attached, and visible.
+/// Runs a compositor opacity pulse only while its target is active, attached, visible, and unpaused.
 /// </summary>
 public sealed class LifecycleOpacityPulse
 {
@@ -20,6 +20,11 @@ public sealed class LifecycleOpacityPulse
 
     public static readonly AttachedProperty<bool> IsActiveProperty =
         AvaloniaProperty.RegisterAttached<LifecycleOpacityPulse, Visual, bool>("IsActive");
+
+    /// <summary>Pauses lifecycle-managed activity in this visual subtree without changing its
+    /// working state or visibility. Hosts set this while the application is backgrounded.</summary>
+    public static readonly AttachedProperty<bool> IsPausedProperty =
+        AvaloniaProperty.RegisterAttached<LifecycleOpacityPulse, Visual, bool>("IsPaused", inherits: true);
 
     public static readonly AttachedProperty<double> FromOpacityProperty =
         AvaloniaProperty.RegisterAttached<LifecycleOpacityPulse, Visual, double>(
@@ -80,6 +85,10 @@ public sealed class LifecycleOpacityPulse
     public static bool GetIsActive(Visual visual) => visual.GetValue(IsActiveProperty);
 
     public static void SetIsActive(Visual visual, bool value) => visual.SetValue(IsActiveProperty, value);
+
+    public static bool GetIsPaused(Visual visual) => visual.GetValue(IsPausedProperty);
+
+    public static void SetIsPaused(Visual visual, bool value) => visual.SetValue(IsPausedProperty, value);
 
     public static double GetFromOpacity(Visual visual) => visual.GetValue(FromOpacityProperty);
 
@@ -173,7 +182,8 @@ public sealed class LifecycleOpacityPulse
 
             if (!GetIsActive(_target) ||
                 !_isAttached ||
-                !_target.IsEffectivelyVisible)
+                !_target.IsEffectivelyVisible ||
+                GetIsPaused(_target))
             {
                 Stop();
                 return;

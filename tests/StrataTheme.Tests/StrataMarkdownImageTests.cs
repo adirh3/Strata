@@ -1,6 +1,15 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
+using Avalonia.Data;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -300,6 +309,18 @@ public sealed class StrataMarkdownImageTests
         Assert.Equal(6, StrataMarkdown.CalculateMarkdownImageDecodeWidth(new PixelSize(100, 8_000)));
     }
 
+    [Theory]
+    [InlineData(12_000, 12_000, 1920, 1080, 1080)]
+    [InlineData(4_000, 2_000, 1920, 1080, 1920)]
+    [InlineData(200, 100, 1920, 1080, 200)]
+    public void ExpandedImageDecode_UsesScreenBoundsWithoutUpscaling(
+        int width, int height, int screenWidth, int screenHeight, int expectedWidth)
+    {
+        Assert.Equal(expectedWidth, StrataMarkdown.CalculateMarkdownImageDecodeWidth(
+            new PixelSize(width, height),
+            new PixelSize(screenWidth, screenHeight)));
+    }
+
     [Fact]
     public void TryReadMarkdownImageDimensions_ReadsAdvertisedRasterFormats()
     {
@@ -344,13 +365,10 @@ public sealed class StrataMarkdownImageTests
     public async Task AppendFormattedInlines_ReplacesImagePlaceholderWithLoadedImage()
     {
         var path = CreateTempPng();
-        Window? window = null;
-        Image? image = null;
-        StackPanel? loadingContent = null;
 
         try
         {
-            await _fixture.Dispatch(() =>
+            await _fixture.Dispatch(async () =>
             {
                 var markdown = new StrataMarkdown();
                 var textBlock = new SelectableTextBlock
@@ -366,35 +384,276 @@ public sealed class StrataMarkdownImageTests
                 var container = Assert.Single(textBlock.Inlines!.OfType<InlineUIContainer>());
                 var frame = Assert.IsType<Border>(container.Child);
                 var content = Assert.IsType<Grid>(frame.Child);
-                image = Assert.Single(content.Children.OfType<Image>());
-                loadingContent = Assert.Single(content.Children.OfType<StackPanel>());
+                var image = Assert.Single(content.Children.OfType<Image>());
+                var loadingContent = Assert.Single(content.Children.OfType<StackPanel>());
                 var progress = Assert.Single(loadingContent.Children.OfType<ProgressBar>());
                 Assert.True(progress.IsIndeterminate);
 
-                window = new Window
+                var window = new Window
                 {
                     Width = 520,
                     Height = 220,
                     Content = textBlock,
                 };
-                window.Show();
+
+                try
+                {
+                    window.Show();
+
+                    var loaded = false;
+                    for (var attempt = 0; attempt < 100 && !loaded; attempt++)
+                    {
+                        loaded = image.Source is not null;
+                        if (!loaded)
+                            await Task.Delay(20);
+                    }
+
+                    Assert.True(loaded, "The inline markdown image did not finish loading.");
+                    Assert.False(loadingContent.IsVisible);
+                }
+                finally
+                {
+                    window.Close();
+                }
             });
-
-            var loaded = false;
-            for (var attempt = 0; attempt < 100 && !loaded; attempt++)
-            {
-                loaded = await _fixture.Dispatch(() => image?.Source is not null);
-                if (!loaded)
-                    await Task.Delay(20);
-            }
-
-            Assert.True(loaded, "The inline markdown image did not finish loading.");
-            Assert.False(await _fixture.Dispatch(() => loadingContent!.IsVisible));
         }
         finally
         {
-            if (window is not null)
-                await _fixture.Dispatch(window.Close);
+            File.Delete(path);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExpandedImage_FillsWindowAndRestoresKeyboardFocusAndWindowState(bool inText)
+    {
+        var path = CreateTempPng();
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var markdownText = $"![fixture image]({path})";
+                var window = CreateImageViewerWindow(inText ? $"Before {markdownText} after" : markdownText);
+                try
+                {
+                    await WaitForImageViewerAsync(window, () =>
+                        window.GetVisualDescendants().OfType<Image>()
+                            .Any(image => image.Classes.Contains("strata-md-image-content") && image.Source is not null));
+                    var expand = FindImageViewerControl<Button>(window, "MarkdownImageExpand");
+                    Assert.True(expand.IsVisible);
+                    Assert.Equal("View image full screen", AutomationProperties.GetName(expand));
+                    var layer = Assert.IsType<OverlayLayer>(OverlayLayer.GetOverlayLayer(expand));
+
+                    foreach (var previousState in new[] { WindowState.Normal, WindowState.Maximized, WindowState.FullScreen })
+                    {
+                        window.WindowState = previousState;
+                        Assert.True(expand.Focus());
+                        PressImageViewerKey(window, previousState == WindowState.FullScreen ? Key.Space : Key.Enter);
+                        PumpImageViewer(window);
+                        Assert.Equal(WindowState.FullScreen, window.WindowState);
+                        var overlay = FindImageViewerControl<Border>(window, "MarkdownImageFullScreen");
+                        var image = FindImageViewerControl<Image>(window, "ExpandedMarkdownImage");
+                        var close = FindImageViewerControl<Button>(window, "MarkdownImageClose");
+                        Assert.Equal(layer.Bounds.Size, overlay.Bounds.Size);
+                        Assert.Equal(window.ClientSize, overlay.Bounds.Size);
+                        Assert.Equal(Stretch.Uniform, image.Stretch);
+                        Assert.True(image.Bounds.Height > 500);
+                        Assert.NotNull(image.Source);
+                        Assert.Same(close, window.FocusManager!.GetFocusedElement());
+
+                        window.Width = 1040;
+                        window.Height = 780;
+                        PumpImageViewer(window);
+                        Assert.Equal(window.ClientSize, overlay.Bounds.Size);
+
+                        if (previousState == WindowState.Maximized)
+                            close.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        else
+                            PressImageViewerKey(window, Key.Escape);
+                        PumpImageViewer(window);
+                        Assert.Empty(layer.Children);
+                        Assert.Null(image.Source);
+                        Assert.Equal(previousState, window.WindowState);
+                        Assert.Same(expand, window.FocusManager.GetFocusedElement());
+                    }
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RemovingExpandedImage_ClosesViewerAndReleasesImage(bool detachOwner)
+    {
+        var path = CreateTempPng();
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var window = CreateImageViewerWindow($"![fixture image]({path})");
+                try
+                {
+                    await WaitForImageViewerAsync(window, () =>
+                        FindImageViewerControl<Button>(window, "MarkdownImageExpand").IsVisible);
+                    window.WindowState = WindowState.Maximized;
+                    var expand = FindImageViewerControl<Button>(window, "MarkdownImageExpand");
+                    expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    var layer = Assert.IsType<OverlayLayer>(OverlayLayer.GetOverlayLayer(expand));
+                    var image = FindImageViewerControl<Image>(window, "ExpandedMarkdownImage");
+                    Assert.Equal(WindowState.FullScreen, window.WindowState);
+
+                    if (detachOwner)
+                        window.Content = null;
+                    else
+                    {
+                        var markdown = Assert.IsType<StrataMarkdown>(window.Content);
+                        markdown.Markdown = "The image has been removed.";
+                        InvokeMarkdownRebuild(markdown);
+                    }
+                    PumpImageViewer(window);
+                    Assert.Empty(layer.Children);
+                    Assert.Null(image.Source);
+                    Assert.Equal(WindowState.Maximized, window.WindowState);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task ExpandedImageLoadFailure_ShowsErrorAndRetainsPreview()
+    {
+        var path = CreateTempPng();
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var window = CreateImageViewerWindow($"![fixture image]({path})");
+                try
+                {
+                    await WaitForImageViewerAsync(window, () =>
+                        FindImageViewerControl<Button>(window, "MarkdownImageExpand").IsVisible);
+                    var preview = window.GetVisualDescendants().OfType<Image>()
+                        .Single(image => image.Classes.Contains("strata-md-image-content")).Source;
+                    File.Delete(path);
+                    FindImageViewerControl<Button>(window, "MarkdownImageExpand")
+                        .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    await WaitForImageViewerAsync(window, () =>
+                        window.GetVisualDescendants().OfType<TextBlock>()
+                            .Any(text => text.Text == "Full-resolution image unavailable. Showing the inline preview."));
+                    Assert.Same(preview, FindImageViewerControl<Image>(window, "ExpandedMarkdownImage").Source);
+                    FindImageViewerControl<Button>(window, "MarkdownImageClose")
+                        .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    Assert.Equal(WindowState.Normal, window.WindowState);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task ClosingAndReopeningDuringImageLoad_CancelsBothRequestsWithoutUpdatingClosedViewers()
+    {
+        var path = CreateTempPng();
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var window = CreateImageViewerWindow(string.Empty);
+                var markdown = Assert.IsType<StrataMarkdown>(window.Content);
+                var gate = Assert.IsType<SemaphoreSlim>(typeof(StrataMarkdown)
+                    .GetField("_imageDownloadGate", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.GetValue(markdown));
+                var permits = gate.CurrentCount;
+                for (var i = 0; i < permits; i++)
+                    await gate.WaitAsync();
+                var released = false;
+                try
+                {
+                    // Supply a cached preview while larger downloads wait before making any HTTP request.
+                    const string target = "https://example.com/pending-image.png";
+                    Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(target, out var source));
+                    var cache = Assert.IsAssignableFrom<IDictionary>(typeof(StrataMarkdown)
+                        .GetField("_imageCache", BindingFlags.Instance | BindingFlags.NonPublic)
+                        ?.GetValue(markdown));
+                    var entryType = typeof(StrataMarkdown)
+                        .GetNestedType("MarkdownImageCacheEntry", BindingFlags.NonPublic);
+                    Assert.NotNull(entryType);
+                    Func<MarkdownImageSource, CancellationToken, Task<Bitmap>> loadPreview =
+                        (_, token) => StrataMarkdown.LoadMarkdownImageAsync(path, token);
+                    var entry = Activator.CreateInstance(entryType, source, loadPreview);
+                    Assert.NotNull(entry);
+                    cache.Add(source.CacheKey, entry);
+                    markdown.Markdown = $"![fixture image]({target})";
+                    InvokeMarkdownRebuild(markdown);
+                    await WaitForImageViewerAsync(window, () =>
+                        FindImageViewerControl<Button>(window, "MarkdownImageExpand").IsVisible);
+                    var preview = window.GetVisualDescendants().OfType<Image>()
+                        .Single(image => image.Classes.Contains("strata-md-image-content")).Source;
+                    var expand = FindImageViewerControl<Button>(window, "MarkdownImageExpand");
+                    var layer = Assert.IsType<OverlayLayer>(OverlayLayer.GetOverlayLayer(expand));
+
+                    expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    var firstImage = FindImageViewerControl<Image>(window, "ExpandedMarkdownImage");
+                    Assert.Same(preview, firstImage.Source);
+                    FindImageViewerControl<Button>(window, "MarkdownImageClose")
+                        .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    var secondImage = FindImageViewerControl<Image>(window, "ExpandedMarkdownImage");
+                    Assert.NotSame(firstImage, secondImage);
+                    Assert.Null(firstImage.Source);
+                    Assert.Same(preview, secondImage.Source);
+                    Assert.Single(layer.Children);
+                    Assert.Equal(WindowState.FullScreen, window.WindowState);
+
+                    PressImageViewerKey(window, Key.Escape);
+                    PumpImageViewer(window);
+                    Assert.Null(secondImage.Source);
+                    Assert.Empty(layer.Children);
+                    Assert.Equal(WindowState.Normal, window.WindowState);
+                    gate.Release(permits);
+                    released = true;
+                    Assert.Equal(permits, gate.CurrentCount);
+                }
+                finally
+                {
+                    window.Close();
+                    if (!released)
+                        gate.Release(permits);
+                }
+            });
+        }
+        finally
+        {
             File.Delete(path);
         }
     }
@@ -438,6 +697,8 @@ public sealed class StrataMarkdownImageTests
                         static () => { },
                         DispatcherPriority.Background);
                     Assert.Same(firstEntry, GetCachedImageEntry(markdown, path));
+                    Assert.False(markdown.GetVisualDescendants().OfType<Button>()
+                        .Single(button => button.Name == "MarkdownImageExpand").IsVisible);
 
                     markdown.Markdown = $"![broken image]({path})\n\nStill rendering.";
                     InvokeMarkdownRebuild(markdown);
@@ -625,6 +886,65 @@ public sealed class StrataMarkdownImageTests
         var path = Path.Combine(Path.GetTempPath(), $"strata-markdown-image-{Guid.NewGuid():N}.png");
         File.WriteAllBytes(path, TinyPng);
         return path;
+    }
+
+    private static Window CreateImageViewerWindow(string markdownText)
+    {
+        var markdown = new StrataMarkdown { IsInline = true, Markdown = markdownText };
+        var window = new Window
+        {
+            Width = 1000,
+            Height = 750,
+            Template = new FuncControlTemplate<Window>((owner, scope) => new VisualLayerManager
+            {
+                EnableOverlayLayer = true,
+                Child = new ContentPresenter
+                {
+                    Name = "PART_ContentPresenter",
+                    [!ContentPresenter.ContentProperty] = new Binding(nameof(Window.Content)) { Source = owner }
+                }.RegisterInNameScope(scope)
+            }),
+            Content = markdown
+        };
+        window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme.Tests/"))
+        {
+            Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+        });
+        window.Show();
+        window.ApplyTemplate();
+        InvokeMarkdownRebuild(markdown);
+        PumpImageViewer(window);
+        return window;
+    }
+
+    private static void PumpImageViewer(Window window)
+    {
+        Dispatcher.UIThread.RunJobs();
+        window.Measure(new Size(window.Width, window.Height));
+        window.Arrange(new Rect(0, 0, window.Width, window.Height));
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    private static async Task WaitForImageViewerAsync(Window window, Func<bool> ready)
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            PumpImageViewer(window);
+            if (ready())
+                return;
+            await Task.Delay(20);
+        }
+        Assert.True(ready(), "The markdown image viewer did not reach its expected state.");
+    }
+
+    private static T FindImageViewerControl<T>(Window window, string name) where T : Control =>
+        window.GetVisualDescendants().OfType<T>().Single(control => control.Name == name);
+
+    private static void PressImageViewerKey(Window window, Key key)
+    {
+        window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
+        window.KeyRelease(key, RawInputModifiers.None, PhysicalKey.None, null);
     }
 
     private static void AssertDimensions(byte[] imageData, int width, int height)

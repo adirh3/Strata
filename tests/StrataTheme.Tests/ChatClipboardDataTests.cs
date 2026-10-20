@@ -49,6 +49,20 @@ public class ChatClipboardDataTests
     }
 
     [Fact]
+    public void ToHtmlFragment_ConvertsInteractiveFencesToOrdinaryContent()
+    {
+        const string markdown = "Your list:\n\n```checklist\n{\"id\":\"prep\",\"title\":\"Prep\",\"items\":[{\"id\":\"milk\",\"label\":\"Milk\"}]}\n```";
+
+        var html = MarkdownClipboardFormatter.ToHtmlFragment(markdown);
+
+        Assert.DoesNotContain("<pre", html);
+        Assert.DoesNotContain("&quot;id&quot;", html);
+        Assert.Contains("<h3", html);
+        Assert.Contains("<li>", html);
+        Assert.Contains("Milk", html);
+    }
+
+    [Fact]
     public void ToHtmlFragment_PreservesWindowsPaths()
     {
         const string markdown = @"Open C:\Temp\file.txt, \\server\share, and C:\repo\.git\config";
@@ -58,6 +72,35 @@ public class ChatClipboardDataTests
         Assert.Contains(@"C:\Temp\file.txt", html);
         Assert.Contains(@"\\server\share", html);
         Assert.Contains(@"C:\repo\.git\config", html);
+    }
+
+    [Fact]
+    public void ConvertedTable_PreservesEscapedCellContent()
+    {
+        var source = new StringBuilder("| Value |\n| --- |\n");
+        var values = new[] { @"C:\Temp\report.txt", @"\\server\share\report.txt", "First | Second" };
+        foreach (var value in values)
+            MarkdownClipboardFormatter.AppendRow(source, [value]);
+
+        using var data = ChatClipboardData.CreateRichText(source.ToString());
+        var item = Assert.Single(data.Items);
+        Assert.Equal("Value\n" + string.Join("\n", values), item.TryGetRaw(DataFormat.Text));
+        var html = Assert.IsType<string>(item.TryGetRaw(DataFormat.CreateStringPlatformFormat("text/html")));
+        foreach (var value in values)
+            Assert.Contains(System.Net.WebUtility.HtmlEncode(value), html);
+    }
+
+    [Fact]
+    public void ConvertedTable_InlineCodeKeepsLiteralBackslashes()
+    {
+        const string path = @"\\server\share\";
+        var source = new StringBuilder("| Value |\n| --- |\n");
+        MarkdownClipboardFormatter.AppendRow(source, [$"`{path}`"]);
+        using var data = ChatClipboardData.CreateRichText(source.ToString());
+        var item = Assert.Single(data.Items);
+        Assert.Equal("Value\n" + path, item.TryGetRaw(DataFormat.Text));
+        var html = Assert.IsType<string>(item.TryGetRaw(DataFormat.CreateStringPlatformFormat("text/html")));
+        Assert.Contains($"<code>{System.Net.WebUtility.HtmlEncode(path)}</code>", html);
     }
 
     [Fact]
@@ -89,7 +132,7 @@ public class ChatClipboardDataTests
 
         Assert.Contains(DataFormat.Text.Identifier, identifiers);
         Assert.Contains("text/html", identifiers);
-        Assert.Equal(markdown, item.TryGetRaw(DataFormat.Text));
+        Assert.Equal("Lumi", item.TryGetRaw(DataFormat.Text));
         Assert.Contains("<strong>Lumi</strong>", Assert.IsType<string>(item.TryGetRaw(htmlFormat)));
 
         if (OperatingSystem.IsWindows())

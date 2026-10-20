@@ -1,0 +1,139 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sa="using:StrataTheme.Animation"
+        xmlns:sc="using:StrataTheme.Controls">
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type sc:StrataActionReceipt}" TargetType="sc:StrataActionReceipt">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="MaxWidth" Value="480" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <StackPanel Spacing="4">
+            <Border Name="PART_Bubble" HorizontalAlignment="Right"
+                    Background="{DynamicResource Brush.ChatUserBubble}"
+                    CornerRadius="14" Padding="12,10,14,8">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <Border Name="PART_IconTile" Width="26" Height="26" CornerRadius="13" VerticalAlignment="Top"
+                        Background="{DynamicResource Brush.SubtleHover}">
+                  <PathIcon FlowDirection="LeftToRight" Name="PART_Icon" Width="12" Height="12"
+                            Foreground="{DynamicResource Brush.ChatUserBubbleText}" />
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Name="PART_Title" Text="{TemplateBinding Title}" FontWeight="SemiBold"
+                             Foreground="{DynamicResource Brush.ChatUserBubbleText}" TextWrapping="Wrap" />
+                  <TextBlock Name="PART_Summary" Text="{TemplateBinding Summary}"
+                             FontSize="{DynamicResource Font.SizeCaption}"
+                             Foreground="{DynamicResource Brush.ChatUserBubbleTextSecondary}"
+                             TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                  <Border Name="PART_DetailHost" Classes="receipt-detail" IsVisible="False" />
+                  <Button Name="PART_Disclosure" Classes="subtle receipt-link" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <StackPanel Name="PART_MetaRow" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
+              <StackPanel Name="PART_StatusRow" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,4,0">
+                <Ellipse Name="PART_WorkingDot" Width="6" Height="6" VerticalAlignment="Center" IsVisible="False"
+                         Fill="{DynamicResource Brush.AccentDefault}" />
+                <PathIcon FlowDirection="LeftToRight" Name="PART_StatusIcon" Width="11" Height="11" IsVisible="False"
+                          Foreground="{DynamicResource Brush.DangerDefault}"
+                          Data="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
+                <TextBlock Name="PART_Status" FontSize="{DynamicResource Font.SizeCaption}"
+                           Foreground="{DynamicResource Brush.TextTertiary}" VerticalAlignment="Center" />
+              </StackPanel>
+              <Button Name="PART_Source" Classes="subtle receipt-meta" IsVisible="{TemplateBinding CanOpenSource}" />
+            </StackPanel>
+            <TextBlock Name="PART_Error" Text="{TemplateBinding Error}" IsVisible="False"
+                       HorizontalAlignment="Right" TextAlignment="Right" MaxWidth="420"
+                       Foreground="{DynamicResource Brush.DangerDefault}"
+                       FontSize="{DynamicResource Font.SizeCaption}" TextWrapping="Wrap" />
+          </StackPanel>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:working /template/ TextBlock#PART_Status">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+      </Style>
+      <Style Selector="^:working /template/ Ellipse#PART_WorkingDot">
+        <Setter Property="IsVisible" Value="True" />
+        <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.35" />
+        <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="1" />
+        <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.2" />
+        <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
+      </Style>
+      <Style Selector="^:failed /template/ TextBlock#PART_Status">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+      </Style>
+      <Style Selector="^:failed /template/ PathIcon#PART_StatusIcon">
+        <Setter Property="IsVisible" Value="True" />
+      </Style>
+      <Style Selector="^:replied /template/ StackPanel#PART_StatusRow">
+        <Setter Property="IsVisible" Value="False" />
+      </Style>
+    </ControlTheme>
+  </Styles.Resources>
+
+  <Style Selector="sc|StrataActionReceipt Button.receipt-link">
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="Margin" Value="-8,4,0,0" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt Button.receipt-link PathIcon">
+    <Setter Property="Width" Value="10" />
+    <Setter Property="Height" Value="10" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt Button.receipt-link TextBlock">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt Button.receipt-meta">
+    <Setter Property="Padding" Value="6,0" />
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt Button.receipt-meta TextBlock">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt Button.receipt-meta PathIcon">
+    <Setter Property="Width" Value="10" />
+    <Setter Property="Height" Value="10" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt Button.receipt-meta:pointerover TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt Button.receipt-meta:pointerover PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt.touch Button.receipt-link, sc|StrataActionReceipt.touch Button.receipt-meta">
+    <Setter Property="MinHeight" Value="48" />
+  </Style>
+
+  <!-- Frozen snapshot inside the bubble: a hairline above aligned key/value rows. -->
+  <Style Selector="sc|StrataActionReceipt Border.receipt-detail">
+    <Setter Property="Margin" Value="0,8,0,0" />
+    <Setter Property="Padding" Value="0,8,0,2" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.SubtleHover}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt TextBlock.interactive-snapshot-key">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleTextSecondary}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt SelectableTextBlock">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Brush.ChatUserBubbleSelection}" />
+    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Brush.ChatUserBubbleText}" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt SelectableTextBlock.interactive-snapshot-title">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="sc|StrataActionReceipt SelectableTextBlock.interactive-snapshot-text">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleTextSecondary}" />
+  </Style>
+</Styles>

@@ -8,140 +8,246 @@
         <Setter Property="Focusable" Value="True" />
         <Setter Property="Template">
           <ControlTemplate>
-            <!-- Single rounded container — fixed radius, just grows in height -->
-             <Border Name="PART_Pill"
-                    Background="{DynamicResource Brush.ControlDefault}"
-                    BorderBrush="{DynamicResource Brush.ControlElevationBorder}"
-                    BorderThickness="{DynamicResource Stroke.Thin}"
-                    CornerRadius="{DynamicResource Radius.Base}"
-                    Padding="12,7,12,7"
-                    BoxShadow="0 1 2 0 #0A000000"
+            <!-- One piece of glass: a chip that grows into a card. -->
+            <Border Name="PART_Pill"
+                    Background="{DynamicResource Brush.GlassFill}"
+                    BorderBrush="{DynamicResource Brush.GlassRim}"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    BoxShadow="{DynamicResource Shadow.GlassChip}"
                     ClipToBounds="True"
                     HorizontalAlignment="Left">
               <Border.Transitions>
                 <Transitions>
-                  <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
-                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
-                  <ThicknessTransition Property="Padding" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                  <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.16" />
+                  <sa:PremultipliedBrushTransition Property="BorderBrush" Duration="0:0:0.16" />
+                  <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.22" />
                   <DoubleTransition Property="Width" Duration="0:0:0.26" Easing="CubicEaseOut" />
                   <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
                 </Transitions>
               </Border.Transitions>
 
-              <StackPanel Spacing="0">
-                <!-- Clickable header region — only this area toggles expand/collapse -->
-                <Border Name="PART_Header" Background="Transparent" Cursor="Hand">
-                  <StackPanel Spacing="0">
-                    <Grid Name="PART_HeaderRow" ColumnDefinitions="Auto,6,Auto,8,Auto,4,Auto,Auto" VerticalAlignment="Center">
-                      <Border Name="PART_Dot"
-                              Width="6" Height="6"
-                              CornerRadius="3"
-                              Background="{DynamicResource Brush.TextTertiary}">
-                        <Border.Transitions>
-                          <Transitions>
-                            <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.2" />
-                          </Transitions>
-                        </Border.Transitions>
+              <Panel>
+                <StackPanel Spacing="0">
+                  <!-- The header toggles the card; the chip as a whole opens it. -->
+                  <Border Name="PART_Header" Background="Transparent" Cursor="Hand" Padding="10,6,12,6">
+                    <Border.Transitions>
+                      <Transitions>
+                        <ThicknessTransition Property="Padding" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Border.Transitions>
+                    <StackPanel Spacing="0">
+                      <!-- Column 2 holds the label, column 4 the detail; StrataThink.UpdatePseudoClasses picks which fills. -->
+                      <Grid Name="PART_HeaderRow" ColumnDefinitions="Auto,7,Auto,7,Auto,4,Auto,Auto" VerticalAlignment="Center">
+                        <!-- What this is: a line icon, or a dot when there is none. -->
+                        <Panel VerticalAlignment="Center">
+                          <Border Name="PART_Dot"
+                                  Width="6" Height="6"
+                                  CornerRadius="3"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Background="{DynamicResource Brush.TextTertiary}">
+                            <Border.Transitions>
+                              <Transitions>
+                                <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.2" />
+                              </Transitions>
+                            </Border.Transitions>
+                          </Border>
+                          <controls:StrataLineIcon Name="PART_Icon"
+                                                   Width="15" Height="15"
+                                                   Data="{TemplateBinding Icon}"
+                                                   IsVisible="False"
+                                                   Foreground="{DynamicResource Brush.TextTertiary}" />
+                        </Panel>
+
+                        <TextBlock Name="PART_LabelText"
+                                   Grid.Column="2"
+                                   Text="{TemplateBinding Label}"
+                                   FontSize="12.5"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   MaxWidth="360"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxLines="1">
+                          <TextBlock.Transitions>
+                            <Transitions>
+                              <BrushTransition Property="Foreground" Duration="0:0:0.16" />
+                            </Transitions>
+                          </TextBlock.Transitions>
+                        </TextBlock>
+
+                        <TextBlock Name="PART_MetaText"
+                                   Grid.Column="4"
+                                   Text="{TemplateBinding Meta}"
+                                   FontSize="12"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextTertiary}"
+                                   MaxWidth="320"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxLines="1"
+                                   IsVisible="False" />
+                        <ContentPresenter Grid.Column="6"
+                                          Content="{TemplateBinding HeaderExtra}"
+                                          VerticalAlignment="Center" />
+                        <!-- Shown on hover, while open and on live work, so finished work reads as history. -->
+                        <controls:StrataLineIcon Name="PART_ExpandIcon"
+                                                 Grid.Column="7"
+                                                 Width="12" Height="12"
+                                                 Margin="6,0,0,0"
+                                                 VerticalAlignment="Center"
+                                                 Opacity="0"
+                                                 StrokeThickness="2"
+                                                 Data="{x:Static controls:StrataIcons.ChevronDown}"
+                                                 Foreground="{DynamicResource Brush.TextTertiary}"
+                                                 RenderTransformOrigin="50%,50%"
+                                                 RenderTransform="rotate(0deg)">
+                          <controls:StrataLineIcon.Transitions>
+                            <Transitions>
+                              <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+                              <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                            </Transitions>
+                          </controls:StrataLineIcon.Transitions>
+                        </controls:StrataLineIcon>
+                      </Grid>
+
+                      <!-- Progress is the Strata line. -->
+                      <Border Name="PART_ProgressHost"
+                              IsVisible="False"
+                              Margin="0,9,0,0">
+                        <ProgressBar Name="PART_Progress"
+                                     Minimum="0"
+                                     Maximum="100"
+                                     Height="2"
+                                     MinHeight="2"
+                                     CornerRadius="1"
+                                     Background="{DynamicResource Brush.GlassDivider}"
+                                     Foreground="{DynamicResource Brush.StratumLine}"
+                                     Value="{TemplateBinding ProgressValue}" />
                       </Border>
-                      <TextBlock Name="PART_LabelText"
-                                 Text="{TemplateBinding Label}"
-                                 Grid.Column="2"
-                                 FontSize="{DynamicResource Font.SizeCaption}"
-                                 FontWeight="SemiBold"
-                                 Foreground="{DynamicResource Brush.TextSecondary}"
-                                 MaxWidth="360"
-                                 TextTrimming="CharacterEllipsis"
-                                 MaxLines="1" />
+                    </StackPanel>
+                  </Border>
 
-                      <TextBlock Name="PART_MetaText"
-                                 Grid.Column="4"
-                                 Text="{TemplateBinding Meta}"
-                                 FontSize="10.5"
-                                 FontWeight="SemiBold"
-                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                 MaxWidth="180"
-                                 TextTrimming="CharacterEllipsis"
-                                 MaxLines="1"
-                                 IsVisible="False" />
-                      <ContentPresenter Grid.Column="6"
-                                        Content="{TemplateBinding HeaderExtra}"
-                                        VerticalAlignment="Center" />
-                      <PathIcon Name="PART_ExpandIcon"
-                                Grid.Column="7"
-                                IsVisible="False"
-                                Width="10" Height="10" Margin="8,0,0,0"
-                                VerticalAlignment="Center"
-                                Foreground="{DynamicResource Brush.TextTertiary}"
-                                Data="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"
-                                RenderTransformOrigin="50%,50%">
-                        <PathIcon.Transitions>
-                          <Transitions>
-                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" />
-                          </Transitions>
-                        </PathIcon.Transitions>
-                      </PathIcon>
-                    </Grid>
+                  <ContentPresenter Name="PART_PreviewHost"
+                                    Content="{TemplateBinding DisplayedPreviewContent}"
+                                    IsVisible="False"
+                                    Margin="6,0,6,7"
+                                    HorizontalContentAlignment="Stretch" />
 
-                    <Border Name="PART_ProgressHost"
-                            IsVisible="False"
-                            Margin="0,6,0,0">
-                      <ProgressBar Name="PART_Progress"
-                                   Minimum="0"
-                                   Maximum="100"
-                                   Height="3"
-                                   Value="{TemplateBinding ProgressValue}" />
-                    </Border>
-                  </StackPanel>
-                </Border>
-
-                <ContentPresenter Name="PART_PreviewHost"
-                                  Content="{TemplateBinding DisplayedPreviewContent}"
-                                  IsVisible="False"
-                                  Margin="0,12,0,0"
-                                  HorizontalContentAlignment="Stretch" />
-
-                <!-- Content area — animated MaxHeight reveal, no inner ScrollViewer -->
-                <Border Name="PART_ContentHost"
-                        ClipToBounds="True"
-                        IsVisible="False"
-                        MaxHeight="0"
-                        Opacity="0"
-                        RenderTransformOrigin="0.5,0"
-                        RenderTransform="translateY(-6px) scaleY(0.94)">
-                  <Border.Transitions>
-                    <Transitions>
-                      <DoubleTransition Property="MaxHeight" Duration="0:0:0.3" Easing="CubicEaseOut" />
-                      <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
-                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.26" Easing="CubicEaseOut" />
-                    </Transitions>
-                  </Border.Transitions>
-                  <StackPanel>
-                    <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" Margin="0,6,0,6" />
-                    <Border Padding="0,0,2,0">
+                  <!-- Content area — animated reveal with a bounded, scrollable body -->
+                  <Border Name="PART_ContentHost"
+                          ClipToBounds="True"
+                          IsVisible="False"
+                          MaxHeight="0"
+                          Opacity="0"
+                          RenderTransformOrigin="0.5,0"
+                          RenderTransform="translateY(-6px) scaleY(0.94)">
+                    <Border.Transitions>
+                      <Transitions>
+                        <DoubleTransition Property="MaxHeight" Duration="0:0:0.3" Easing="CubicEaseOut" />
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.26" Easing="CubicEaseOut" />
+                      </Transitions>
+                    </Border.Transitions>
+                    <ScrollViewer Name="PART_ContentScrollViewer"
+                                  Margin="6,0,6,6"
+                                  MaxHeight="{TemplateBinding MaxContentHeight}"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
                       <ContentPresenter Content="{TemplateBinding DisplayedContent}"
                                         HorizontalAlignment="Stretch" />
-                    </Border>
-                  </StackPanel>
+                    </ScrollViewer>
+                  </Border>
+                </StackPanel>
+
+                <!-- A step at work carries the Strata line under it. -->
+                <Border Name="PART_Stratum"
+                        Height="1.5"
+                        Margin="12,0"
+                        CornerRadius="1"
+                        VerticalAlignment="Bottom"
+                        IsHitTestVisible="False"
+                        IsVisible="False"
+                        Background="{DynamicResource Brush.StratumLine}">
+                  <Border.OpacityMask>
+                    <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                      <GradientStop Offset="0" Color="#00000000" />
+                      <GradientStop Offset="0.15" Color="#FF000000" />
+                      <GradientStop Offset="0.85" Color="#FF000000" />
+                      <GradientStop Offset="1" Color="#00000000" />
+                    </LinearGradientBrush>
+                  </Border.OpacityMask>
                 </Border>
-              </StackPanel>
+              </Panel>
             </Border>
           </ControlTemplate>
         </Setter>
 
-        <!-- Expanded: grow width + reveal content, NO corner radius change -->
-        <Style Selector="^[IsExpanded=True] /template/ Border#PART_Pill">
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
-          <Setter Property="BoxShadow" Value="0 4 16 0 #14000000" />
+        <!-- ─── What it is ─── -->
+        <Style Selector="^:has-icon /template/ Border#PART_Dot">
+          <Setter Property="IsVisible" Value="False" />
         </Style>
-        <Style Selector="^[IsExpanded=True] /template/ Border#PART_ContentHost">
+        <Style Selector="^:has-icon /template/ controls|StrataLineIcon#PART_Icon">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-meta /template/ TextBlock#PART_MetaText">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-progress /template/ Border#PART_ProgressHost">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:preview /template/ ContentPresenter#PART_PreviewHost">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- ─── Hover: the glass firms, the rim brightens and the chevron appears ─── -->
+        <Style Selector="^:pointerover:not(:expanded):not(:activity) /template/ Border#PART_Pill">
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassFillHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRimHover}" />
+        </Style>
+        <Style Selector="^:pointerover /template/ TextBlock#PART_LabelText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:pointerover /template/ controls|StrataLineIcon#PART_ExpandIcon">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:pressed:not(:expanded):not(:activity) /template/ Border#PART_Pill">
+          <Setter Property="RenderTransform" Value="scale(0.98)" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#PART_Pill">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+
+        <!-- ─── Open: a card on a soft shadow, its header given room ─── -->
+        <Style Selector="^:expanded /template/ Border#PART_Pill">
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.GlassCard}" />
+        </Style>
+        <Style Selector="^:expanded /template/ Border#PART_Header">
+          <Setter Property="Padding" Value="13,11,12,11" />
+        </Style>
+        <Style Selector="^:expanded /template/ TextBlock#PART_LabelText">
+          <Setter Property="FontSize" Value="13" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:expanded /template/ controls|StrataLineIcon#PART_ExpandIcon">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="rotate(180deg)" />
+        </Style>
+        <Style Selector="^:expanded /template/ Border#PART_ContentHost">
           <Setter Property="IsVisible" Value="True" />
           <Setter Property="MaxHeight" Value="5000" />
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
         </Style>
 
-        <!-- Active state: accent dot -->
+        <!-- ─── At work: the accent marks it, and a lone step carries the Strata line ─── -->
+        <Style Selector="^:active /template/ controls|StrataLineIcon#PART_Icon">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^:active /template/ TextBlock#PART_LabelText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
         <Style Selector="^:active /template/ Border#PART_Dot">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
           <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
@@ -150,84 +256,37 @@
           <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="CompositorDefault" />
           <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
-
-        <Style Selector="^:has-meta /template/ TextBlock#PART_MetaText">
+        <Style Selector="^:active:has-icon:not(:activity):not(:expanded) /template/ Border#PART_Stratum">
           <Setter Property="IsVisible" Value="True" />
+          <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="1" />
+          <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.35" />
+          <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:1.6" />
+          <Setter Property="sa:LifecycleOpacityPulse.Easing" Value="SineEaseInOut" />
+          <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
         </Style>
 
-        <Style Selector="^:has-progress /template/ Border#PART_ProgressHost">
-          <Setter Property="IsVisible" Value="True" />
+        <!-- ─── Failed: only the icon says so, once the work has settled ─── -->
+        <Style Selector="^:error:not(:active) /template/ controls|StrataLineIcon#PART_Icon">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+        <Style Selector="^:error:not(:active) /template/ Border#PART_Dot">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
         </Style>
 
-        <Style Selector="^:complete /template/ ProgressBar#PART_Progress">
-          <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
-        </Style>
-
-        <!-- Hover -->
-        <Style Selector="^ /template/ Border#PART_Pill:pointerover">
-          <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.ControlElevationBorder}" />
-          <Setter Property="BoxShadow" Value="0 2 6 0 #0E000000, 0 1 2 0 #06000000" />
-        </Style>
-
-        <Style Selector="^[IsExpanded=True] /template/ Border#PART_Pill:pointerover">
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
-          <Setter Property="BoxShadow" Value="0 4 16 0 #14000000" />
-        </Style>
-
-        <Style Selector="^:pressed /template/ Border#PART_Pill">
-          <Setter Property="Background" Value="{DynamicResource Brush.ControlPressed}" />
-          <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
-          <Setter Property="RenderTransform" Value="scale(0.98)" />
-        </Style>
-
-        <Style Selector="^:focus-visible /template/ Border#PART_Pill">
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
-        </Style>
-
-        <!-- Activity previews use a quiet card, without changing ordinary reasoning pills. -->
+        <!-- ─── Live activity: a card with the Strata line for progress and the steps at work ─── -->
         <Style Selector="^:activity /template/ Border#PART_Pill">
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface0}" />
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
-          <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
-          <Setter Property="Padding" Value="{DynamicResource Padding.Section}" />
-          <Setter Property="BoxShadow" Value="none" />
-          <Setter Property="RenderTransform" Value="none" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.GlassCard}" />
         </Style>
-        <Style Selector="^:activity /template/ Border#PART_Pill:pointerover">
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface0}" />
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
-          <Setter Property="BoxShadow" Value="none" />
-        </Style>
-        <Style Selector="^:activity:focus-visible /template/ Border#PART_Pill">
-          <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        <Style Selector="^:activity /template/ Border#PART_Header">
+          <Setter Property="Padding" Value="13,11,12,10" />
         </Style>
         <Style Selector="^:activity /template/ TextBlock#PART_LabelText">
+          <Setter Property="FontSize" Value="13" />
           <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
           <Setter Property="MaxWidth" Value="Infinity" />
-          <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        <Style Selector="^:activity /template/ TextBlock#PART_MetaText">
-          <Setter Property="FontWeight" Value="Normal" />
-          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
-          <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <Style Selector="^:activity /template/ Border#PART_ProgressHost">
-          <Setter Property="Margin" Value="0,10,0,0" />
-        </Style>
-        <Style Selector="^:activity /template/ ProgressBar#PART_Progress">
-          <Setter Property="Height" Value="2" />
-        </Style>
-        <Style Selector="^:activity /template/ PathIcon#PART_ExpandIcon">
-          <Setter Property="IsVisible" Value="True" />
-          <Setter Property="RenderTransform" Value="rotate(0deg)" />
-        </Style>
-        <Style Selector="^:activity[IsExpanded=True] /template/ PathIcon#PART_ExpandIcon">
-          <Setter Property="RenderTransform" Value="rotate(180deg)" />
-        </Style>
-        <Style Selector="^:preview /template/ ContentPresenter#PART_PreviewHost">
-          <Setter Property="IsVisible" Value="True" />
+        <Style Selector="^:activity /template/ controls|StrataLineIcon#PART_ExpandIcon">
+          <Setter Property="Opacity" Value="1" />
         </Style>
       </ControlTheme>
     </ResourceDictionary>

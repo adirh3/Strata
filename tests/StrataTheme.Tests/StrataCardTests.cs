@@ -79,6 +79,31 @@ public sealed class StrataCardTests(AvaloniaFixture fixture)
             finally { window.Close(); }
         });
 
+    [Fact]
+    public Task ActionLabels_CanBeLocalizedAndUpdateTheirTooltipsAndAccessibleNames() =>
+        fixture.Dispatch(() =>
+        {
+            var card = new StrataCard { Header = "Title", Detail = "Details", CanCopy = true };
+            var window = CreateWindow(card);
+            try
+            {
+                window.Show();
+                ApplyCardTheme(window, card);
+                var copy = FindPart<Button>(card, "PART_CopyButton");
+                var expand = FindPart<Button>(card, "PART_ExpandButton");
+                Assert.Equal("Copy card", AutomationProperties.GetName(copy));
+                Assert.Equal("Toggle card details", AutomationProperties.GetName(expand));
+
+                card.CopyLabel = "העתק כרטיס";
+                card.ToggleDetailsLabel = "הצג או הסתר פרטי כרטיס";
+                Assert.Equal(card.CopyLabel, ToolTip.GetTip(copy));
+                Assert.Equal(card.CopyLabel, AutomationProperties.GetName(copy));
+                Assert.Equal(card.ToggleDetailsLabel, ToolTip.GetTip(expand));
+                Assert.Equal(card.ToggleDetailsLabel, AutomationProperties.GetName(expand));
+            }
+            finally { window.Close(); }
+        });
+
     [Theory]
     [InlineData(HebrewHeader, HebrewSummary)]
     [InlineData("Your two rows", "**Row 1:** 7 · 13 · 16\n\n[Details](https://example.com/rows)")]

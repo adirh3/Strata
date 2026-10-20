@@ -37,7 +37,7 @@ internal sealed class EffectiveVisibilityObserver : IDisposable
 
     private void OnPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == Visual.IsVisibleProperty)
+        if (e.Property == Visual.IsVisibleProperty || e.Property == LifecycleOpacityPulse.IsPausedProperty)
             _visibilityChanged();
     }
 }

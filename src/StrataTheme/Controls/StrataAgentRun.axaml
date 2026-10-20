@@ -27,7 +27,7 @@
                       ClipToBounds="True">
                 <Border.Transitions>
                   <Transitions>
-                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                    <sa:PremultipliedBrushTransition Property="BorderBrush" Duration="0:0:0.14" />
                     <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
                   </Transitions>
                 </Border.Transitions>
@@ -51,7 +51,7 @@
                           Background="Transparent">
                     <Grid ColumnDefinitions="Auto,10,*,10,Auto" RowDefinitions="Auto,Auto,Auto">
                       <!-- Agent avatar -->
-                      <Panel Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" VerticalAlignment="Top">
+                      <Panel Name="PART_AvatarHost" Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" VerticalAlignment="Top">
                         <Border Name="PART_AvatarHalo"
                                 Width="30" Height="30"
                                 CornerRadius="11"
@@ -78,7 +78,7 @@
                       <!-- DockPanel, not Grid: left-docked children are measured against the space
                            that is actually left, so a long title trims instead of pushing the byline
                            and the status pill past the card edge. Auto Grid columns never shrink. -->
-                      <DockPanel Grid.Row="0" Grid.Column="2" LastChildFill="False">
+                      <DockPanel Name="PART_TitleRow" Grid.Row="0" Grid.Column="2" LastChildFill="False">
                         <TextBlock DockPanel.Dock="Left"
                                    Name="PART_Title"
                                    Text="{TemplateBinding Title}"
@@ -113,17 +113,20 @@
                                  Foreground="{DynamicResource Brush.TextTertiary}"
                                  TextTrimming="CharacterEllipsis" />
 
-                      <!-- Action + status -->
-                      <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="4"
-                                  Orientation="Horizontal"
-                                  Spacing="7"
-                                  VerticalAlignment="Center">
+                      <!-- Action + status (an inline chip docks the action after the status) -->
+                      <DockPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="4"
+                                 Name="PART_StatusArea"
+                                 LastChildFill="False"
+                                 VerticalAlignment="Center">
                         <ContentPresenter Name="PART_HeaderAction"
+                                          DockPanel.Dock="Left"
+                                          Margin="0,0,7,0"
                                           Content="{TemplateBinding HeaderAction}"
                                           VerticalAlignment="Center"
                                           IsVisible="{Binding HeaderAction, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
                         <Border Name="PART_StatusPill"
+                                DockPanel.Dock="Left"
                                 Padding="8,3"
                                 CornerRadius="999"
                                 Background="{DynamicResource Brush.Surface1}"
@@ -134,6 +137,19 @@
                             </Transitions>
                           </Border.Transitions>
                           <StackPanel Orientation="Horizontal" Spacing="5">
+                            <!-- A finished run states its outcome with a glyph rather than a coloured
+                                 pill, so a long list of finished work stays quiet and only live or
+                                 failed runs draw the eye. -->
+                            <PathIcon Name="PART_StatusGlyph"
+                                      Width="10" Height="10"
+                                      VerticalAlignment="Center"
+                                      IsVisible="False" />
+                            <!-- The inline chip states its outcome in the transcript's line icons. -->
+                            <controls:StrataLineIcon Name="PART_StatusLineGlyph"
+                                                     Width="12" Height="12"
+                                                     StrokeThickness="2"
+                                                     VerticalAlignment="Center"
+                                                     IsVisible="False" />
                             <Border Name="PART_StateDot"
                                     Width="6" Height="6"
                                     CornerRadius="3"
@@ -167,7 +183,7 @@
                                        Foreground="{DynamicResource Brush.TextSecondary}" />
                           </StackPanel>
                         </Border>
-                      </StackPanel>
+                      </DockPanel>
 
                       <!-- Live activity + progress rail -->
                       <StackPanel Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3"
@@ -300,6 +316,40 @@
           <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
         </Style>
 
+        <!-- Finished: outcome glyph + duration on the card surface instead of a filled pill. A
+             completed run with a known duration reads as just "✓ 3m 24s"; failed and stopped runs
+             keep their word so they can't be mistaken for success. -->
+        <Style Selector="^:finished /template/ Border#PART_StatusPill">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Padding" Value="2,3" />
+        </Style>
+        <Style Selector="^:finished /template/ Border#PART_StateDot">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:finished /template/ PathIcon#PART_StatusGlyph">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:finished /template/ TextBlock#PART_TimingText">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="FontWeight" Value="Medium" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+        <Style Selector="^:completed /template/ PathIcon#PART_StatusGlyph">
+          <Setter Property="Data" Value="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+        </Style>
+        <Style Selector="^:completed:has-timing /template/ TextBlock#PART_StatusText">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:failed /template/ PathIcon#PART_StatusGlyph">
+          <Setter Property="Data" Value="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+        <Style Selector="^:stopped /template/ PathIcon#PART_StatusGlyph">
+          <Setter Property="Data" Value="M7 7h10v10H7z" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+
         <!-- ─── Interaction ─── -->
         <Style Selector="^:pointerover /template/ Border#PART_Root">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
@@ -339,37 +389,58 @@
           <Setter Property="FontSize" Value="10" />
         </Style>
 
-        <!-- ─── Inline: one row per agent, for dense transcripts ─── -->
+        <!-- ─── Inline: one glass chip per agent, for dense transcripts ─── -->
         <Style Selector="^.inline">
           <!-- Hosted inside the row button that opens the run, so the card must not add a second,
                inert tab stop of its own. -->
           <Setter Property="Focusable" Value="False" />
         </Style>
         <Style Selector="^.inline /template/ Border#PART_Root">
-          <Setter Property="CornerRadius" Value="8" />
+          <Setter Property="CornerRadius" Value="16" />
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassFill}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRim}" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.GlassChip}" />
         </Style>
+        <Style Selector="^.inline:pointerover /template/ Border#PART_Root">
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassFillHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRimHover}" />
+        </Style>
+        <!-- One row, as tall as the other transcript chips (31px) at any display scale, with every
+             part on its centre line: whole-pixel padding around a 17px avatar. -->
         <Style Selector="^.inline /template/ Border#PART_Header">
-          <Setter Property="Padding" Value="8,5" />
+          <Setter Property="Padding" Value="6,6,11,6" />
+        </Style>
+        <Style Selector="^.inline /template/ Panel#PART_AvatarHost">
+          <Setter Property="Grid.RowSpan" Value="1" />
+          <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="^.inline /template/ DockPanel#PART_TitleRow">
+          <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="^.inline /template/ DockPanel#PART_StatusArea">
+          <Setter Property="Grid.RowSpan" Value="1" />
         </Style>
         <Style Selector="^.inline /template/ Border#PART_Stratum">
           <Setter Property="Height" Value="0" />
         </Style>
         <Style Selector="^.inline /template/ Border#PART_Avatar">
-          <Setter Property="Width" Value="19" />
-          <Setter Property="Height" Value="19" />
+          <Setter Property="Width" Value="17" />
+          <Setter Property="Height" Value="17" />
           <Setter Property="CornerRadius" Value="6" />
         </Style>
         <Style Selector="^.inline /template/ Border#PART_AvatarHalo">
-          <Setter Property="Width" Value="19" />
-          <Setter Property="Height" Value="19" />
+          <Setter Property="Width" Value="17" />
+          <Setter Property="Height" Value="17" />
           <Setter Property="CornerRadius" Value="7" />
           <Setter Property="Margin" Value="-2" />
         </Style>
         <Style Selector="^.inline /template/ TextBlock#PART_AvatarGlyph">
-          <Setter Property="FontSize" Value="9.5" />
+          <Setter Property="FontSize" Value="9" />
         </Style>
         <Style Selector="^.inline /template/ TextBlock#PART_Title">
-          <Setter Property="FontSize" Value="11.5" />
+          <Setter Property="FontSize" Value="12.5" />
+          <Setter Property="FontWeight" Value="Normal" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         </Style>
         <!-- Identity folds onto the headline row; the stacked byline and the live rail are dropped. -->
         <Style Selector="^.inline /template/ TextBlock#PART_Byline">
@@ -377,15 +448,156 @@
         </Style>
         <Style Selector="^.inline:has-byline /template/ TextBlock#PART_TitleSeparator">
           <Setter Property="IsVisible" Value="True" />
+          <Setter Property="FontSize" Value="12" />
         </Style>
         <Style Selector="^.inline:has-byline /template/ TextBlock#PART_BylineInline">
           <Setter Property="IsVisible" Value="True" />
+          <Setter Property="FontSize" Value="12" />
         </Style>
         <Style Selector="^.inline /template/ StackPanel#PART_LiveRow">
           <Setter Property="IsVisible" Value="False" />
         </Style>
+        <!-- The outcome is quiet text: the accent while it works, the danger colour if it failed. -->
         <Style Selector="^.inline /template/ Border#PART_StatusPill">
-          <Setter Property="Padding" Value="7,2" />
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Padding" Value="2,0" />
+        </Style>
+        <Style Selector="^.inline /template/ Border#PART_StateDot">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^.inline /template/ TextBlock#PART_StatusText, ^.inline /template/ TextBlock#PART_TimingText">
+          <Setter Property="FontSize" Value="12" />
+          <Setter Property="FontWeight" Value="Normal" />
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^.inline /template/ PathIcon#PART_StatusGlyph">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^.inline:finished /template/ controls|StrataLineIcon#PART_StatusLineGlyph">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^.inline:completed /template/ controls|StrataLineIcon#PART_StatusLineGlyph">
+          <Setter Property="Data" Value="{x:Static controls:StrataIcons.Check}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+        <Style Selector="^.inline:failed /template/ controls|StrataLineIcon#PART_StatusLineGlyph">
+          <Setter Property="Data" Value="{x:Static controls:StrataIcons.Cross}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
+        <Style Selector="^.inline:stopped /template/ controls|StrataLineIcon#PART_StatusLineGlyph">
+          <Setter Property="Data" Value="{x:Static controls:StrataIcons.StopCircle}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+        <Style Selector="^.inline:completed /template/ TextBlock#PART_StatusText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+        </Style>
+        <!-- The chip's action (opening the run) comes last, after the outcome. -->
+        <Style Selector="^.inline /template/ ContentPresenter#PART_HeaderAction">
+          <Setter Property="DockPanel.Dock" Value="Right" />
+          <Setter Property="Margin" Value="5,0,0,0" />
+        </Style>
+
+        <!-- ─── List: one flat row per run, for run indexes. The host row owns hover, focus and the
+             rounded hit area, so the card draws no surface, border, shadow or stratum of its own. ─── -->
+        <Style Selector="^.list">
+          <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="^.list /template/ Border#PART_Root">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="BorderThickness" Value="0" />
+          <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="^.list:inprogress /template/ Border#PART_Root">
+          <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="^.list:pointerover /template/ Border#PART_Root">
+          <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+        <Style Selector="^.list /template/ Border#PART_Stratum">
+          <Setter Property="Height" Value="0" />
+        </Style>
+        <Style Selector="^.list /template/ Border#PART_Header">
+          <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="^.list /template/ Border#PART_Avatar">
+          <Setter Property="Width" Value="28" />
+          <Setter Property="Height" Value="28" />
+          <Setter Property="CornerRadius" Value="9" />
+        </Style>
+        <Style Selector="^.list /template/ Border#PART_AvatarHalo">
+          <Setter Property="Width" Value="28" />
+          <Setter Property="Height" Value="28" />
+          <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="^.list /template/ TextBlock#PART_AvatarGlyph">
+          <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="^.list /template/ TextBlock#PART_Title">
+          <Setter Property="FontSize" Value="12.5" />
+        </Style>
+        <Style Selector="^.list /template/ TextBlock#PART_Byline">
+          <Setter Property="FontSize" Value="10.5" />
+        </Style>
+        <Style Selector="^.list /template/ StackPanel#PART_LiveRow">
+          <Setter Property="Margin" Value="0,7,0,1" />
+        </Style>
+
+        <!-- ─── Hero: the identity block that heads a run's own page. Open on the page surface (no
+             card), with a larger avatar and a headline that wraps instead of truncating, because
+             here the task is the subject rather than a row label. ─── -->
+        <Style Selector="^.hero">
+          <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="^.hero /template/ Border#PART_Root">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="BorderThickness" Value="0" />
+          <Setter Property="CornerRadius" Value="0" />
+          <Setter Property="ClipToBounds" Value="False" />
+        </Style>
+        <Style Selector="^.hero:inprogress /template/ Border#PART_Root">
+          <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="^.hero:pointerover /template/ Border#PART_Root">
+          <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+        <Style Selector="^.hero /template/ Border#PART_Stratum">
+          <Setter Property="Height" Value="0" />
+        </Style>
+        <Style Selector="^.hero /template/ Border#PART_Header">
+          <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="^.hero /template/ Border#PART_Avatar">
+          <Setter Property="Width" Value="40" />
+          <Setter Property="Height" Value="40" />
+          <Setter Property="CornerRadius" Value="13" />
+        </Style>
+        <Style Selector="^.hero /template/ Border#PART_AvatarHalo">
+          <Setter Property="Width" Value="40" />
+          <Setter Property="Height" Value="40" />
+          <Setter Property="CornerRadius" Value="15" />
+          <Setter Property="Margin" Value="-4" />
+        </Style>
+        <Style Selector="^.hero /template/ TextBlock#PART_AvatarGlyph">
+          <Setter Property="FontSize" Value="17" />
+        </Style>
+        <Style Selector="^.hero /template/ TextBlock#PART_Title">
+          <Setter Property="FontSize" Value="15" />
+          <Setter Property="TextWrapping" Value="Wrap" />
+          <Setter Property="MaxLines" Value="3" />
+        </Style>
+        <Style Selector="^.hero /template/ TextBlock#PART_Byline">
+          <Setter Property="FontSize" Value="11.5" />
+          <Setter Property="Margin" Value="0,4,0,0" />
+          <!-- The status sits beside the headline only, so the byline can run the full width. -->
+          <Setter Property="Grid.ColumnSpan" Value="3" />
+        </Style>
+        <Style Selector="^.hero /template/ DockPanel#PART_StatusArea">
+          <Setter Property="VerticalAlignment" Value="Top" />
+          <Setter Property="Margin" Value="0,1,0,0" />
+          <Setter Property="Grid.RowSpan" Value="1" />
+        </Style>
+        <Style Selector="^.hero /template/ StackPanel#PART_LiveRow">
+          <Setter Property="Margin" Value="0,12,0,0" />
         </Style>
       </ControlTheme>
     </ResourceDictionary>
