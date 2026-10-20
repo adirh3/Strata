@@ -79,10 +79,12 @@
 
   <Style Selector="ScrollBar /template/ Thumb#thumb">
     <Setter Property="Background" Value="{DynamicResource Brush.ScrollbarThumb}" />
-    <Setter Property="Margin" Value="1" />
+    <!-- Track's drag correction uses Thumb.Bounds; inset the paint, not the thumb. -->
+    <Setter Property="Margin" Value="0" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Background="{TemplateBinding Background}"
+        <Border Margin="1"
+                Background="{TemplateBinding Background}"
                 CornerRadius="{DynamicResource Radius.Full}" />
       </ControlTemplate>
     </Setter>

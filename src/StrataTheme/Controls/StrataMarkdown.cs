@@ -2255,6 +2255,8 @@ public partial class StrataMarkdown : ContentControl
         shell.Classes.Add("strata-md-code-block");
 
         var langText = language?.Trim().ToLowerInvariant() ?? string.Empty;
+        var wrap = langText is "" or "text" or "txt" or "plain" or "plaintext" or "plain-text"
+            or "markdown" or "md";
 
         // Header row with language label + copy button
         var headerRow = new DockPanel
@@ -2305,6 +2307,7 @@ public partial class StrataMarkdown : ContentControl
         {
             Text = displayCode,
             Language = langText,
+            TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
             MinHeight = lineCount * StrataCodeBlock.CodeLineHeight,
             Margin = new Thickness(10, 0, 10, 0),
         };
@@ -2313,7 +2316,7 @@ public partial class StrataMarkdown : ContentControl
         var scroller = new ScrollViewer
         {
             Content = codeBlock,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = wrap ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             MaxHeight = 400,
             Padding = new Thickness(0, 4, 0, 8),

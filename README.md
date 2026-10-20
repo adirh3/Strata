@@ -97,6 +97,17 @@ unselected text. A viewport of prepared lines on either side avoids rebuilding d
 on every small scroll. Selection and detached image/export rendering retain the complete-text path;
 no bitmap caches or extra GPU textures are used.
 
+Fenced Text and Markdown blocks wrap long lines to the available width, including long unbroken
+values. Text aliases (`text`, `txt`, `plain`, `plaintext`, `plain-text`) and Markdown aliases
+(`markdown`, `md`) are case-insensitive; unlabelled fences are treated as plain text.
+Other languages preserve source layout with horizontal scrolling. There is no wrap button.
+Wrapping is visual only: selection and Copy preserve the original source, including during streaming.
+Standalone `StrataCodeBlock.TextWrapping` defaults to `NoWrap` for existing scroll hosts.
+
+Scrollbar thumbs keep their visual inset inside the template, not on the thumb's layout bounds.
+This preserves Avalonia's drag-position correction so small mouse movements continue scrolling
+reliably in both directions, including ordinary and nested scroll viewers.
+
 The message's copy button copies the whole message. Its context menu has one `Copy as`
 group for Plain text, Markdown and Rich text, each copying the selection when there is
 one or the message otherwise. There are no separate selection-copy or whole-turn-copy

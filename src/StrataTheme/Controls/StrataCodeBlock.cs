@@ -33,6 +33,10 @@ public class StrataCodeBlock : Control
     public static readonly StyledProperty<string?> LanguageProperty =
         AvaloniaProperty.Register<StrataCodeBlock, string?>(nameof(Language));
 
+    /// <summary>Defines the <see cref="TextWrapping"/> property.</summary>
+    public static readonly StyledProperty<TextWrapping> TextWrappingProperty =
+        AvaloniaProperty.Register<StrataCodeBlock, TextWrapping>(nameof(TextWrapping), TextWrapping.NoWrap);
+
     // ── Shared TextMate state (expensive to create) ──────────────────────────
     private static RegistryOptions? s_darkOptions;
     private static Registry? s_darkRegistry;
@@ -88,6 +92,13 @@ public class StrataCodeBlock : Control
         set => SetValue(LanguageProperty, value);
     }
 
+    /// <summary>Gets or sets whether long source lines wrap to the available width.</summary>
+    public TextWrapping TextWrapping
+    {
+        get => GetValue(TextWrappingProperty);
+        set => SetValue(TextWrappingProperty, value);
+    }
+
     /// <inheritdoc/>
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -95,24 +106,24 @@ public class StrataCodeBlock : Control
 
         if (change.Property == TextProperty || change.Property == LanguageProperty)
             InvalidateHighlighting();
+        else if (change.Property == TextWrappingProperty)
+            _presenter.TextWrapping = TextWrapping;
     }
 
     /// <inheritdoc/>
     protected override Size MeasureOverride(Size availableSize)
     {
-        // Always measure with unconstrained width so the presenter reports
-        // the full text width (needed for horizontal scrolling in the parent
-        // ScrollViewer to reach the end of long lines).
-        _presenter.Measure(new Size(double.PositiveInfinity, availableSize.Height));
+        var width = TextWrapping == TextWrapping.NoWrap ? double.PositiveInfinity : availableSize.Width;
+        _presenter.Measure(new Size(width, availableSize.Height));
         return _presenter.DesiredSize;
     }
 
     /// <inheritdoc/>
     protected override Size ArrangeOverride(Size finalSize)
     {
-        // Arrange at least as wide as the text needs so the scroll extent
-        // covers the full content width.
-        var arrangeWidth = Math.Max(finalSize.Width, _presenter.DesiredSize.Width);
+        var arrangeWidth = TextWrapping == TextWrapping.NoWrap
+            ? Math.Max(finalSize.Width, _presenter.DesiredSize.Width)
+            : finalSize.Width;
         var arrangeSize = new Size(arrangeWidth, finalSize.Height);
         _presenter.Arrange(new Rect(arrangeSize));
         return arrangeSize;
