@@ -252,6 +252,7 @@ public partial class StrataMarkdown
             Stretch = Stretch.Uniform
         };
         AutomationProperties.SetName(expandedImage, label);
+        var viewport = new StrataImageViewport(expandedImage);
         var caption = new TextBlock
         {
             Text = label,
@@ -290,13 +291,16 @@ public partial class StrataMarkdown
         footer.Children.Add(status);
         var content = new Grid
         {
-            RowDefinitions = new RowDefinitions("Auto,*,Auto"),
+            RowDefinitions = new RowDefinitions("Auto,*,Auto,Auto"),
             Margin = new Thickness(16)
         };
         content.Children.Add(header);
-        Grid.SetRow(expandedImage, 1);
-        content.Children.Add(expandedImage);
-        Grid.SetRow(footer, 2);
+        Grid.SetRow(viewport, 1);
+        content.Children.Add(viewport);
+        var toolbar = viewport.CreateToolbar();
+        Grid.SetRow(toolbar, 2);
+        content.Children.Add(toolbar);
+        Grid.SetRow(footer, 3);
         content.Children.Add(footer);
 
         var viewer = StrataFullScreenOverlay.Open(

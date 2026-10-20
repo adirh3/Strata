@@ -256,6 +256,68 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
     });
 
     [Fact]
+    public Task ExpandedView_SystemBackRunsBeforeHostNavigationWithoutViewerFocus() => fixture.Dispatch(() =>
+    {
+        var (window, diagram, canvas) = CreateDiagram(WideFlow, 360);
+        try
+        {
+            var hostBacks = 0;
+            window.BackRequested += (_, _) => hostBacks++;
+            Click(diagram, "PART_Expand");
+            Pump(window);
+            Assert.True(StrataFullScreenOverlay.IsPresented(window));
+            canvas.Focus();
+            var back = new RoutedEventArgs(TopLevel.BackRequestedEvent);
+            window.RaiseEvent(back);
+            Pump(window);
+
+            Assert.True(back.Handled);
+            Assert.Equal(0, hostBacks);
+            Assert.False(StrataFullScreenOverlay.IsPresented(window));
+            Assert.Empty(OverlayLayer.GetOverlayLayer(diagram)!.Children);
+            window.RaiseEvent(new RoutedEventArgs(TopLevel.BackRequestedEvent));
+            Assert.Equal(1, hostBacks);
+        }
+        finally { window.Close(); }
+    });
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task TouchPinchUsesCumulativeScaleAndStartsFreshForTheNextGesture(bool expanded) => fixture.Dispatch(() =>
+    {
+        var (window, diagram, canvas) = CreateDiagram(WideFlow, 494);
+        try
+        {
+            if (expanded)
+            {
+                Click(diagram, "PART_Expand");
+                Pump(window);
+                canvas = Field<Control>(Find<StrataMermaid>(window, "ExpandedMermaid"), "_canvas");
+            }
+            var center = CanvasPoint(window, canvas, new Point(canvas.Bounds.Width / 2, canvas.Bounds.Height / 2));
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Assert.Same(canvas, window.InputHitTest(center));
+            var initial = Scale(canvas);
+            Pinch();
+            Assert.Equal(initial * 2, Scale(canvas), 5);
+            Pinch();
+            Assert.Equal(initial * 4, Scale(canvas), 5);
+
+            void Pinch()
+            {
+                var first = window.TouchBegin(center - new Vector(40, 0));
+                var second = window.TouchBegin(center + new Vector(40, 0));
+                window.TouchMove(first, center - new Vector(80, 0));
+                window.TouchMove(second, center + new Vector(80, 0));
+                window.TouchEnd(second, center + new Vector(80, 0));
+                window.TouchEnd(first, center - new Vector(80, 0));
+            }
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
     public Task BlankCanvas_HitTests_AndDragCapturesOutsideBoundsUntilRelease() => fixture.Dispatch(() =>
     {
         var (window, _, canvas) = CreateDiagram("flowchart LR\nA --> B", 360);

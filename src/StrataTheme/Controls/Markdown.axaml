@@ -62,7 +62,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-image-expand, Button.strata-md-image-viewer-close">
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-image-expand, Button.strata-md-image-viewer-close, Button.strata-md-image-viewer-action">
     <Setter Property="Width" Value="{DynamicResource Size.ControlHeightS}" />
     <Setter Property="Height" Value="{DynamicResource Size.ControlHeightS}" />
     <Setter Property="MinWidth" Value="0" />

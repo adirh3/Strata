@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.68" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.69" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -80,6 +80,12 @@ Markdown's renderer-only helper styles are scoped to its content tree, including
 Markdown controls, avoiding inactive style subscriptions on unrelated application controls.
 Full-screen image-viewer helpers remain available in their separate overlay; colors, themes
 and text rendering are unchanged.
+
+Full-screen images and Mermaid diagrams support pinch-to-zoom and dragging on touch screens.
+Images offer double-tap zoom/fit and a zoom toolbar; diagrams retain double-tap-to-fit.
+Viewers respect system-bar safe areas and close on Android Back as well as Escape, before
+the application's underlying navigation. Hosts with native input overlays can consult
+`StrataFullScreenOverlay.IsPresented` to keep those editors behind a viewer.
 
 Selection controllers are created on first use and shared by the outermost scope;
 nested messages and markdown do not allocate duplicate controllers. Keyboard selection

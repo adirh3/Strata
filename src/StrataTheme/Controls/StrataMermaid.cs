@@ -36,7 +36,8 @@ namespace StrataTheme.Controls;
 /// PART_ZoomIn, PART_ZoomOut, PART_ZoomReset, PART_ActualSize, PART_Expand (Button),
 /// PART_ZoomLabel (TextBlock).</para>
 /// <para>Drag anywhere to pan. Use the toolbar or Ctrl/Cmd+wheel to zoom,
-/// Home to fit, and Escape to close the full-window viewer.</para>
+/// pinch to zoom on touch screens, Home or double-tap to fit, and Escape or system Back
+/// to close the full-window viewer.</para>
 /// </remarks>
 public class StrataMermaid : TemplatedControl
 {
@@ -375,6 +376,7 @@ public class StrataMermaid : TemplatedControl
         private Point _panStart;
         private double _panStartX, _panStartY;
         private IPointer? _panPointer;
+        private double _lastPinchScale = 1;
 
         // Entrance animation
         private double _animProgress = 1.0;
@@ -401,12 +403,21 @@ public class StrataMermaid : TemplatedControl
             Cursor = new Cursor(StandardCursorType.Hand);
             _viewMode = owner._expandedOwner is null ? ViewMode.Readable : ViewMode.Fit;
             AutomationProperties.SetName(this, "Diagram canvas");
+            GestureRecognizers.Add(new PinchGestureRecognizer());
+            AddHandler(InputElement.PinchEvent, OnPinch);
+            AddHandler(InputElement.PinchEndedEvent, (_, _) => _lastPinchScale = 1);
+            AddHandler(InputElement.DoubleTappedEvent, (_, e) =>
+            {
+                ResetView();
+                e.Handled = true;
+            });
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             _animTimer?.Stop();
             _panPointer?.Capture(null);
+            _lastPinchScale = 1;
             base.OnDetachedFromVisualTree(e);
         }
 
@@ -416,6 +427,8 @@ public class StrataMermaid : TemplatedControl
 
         internal void ZoomBy(double factor, Point? anchor = null)
         {
+            if (!double.IsFinite(factor) || factor <= 0)
+                return;
             var point = anchor ?? new Point(Bounds.Width / 2, Bounds.Height / 2);
             var before = ViewOrigin(_userZoom);
             var contentPoint = (point - before) / _userZoom;
@@ -426,6 +439,16 @@ public class StrataMermaid : TemplatedControl
             _panY += point.Y - (after.Y + contentPoint.Y * _userZoom);
             _owner.UpdateZoomLabel();
             InvalidateVisual();
+        }
+
+        private void OnPinch(object? sender, PinchEventArgs e)
+        {
+            if (double.IsFinite(e.Scale) && e.Scale > 0)
+            {
+                ZoomBy(e.Scale / _lastPinchScale, e.ScaleOrigin);
+                _lastPinchScale = e.Scale;
+            }
+            e.Handled = true;
         }
 
         internal void ResetView()
@@ -486,7 +509,7 @@ public class StrataMermaid : TemplatedControl
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
             var props = e.GetCurrentPoint(this).Properties;
-            if (props.IsLeftButtonPressed)
+            if (_panPointer is null && props.IsLeftButtonPressed)
             {
                 Focus();
                 if (e.ClickCount == 2)
@@ -510,7 +533,7 @@ public class StrataMermaid : TemplatedControl
 
         protected override void OnPointerMoved(PointerEventArgs e)
         {
-            if (_isPanning)
+            if (_isPanning && e.Pointer == _panPointer)
             {
                 var pos = e.GetPosition(this);
                 _panX = _panStartX + (pos.X - _panStart.X);
@@ -522,7 +545,7 @@ public class StrataMermaid : TemplatedControl
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
-            if (_isPanning)
+            if (_isPanning && e.Pointer == _panPointer)
             {
                 e.Pointer.Capture(null);
                 _owner.UpdateZoomLabel();
