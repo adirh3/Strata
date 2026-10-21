@@ -186,6 +186,17 @@ public class MainViewModel : INotifyPropertyChanged
         "Claude Opus 4.6"
     };
 
+    /// <summary>The languages the demo's dictation offers first, each in its own name; the rest are under "More languages".</summary>
+    public string[] DictationLanguages { get; } = ["English", "עברית", "العربية"];
+    public string[] MoreDictationLanguages { get; } = ["Deutsch", "Español", "Français", "Italiano", "日本語"];
+
+    private object? _dictationLanguage = "English";
+    public object? DictationLanguage
+    {
+        get => _dictationLanguage;
+        set { _dictationLanguage = value; OnPropertyChanged(); }
+    }
+
     public ObservableCollection<string> AiQualityLevels { get; } = new()
     {
         "Low",

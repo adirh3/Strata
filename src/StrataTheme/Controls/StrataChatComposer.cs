@@ -120,7 +120,8 @@ public class FileSelectedEventArgs : EventArgs
 /// </code>
 /// <para><b>Template parts:</b> PART_Root (Border), PART_Input (TextBox),
 /// PART_EditorContent (ContentPresenter),
-/// PART_SendButton (Button: sends, steers, stops, and dictates while there is nothing to send),
+/// PART_SendButton (Button: sends, steers and stops; it steps aside while dictating),
+/// PART_VoiceButton (Button: the microphone, which starts dictation and, while listening, finishes it),
 /// PART_AddButton (Button), PART_AddPopup (Popup), PART_AddPanel (Border), PART_AddMenuList (StackPanel),
 /// PART_ModelPicker (StrataModelPicker),
 /// PART_ActionA (Button), PART_ActionB (Button), PART_ActionC (Button),
@@ -128,12 +129,21 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_FocusLine (Border), PART_FocusSweep (Border), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel), PART_McpPanel (Panel) hosting PART_ConnectorPicker (StrataConnectorPicker),
-/// PART_SkillPicker, PART_ChatPicker and PART_AgentPicker (StrataComposerPicker).</para>
+/// PART_SkillPicker, PART_ChatPicker and PART_AgentPicker (StrataComposerPicker),
+/// PART_VoiceBar (Grid: the dictation bar that takes the tools' place while recording), PART_VoiceElapsed (TextBlock),
+/// PART_VoiceWaveform (StrataVoiceWaveform), PART_VoiceLanguageButton (Button), PART_VoiceCancelButton (Button),
+/// PART_VoicePreviewInline and PART_VoicePreview (TextBlock: words heard so far, in the empty prompt or under it).</para>
 /// <para><b>Pseudo-classes:</b> :busy, :empty, :steer, :stop-send, :external-editor, :editor-content-hidden, :compact,
 /// :can-attach, :can-send-without-prompt,
 /// :can-voice, :editing, :a-empty, :b-empty, :c-empty, :has-models, :has-quality, :model-picker-open,
 /// :has-agent, :has-project, :has-skills, :has-chats, :has-chips, :has-skill-options,
-/// :has-chat-options, :has-add-options, :add-open, :engaged, :voice, :recording, :narrow, :suggestions-generating.</para>
+/// :has-chat-options, :has-add-options, :add-open, :engaged, :recording, :voice-status, :voice-preview,
+/// :has-voice-languages, :narrow, :suggestions-generating.</para>
+/// <para><b>Dictation:</b> with <see cref="CanVoice"/>, a microphone beside send starts dictation. While
+/// <see cref="IsRecording"/> the microphone finishes it, Enter finishes and sends, Escape runs
+/// <see cref="VoiceCancelCommand"/>, and the voice bar shows <see cref="VoiceLevel"/>,
+/// <see cref="VoiceStatus"/>, the time and (with <see cref="VoiceLanguages"/>) the language it listens for;
+/// <see cref="VoicePreview"/> shows the words heard so far.</para>
 /// <para><b>Glass:</b> the <c>glass</c> class turns the surface translucent over a frosted backdrop, for hosts
 /// whose content runs beneath the composer. A glass composer sits back a little at rest and comes forward,
 /// whole, while the user writes (its focus depth, scaled on the render thread); <c>motion-disabled</c> and
@@ -320,7 +330,7 @@ public partial class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<bool> CanAttachProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanAttach), true);
 
-    /// <summary>Whether the send button dictates while there is nothing to send (on the desktop). False
+    /// <summary>Whether the composer offers dictation: a microphone button beside send (on the desktop). False
     /// on platforms without a speech recognizer. Defaults to true.</summary>
     public static readonly StyledProperty<bool> CanVoiceProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(CanVoice), true);
@@ -472,11 +482,11 @@ public partial class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<string> AddProjectLabelProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(AddProjectLabel), "Project");
 
-    /// <summary>The send button's name while it would start dictation.</summary>
+    /// <summary>The microphone button's name: it starts dictation.</summary>
     public static readonly StyledProperty<string> DictateLabelProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(DictateLabel), "Dictate");
 
-    /// <summary>The send button's name while dictation is listening.</summary>
+    /// <summary>The microphone button's name while dictation is listening: it finishes, keeping the words.</summary>
     public static readonly StyledProperty<string> StopDictatingLabelProperty =
         AvaloniaProperty.Register<StrataChatComposer, string>(nameof(StopDictatingLabel), "Stop dictating");
 
@@ -592,8 +602,8 @@ public partial class StrataChatComposer : TemplatedControl
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(MentionRequested), RoutingStrategies.Bubble);
 
     /// <summary>
-    /// Raised when the user starts or stops dictation from the send button: it dictates while there is
-    /// nothing to send (and <see cref="CanVoice"/>), and finishes dictation while <see cref="IsRecording"/>.
+    /// Raised when the user starts or finishes dictation with the microphone button (shown while
+    /// <see cref="CanVoice"/>); it finishes dictation while <see cref="IsRecording"/>.
     /// </summary>
     public static readonly RoutedEvent<RoutedEventArgs> VoiceRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(VoiceRequested), RoutingStrategies.Bubble);
@@ -774,6 +784,7 @@ public partial class StrataChatComposer : TemplatedControl
         CanVoiceProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanSendWithoutPromptProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsRecordingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        RegisterVoiceClassHandlers();
         DictateLabelProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         StopDictatingLabelProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsSuggestionsGeneratingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) =>
@@ -1034,6 +1045,7 @@ public partial class StrataChatComposer : TemplatedControl
         OnSkillItemsChanged();
         OnChatItemsChanged();
         UpdateEngaged();
+        UpdateRecordingClock();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -1082,6 +1094,7 @@ public partial class StrataChatComposer : TemplatedControl
         _depthScale = null;
 
         base.OnDetachedFromVisualTree(e);
+        StopRecordingClock();
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -1108,7 +1121,7 @@ public partial class StrataChatComposer : TemplatedControl
             _input.ContextMenu = BuildInputContextMenu(_input);
         }
 
-        Wire(e, "PART_SendButton", HandleSendButton);
+        Wire(e, "PART_SendButton", HandleSendAction);
         Wire(e, "PART_AgentRemoveButton", () =>
         {
             RaiseEvent(new RoutedEventArgs(AgentRemovedEvent));
@@ -1171,6 +1184,7 @@ public partial class StrataChatComposer : TemplatedControl
         _actionB = e.NameScope.Find<Button>("PART_ActionB");
         _actionC = e.NameScope.Find<Button>("PART_ActionC");
         _hadSuggestions = HasAnySuggestions();
+        ApplyVoiceTemplate(e);
         EnsureSelectedValues();
         Sync();
         _openOwnPopups.Clear();
@@ -1503,6 +1517,13 @@ public partial class StrataChatComposer : TemplatedControl
             }
         }
 
+        if (e.Key == Key.Escape && IsRecording && VoiceCancelCommand is not null)
+        {
+            e.Handled = true;
+            CancelDictation();
+            return;
+        }
+
         if (e.Key == Key.Escape && IsEditing)
         {
             e.Handled = true;
@@ -1622,35 +1643,11 @@ public partial class StrataChatComposer : TemplatedControl
         textBox.CaretIndex = lo + text.Length;
     }
 
-    /// <summary>
-    /// The send button: finishes dictation while listening, dictates while there is nothing to send
-    /// (when the host can listen), and otherwise sends, steers or stops like Enter.
-    /// </summary>
-    private void HandleSendButton()
-    {
-        // Decide on what is in the field now, which a pending binding may not have pushed yet.
-        CommitInputText();
-        if (ShouldDictate())
-        {
-            RaiseEvent(new RoutedEventArgs(VoiceRequestedEvent));
-            CommandHelper.Execute(VoiceCommand, VoiceCommandParameter);
-            return;
-        }
-
-        HandleSendAction();
-    }
-
-    private bool ShouldDictate() =>
-        CanVoice
-        && !Classes.Contains("mobile")
-        && !IsEditing
-        && (IsRecording
-            || !IsBusy && !CanSendWithoutPrompt && string.IsNullOrWhiteSpace(PromptText));
-
     private void HandleSendAction()
     {
         var promptText = CommitInputText();
-        var hasPromptText = !string.IsNullOrWhiteSpace(promptText);
+        // While dictating, the words still being heard count: the host finishes dictation, then sends them.
+        var hasPromptText = !string.IsNullOrWhiteSpace(promptText) || IsRecording;
 
         if (IsBusy && !IsEditing)
         {
@@ -2483,16 +2480,11 @@ public partial class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":suggestions-generating", IsSuggestionsGenerating);
         PseudoClasses.Set(":has-mcp-options", HasAnyAvailableMcps() || McpBrowseCommand is not null);
         PseudoClasses.Set(":has-add-options", HasAddOptions());
-        PseudoClasses.Set(":voice", ShouldDictate() && !IsRecording);
 
         if (_sendButton is not null)
         {
             var actionLabel = IsEditing
                 ? EditingSubmitLabel
-                : CanVoice && IsRecording
-                    ? StopDictatingLabel
-                : ShouldDictate()
-                    ? DictateLabel
                 : effectiveBusy
                     ? canSendWhileBusy
                         ? SteerWhileBusy ? "Send to steer" : "Stop & send"
@@ -2501,6 +2493,8 @@ public partial class StrataChatComposer : TemplatedControl
             AutomationProperties.SetName(_sendButton, actionLabel);
             ToolTip.SetTip(_sendButton, actionLabel);
         }
+
+        SyncVoiceButton();
     }
 
     private bool HasAnySuggestions() =>

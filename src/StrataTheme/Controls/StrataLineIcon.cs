@@ -90,6 +90,15 @@ public static class StrataIcons
 
     public static Geometry Mic => Parse("M12 3.5a3 3 0 0 0-3 3V12a3 3 0 0 0 6 0V6.5a3 3 0 0 0-3-3z M6 11.5a6 6 0 0 0 12 0 M12 17.5v3");
 
+    /// <summary>The microphone can't be used: a microphone, struck through.</summary>
+    public static Geometry MicOff => Parse("M12 3.5a3 3 0 0 0-3 3V12a3 3 0 0 0 6 0V6.5a3 3 0 0 0-3-3z M6 11.5a6 6 0 0 0 12 0 M12 17.5v3 M4.5 4.5l15 15");
+
+    /// <summary>A download: an arrow into a tray.</summary>
+    public static Geometry Download => Parse("M12 4.5v10 M7.5 10.5 12 15l4.5-4.5 M5 19.5h14");
+
+    /// <summary>Private: a padlock.</summary>
+    public static Geometry Lock => Parse("M8 10.5V8a4 4 0 0 1 8 0v2.5 M6.5 10.5h11A1.5 1.5 0 0 1 19 12v6.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 18.5V12a1.5 1.5 0 0 1 1.5-1.5z");
+
     /// <summary>Listening: a level meter.</summary>
     public static Geometry Wave => Parse("M4.5 10.5v3 M8.25 7.5v9 M12 4.5v15 M15.75 7.5v9 M19.5 10.5v3");
 

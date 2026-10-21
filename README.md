@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.69" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.70" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -487,15 +487,34 @@ The toolbar reads left to right as what a message brings in, then the model and 
   neutral count, and below 600 px wide both shrink to their icons.
 - The model picker takes the `quiet` class in the composer: plain text and a line chevron beside
   the send button.
-- The send button sends, steers and stops as before. With `CanVoice` and nothing to send it
-  dictates (`VoiceRequested`/`VoiceCommand`), and while `IsRecording` it stops dictation;
-  `DictateLabel` and `StopDictatingLabel` name it. Touch composers (`Classes="mobile"`) don't dictate
-  from it; their hosts offer dictation of their own. While Lumi works a gradient ring breathes around
-  the stop button.
+- The send button sends, steers and stops as before. With `CanVoice`, a microphone beside it
+  dictates (`VoiceRequested`/`VoiceCommand`); while `IsRecording` the microphone becomes a check that
+  finishes dictation and send steps aside. `DictateLabel` and `StopDictatingLabel` name the microphone.
+  Touch composers (`Classes="mobile"`) have no microphone; their hosts offer dictation of their own.
+  While Lumi works a gradient ring breathes around the stop button.
 
 Toolbar glyphs are `StrataLineIcon`s: one round-capped stroke on a 24-unit grid in the inherited
 foreground, drawn from `StrataIcons`. Each access to a `StrataIcons` geometry parses a new one, so
 none is shared across renderers.
+
+## Composer dictation
+
+While `IsRecording`, the voice bar takes the tools' place and the model steps aside: a breathing dot,
+the time (or `VoiceStatus`, such as "Starting…"), a `StrataVoiceWaveform` drawing `VoiceLevel`
+(0 to 1, set as often as audio arrives) and a discard button that runs `VoiceCancelCommand`
+(`CancelDictationLabel` names it). Escape discards too, the microphone's check finishes, and Enter finishes
+and sends: the composer sends while recording even before any text arrived, so the host can finish
+dictation first and send what was heard. `VoicePreview` shows the words heard so far in quiet text
+where they will land, in the empty prompt or under the text already there, newest words in view and
+in their own direction.
+
+With `VoiceLanguages`, a pill before the discard button shows `SelectedVoiceLanguage` (each language
+shows as its `ToString()`) and opens a menu of them, the chosen one checked, with `MoreVoiceLanguages`
+under `MoreVoiceLanguagesLabel`; choosing one sets `SelectedVoiceLanguage` (two-way) and returns to the
+prompt. `VoiceLanguageLabel` names the pill.
+
+`StrataVoiceWaveform` also works on its own: rounded bars scroll in from the end edge while
+`IsActive`, each the loudest `Level` of its moment, over quiet dots where nothing was heard yet.
 
 ## Composer context: skills and chats
 

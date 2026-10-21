@@ -8,6 +8,7 @@ namespace StrataTheme.Controls;
 /// <summary>
 /// Arranges the composer's editor and three-slot toolbar without moving or replacing controls.
 /// Expansion interpolates from a shared input/action row to an editor above the toolbar.
+/// The toolbar may hold more children after its three slots (such as the voice bar); the toolbar grid places them.
 /// </summary>
 internal sealed class ComposerLayoutPanel : Panel
 {
@@ -69,7 +70,7 @@ internal sealed class ComposerLayoutPanel : Panel
 
     private (Control Editor, Grid Toolbar, Control Leading, Control Tools, Control Primary) GetParts()
     {
-        if (Children.Count != 2 || Children[1] is not Grid { Children.Count: 3 } toolbar)
+        if (Children.Count != 2 || Children[1] is not Grid { Children.Count: >= 3 } toolbar)
             throw new InvalidOperationException("Composer layout requires an editor and a leading/tools/primary toolbar.");
         return (Children[0], toolbar, toolbar.Children[0], toolbar.Children[1], toolbar.Children[2]);
     }

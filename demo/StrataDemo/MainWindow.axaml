@@ -1513,6 +1513,27 @@
                   </sc:StrataModePicker>
                 </sc:StrataChatComposer.TrailingContent>
               </sc:StrataChatComposer>
+
+              <StackPanel Spacing="3">
+                <TextBlock Classes="body-strong" Text="{Binding Strings[Chat.DictationTitle]}" />
+                <TextBlock Classes="caption tertiary" TextWrapping="Wrap"
+                           Text="{Binding Strings[Chat.DictationDescription]}" />
+              </StackPanel>
+              <!-- Dictating: the demo feeds a simulated microphone level and a phrase in progress. -->
+              <sc:StrataChatComposer x:Name="DictationComposer"
+                                    Placeholder="{Binding Strings[Chat.DictationPlaceholder]}"
+                                    Models="{Binding AiModels}"
+                                    SelectedModel="GPT-4o"
+                                    CanVoice="True"
+                                    IsRecording="True"
+                                    DictateLabel="{Binding Strings[Chat.DictationToggle]}"
+                                    VoiceLanguages="{Binding DictationLanguages}"
+                                    MoreVoiceLanguages="{Binding MoreDictationLanguages}"
+                                    SelectedVoiceLanguage="{Binding DictationLanguage}"
+                                    VoiceLanguageLabel="{Binding Strings[Chat.DictationLanguage]}"
+                                    MoreVoiceLanguagesLabel="{Binding Strings[Chat.DictationMoreLanguages]}"
+                                    PromptText="{Binding Strings[Chat.DictationDraft], Mode=OneTime}"
+                                    VoicePreview="{Binding Strings[Chat.DictationPreview]}" />
             </StackPanel>
           </Border>
 

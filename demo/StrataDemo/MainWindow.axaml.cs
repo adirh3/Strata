@@ -124,6 +124,8 @@ public partial class MainWindow : Window
             };
         }
 
+        WireDictationDemo(this.FindControl<StrataChatComposer>("DictationComposer"));
+
         // Chat performance page wiring
         _perfTranscript = this.FindControl<ItemsControl>("PerfTranscript");
 
@@ -481,6 +483,32 @@ public partial class MainWindow : Window
         CancelGeneration();
         if (_liveComposer is not null)
             _liveComposer.IsBusy = false;
+    }
+
+    /// <summary>
+    /// Plays dictation in the demo composer: a speech-like microphone level while it listens, discard (✕ or Escape),
+    /// and the microphone to finish or listen again.
+    /// </summary>
+    private static void WireDictationDemo(StrataChatComposer? composer)
+    {
+        if (composer is null)
+            return;
+
+        var random = new Random(7);
+        var syllable = 0.0;
+        var timer = new DispatcherTimer(TimeSpan.FromMilliseconds(40), DispatcherPriority.Normal, (_, _) =>
+        {
+            if (!composer.IsRecording)
+                return;
+            // Bursts of syllables with short gaps between words, like speech.
+            syllable = random.NextDouble() < 0.12 ? 0 : Math.Clamp(syllable * 0.6 + random.NextDouble() * 0.7, 0, 1);
+            composer.VoiceLevel = 0.12 + syllable * 0.78;
+        });
+        timer.Stop();
+        composer.AttachedToVisualTree += (_, _) => timer.Start();
+        composer.DetachedFromVisualTree += (_, _) => timer.Stop();
+        composer.VoiceCancelCommand = new DemoCommand(_ => composer.IsRecording = false);
+        composer.VoiceRequested += (_, _) => composer.IsRecording = !composer.IsRecording;
     }
 
     private void CancelGeneration()

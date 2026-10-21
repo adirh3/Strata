@@ -20,7 +20,7 @@ namespace StrataTheme.Tests;
 
 /// <summary>
 /// The composer's + menu, its Skills, Chats and Agents lists, the chips they add, the # list that offers
-/// chats ahead of files, and the send button that dictates: the paths a user takes to bring skills,
+/// chats ahead of files, and the microphone beside send: the paths a user takes to bring skills,
 /// agents and other chats into a message.
 /// </summary>
 [Collection("Avalonia UI")]
@@ -520,7 +520,7 @@ public class StrataComposerPickerTests
     }
 
     [Fact]
-    public async Task SendButton_DictatesWhileThereIsNothingToSend_AndStopsDictating()
+    public async Task MicrophoneDictatesBesideSend_AndSendStepsAsideWhileListening()
     {
         await _fixture.Dispatch(() =>
         {
@@ -530,40 +530,122 @@ public class StrataComposerPickerTests
             var send = 0;
             composer.VoiceRequested += (_, _) => voice++;
             composer.SendRequested += (_, _) => send++;
-            var button = composer.GetVisualDescendants().OfType<Button>().Single(candidate => candidate.Name == "PART_SendButton");
+            var buttons = composer.GetVisualDescendants().OfType<Button>().ToList();
+            var microphone = buttons.Single(candidate => candidate.Name == "PART_VoiceButton");
+            var sendButton = buttons.Single(candidate => candidate.Name == "PART_SendButton");
+            Dispatcher.UIThread.RunJobs();
 
-            Assert.Contains(":voice", composer.Classes);
-            Assert.Equal("Dictate", Avalonia.Automation.AutomationProperties.GetName(button));
-            Click(button);
+            Assert.True(microphone.IsEffectivelyVisible);
+            Assert.True(sendButton.IsEffectivelyVisible);
+            Assert.Equal("Dictate", Avalonia.Automation.AutomationProperties.GetName(microphone));
+            Assert.Equal("Send", Avalonia.Automation.AutomationProperties.GetName(sendButton));
+            Click(microphone);
+            Assert.Equal((1, 0), (voice, send));
+
+            // An empty send never dictates: it has nothing to send.
+            Click(sendButton);
             Assert.Equal((1, 0), (voice, send));
 
             composer.IsRecording = true;
             Dispatcher.UIThread.RunJobs();
-            Assert.DoesNotContain(":voice", composer.Classes);
-            Assert.Equal("Stop dictating", Avalonia.Automation.AutomationProperties.GetName(button));
-            Click(button);
+            Assert.Equal("Stop dictating", Avalonia.Automation.AutomationProperties.GetName(microphone));
+            Assert.False(sendButton.IsEffectivelyVisible);
+            Click(microphone);
             Assert.Equal((2, 0), (voice, send));
 
             composer.IsRecording = false;
             composer.PromptText = "Plan my week";
             Dispatcher.UIThread.RunJobs();
-            Assert.DoesNotContain(":voice", composer.Classes);
-            Assert.Equal("Send", Avalonia.Automation.AutomationProperties.GetName(button));
-            Click(button);
+            Assert.True(sendButton.IsEffectivelyVisible);
+            Assert.True(microphone.IsEffectivelyVisible);
+            Click(sendButton);
             Assert.Equal((2, 1), (voice, send));
 
-            // Without a recognizer, or on touch, an empty composer has nothing to do.
-            composer.PromptText = string.Empty;
+            // Dictating while Lumi works is fine: the microphone stays beside the stop button.
+            composer.IsBusy = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(microphone.IsEffectivelyVisible);
+            composer.IsBusy = false;
+
+            // Without a recognizer, while editing an earlier message, or on touch, there is no microphone.
             composer.CanVoice = false;
             Dispatcher.UIThread.RunJobs();
-            Assert.DoesNotContain(":voice", composer.Classes);
-            Click(button);
-            Assert.Equal((2, 1), (voice, send));
-
+            Assert.False(microphone.IsEffectivelyVisible);
             composer.CanVoice = true;
+            composer.IsEditing = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(microphone.IsEffectivelyVisible);
+            composer.IsEditing = false;
             composer.Classes.Add("mobile");
             Dispatcher.UIThread.RunJobs();
-            Assert.DoesNotContain(":voice", composer.Classes);
+            Assert.False(microphone.IsEffectivelyVisible);
+            host.Window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task Microphone_IsAQuietToolAtRest_AndTheWarmCheckWhileListening()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var host = Host.Create();
+            var composer = host.Composer;
+            var microphone = composer.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "PART_VoiceButton");
+            var surface = microphone.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "PART_Surface");
+            object? Resource(string key) => microphone.TryFindResource(key, microphone.ActualThemeVariant, out var value) ? value : null;
+            Dispatcher.UIThread.RunJobs();
+
+            // Like + and the other tools: no disc, secondary text.
+            Assert.Contains("composer-tool", microphone.Classes);
+            Assert.Same(Resource("Brush.TextSecondary"), microphone.Foreground);
+            Assert.True(surface.Background is null || surface.Background is Avalonia.Media.ISolidColorBrush { Color.A: 0 });
+
+            // Listening, it is the warm disc with a check, also while pointed at.
+            composer.IsRecording = true;
+            ((IPseudoClasses)microphone.Classes).Set(":pointerover", true);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(Resource("Brush.ComposerOrbListening"), surface.GetBaseValue(Border.BackgroundProperty).Value);
+            Assert.Same(Resource("Brush.TextOnAccent"), microphone.Foreground);
+            host.Window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task VoiceBarLanguage_ShowsTheChosenOne_AndItsMenuChoosesAnother()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var host = Host.Create();
+            var composer = host.Composer;
+            composer.CanVoice = true;
+            composer.IsRecording = true;
+            Dispatcher.UIThread.RunJobs();
+            var language = composer.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "PART_VoiceLanguageButton");
+            var shown = language.GetLogicalDescendants().OfType<TextBlock>().Single(text => text.Name == "PART_VoiceLanguageText");
+            Assert.False(language.IsEffectivelyVisible);
+
+            composer.VoiceLanguages = new[] { "Auto-detect", "English", "עברית" };
+            composer.MoreVoiceLanguages = new[] { "Deutsch", "Français" };
+            composer.SelectedVoiceLanguage = "Auto-detect";
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(language.IsEffectivelyVisible);
+            Assert.Equal("Auto-detect", shown.Text);
+            Assert.Equal("Dictation language", Avalonia.Automation.AutomationProperties.GetName(language));
+
+            // The languages offered first, the chosen one checked, and the rest under "More languages".
+            Click(language);
+            var items = host.Window.GetVisualDescendants().OfType<MenuFlyoutPresenter>().Single()
+                .Items.OfType<MenuItem>().ToList();
+            Assert.Equal(["Auto-detect", "English", "עברית", "More languages"], items.Select(item => item.Header));
+            Assert.IsType<StrataLineIcon>(items[0].Icon);
+            Assert.IsNotType<StrataLineIcon>(items[1].Icon);
+            var more = items[3].Items.OfType<MenuItem>().ToList();
+            Assert.Equal(["Deutsch", "Français"], more.Select(item => item.Header));
+
+            more[1].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Français", composer.SelectedVoiceLanguage);
+            Assert.Equal("Français", shown.Text);
             host.Window.Close();
         });
     }
