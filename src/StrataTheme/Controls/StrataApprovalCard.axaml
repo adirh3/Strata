@@ -6,10 +6,14 @@
 
   <ControlTheme x:Key="{x:Type controls:StrataApprovalCard}" TargetType="controls:StrataApprovalCard">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="MaxWidth" Value="640" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Panel>
+        <!-- Fills up to a reading width from the start edge, like the messages around it. A MaxWidth on
+             the card itself would centre it in a wider transcript. -->
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MaxWidth="640" />
+          </Grid.ColumnDefinitions>
           <!-- While it waits: a glass card with the choices. -->
           <Border Name="PART_Card"
                   Background="{DynamicResource Brush.GlassFill}"
@@ -175,7 +179,7 @@
               </TextBlock>
             </Grid>
           </Border>
-        </Panel>
+        </Grid>
       </ControlTemplate>
     </Setter>
 
