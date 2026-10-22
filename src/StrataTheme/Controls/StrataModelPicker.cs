@@ -757,34 +757,9 @@ public class StrataModelPicker : TemplatedControl
         if (_catalogDirty)
         {
             _catalogDirty = false;
-            var rows = (Models?.Cast<object?>() ?? [])
-                .Select((model, index) =>
-                {
-                    var modelId = ResolveModelId(model);
-                    var option = model as IStrataModelOption;
-                    var isPinned = option?.IsPinned == true;
-                    var providerGroup = !string.IsNullOrWhiteSpace(option?.ProviderName)
-                        ? ProviderGroupPrefix + option.ProviderName
-                        : GetModelGroup(modelId);
-                    var searchText = NormalizeSearchText(
-                        $"{modelId} {option?.DisplayName} {option?.ProviderName} {GetModelProviderLabel(modelId)}");
-                    return new ModelPickerRowData(
-                        model, modelId, isPinned ? PinnedGroup : providerGroup, isPinned, index, searchText);
-                }).ToList();
-
-            var groupOrder = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach (var row in rows)
-            {
-                if (!row.IsPinned && !groupOrder.ContainsKey(row.Group))
-                    groupOrder[row.Group] = groupOrder.Count;
-            }
-            _catalogRows = rows
-                .OrderBy(row => row.IsPinned ? -1 : groupOrder[row.Group])
-                .ThenByDescending(row => row.IsPinned ? 0 : GetModelVersionRank(row.ModelName))
-                .ThenBy(row => row.OriginalIndex)
-                .ToList();
+            _catalogRows = OrderCatalogRows(Models);
             PseudoClasses.Set(":can-filter-pinned",
-                ModelPinCommand is not null || rows.Any(row => row.IsPinned));
+                ModelPinCommand is not null || _catalogRows.Any(row => row.IsPinned));
         }
 
         if (!_filterDirty)
@@ -837,6 +812,68 @@ public class StrataModelPicker : TemplatedControl
                 RequestScrollActiveRowIntoView();
         }
         _resetNavigation = false;
+    }
+
+    /// <summary>
+    /// The catalog in list order: pinned items first in their own order, then each provider in the
+    /// order it first appears among the unpinned items, newest versions first within a provider.
+    /// </summary>
+    private static List<ModelPickerRowData> OrderCatalogRows(IEnumerable? models)
+    {
+        var rows = (models?.Cast<object?>() ?? [])
+            .Select((model, index) =>
+            {
+                var modelId = ResolveModelId(model);
+                var option = model as IStrataModelOption;
+                var isPinned = option?.IsPinned == true;
+                var providerGroup = !string.IsNullOrWhiteSpace(option?.ProviderName)
+                    ? ProviderGroupPrefix + option.ProviderName
+                    : GetModelGroup(modelId);
+                var searchText = NormalizeSearchText(
+                    $"{modelId} {option?.DisplayName} {option?.ProviderName} {GetModelProviderLabel(modelId)}");
+                return new ModelPickerRowData(
+                    model, modelId, isPinned ? PinnedGroup : providerGroup, isPinned, index, searchText);
+            }).ToList();
+
+        var groupOrder = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var row in rows)
+        {
+            if (!row.IsPinned && !groupOrder.ContainsKey(row.Group))
+                groupOrder[row.Group] = groupOrder.Count;
+        }
+        return rows
+            .OrderBy(row => row.IsPinned ? -1 : groupOrder[row.Group])
+            .ThenByDescending(row => row.IsPinned ? 0 : GetModelVersionRank(row.ModelName))
+            .ThenBy(row => row.OriginalIndex)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Lists <paramref name="models"/> in the picker's sections and order — pinned items first in
+    /// their own order, then each provider as it first appears, newest versions first — so a host
+    /// that draws the list itself, such as a phone's bottom sheet, reads exactly as this picker does.
+    /// </summary>
+    /// <param name="models">Model ids or <see cref="IStrataModelOption"/> items, as for <see cref="Models"/>.</param>
+    /// <param name="pinnedLabel">Name of the pinned section, as for <see cref="PinnedLabel"/>.</param>
+    public static IReadOnlyList<StrataModelSection> GetModelSections(IEnumerable? models, string pinnedLabel = "Pinned")
+    {
+        var sections = new List<StrataModelSection>();
+        List<object?>? members = null;
+        string? group = null;
+        foreach (var row in OrderCatalogRows(models))
+        {
+            if (row.Group != group)
+            {
+                group = row.Group;
+                members = [];
+                sections.Add(new StrataModelSection(
+                    row.IsPinned ? pinnedLabel.ToUpperInvariant() : GetModelGroupLabel(row.Group),
+                    row.IsPinned,
+                    members));
+            }
+            members!.Add(row.Model);
+        }
+        return sections;
     }
 
     /// <summary>

@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.70" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.71" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -139,6 +139,12 @@ group rows by the host's provider or account. `ModelId` stays the selection valu
 and pinned items still appear first. Leaving `ProviderName` unset preserves the
 existing model-id grouping. Use `ModelItemTemplate` for clean model names and
 badges without encoding provider information in the model identifier.
+
+A host that draws its own list, such as a touch bottom sheet, can call
+`StrataModelPicker.GetModelSections(models)` to list the same items in the
+picker's sections and order: pinned items first in their own order, then each
+provider as it first appears, newest versions first. Each `StrataModelSection`
+carries the heading the picker draws over it.
 
 The popup focuses search when opened. Search matches every query word against
 the model ID, optional `IStrataModelOption.DisplayName`, account and model provider;
