@@ -69,6 +69,30 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
             Strata --> Panel
         """;
 
+    private const string OwnershipFlow = """
+        flowchart TB
+            subgraph Runtime["Copilot owns execution"]
+                MCP["MCP servers"] <--> CP["Copilot runtime"]
+                EXT["Canvas extensions"] <--> CP
+            end
+
+            subgraph Lumi["Lumi owns presentation"]
+                CP <--> MA["MCP Apps adapter"]
+                CP <--> CA["Canvas adapter"]
+                MA <--> STATE["Per-chat surface state"]
+                CA <--> STATE
+                STATE <--> UI["Strata Workspace and transcript cards"]
+                UI <--> VIEW["Native view or isolated WebView"]
+            end
+        """;
+
+    private const string LabelledLinksFlow = """
+        flowchart LR
+            R["Copilot runtime"] <-->|"Open, close, invoke action"| P["Canvas provider"]
+            R -->|"Lifecycle events"| U["Lumi UI"]
+            P <-->|"Interface and shared artifact"| U
+        """;
+
     [Fact]
     public Task WideFlow_StartsReadable_AndOffersFitAndActualSize() => fixture.Dispatch(() =>
     {
@@ -486,6 +510,269 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
         }
         finally { window.Close(); }
     });
+
+    [Theory]
+    [InlineData(494)]
+    [InlineData(720)]
+    public Task BidirectionalArchitecture_StacksLayersWithoutOverlaps(double width) => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram(OwnershipFlow, width);
+        try
+        {
+            var edges = FlowEdges(canvas);
+            Assert.Equal(8, edges.Count);
+            Assert.All(edges, edge => Assert.True(edge.Bidirectional));
+
+            var nodes = NodeRects(canvas);
+            AssertNoOverlaps(nodes);
+            var groups = Field<IEnumerable>(canvas, "_fSubgraphs").Cast<object>()
+                .ToDictionary(g => PublicField<string>(g, "Id"), g => PublicField<Rect>(g, "Box"));
+            Assert.True(groups["Runtime"].Bottom <= groups["Lumi"].Top, $"{groups["Runtime"]} / {groups["Lumi"]}");
+            foreach (var id in new[] { "MCP", "EXT", "CP" }) Assert.True(groups["Runtime"].Contains(nodes[id]), id);
+            foreach (var id in new[] { "MA", "CA", "STATE", "UI", "VIEW" }) Assert.True(groups["Lumi"].Contains(nodes[id]), id);
+
+            // Mermaid's ranks: the two sources side by side above the runtime, both adapters above the shared state.
+            Assert.Equal(nodes["MCP"].Center.Y, nodes["EXT"].Center.Y, 3);
+            Assert.True(nodes["CP"].Top > nodes["MCP"].Bottom);
+            Assert.Equal(nodes["MA"].Center.Y, nodes["CA"].Center.Y, 3);
+            Assert.True(nodes["STATE"].Top > nodes["MA"].Bottom);
+            Assert.True(nodes["UI"].Top > nodes["STATE"].Bottom);
+            Assert.True(nodes["VIEW"].Top > nodes["UI"].Bottom);
+
+            AssertRoutesConnectOnlyTheirNodes(edges, nodes);
+            foreach (var group in Field<IEnumerable>(canvas, "_fSubgraphs").Cast<object>())
+            {
+                var title = PublicField<Rect>(group, "TitleRect");
+                Assert.True(PublicField<Rect>(group, "Box").Contains(title));
+                Assert.DoesNotContain(edges, edge => RouteHits(edge.Route, title));
+            }
+        }
+        finally { window.Close(); }
+    });
+
+    [Theory]
+    [InlineData(494)]
+    [InlineData(720)]
+    public Task LabelledLinks_KeepEveryLabelOnceAndClearOfNodesAndOtherLabels(double width) => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram(LabelledLinksFlow, width);
+        try
+        {
+            var edges = FlowEdges(canvas);
+            Assert.Equal(new[] { "R->P", "R->U", "P->U" }, edges.Select(e => $"{e.From}->{e.To}"));
+            Assert.Equal(new[] { true, false, true }, edges.Select(e => e.Bidirectional));
+
+            var nodes = NodeRects(canvas);
+            AssertNoOverlaps(nodes);
+            AssertRoutesConnectOnlyTheirNodes(edges, nodes);
+            var labels = edges.Select(LabelRect).ToList();
+            foreach (var label in labels)
+                Assert.DoesNotContain(nodes, node => node.Value.Intersects(label));
+            for (var i = 0; i < labels.Count; i++)
+                for (var j = i + 1; j < labels.Count; j++)
+                    Assert.False(labels[i].Intersects(labels[j]), $"{labels[i]} overlaps {labels[j]}");
+
+            Assert.True(nodes["R"].Right < nodes["P"].Left && nodes["P"].Right < nodes["U"].Left);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task Cycle_BreaksAtTheLinkThatClosesTheLoop() => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram("""
+            flowchart LR
+                A[Request] --> B{Valid?}
+                B -->|Yes| C[Process]
+                B -->|No| D[Reject]
+                C --> E[Respond]
+                D --> E
+                C -->|retry| A
+            """, 720);
+        try
+        {
+            var nodes = NodeRects(canvas);
+            Assert.True(nodes["A"].Right < nodes["B"].Left && nodes["B"].Right < nodes["C"].Left);
+            Assert.True(nodes["C"].Right < nodes["E"].Left);
+            var retry = FlowEdges(canvas).Single(e => e.From == "C" && e.To == "A");
+            Assert.True(retry.Route[^1].X <= nodes["A"].Right + 0.5, "retry must end on Request");
+            AssertRoutesConnectOnlyTheirNodes(FlowEdges(canvas), nodes);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task InlineLabelsAndLongArrows_DoNotBecomeNodes() => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram("""
+            flowchart TD
+                A[Start] -- yes --> B[Do it]
+                A -- no --> C[Skip]
+                B ---> D[Finish]
+                C ---> D
+                D -. later .-> A
+            """, 494);
+        try
+        {
+            Assert.Equal(new[] { "A", "B", "C", "D" }, NodeRects(canvas).Keys.Order());
+            Assert.Equal(new[] { "A->B:yes", "A->C:no", "B->D:", "C->D:", "D->A:later" },
+                FlowEdges(canvas).Select(e => $"{e.From}->{e.To}:{e.Label}"));
+        }
+        finally { window.Close(); }
+    });
+
+    [Theory]
+    [InlineData("flowchart TB\n    Hub --> A & B & C & D")]
+    [InlineData("flowchart TB\n    Client --> GW[Gateway]\n    GW --> Users & Orders & Payments & Search & Notify")]
+    [InlineData("flowchart TB\n    A & B & C & D & E & F --> Sink")]
+    [InlineData("flowchart TD\n    Router{Intent?} --> Chat & Search & Code & Files & Fallback")]
+    public Task FanOutAndFanIn_AttachEveryLinkToItsNodes(string source) => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram(source, 720);
+        try
+        {
+            AssertRoutesConnectOnlyTheirNodes(FlowEdges(canvas), NodeRects(canvas));
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task OpenLinkChains_KeepEveryNode() => fixture.Dispatch(() =>
+    {
+        // "--" inside "---" must not read as the start of an inline label.
+        var (window, _, canvas) = CreateDiagram("""
+            flowchart LR
+                A --- B --- C
+                E -- note --- F
+            """, 494);
+        try
+        {
+            Assert.Equal(new[] { "A", "B", "C", "E", "F" }, NodeRects(canvas).Keys.Order());
+            Assert.Equal(new[] { "A->B:", "B->C:", "E->F:note" },
+                FlowEdges(canvas).Select(e => $"{e.From}->{e.To}:{e.Label}"));
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task LayoutExtent_CoversEveryRouteAndLabel() => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram("""
+            flowchart TD
+                User([User]) --> Router{Intent?}
+                Router -->|chat| Chat[Chat handler]
+                Router -->|search| Search[Search service]
+                Router -->|code| Code[Coding agent]
+                Router -->|files| Files[File manager]
+                Router -->|other| Fallback[Fallback reply]
+                Chat & Search & Code & Files & Fallback --> Reply[Compose reply]
+                Reply --> User
+            """, 720);
+        try
+        {
+            var edges = FlowEdges(canvas);
+            var nodeExtent = NodeRects(canvas).Values.Aggregate((a, b) => a.Union(b));
+            Assert.Contains(edges.SelectMany(e => e.Route), point => !nodeExtent.Contains(point));
+
+            var extent = new Rect(0, 0, Field<double>(canvas, "_layW"), Field<double>(canvas, "_layH")).Inflate(0.01);
+            foreach (var edge in edges)
+            {
+                Assert.All(edge.Route, point => Assert.True(extent.Contains(point), $"{edge.From} -> {edge.To} leaves the layout at {point}"));
+                if (edge.DisplayLabel is not null)
+                    Assert.True(extent.Contains(LabelRect(edge)), $"The label of {edge.From} -> {edge.To} leaves the layout");
+            }
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task DenseFlow_LaysOutEveryLinkWithoutOverlappingNodes() => fixture.Dispatch(() =>
+    {
+        // A tangle dense enough to pack channels shoulder to shoulder; it once threw from inside Measure.
+        var random = new Random(7);
+        var source = new System.Text.StringBuilder("flowchart LR\n");
+        for (var i = 0; i < 150; i++)
+            source.Append($"    A{random.Next(80)} -->{(random.Next(5) == 0 ? "|step|" : "")} A{random.Next(80)}\n");
+        var (window, _, canvas) = CreateDiagram(source.ToString(), 720);
+        try
+        {
+            AssertNoOverlaps(NodeRects(canvas));
+            Assert.All(FlowEdges(canvas).Where(e => e.From != e.To), edge => Assert.True(edge.Route.Count >= 2));
+        }
+        finally { window.Close(); }
+    });
+
+    private sealed record FlowEdge(string From, string To, string? Label, string? DisplayLabel, bool Bidirectional,
+        List<Point> Route, Point LabelAt);
+
+    private static List<FlowEdge> FlowEdges(Control canvas) =>
+        Field<IEnumerable>(canvas, "_fEdges").Cast<object>().Select(e => new FlowEdge(
+            PublicField<string>(e, "From"), PublicField<string>(e, "To"),
+            (string?)e.GetType().GetField("Label")!.GetValue(e), (string?)e.GetType().GetField("DisplayLabel")!.GetValue(e),
+            PublicField<bool>(e, "Bidirectional"), PublicField<List<Point>>(e, "Route"), PublicField<Point>(e, "LabelAt"))).ToList();
+
+    private static Dictionary<string, Rect> NodeRects(Control canvas)
+    {
+        var rects = new Dictionary<string, Rect>();
+        foreach (DictionaryEntry entry in Field<IDictionary>(canvas, "_fNodes"))
+        {
+            var node = entry.Value!;
+            rects[(string)entry.Key] = new Rect(PublicField<double>(node, "X"), PublicField<double>(node, "Y"),
+                PublicField<double>(node, "W"), PublicField<double>(node, "H"));
+        }
+        return rects;
+    }
+
+    private static Rect LabelRect(FlowEdge edge)
+    {
+        var text = new Avalonia.Media.FormattedText(edge.DisplayLabel!, System.Globalization.CultureInfo.CurrentUICulture,
+            Avalonia.Media.FlowDirection.LeftToRight, new Avalonia.Media.Typeface(Avalonia.Media.FontFamily.Default), 10,
+            Avalonia.Media.Brushes.White);
+        return new Rect(edge.LabelAt.X - text.Width / 2 - 6, edge.LabelAt.Y - text.Height / 2 - 2, text.Width + 12, text.Height + 4);
+    }
+
+    private static void AssertNoOverlaps(Dictionary<string, Rect> nodes)
+    {
+        var list = nodes.ToList();
+        for (var i = 0; i < list.Count; i++)
+            for (var j = i + 1; j < list.Count; j++)
+                Assert.False(list[i].Value.Deflate(0.5).Intersects(list[j].Value.Deflate(0.5)),
+                    $"{list[i].Key} {list[i].Value} overlaps {list[j].Key} {list[j].Value}");
+    }
+
+    // Every route starts on its own From node, ends on its own To node, runs orthogonally and passes no other node.
+    private static void AssertRoutesConnectOnlyTheirNodes(List<FlowEdge> edges, Dictionary<string, Rect> nodes)
+    {
+        foreach (var edge in edges)
+        {
+            Assert.True(edge.Route.Count >= 2, $"{edge.From} -> {edge.To} has no route");
+            Assert.True(nodes[edge.From].Inflate(1.5).Contains(edge.Route[0]),
+                $"{edge.From} -> {edge.To} starts beside {edge.From} {nodes[edge.From]} at {edge.Route[0]}");
+            Assert.True(nodes[edge.To].Inflate(1.5).Contains(edge.Route[^1]),
+                $"{edge.From} -> {edge.To} ends beside {edge.To} {nodes[edge.To]} at {edge.Route[^1]}");
+            for (var i = 1; i < edge.Route.Count; i++)
+            {
+                var (start, end) = (edge.Route[i - 1], edge.Route[i]);
+                Assert.True(Math.Abs(start.X - end.X) < 0.01 || Math.Abs(start.Y - end.Y) < 0.01,
+                    $"{edge.From} -> {edge.To} is not orthogonal: {start} -> {end}");
+                foreach (var (id, rect) in nodes)
+                    if (id != edge.From && id != edge.To)
+                        Assert.False(Crosses(start, end, rect.Deflate(0.1)), $"{edge.From} -> {edge.To} crosses {id}: {start} -> {end}");
+            }
+        }
+    }
+
+    private static bool RouteHits(List<Point> route, Rect rect)
+    {
+        for (var i = 1; i < route.Count; i++)
+        {
+            var (a, b) = (route[i - 1], route[i]);
+            if (Math.Max(a.X, b.X) >= rect.Left && Math.Min(a.X, b.X) <= rect.Right &&
+                Math.Max(a.Y, b.Y) >= rect.Top && Math.Min(a.Y, b.Y) <= rect.Bottom)
+                return true;
+        }
+        return false;
+    }
 
     private static (Window Window, StrataMermaid Diagram, Control Canvas) CreateDiagram(string source, double width)
     {
