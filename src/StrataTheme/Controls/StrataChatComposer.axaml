@@ -54,8 +54,9 @@
             <GradientStop Offset="1" Color="#F05BA6" />
           </LinearGradientBrush>
           <SolidColorBrush x:Key="Brush.ComposerOrbIdle" Color="#0F000000" />
-          <SolidColorBrush x:Key="Brush.ComposerOrbWorking" Color="#23232E" />
-          <SolidColorBrush x:Key="Brush.ComposerOrbWorkingHover" Color="#33333F" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbWorking" Color="{DynamicResource Color.Surface2}" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbWorkingHover" Color="{DynamicResource Color.ControlPressed}" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbWorkingForeground" Color="{DynamicResource Color.TextPrimary}" />
           <LinearGradientBrush x:Key="Brush.ComposerOrbListening" StartPoint="0%,0%" EndPoint="100%,100%">
             <GradientStop Offset="0" Color="#8B5CF6" />
             <GradientStop Offset="1" Color="#EC4899" />
@@ -110,6 +111,7 @@
           <SolidColorBrush x:Key="Brush.ComposerOrbIdle" Color="#17FFFFFF" />
           <SolidColorBrush x:Key="Brush.ComposerOrbWorking" Color="#1C1C24" />
           <SolidColorBrush x:Key="Brush.ComposerOrbWorkingHover" Color="#2A2A34" />
+          <SolidColorBrush x:Key="Brush.ComposerOrbWorkingForeground" Color="{DynamicResource Color.TextOnAccent}" />
           <LinearGradientBrush x:Key="Brush.ComposerOrbListening" StartPoint="0%,0%" EndPoint="100%,100%">
             <GradientStop Offset="0" Color="#A78BFA" />
             <GradientStop Offset="1" Color="#F472B6" />
@@ -980,6 +982,9 @@
           <Setter Property="RenderTransform" Value="translateY(0px)" />
         </Style>
         <!-- Working: stop, with light breathing around the button. -->
+        <Style Selector="^:not(.mobile):busy:not(:steer):not(:stop-send) /template/ Button#PART_SendButton">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.ComposerOrbWorkingForeground}" />
+        </Style>
         <Style Selector="^:not(.mobile):busy:not(:steer) /template/ controls|StrataLineIcon#PART_OrbSendIcon">
           <Setter Property="IsVisible" Value="False" />
         </Style>
@@ -1154,7 +1159,7 @@
     <Setter Property="IsVisible" Value="False" />
   </Style>
 
-  <!-- Desktop: Lumi's gradient when there is something to send, a quiet disc when there isn't, and a dark
+  <!-- Desktop: Lumi's gradient when there is something to send, a quiet disc when there isn't, and a neutral
        disc to stop while Lumi works. -->
   <Style Selector="controls|StrataChatComposer:not(.mobile) /template/ Button#PART_SendButton /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.ComposerOrbReady}" />
