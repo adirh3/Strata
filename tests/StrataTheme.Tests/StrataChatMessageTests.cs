@@ -589,6 +589,33 @@ public class StrataChatMessageTests
     }
 
     [Fact]
+    public async Task ChangingRole_MovesTheHeaderWithoutAttachingItAgain()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var (window, message, _) = ShowSelectableMessage("Answer", canReply: true);
+            var header = message.GetVisualDescendants().OfType<WrapPanel>()
+                .Single(panel => panel.Name == "PART_HeaderRow");
+            var bubble = message.GetVisualDescendants().OfType<Border>()
+                .Single(border => border.Name == "PART_Bubble");
+            var detached = 0;
+            header.DetachedFromLogicalTree += (_, _) => detached++;
+
+            message.Role = StrataChatRole.User;
+            window.UpdateLayout();
+            Assert.True(header.TranslatePoint(default, message)!.Value.Y < bubble.TranslatePoint(default, message)!.Value.Y);
+            message.Role = StrataChatRole.Assistant;
+            window.UpdateLayout();
+
+            // Reordered in place: a header attached again would style its whole subtree again.
+            Assert.Equal(0, detached);
+            var bubbleEnd = bubble.TranslatePoint(default, message)!.Value.Y + bubble.Bounds.Height;
+            Assert.True(header.TranslatePoint(default, message)!.Value.Y >= bubbleEnd);
+            window.Close();
+        });
+    }
+
+    [Fact]
     public async Task Retry_IsHiddenWhenUnsupportedOrStreaming()
     {
         await _fixture.Dispatch(() =>

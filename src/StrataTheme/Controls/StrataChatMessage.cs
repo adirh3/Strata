@@ -1963,16 +1963,17 @@ public class StrataChatMessage : TemplatedControl
             target.Children.Insert(target == _headerRow ? 0 : target.Children.Count, _actionLayer);
         }
 
-        if (_root is not null)
+        if (_root is not null && _root.Children.IndexOf(_headerRow) is var current and >= 0)
         {
-            _root.Children.Remove(_headerRow);
             var contentEnd = _editArea is not null
                 ? _root.Children.IndexOf(_editArea)
                 : _root.Children.IndexOf(_bubbleRow);
-            var index = Role == StrataChatRole.Assistant
-                ? contentEnd + 1
-                : 0;
-            _root.Children.Insert(index, _headerRow);
+            var index = Role != StrataChatRole.Assistant ? 0
+                : current < contentEnd ? contentEnd
+                : contentEnd + 1;
+            // Moving keeps the header attached, so its subtree isn't styled again.
+            if (index != current)
+                _root.Children.Move(current, index);
         }
     }
 
