@@ -412,6 +412,20 @@ hosted while visible. Set `MaxWidth` to bound the responsive card in a transcrip
 </sc:StrataThink>
 ```
 
+## Selectable chat cards
+
+Markdown `card` blocks have selectable titles and an always-visible **Copy card** action.
+Copy includes the title, summary and details, including collapsed details, without the JSON
+wrapper; inline Markdown and link destinations are preserved. General `StrataCard` controls
+can opt in with `CanCopy="True"` and localize the tooltip/accessibility names with `CopyLabel`
+and `ToggleDetailsLabel`. Host styles on `StrataCard` also apply to Markdown-generated cards.
+Only the header background or chevron toggles details, so selecting text or following a link
+does not expand or collapse the card. The card and chevron support Enter/Space.
+Chat-message copy uses Cmd+C on macOS and Ctrl+C elsewhere, without replacing a text control's
+handled selection-copy action. Existing Markdown/rich-text copy formats are unchanged.
+Hosts without a retry action can set `StrataChatMessage.CanRegenerate="False"`; it defaults
+to `True` to preserve existing toolbars.
+
 ## Transcript glass
 
 The transcript controls share the glass of the chat header's pills and follow-up chips, with line
