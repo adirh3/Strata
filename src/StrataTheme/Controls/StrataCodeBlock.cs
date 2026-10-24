@@ -72,6 +72,7 @@ public class StrataCodeBlock : Control
         {
             TextWrapping = TextWrapping.NoWrap,
             LineHeight = CodeLineHeight,
+            FlowDirection = FlowDirection.LeftToRight,
         };
 
         LogicalChildren.Add(_presenter);

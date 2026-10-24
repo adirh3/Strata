@@ -47,6 +47,78 @@ public class StrataMarkdownAutoDirectionTests
     }
 
     [Theory]
+    [InlineData("`dotnet run --project Lumi.csproj` שלום עולם", FlowDirection.RightToLeft)]
+    [InlineData("**`Dictionary<string, int>`** שלום עולם", FlowDirection.RightToLeft)]
+    [InlineData("`שלום` Hello world", FlowDirection.LeftToRight)]
+    [InlineData("`dotnet run`", FlowDirection.LeftToRight)]
+    public async Task InlineCode_DoesNotOverrideTheSurroundingProseDirection(
+        string source, FlowDirection expected)
+    {
+        var layout = await RenderParagraphAsync(source);
+
+        Assert.Equal(expected, layout.FlowDirection);
+        Assert.Equal(expected == FlowDirection.RightToLeft ? TextAlignment.Right : TextAlignment.Left,
+            layout.TextAlignment);
+    }
+
+    [Fact]
+    public Task LongInlineCode_DirectionProbeDoesNotCopyTheWholeCodeSpan()
+    {
+        return _fixture.Dispatch(() =>
+        {
+            var block = new SelectableTextBlock();
+            var source = $"`{new string('x', 32_768)}`";
+            StrataMarkdown.ApplyDirectionalTextLayout(block, FlowDirection.LeftToRight, "`warmup`");
+
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            StrataMarkdown.ApplyDirectionalTextLayout(block, FlowDirection.LeftToRight, source);
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.True(allocated < 32_768,
+                $"The direction probe copied the full code span, allocating {allocated} bytes.");
+            Assert.Equal(FlowDirection.LeftToRight, block.FlowDirection);
+
+            StrataMarkdown.ApplyDirectionalTextLayout(block, FlowDirection.LeftToRight, source + " שלום עולם");
+            Assert.Equal(FlowDirection.RightToLeft, block.FlowDirection);
+        });
+    }
+
+    [Theory]
+    [InlineData(FlowDirection.LeftToRight, "> שלום עם `code`", FlowDirection.RightToLeft)]
+    [InlineData(FlowDirection.RightToLeft, "> English with `code`", FlowDirection.LeftToRight)]
+    [InlineData(FlowDirection.LeftToRight, "| שם | ערך |\n| --- | --- |\n| שלום | `code` |", FlowDirection.RightToLeft)]
+    [InlineData(FlowDirection.RightToLeft, "| Name | Value |\n| --- | --- |\n| Hello | `code` |", FlowDirection.LeftToRight)]
+    public async Task QuotesAndTables_FollowTheirContentInsteadOfTheInterfaceDirection(
+        FlowDirection hostDirection, string source, FlowDirection expected)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                FlowDirection = hostDirection,
+                Markdown = source,
+                IsInline = true,
+                StreamingRebuildThrottleMs = 0,
+            };
+            var window = new Window { Width = 500, Height = 240, Content = markdown };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var surface = Assert.Single(markdown.GetLogicalDescendants().OfType<Border>(),
+                    control => control.Classes.Contains("strata-md-blockquote")
+                        || control.Classes.Contains("strata-md-table"));
+
+                Assert.Equal(expected, surface.FlowDirection);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Theory]
     [InlineData("\n\n")]
     [InlineData("\n \n")]
     [InlineData("\n\t\n")]

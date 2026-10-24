@@ -96,6 +96,7 @@
                     <!-- The command itself, until the console shows it in full. -->
                     <TextBlock Name="PART_CommandText"
                                Text="{TemplateBinding Command}"
+                               FlowDirection="LeftToRight"
                                IsVisible="False"
                                FontFamily="{DynamicResource Font.FamilyMono}"
                                FontSize="11.5"
@@ -127,7 +128,7 @@
                     </Transitions>
                   </Border.Transitions>
 
-                  <StackPanel Spacing="6" Margin="11,9,11,10">
+                  <StackPanel Spacing="6" Margin="11,9,11,10" FlowDirection="LeftToRight">
                     <Grid ColumnDefinitions="Auto,6,*">
                       <TextBlock Text="$"
                                  FontFamily="{DynamicResource Font.FamilyMono}"

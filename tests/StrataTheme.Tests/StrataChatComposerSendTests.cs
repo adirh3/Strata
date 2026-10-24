@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using StrataTheme.Controls;
 
@@ -37,6 +38,32 @@ public class StrataChatComposerSendTests
 
             Assert.True(sendRequested);
             Assert.Equal(1, command.ExecuteCount);
+        });
+    }
+
+    [Theory]
+    [InlineData("הרץ dotnet run --project SomeVeryLongProjectName", FlowDirection.RightToLeft)]
+    [InlineData("شغل dotnet run --project SomeVeryLongProjectName", FlowDirection.RightToLeft)]
+    [InlineData("Run שלום עולם בדיקה ארוכה בעברית", FlowDirection.LeftToRight)]
+    [InlineData("123", FlowDirection.LeftToRight)]
+    public async Task PromptDirection_FollowsTheFirstStrongCharacter(string text, FlowDirection expected)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var composer = new StrataChatComposer();
+            var input = new TextBox();
+            typeof(StrataChatComposer)
+                .GetField("_input", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(composer, input);
+
+            composer.PromptText = text;
+
+            Assert.Equal(expected, input.FlowDirection);
+            Assert.Equal(expected == FlowDirection.RightToLeft ? TextAlignment.Right : TextAlignment.Left,
+                input.TextAlignment);
+
+            composer.PromptText = "";
+            Assert.Equal(FlowDirection.LeftToRight, input.FlowDirection);
         });
     }
 

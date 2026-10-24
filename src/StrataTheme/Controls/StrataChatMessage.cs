@@ -1869,7 +1869,8 @@ public class StrataChatMessage : TemplatedControl
 
     private static void ApplyDirectionalTextAlignment(TextBlock textBlock)
     {
-        var direction = StrataTextDirectionDetector.Detect(textBlock.Text);
+        var direction = StrataTextDirectionDetector.DetectLeading(textBlock.Text)
+                        ?? StrataTextDirectionDetector.Detect(textBlock.Text);
         if (direction is null)
             return;
 
@@ -1885,7 +1886,8 @@ public class StrataChatMessage : TemplatedControl
 
     private static void ApplyDirectionalMarkdownAlignment(StrataMarkdown markdown)
     {
-        var direction = StrataTextDirectionDetector.Detect(markdown.Markdown);
+        var direction = StrataTextDirectionDetector.DetectLeading(markdown.Markdown)
+                        ?? StrataTextDirectionDetector.Detect(markdown.Markdown);
         if (direction is null)
             return;
 

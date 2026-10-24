@@ -320,6 +320,14 @@ public sealed class Strings
                 רצף אנגלי מוטמע: **Plan → Build → Test → Ship**.
 
                 ולבסוף נוסיף משפט עם כתובת support@example.com ועם הערך `RightToLeft` כדי לבדוק רצפים לועזיים בתוך טקסט עברי רציף.
+
+                `dotnet run --project StrataDemo.csproj` מפעיל את הדוגמה, ו-`Dictionary<string, int>` נשאר רצף אחד.
+
+                English text keeps `inline code` and [source links](https://example.com) aligned inside this RTL surface.
+
+                | פעולה | פקודה |
+                | --- | --- |
+                | הפעלה | `dotnet run` |
                 """,
             ["Markdown.ImagesHint"] = "Local and online images have an expand button. View an image full screen, then press Esc or Close to return.",
             ["MarkdownHebrewSamples.Footer"] = "These samples stay in Hebrew even when the demo UI is English so RTL selection issues are easy to reproduce.",
@@ -711,6 +719,14 @@ public sealed class Strings
                 רצף אנגלי מוטמע: **Plan → Build → Test → Ship**.
 
                 ולבסוף נוסיף משפט עם כתובת support@example.com ועם הערך `RightToLeft` כדי לבדוק רצפים לועזיים בתוך טקסט עברי רציף.
+
+                `dotnet run --project StrataDemo.csproj` מפעיל את הדוגמה, ו-`Dictionary<string, int>` נשאר רצף אחד.
+
+                English text keeps `inline code` and [source links](https://example.com) aligned inside this RTL surface.
+
+                | פעולה | פקודה |
+                | --- | --- |
+                | הפעלה | `dotnet run` |
                 """,
             ["Markdown.ImagesHint"] = "לתמונות מקומיות ומקוונות יש כפתור הרחבה. הציגו תמונה במסך מלא, ואז לחצו על Esc או סגירה כדי לחזור.",
             ["MarkdownHebrewSamples.Footer"] = "הדוגמאות נשארות בעברית גם כאשר ממשק הדמו באנגלית, כדי שיהיה קל לשחזר בעיות בחירה ב-RTL.",

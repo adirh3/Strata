@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using StrataTheme.Controls;
@@ -127,6 +128,45 @@ public sealed class StrataToolDetailsTests
             {
                 window.Close();
                 Dispatcher.UIThread.RunJobs();
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData(FlowDirection.RightToLeft, "C:\\Projects\\Lumi (preview)", FlowDirection.LeftToRight)]
+    [InlineData(FlowDirection.LeftToRight, "שלום System.Collections.Generic.Dictionary", FlowDirection.RightToLeft)]
+    [InlineData(FlowDirection.LeftToRight, "مرحبا System.Collections.Generic.Dictionary", FlowDirection.RightToLeft)]
+    public async Task FieldValuesAndResults_KeepTheirOwnWritingDirection(
+        FlowDirection hostDirection, string value, FlowDirection expected)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var details = new StrataToolDetails
+            {
+                FlowDirection = hostDirection,
+                Parameters = $"**Location:** {value}",
+                Result = value,
+                IsFailed = true,
+            };
+            var window = new Window { Width = 500, Height = 240, Content = details };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var blocks = details.GetVisualDescendants().OfType<SelectableTextBlock>().ToArray();
+
+                Assert.Equal(2, blocks.Length);
+                Assert.All(blocks, block =>
+                {
+                    Assert.Equal(value, block.Text);
+                    Assert.Equal(expected, block.FlowDirection);
+                    Assert.Equal(expected == FlowDirection.RightToLeft ? TextAlignment.Right : TextAlignment.Left,
+                        block.TextAlignment);
+                });
+            }
+            finally
+            {
+                window.Close();
             }
         });
     }

@@ -29,6 +29,27 @@ public class StrataChatMessageTests
     {
     }
 
+    [Theory]
+    [InlineData("הרץ dotnet run --project SomeVeryLongProjectName", FlowDirection.RightToLeft)]
+    [InlineData("Run שלום עולם בדיקה ארוכה בעברית", FlowDirection.LeftToRight)]
+    public async Task MessageContent_DoesNotOverrideTheLeadingTextDirection(
+        string text, FlowDirection expected)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var block = new SelectableTextBlock { Text = text };
+            var message = new StrataChatMessage { Content = block };
+            Assert.Equal(expected, block.FlowDirection);
+
+            var markdown = new StrataMarkdown { Markdown = "**" + text + "**" };
+            message.Content = markdown;
+            Assert.Equal(expected, markdown.FlowDirection);
+
+            markdown.Markdown = "**English** שלום עולם בדיקה ארוכה בעברית";
+            Assert.Equal(FlowDirection.LeftToRight, markdown.FlowDirection);
+        });
+    }
+
     [Fact]
     public void ExtractText_SkipsUnrenderedDataObjects()
     {

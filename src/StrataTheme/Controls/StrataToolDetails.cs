@@ -128,12 +128,7 @@ public class StrataToolDetails : Decorator
             if (root.Children.Count > 0)
                 root.Children.Add(new Border { Classes = { "tool-detail-divider" } });
 
-            var text = new SelectableTextBlock
-            {
-                Text = result.Trim(),
-                TextWrapping = TextWrapping.Wrap,
-                Classes = { "tool-detail-result" },
-            };
+            var text = CreateValueText(result.Trim(), "tool-detail-result");
             if (isFailed)
             {
                 var error = new DockPanel { Classes = { "tool-detail-error" } };
@@ -161,12 +156,7 @@ public class StrataToolDetails : Decorator
         {
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             var key = new TextBlock { Text = fields[row].Key, Classes = { "tool-detail-key" } };
-            var value = new SelectableTextBlock
-            {
-                Text = fields[row].Value,
-                TextWrapping = TextWrapping.Wrap,
-                Classes = { "tool-detail-value" },
-            };
+            var value = CreateValueText(fields[row].Value, "tool-detail-value");
             Grid.SetRow(key, row);
             Grid.SetRow(value, row);
             Grid.SetColumn(value, 1);
@@ -175,6 +165,24 @@ public class StrataToolDetails : Decorator
         }
 
         return grid;
+    }
+
+    private static SelectableTextBlock CreateValueText(string text, string styleClass)
+    {
+        var block = new SelectableTextBlock
+        {
+            Text = text,
+            TextWrapping = TextWrapping.Wrap,
+            Classes = { styleClass },
+        };
+        if (StrataTextDirectionDetector.DetectLeading(text) is { } direction)
+        {
+            block.FlowDirection = direction;
+            block.TextAlignment = direction == FlowDirection.RightToLeft
+                ? TextAlignment.Right
+                : TextAlignment.Left;
+        }
+        return block;
     }
 
     /// <summary>

@@ -1256,7 +1256,11 @@ public partial class StrataMarkdown : ContentControl
     {
         var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * 1.52, TextWrapping.Wrap);
         textBlock.Classes.Add("strata-md-paragraph");
-        var border = new Border { Child = WrapWithCodeLayer(textBlock) };
+        var border = new Border
+        {
+            Child = WrapWithCodeLayer(textBlock),
+            FlowDirection = textBlock.FlowDirection,
+        };
         border.Classes.Add("strata-md-blockquote");
         return border;
     }
@@ -1293,6 +1297,13 @@ public partial class StrataMarkdown : ContentControl
         textBlock.FlowDirection = resolvedDirection;
         textBlock.TextAlignment = isRtl ? TextAlignment.Right : TextAlignment.Left;
         textBlock.Padding = isRtl ? RtlTextPadding : ZeroThickness;
+
+        if (textBlock.Parent is InlineCodeLayer layer)
+        {
+            layer.FlowDirection = resolvedDirection;
+            if (layer.Parent is Border quote && quote.Classes.Contains("strata-md-blockquote"))
+                quote.FlowDirection = resolvedDirection;
+        }
     }
 
     private static string? GetRenderedDirectionSource(SelectableTextBlock textBlock)
@@ -1316,6 +1327,8 @@ public partial class StrataMarkdown : ContentControl
 
             switch (inline)
             {
+                case InlineCodeRun:
+                    break;
                 case Run run when !string.IsNullOrEmpty(run.Text):
                     source.Append(run.Text);
                     break;
@@ -1337,10 +1350,25 @@ public partial class StrataMarkdown : ContentControl
         var source = new StringBuilder(Math.Min(
             markdown.Length,
             StrataTextDirectionDetector.DefaultScanLimit));
+        StringBuilder? codeSource = null;
         for (var index = 0;
              index < markdown.Length && source.Length < StrataTextDirectionDetector.DefaultScanLimit;
              index++)
         {
+            if (markdown[index] == '`')
+            {
+                var codeEnd = markdown.IndexOf('`', index + 1);
+                if (codeEnd > index)
+                {
+                    codeSource ??= new StringBuilder();
+                    var remaining = StrataTextDirectionDetector.DefaultScanLimit - codeSource.Length;
+                    codeSource.Append(markdown, index + 1, Math.Min(codeEnd - index - 1, remaining));
+                    source.Append(' ');
+                    index = codeEnd;
+                    continue;
+                }
+            }
+
             if (markdown[index] == '[')
             {
                 var labelEnd = markdown.IndexOf(']', index + 1);
@@ -1361,7 +1389,10 @@ public partial class StrataMarkdown : ContentControl
             source.Append(markdown[index]);
         }
 
-        return source.ToString();
+        var visibleText = source.ToString();
+        return codeSource is not null && StrataTextDirectionDetector.DetectLeading(visibleText) is null
+            ? codeSource.ToString()
+            : visibleText;
     }
 
     internal static void ApplyDirectionalTextLayout(
@@ -3249,6 +3280,7 @@ public partial class StrataMarkdown : ContentControl
 
     internal string? GetLinkAtPoint(SelectableTextBlock tb, Point point)
     {
+        point -= new Vector(tb.Padding.Left, tb.Padding.Top);
         // Bidi/RTL text can map a click to an adjacent logical character, so
         // prefer the rendered link rectangles over TextLayout.HitTestPoint.
         var renderedLink = GetLinkAtRenderedPoint(tb, point);
@@ -3302,9 +3334,10 @@ public partial class StrataMarkdown : ContentControl
         // has no access to the inner TextBlock's baseline.
         //
         // Rounded corners are achieved by InlineCodeLayer.Render which draws
-        // rounded rectangles behind InlineCodeRun spans using TextLayout.HitTestTextRange,
+        // rounded rectangles behind InlineCodeRun spans using the text line's bidirectional bounds,
         // keeping Background null here to prevent the default flat-rect rendering.
-        return new InlineCodeRun($"\u2005{codeText}\u2005")
+        // Isolate code so punctuation and adjacent code spans cannot join the surrounding RTL prose.
+        return new InlineCodeRun($"\u2066\u2005{codeText}\u2005\u2069")
         {
             FontSize = fontSize,
             FontWeight = weight == default ? FontWeight.Normal : weight,
@@ -3738,6 +3771,8 @@ public partial class StrataMarkdown : ContentControl
 
             _headers = headers;
             _rows = rows;
+            FlowDirection = StrataTextDirectionDetector.DetectLeading(
+                GetVisibleMarkdownDirectionSource(string.Join(" ", headers))) ?? owner.FlowDirection;
             _grid.Children.Clear();
             _grid.RowDefinitions.Clear();
             _grid.ColumnDefinitions.Clear();
@@ -4106,7 +4141,7 @@ public partial class StrataMarkdown : ContentControl
     /// </summary>
     internal static Control WrapWithCodeLayer(SelectableTextBlock textBlock)
     {
-        return new InlineCodeLayer { Child = textBlock };
+        return new InlineCodeLayer { Child = textBlock, FlowDirection = textBlock.FlowDirection };
     }
 
     /// <summary>
@@ -4114,7 +4149,7 @@ public partial class StrataMarkdown : ContentControl
     /// <see cref="InlineCodeRun"/> spans in its child <see cref="SelectableTextBlock"/>.
     /// <para>
     /// The rounded rectangles are drawn using
-    /// <see cref="Avalonia.Media.TextFormatting.TextLayout.HitTestTextRange"/>
+    /// <see cref="TextLine.GetTextBounds"/>
     /// geometry during <see cref="Render"/>, which fires before the child
     /// paints its text. This preserves the baseline alignment that would be
     /// lost with an InlineUIContainer+Border approach.
@@ -4129,11 +4164,12 @@ public partial class StrataMarkdown : ContentControl
             if (Child is SelectableTextBlock tb && tb.Inlines is { Count: > 0 })
             {
                 var layout = tb.TextLayout;
-                // HitTestTextRange returns rects in the TextBlock's text layout
-                // coordinate space (relative to the content area, after padding).
-                // Since we're drawing in the Decorator's space, offset by
-                // the child's position + padding to map correctly.
-                var origin = tb.Bounds.Position + new Vector(tb.Padding.Left, tb.Padding.Top);
+                if (tb.TransformToVisual(this) is not { } transform)
+                    return;
+
+                // Direction changes introduce mirror transforms between the text and its host.
+                using var state = context.PushTransform(
+                    Matrix.CreateTranslation(tb.Padding.Left, tb.Padding.Top) * transform);
                 int charOffset = 0;
 
                 foreach (var inline in tb.Inlines)
@@ -4144,7 +4180,7 @@ public partial class StrataMarkdown : ContentControl
                         foreach (var rect in GetCodeRangeRects(layout, charOffset, length))
                         {
                             context.DrawRectangle(bg, null,
-                                rect.Translate(origin),
+                                rect,
                                 CodeCornerRadius, CodeCornerRadius);
                         }
                     }
@@ -4172,16 +4208,11 @@ public partial class StrataMarkdown : ContentControl
 
                 if (segmentEnd > segmentStart)
                 {
-                    var x1 = line.GetDistanceFromCharacterHit(new CharacterHit(segmentStart));
-                    var x2 = line.GetDistanceFromCharacterHit(new CharacterHit(segmentEnd));
-
-                    if (double.IsFinite(x1) && double.IsFinite(x2))
+                    foreach (var bounds in line.GetTextBounds(segmentStart, segmentEnd - segmentStart))
                     {
-                        var left = Math.Min(x1, x2);
-                        var width = Math.Abs(x2 - x1);
-
-                        if (width > 0)
-                            yield return new Rect(line.Start + left, lineY, width, line.Height);
+                        var rect = bounds.Rectangle;
+                        if (rect.Width > 0 && rect.Height > 0)
+                            yield return rect.Translate(new Vector(0, lineY));
                     }
                 }
 

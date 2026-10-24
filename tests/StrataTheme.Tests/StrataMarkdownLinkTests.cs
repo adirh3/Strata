@@ -141,7 +141,8 @@ public class StrataMarkdownLinkTests
             await Task.Delay(50);
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
 
-            var linkBounds = Assert.Single(textBlock.TextLayout.HitTestTextRange(beforeLink.Length, linkText.Length));
+            var linkBounds = Assert.Single(textBlock.TextLayout.HitTestTextRange(beforeLink.Length, linkText.Length))
+                .Translate(new Vector(textBlock.Padding.Left, textBlock.Padding.Top));
             var pointsInsideLink = new[]
             {
                 linkBounds.Center,
@@ -155,6 +156,41 @@ public class StrataMarkdownLinkTests
             }
 
             window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData(FlowDirection.LeftToRight)]
+    [InlineData(FlowDirection.RightToLeft)]
+    public async Task GetLinkAtPoint_AccountsForTheTextContentPadding(FlowDirection direction)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown();
+            var textBlock = new SelectableTextBlock
+            {
+                FlowDirection = direction,
+                TextAlignment = direction == FlowDirection.RightToLeft ? TextAlignment.Right : TextAlignment.Left,
+                FontSize = 14,
+                Padding = new Thickness(30, 12),
+                TextWrapping = TextWrapping.NoWrap,
+            };
+            markdown.AppendFormattedInlines(textBlock, "[docs](https://example.com)");
+            var window = new Window { Width = 300, Height = 100, Content = textBlock };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var bounds = Assert.Single(textBlock.TextLayout.HitTestTextRange(0, 4))
+                    .Translate(new Vector(textBlock.Padding.Left, textBlock.Padding.Top));
+
+                Assert.Equal("https://example.com", markdown.GetLinkAtPoint(textBlock, bounds.Center));
+                Assert.Null(markdown.GetLinkAtPoint(textBlock, new Point(bounds.Center.X, 1)));
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 }

@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.71" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.72" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -80,6 +80,16 @@ Markdown's renderer-only helper styles are scoped to its content tree, including
 Markdown controls, avoiding inactive style subscriptions on unrelated application controls.
 Full-screen image-viewer helpers remain available in their separate overlay; colors, themes
 and text rendering are unchanged.
+
+Markdown paragraphs, lists and quotes follow their visible prose, independently of the interface
+language; inline code and hidden link destinations do not override that direction. Table column
+order follows the headers, while each cell keeps its own text direction. Inline code is an isolated
+left-to-right fragment, with its rounded background aligned to the actual bidirectional text layout
+through wrapping and streaming. Selection and copying omit the renderer's padding and isolation marks.
+The composer and plain transcript text follow the first strong character, so a long English command
+does not flip a sentence that starts in Hebrew or Arabic. Tool field values and results also choose
+their own direction without changing the surrounding interface. Source-code presenters and terminal
+commands/output stay left-to-right in RTL layouts.
 
 Full-screen images and Mermaid diagrams support pinch-to-zoom and dragging on touch screens.
 Images offer double-tap zoom/fit and a zoom toolbar; diagrams retain double-tap-to-fit.

@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using StrataTheme.Controls;
 
 namespace StrataTheme.Tests;
@@ -34,14 +36,15 @@ public class InlineCodeRenderingTests
 
         md.AppendFormattedInlines(tb, "before `code` after");
 
-        // Should produce: Run("before "), InlineCodeRun("\u2005code\u2005"), Run(" after")
+        // Code carries padding and an LTR isolate; neither is copied.
         Assert.Equal(3, tb.Inlines.Count);
         Assert.IsType<Run>(tb.Inlines[0]);
         Assert.IsType<StrataMarkdown.InlineCodeRun>(tb.Inlines[1]);
         Assert.IsType<Run>(tb.Inlines[2]);
 
         var codeRun = (StrataMarkdown.InlineCodeRun)tb.Inlines[1];
-        Assert.Equal("\u2005code\u2005", codeRun.Text);
+        Assert.Equal("\u2066\u2005code\u2005\u2069", codeRun.Text);
+        Assert.Equal("code", StrataTextSelection.CleanSelectionText(codeRun.Text!));
     }
 
     [Fact]
@@ -159,7 +162,7 @@ public class InlineCodeRenderingTests
 
         md.AppendFormattedInlines(tb, "a `bc` d");
 
-        // "a " = 2 chars, "\u2005bc\u2005" = 4 chars, " d" = 2 chars => total 8
+        // Two padding characters and two isolation marks are part of the layout's offsets.
         int totalOffset = 0;
         foreach (var inline in tb.Inlines)
         {
@@ -170,10 +173,10 @@ public class InlineCodeRenderingTests
             };
         }
 
-        Assert.Equal(8, totalOffset);
+        Assert.Equal(10, totalOffset);
 
         var codeRun = tb.Inlines.OfType<StrataMarkdown.InlineCodeRun>().Single();
-        Assert.Equal(4, codeRun.Text!.Length);
+        Assert.Equal(6, codeRun.Text!.Length);
     }
 
     // ─── Inline code inside bold/italic (nested) ────────────────
@@ -363,6 +366,103 @@ public class InlineCodeRenderingTests
 
     // ─── ForceInlines mode (merged groups) ──────────────────────
 
+    [Theory]
+    [InlineData(FlowDirection.LeftToRight, "before `code` after", 500)]
+    [InlineData(FlowDirection.RightToLeft, "before `code` after", 500)]
+    [InlineData(FlowDirection.LeftToRight, "לפני `code` אחרי", 500)]
+    [InlineData(FlowDirection.RightToLeft, "לפני `code` אחרי", 500)]
+    [InlineData(FlowDirection.RightToLeft, "לפני `Call(value)` אחרי", 500)]
+    [InlineData(FlowDirection.RightToLeft, "before `code with enough words to wrap across several lines` after", 160)]
+    public Task InlineCodeLayer_BackgroundCoversTheRenderedCode(
+        FlowDirection hostDirection, string source, double width)
+    {
+        return _fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                Markdown = source,
+                FlowDirection = hostDirection,
+                IsInline = true,
+                StreamingRebuildThrottleMs = 0,
+            };
+            var window = new Window { Width = width, Height = 240, Content = markdown };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var textBlock = Assert.Single(markdown.GetVisualDescendants().OfType<SelectableTextBlock>());
+                var layer = Assert.IsType<StrataMarkdown.InlineCodeLayer>(textBlock.Parent);
+                var inlines = Assert.IsType<InlineCollection>(textBlock.Inlines);
+                var codeRun = Assert.Single(inlines.OfType<StrataMarkdown.InlineCodeRun>());
+                var offset = inlines.TakeWhile(inline => !ReferenceEquals(inline, codeRun))
+                    .Sum(inline => inline is Run run ? run.Text?.Length ?? 0 : Environment.NewLine.Length);
+                var transform = textBlock.TransformToVisual(layer)!.Value;
+                var expected = textBlock.TextLayout.HitTestTextRange(offset, codeRun.Text!.Length)
+                    .Select(rect => rect.Translate(new Vector(textBlock.Padding.Left, textBlock.Padding.Top))
+                        .TransformToAABB(transform))
+                    .Aggregate((left, right) => left.Union(right));
+                var drawing = new DrawingGroup();
+                using (var context = drawing.Open())
+                    layer.Render(context);
+                var actual = drawing.GetBounds();
+
+                Assert.Equal(expected.Left, actual.Left, precision: 2);
+                Assert.Equal(expected.Top, actual.Top, precision: 2);
+                Assert.Equal(expected.Right, actual.Right, precision: 2);
+                Assert.Equal(expected.Bottom, actual.Bottom, precision: 2);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData("Dictionary<string, int>")]
+    [InlineData("Call(value)")]
+    [InlineData("C:\\Projects\\Lumi (preview)")]
+    public Task InlineCode_InRtlProseKeepsItsCharacterOrderAndCopiesWithoutHelperMarks(string code)
+    {
+        return _fixture.Dispatch(() =>
+        {
+            var source = $"לפני `{code}` אחרי";
+            var markdown = new StrataMarkdown
+            {
+                Markdown = source,
+                IsInline = true,
+                StreamingRebuildThrottleMs = 0,
+            };
+            var window = new Window { Width = 600, Height = 120, Content = markdown };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var block = Assert.Single(markdown.GetVisualDescendants().OfType<SelectableTextBlock>());
+                var inlines = Assert.IsType<InlineCollection>(block.Inlines);
+                var run = Assert.Single(inlines.OfType<StrataMarkdown.InlineCodeRun>());
+                var codeStart = inlines.Text.IndexOf(code, StringComparison.Ordinal);
+                var previousX = double.NegativeInfinity;
+                for (var index = 0; index < code.Length; index++)
+                {
+                    var rect = Assert.Single(block.TextLayout.HitTestTextRange(codeStart + index, 1));
+                    Assert.True(rect.Left >= previousX, $"Code character {index} moved before its predecessor.");
+                    previousX = rect.Left;
+                }
+
+                Assert.StartsWith("\u2066", run.Text);
+                Assert.EndsWith("\u2069", run.Text);
+                var range = new StrataTextSelection.TextRange(block, 0, inlines.Text.Length);
+                Assert.Equal($"לפני {code} אחרי", range.Text);
+                Assert.Equal(source, ChatClipboardData.SelectionMarkdown([range], includeEmbeddedBlocks: false));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     [Fact]
     public void ForceInlines_AlwaysUsesRunObjects_NeverSetsTextDirectly()
     {
@@ -451,7 +551,7 @@ public class InlineCodeRenderingTests
 
         var codeRuns = tb.Inlines.OfType<StrataMarkdown.InlineCodeRun>().ToList();
         Assert.Single(codeRuns);
-        Assert.Equal("\u2005\u2005", codeRuns[0].Text);
+        Assert.Equal("\u2066\u2005\u2005\u2069", codeRuns[0].Text);
     }
 
     // ─── Regression: streaming inline code ──────────────────────
@@ -609,8 +709,8 @@ public class InlineCodeRenderingTests
 
     [Theory]
     [InlineData("Hello `world` end", new[] { 6 })]
-    [InlineData("`first` middle `second`", new[] { 0, 15 })]
-    [InlineData("a `b` c `d` e", new[] { 2, 8 })]
+    [InlineData("`first` middle `second`", new[] { 0, 17 })]
+    [InlineData("a `b` c `d` e", new[] { 2, 10 })]
     public void InlineCodeRun_CharacterStartPositions_AreCorrect(string markdown, int[] expectedStarts)
     {
         var md = new StrataMarkdown();

@@ -1347,7 +1347,8 @@ public partial class StrataChatComposer : TemplatedControl
     private void UpdateInputDirection(string? text)
     {
         if (_input is null) return;
-        var direction = StrataTextDirectionDetector.Detect(text);
+        var direction = StrataTextDirectionDetector.DetectLeading(text)
+                        ?? StrataTextDirectionDetector.Detect(text);
         var targetFlow = direction == FlowDirection.RightToLeft
             ? FlowDirection.RightToLeft
             : FlowDirection.LeftToRight;

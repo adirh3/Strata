@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using StrataTheme.Controls;
@@ -70,6 +71,47 @@ public sealed class StrataTerminalPreviewOutputTests
                 Assert.True(renderedOutput.Length <= 8_192);
                 Assert.EndsWith("final live update", renderedOutput);
                 Assert.Equal(updatedOutput, card.Output);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task RtlTerminal_KeepsItsCommandAndOutputLeftToRight()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var card = new StrataTerminalPreview
+            {
+                FlowDirection = FlowDirection.RightToLeft,
+                Command = "dotnet run --project Lumi.csproj",
+                Output = "C:\\Projects\\Lumi (preview)\nConsole.WriteLine(\"שלום\");",
+                IsExpanded = true,
+            };
+            var window = new Window { Width = 600, Height = 300 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/Controls/StrataTerminalPreview.axaml"),
+            });
+            window.Content = card;
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                card.ApplyTemplate();
+                Dispatcher.UIThread.RunJobs();
+                var body = card.GetVisualDescendants().OfType<Border>()
+                    .Single(control => control.Name == "PART_TerminalBody");
+                Assert.Equal(FlowDirection.RightToLeft, card.FlowDirection);
+                Assert.All(body.GetVisualDescendants().OfType<TextBlock>(),
+                    block => Assert.Equal(FlowDirection.LeftToRight, block.FlowDirection));
+                Assert.Equal(FlowDirection.LeftToRight, card.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(control => control.Name == "PART_CommandText").FlowDirection);
+                Assert.Equal(card.Output, card.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(control => control.Name == "PART_OutputText").Text);
             }
             finally
             {

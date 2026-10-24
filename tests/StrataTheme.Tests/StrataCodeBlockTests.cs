@@ -197,6 +197,32 @@ public class StrataCodeBlockTests
     });
 
     [Fact]
+    public Task SourceCode_StaysLeftToRightInsideAnRtlHost() => _fixture.Dispatch(() =>
+    {
+        const string source = "Console.WriteLine(\"שלום עולם\");";
+        var block = new StrataCodeBlock { Language = "csharp", Text = source };
+        var window = new Window
+        {
+            FlowDirection = FlowDirection.RightToLeft,
+            Width = 500,
+            Height = 160,
+            Content = block,
+        };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(FlowDirection.LeftToRight, Presenter(block).FlowDirection);
+            Assert.Equal(0, Presenter(block).TextLayout.TextLines[0].Start, precision: 2);
+            Assert.Equal(source, block.PresentedText);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Fact]
     public Task CarriageReturns_AreRemovedFromLineEndings() => _fixture.Dispatch(() =>
     {
         var block = Present("line1\r\nline2\r\nline3\r", "csharp");
