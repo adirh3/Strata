@@ -1,0 +1,98 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       StrataTranscriptRail
+       The transcript's scrollbar: a slim thumb that opens into a map
+       of the conversation's marks, with a preview of the nearest one.
+       ═══════════════════════════════════════════════════════════ -->
+
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type controls:StrataTranscriptRail}" TargetType="controls:StrataTranscriptRail">
+        <Setter Property="ClipToBounds" Value="False" />
+        <Setter Property="ThumbBrush" Value="{DynamicResource Brush.ScrollbarThumb}" />
+        <Setter Property="ActiveThumbBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        <Setter Property="TrackBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+        <Setter Property="MarkBrush" Value="{DynamicResource Brush.TextTertiary}" />
+        <Setter Property="VisibleMarkBrush" Value="{DynamicResource Brush.TextSecondary}" />
+        <Setter Property="FocusedMarkBrush" Value="{DynamicResource Brush.AccentDefault}" />
+        <Setter Property="Transitions">
+          <Transitions>
+            <DoubleTransition Property="Openness" Duration="0:0:0.24" Easing="CubicEaseOut" />
+          </Transitions>
+        </Setter>
+        <Setter Property="Template">
+          <ControlTemplate>
+            <!-- No background: only the strip and the preview take the pointer. -->
+            <Panel>
+              <controls:StrataTranscriptRailSurface Name="PART_Surface"
+                                                    HorizontalAlignment="Right"
+                                                    Width="44" />
+
+              <!-- The preview: the message as its bubble reads, beside the mark it belongs to. -->
+              <controls:StrataTranscriptRailPreviewLayer Name="PART_PreviewLayer">
+                <controls:StrataTranscriptRailPreviewLayer.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="AnchorY" Duration="0:0:0.13" Easing="CubicEaseOut" />
+                  </Transitions>
+                </controls:StrataTranscriptRailPreviewLayer.Transitions>
+                <Border Name="PART_Preview"
+                        Margin="0,0,42,0"
+                        MaxWidth="320"
+                        Padding="14,9,14,10"
+                        CornerRadius="14"
+                        Background="{DynamicResource Brush.ChatUserBubble}"
+                        BorderBrush="{DynamicResource Brush.GlassRimHover}"
+                        BorderThickness="1"
+                        BoxShadow="0 12 30 -6 #5C000000, 0 2 6 0 #2E000000"
+                        Opacity="0"
+                        RenderTransform="translateX(6px)"
+                        Cursor="Hand">
+                  <Border.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <StackPanel Spacing="3">
+                    <TextBlock Name="PART_PreviewText"
+                               FontSize="13"
+                               LineHeight="18"
+                               MaxLines="3"
+                               TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="DetectFromContent"
+                               Foreground="{DynamicResource Brush.ChatUserBubbleText}" />
+                    <TextBlock Name="PART_PreviewDetail"
+                               FontSize="11"
+                               IsVisible="False"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="DetectFromContent"
+                               Foreground="{DynamicResource Brush.ChatUserBubbleTextSecondary}" />
+                  </StackPanel>
+                </Border>
+              </controls:StrataTranscriptRailPreviewLayer>
+            </Panel>
+          </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover">
+          <Setter Property="ThumbBrush" Value="{DynamicResource Brush.ScrollbarThumbHover}" />
+        </Style>
+        <Style Selector="^:open">
+          <Setter Property="Openness" Value="1" />
+          <Setter Property="ThumbBrush" Value="{DynamicResource Brush.ScrollbarThumbHover}" />
+        </Style>
+        <Style Selector="^:previewing /template/ Border#PART_Preview">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="translateX(0px)" />
+        </Style>
+        <Style Selector="^:dragging /template/ Border#PART_Preview">
+          <Setter Property="Cursor" Value="Arrow" />
+        </Style>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+</Styles>

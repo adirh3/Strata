@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -69,10 +71,11 @@ public sealed class StrataTranscriptViewportChangedEventArgs : EventArgs
 /// PART_PresencePill (Border), PART_ScrollToBottomHost (Panel),
 /// PART_ScrollToBottomButton (Button – scroll-to-bottom action),
 /// PART_ScrollToBottomBackdrop (StrataBackdropBlur – optional frost, hidden by default),
-/// PART_NewContentDot (Border – pulsing badge on the scroll-to-bottom button).</para>
+/// PART_NewContentDot (Border – pulsing badge on the scroll-to-bottom button),
+/// PART_TranscriptRail (StrataTranscriptRail – the scrollbar's replacement when ShowsTranscriptRail is set).</para>
 /// <para><b>Pseudo-classes:</b> :online, :offline, :has-header, :has-presence, :scrolling,
 /// :scrolled-away, :show-scroll-to-bottom, :has-new-content, :pulse-new-content, :chrome-overlay,
-/// :header-overlay, :content-under-header, :content-under-composer.</para>
+/// :header-overlay, :content-under-header, :content-under-composer, :transcript-rail.</para>
 /// </remarks>
 public class StrataChatShell : TemplatedControl
 {
@@ -106,6 +109,8 @@ public class StrataChatShell : TemplatedControl
     private Control? _scrollContent;
     private Control? _scrollToBottomHost;
     private ScrollBar? _verticalScrollBar;
+    private ScrollContentPresenter? _scrollContentPresenter;
+    private StrataTranscriptRail? _transcriptRail;
     private double _topChromeInset;
     private double _bottomChromeInset;
 
@@ -173,6 +178,22 @@ public class StrataChatShell : TemplatedControl
     public static readonly StyledProperty<bool> ExtendsTranscriptBehindHeaderProperty =
         AvaloniaProperty.Register<StrataChatShell, bool>(nameof(ExtendsTranscriptBehindHeader));
 
+    /// <summary>
+    /// Replaces the transcript's scrollbar with <see cref="StrataTranscriptRail"/>: a slim thumb that, hovered,
+    /// maps the places <see cref="TranscriptMarksRequested"/> supplies (such as the user's messages), previews
+    /// the one nearest the pointer and lands on it when clicked (<see cref="TranscriptMarkInvoked"/>).
+    /// </summary>
+    public static readonly StyledProperty<bool> ShowsTranscriptRailProperty =
+        AvaloniaProperty.Register<StrataChatShell, bool>(nameof(ShowsTranscriptRail));
+
+    /// <summary>
+    /// How far below a floating header the reading line sits: where the rail's jumps (and a host's own)
+    /// land a place, and what the rail's thumb reads by. A host whose header frosts the transcript just
+    /// below it sets this past the frost, so a landed place is never under it.
+    /// </summary>
+    public static readonly StyledProperty<double> ReadingLineGapProperty =
+        AvaloniaProperty.Register<StrataChatShell, double>(nameof(ReadingLineGap), 8d);
+
     static StrataChatShell()
     {
         IsOnlineProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnIsOnlineChanged());
@@ -188,6 +209,9 @@ public class StrataChatShell : TemplatedControl
         });
         HeaderProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
             c.PseudoClasses.Set(":has-header", c.Header is not null));
+        ShowsTranscriptRailProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
+            c.PseudoClasses.Set(":transcript-rail", c.ShowsTranscriptRail));
+        ReadingLineGapProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.ApplyRailInsets());
         PresenceTextProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.OnPresenceTextChanged());
         IsStreamingProperty.Changed.AddClassHandler<StrataChatShell>((c, _) => c.UpdateHasNewContent());
         TranscriptProperty.Changed.AddClassHandler<StrataChatShell>((c, _) =>
@@ -224,9 +248,45 @@ public class StrataChatShell : TemplatedControl
         set => SetValue(ExtendsTranscriptBehindHeaderProperty, value);
     }
 
+    /// <inheritdoc cref="ShowsTranscriptRailProperty"/>
+    public bool ShowsTranscriptRail
+    {
+        get => GetValue(ShowsTranscriptRailProperty);
+        set => SetValue(ShowsTranscriptRailProperty, value);
+    }
+
+    /// <inheritdoc cref="ReadingLineGapProperty"/>
+    public double ReadingLineGap
+    {
+        get => GetValue(ReadingLineGapProperty);
+        set => SetValue(ReadingLineGapProperty, value);
+    }
+
+    /// <summary>The reading line's distance from the top of the transcript's viewport (see <see cref="ReadingLineGap"/>).</summary>
+    public double ReadingLineInset => _topChromeInset + Math.Max(0, ReadingLineGap);
+
     private bool OverlaysHeader => ExtendsTranscriptBehindChrome || ExtendsTranscriptBehindHeader;
     public event EventHandler<StrataTranscriptViewportChangedEventArgs>? TranscriptViewportChanged;
     public event Action? JumpToLatestRequested;
+
+    /// <summary>
+    /// Asks for the transcript's marks: the places <see cref="StrataTranscriptRail"/> maps. Raised only while
+    /// the rail is open or dragged — when it opens, and when the transcript's layout changes meanwhile.
+    /// </summary>
+    public event EventHandler<StrataTranscriptMarksRequestedEventArgs>? TranscriptMarksRequested;
+
+    /// <summary>
+    /// Raised when the reader picks a mark on the rail. A host that lands the place itself sets
+    /// <see cref="StrataTranscriptMarkInvokedEventArgs.Handled"/>; otherwise the shell scrolls the mark's
+    /// position to the reading line.
+    /// </summary>
+    public event EventHandler<StrataTranscriptMarkInvokedEventArgs>? TranscriptMarkInvoked;
+
+    /// <summary>Tells an open rail that the transcript changed, so it reads its marks again.</summary>
+    public void InvalidateTranscriptMarks() => _transcriptRail?.InvalidateMarks();
+
+    /// <summary>The rail, while the template provides one (see <see cref="ShowsTranscriptRail"/>).</summary>
+    public StrataTranscriptRail? TranscriptRail => _transcriptRail;
 
     /// <summary>
     /// True when the user is scrolled away and new content exists below (streaming or new messages).
@@ -273,6 +333,9 @@ public class StrataChatShell : TemplatedControl
         _scrollContent = e.NameScope.Find<Control>("PART_ScrollContent");
         _scrollToBottomHost = e.NameScope.Find<Control>("PART_ScrollToBottomHost");
         _verticalScrollBar = null;
+        _scrollContentPresenter = null;
+        _transcriptRail = e.NameScope.Find<StrataTranscriptRail>("PART_TranscriptRail");
+        _transcriptRail?.Attach(this, _scrollViewer);
         _topChromeInset = 0;
         _bottomChromeInset = 0;
 
@@ -290,9 +353,11 @@ public class StrataChatShell : TemplatedControl
         PseudoClasses.Set(":has-header", Header is not null);
         PseudoClasses.Set(":has-presence", !string.IsNullOrWhiteSpace(PresenceText));
         PseudoClasses.Set(":scrolled-away", !IsFollowingTail);
+        PseudoClasses.Set(":transcript-rail", ShowsTranscriptRail);
         UpdateOverlayPseudoClasses();
         UpdateScrollToBottomButtonVisibility();
         UpdateChromeInsets();
+        ApplyRailInsets();
 
         UpdateHasNewContent();
         ScheduleApplyTranscriptAlignment(forceFull: true);
@@ -480,6 +545,7 @@ public class StrataChatShell : TemplatedControl
     /// </summary>
     private void ApplyScrollBarInsets()
     {
+        ApplyRailInsets();
         if (_verticalScrollBar is not { } bar)
             return;
 
@@ -495,7 +561,83 @@ public class StrataChatShell : TemplatedControl
     private void OnTranscriptScrollTemplateApplied(object? sender, TemplateAppliedEventArgs e)
     {
         _verticalScrollBar = e.NameScope.Find<ScrollBar>("PART_VerticalScrollBar");
+        // Themes may name a plain presenter so; only a scroll presenter takes the wheel.
+        _scrollContentPresenter = e.NameScope.Find("PART_ContentPresenter") as ScrollContentPresenter;
         ApplyScrollBarInsets();
+    }
+
+    /// <summary>
+    /// Keeps the rail between floating chrome, like the scrollbar, and tells it where the reading line is.
+    /// </summary>
+    private void ApplyRailInsets()
+    {
+        if (_transcriptRail is not { } rail)
+            return;
+
+        rail.Margin = new Thickness(0, _topChromeInset, 0, _bottomChromeInset);
+        rail.ReadingInset = ReadingLineInset;
+    }
+
+    /// <summary>The marks the rail maps, in transcript order (see <see cref="TranscriptMarksRequested"/>).</summary>
+    internal IReadOnlyList<StrataTranscriptMark> CollectTranscriptMarks()
+    {
+        if (TranscriptMarksRequested is not { } handler)
+            return Array.Empty<StrataTranscriptMark>();
+
+        var args = new StrataTranscriptMarksRequestedEventArgs();
+        handler(this, args);
+        if (args.Marks.Count == 0)
+            return Array.Empty<StrataTranscriptMark>();
+
+        var marks = new List<StrataTranscriptMark>(args.Marks.Count);
+        foreach (var mark in args.Marks)
+        {
+            if (mark is not null && double.IsFinite(mark.Position))
+                marks.Add(mark);
+        }
+
+        // A stable sort: places at the same position keep the host's order.
+        return marks.OrderBy(static mark => mark.Position).ToArray();
+    }
+
+    /// <summary>The reader scrolls with the rail: like a scrollbar press, it leaves the tail.</summary>
+    internal void BeginRailScroll() => BeginUserScrollInput(leavesTail: true);
+
+    /// <summary>Lands the place the reader picked on the rail: the host's way, or by its position.</summary>
+    internal void InvokeTranscriptMark(StrataTranscriptMark mark)
+    {
+        var args = new StrataTranscriptMarkInvokedEventArgs(mark);
+        TranscriptMarkInvoked?.Invoke(this, args);
+        if (args.Handled)
+            return;
+
+        PreserveViewport();
+        ScrollToVerticalOffset(mark.Position - ReadingLineInset);
+    }
+
+    /// <summary>
+    /// Scrolls the transcript for a wheel turned over the rail, which sits outside the scroller: the event
+    /// is raised again on the scroller's presenter, so it scrolls, and is observed, exactly as over the
+    /// transcript itself.
+    /// </summary>
+    internal bool ForwardWheelToTranscript(PointerWheelEventArgs e)
+    {
+        if (_scrollContentPresenter is not { } presenter || TopLevel.GetTopLevel(presenter) is not { } root)
+            return false;
+
+        presenter.RaiseEvent(new PointerWheelEventArgs(
+            presenter,
+            e.Pointer,
+            root,
+            e.GetPosition(root),
+            e.Timestamp,
+            e.Properties,
+            e.KeyModifiers,
+            e.Delta)
+        {
+            RoutedEvent = InputElement.PointerWheelChangedEvent,
+        });
+        return true;
     }
 
     /// <summary>

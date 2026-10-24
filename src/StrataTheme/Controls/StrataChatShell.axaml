@@ -110,6 +110,15 @@
                   </Grid>
                 </Border>
 
+                <!-- Opt-in replacement for the scrollbar (ShowsTranscriptRail): a thumb that maps the
+                     transcript's marks. It shares the transcript's rows but stacks above the floating
+                     chrome, so the header's and composer's frost never covers its marks or preview;
+                     its margins keep it between them. It takes the pointer only at its edge. -->
+                <controls:StrataTranscriptRail Name="PART_TranscriptRail"
+                                               Grid.Row="1"
+                                               ZIndex="2"
+                                               IsVisible="False" />
+
                     <!-- Scroll-to-bottom floating button. It shares the transcript's row, and in
                          :chrome-overlay it floats above the composer and any glass behind it. -->
                     <Panel Name="PART_ScrollToBottomHost"
@@ -229,10 +238,18 @@
           <Setter Property="Grid.RowSpan" Value="3" />
           <Setter Property="ZIndex" Value="2" />
         </Style>
+        <Style Selector="^:chrome-overlay /template/ controls|StrataTranscriptRail#PART_TranscriptRail">
+          <Setter Property="Grid.Row" Value="0" />
+          <Setter Property="Grid.RowSpan" Value="3" />
+        </Style>
 
         <!-- Header-only canvas: the transcript runs under the floating header, while the composer keeps
              its own docked row, so only the header needs a translucent material. -->
         <Style Selector="^:header-overlay /template/ Border#PART_TranscriptHost">
+          <Setter Property="Grid.Row" Value="0" />
+          <Setter Property="Grid.RowSpan" Value="2" />
+        </Style>
+        <Style Selector="^:header-overlay /template/ controls|StrataTranscriptRail#PART_TranscriptRail">
           <Setter Property="Grid.Row" Value="0" />
           <Setter Property="Grid.RowSpan" Value="2" />
         </Style>
@@ -242,6 +259,14 @@
         </Style>
 
         <Style Selector="^:has-header /template/ DockPanel#PART_HeaderRow">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- The rail takes the scrollbar's place; the transcript still scrolls. -->
+        <Style Selector="^:transcript-rail /template/ ScrollViewer#PART_TranscriptScroll">
+          <Setter Property="VerticalScrollBarVisibility" Value="Hidden" />
+        </Style>
+        <Style Selector="^:transcript-rail /template/ controls|StrataTranscriptRail#PART_TranscriptRail">
           <Setter Property="IsVisible" Value="True" />
         </Style>
         <Style Selector="^:has-header /template/ Border#PART_HeaderChrome">

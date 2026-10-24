@@ -608,6 +608,16 @@ mode, content brought into view and keyboard pages land clear of the floating ch
 scrollbar keeps clear of it too, and hosts that scroll to content by offset can read
 `TopChromeInset`.
 
+Set `ShowsTranscriptRail` to replace the transcript's scrollbar with `StrataTranscriptRail`
+(`:transcript-rail`): a slim thumb at rest that, hovered, opens into marks for the places a host
+supplies through `TranscriptMarksRequested` (raised only while the rail is open; call
+`InvalidateTranscriptMarks` when they move), previews the one nearest the pointer beside the rail,
+and lands it when clicked: through `TranscriptMarkInvoked` when the host handles it, otherwise by
+scrolling it to the reading line, `ReadingLineGap` below a floating header (`ReadingLineInset`).
+Hosts whose header frosts the content beneath it set the gap past the frost. Dragging the thumb
+previews the place being passed, the wheel over the rail scrolls the transcript, and the rail
+stacks above the floating chrome, so a frosted header or composer never covers it.
+
 `StrataPresence.SplitToIsland(point, followFieldHeight: false)` anchors a companion light
 to both coordinates of a floating surface, such as a translucent composer. The existing
 one-argument overload keeps desktop side islands level with the main presence field.
