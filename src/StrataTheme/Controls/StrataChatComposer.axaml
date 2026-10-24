@@ -166,9 +166,8 @@
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Disabled"
                               IsScrollChainingEnabled="False">
-                <WrapPanel Name="PART_ChipsRow"
-                           Orientation="Horizontal"
-                           Margin="12,12,12,0">
+                <controls:ComposerChipsPanel Name="PART_ChipsRow"
+                                             Margin="12,12,12,0">
                   <!-- Agent chip (hidden via :has-agent pseudo-class) -->
                   <Border Name="PART_AgentChip"
                           Classes="composer-chip"
@@ -189,14 +188,16 @@
                                  Foreground="{DynamicResource Brush.TextPrimary}"
                                  TextTrimming="CharacterEllipsis"
                                  VerticalAlignment="Center" />
-                      <Button Name="PART_AgentRemoveButton" Grid.Column="2"
-                              Classes="subtle chip-remove"
-                              AutomationProperties.Name="Remove agent"
-                              VerticalAlignment="Center"
-                              Cursor="Hand">
-                        <TextBlock Name="PART_AgentRemoveGlyph" Text="×"
-                                   Classes="chip-remove-icon" />
-                      </Button>
+                      <Panel Grid.Column="2" Classes="chip-remove-slot">
+                        <Button Name="PART_AgentRemoveButton"
+                                Classes="subtle chip-remove"
+                                AutomationProperties.Name="Remove agent"
+                                VerticalAlignment="Center"
+                                Cursor="Hand">
+                          <TextBlock Name="PART_AgentRemoveGlyph" Text="×"
+                                     Classes="chip-remove-icon" />
+                        </Button>
+                      </Panel>
                     </Grid>
                   </Border>
                   <!-- Project chip (hidden via :has-project pseudo-class) -->
@@ -219,18 +220,20 @@
                                  Foreground="{DynamicResource Brush.TextPrimary}"
                                  TextTrimming="CharacterEllipsis"
                                  VerticalAlignment="Center" />
-                      <Button Name="PART_ProjectRemoveButton" Grid.Column="2"
-                              Classes="subtle chip-remove"
-                              AutomationProperties.Name="Remove project"
-                              VerticalAlignment="Center"
-                              Cursor="Hand">
-                        <PathIcon Width="8" Height="8" Foreground="{DynamicResource Brush.TextTertiary}"
-                                  Data="{StaticResource Composer.Icon.Remove}" />
-                      </Button>
+                      <Panel Grid.Column="2" Classes="chip-remove-slot">
+                        <Button Name="PART_ProjectRemoveButton"
+                                Classes="subtle chip-remove"
+                                AutomationProperties.Name="Remove project"
+                                VerticalAlignment="Center"
+                                Cursor="Hand">
+                          <PathIcon Width="8" Height="8" Foreground="{DynamicResource Brush.TextTertiary}"
+                                    Data="{StaticResource Composer.Icon.Remove}" />
+                        </Button>
+                      </Panel>
                     </Grid>
                   </Border>
                   <!-- Skill and chat chips are appended here programmatically -->
-                </WrapPanel>
+                </controls:ComposerChipsPanel>
                 </ScrollViewer>
 
                 <!-- Inline attachment chips (above the text input) -->
@@ -1130,7 +1133,7 @@
         </Style>
 
         <!-- Hide chips row when there is nothing to carry -->
-        <Style Selector="^:not(:has-chips) /template/ WrapPanel#PART_ChipsRow">
+        <Style Selector="^:not(:has-chips) /template/ controls|ComposerChipsPanel#PART_ChipsRow">
           <Setter Property="IsVisible" Value="False" />
         </Style>
 
@@ -1415,20 +1418,42 @@
     <Setter Property="CornerRadius" Value="10" />
   </Style>
   <!-- Desktop: a softer radius sitting within the card's corner, and the × waits until the pointer or the
-       keyboard reaches its chip, so a row of chips reads as content, not controls. -->
+       keyboard reaches its chip, so a row of chips reads as content, not controls. Until then its slot is shut
+       and the chip ends just after its name; then the slot opens to the button's 18 px and the chip widens to
+       uncover it. The chip clips what lies past its edge, and the chips row keeps 18 px free at the end of each
+       row, so a chip widens in place. -->
   <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip">
     <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="ClipToBounds" Value="True" />
   </Style>
   <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip Border.chip-tile">
     <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile) controls|ComposerChipsPanel">
+    <Setter Property="RevealWidth" Value="18" />
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip Panel.chip-remove-slot">
+    <Setter Property="Width" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Width" Duration="0:0:0.18" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataChatComposer.motion-disabled Border.composer-chip Panel.chip-remove-slot">
+    <Setter Property="Transitions" Value="{x:Null}" />
   </Style>
   <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip Button.chip-remove">
     <Setter Property="Opacity" Value="0" />
     <Setter Property="Transitions">
       <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+        <DoubleTransition Property="Opacity" Duration="0:0:0.14" />
       </Transitions>
     </Setter>
+  </Style>
+  <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip:pointerover Panel.chip-remove-slot,
+                   controls|StrataChatComposer:not(.mobile) Border.composer-chip:focus-within Panel.chip-remove-slot">
+    <Setter Property="Width" Value="18" />
   </Style>
   <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip:pointerover Button.chip-remove,
                    controls|StrataChatComposer:not(.mobile) Border.composer-chip:focus-within Button.chip-remove">
@@ -1466,6 +1491,8 @@
     <Setter Property="MaxWidth" Value="220" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
+  <!-- Held at its slot's start: while the slot is narrower than the button (shut, or opening), the button runs
+       past the chip's edge, which clips it, instead of over the name. -->
   <Style Selector="Border.composer-chip Button.chip-remove">
     <Setter Property="Width" Value="18" />
     <Setter Property="Height" Value="18" />
@@ -1473,6 +1500,7 @@
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="Padding" Value="0" />
     <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
@@ -1728,7 +1756,7 @@
     <Setter Property="MinHeight" Value="48" />
     <Setter Property="CornerRadius" Value="24" />
   </Style>
-  <Style Selector="controls|StrataChatComposer.mobile /template/ WrapPanel#PART_ChipsRow">
+  <Style Selector="controls|StrataChatComposer.mobile /template/ controls|ComposerChipsPanel#PART_ChipsRow">
     <Setter Property="Margin" Value="16,12,16,0" />
   </Style>
 

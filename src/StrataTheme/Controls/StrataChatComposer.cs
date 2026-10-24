@@ -125,7 +125,7 @@ public class FileSelectedEventArgs : EventArgs
 /// PART_AddButton (Button), PART_AddPopup (Popup), PART_AddPanel (Border), PART_AddMenuList (StackPanel),
 /// PART_ModelPicker (StrataModelPicker),
 /// PART_ActionA (Button), PART_ActionB (Button), PART_ActionC (Button),
-/// PART_ChipsRow (WrapPanel), PART_AgentChip (Border),
+/// PART_ChipsRow (Panel), PART_AgentChip (Border),
 /// PART_AgentRemoveButton (Button), PART_ProjectChip (Border),
 /// PART_ProjectRemoveButton (Button), PART_FocusLine (Border), PART_FocusSweep (Border), PART_AutoCompletePopup (Popup),
 /// PART_AutoCompletePanel (StackPanel), PART_McpPanel (Panel) hosting PART_ConnectorPicker (StrataConnectorPicker),
@@ -162,7 +162,7 @@ public partial class StrataChatComposer : TemplatedControl
     private bool _engagedHold;
     private bool _engagedHoldCheckQueued;
     private Button? _sendButton;
-    private WrapPanel? _chipsRow;
+    private Panel? _chipsRow;
     private Popup? _autoCompletePopup;
     private StackPanel? _autoCompletePanel;
     private ScrollViewer? _autoCompleteScrollViewer;
@@ -1132,7 +1132,7 @@ public partial class StrataChatComposer : TemplatedControl
             RaiseEvent(new RoutedEventArgs(ProjectRemovedEvent));
             CommandHelper.Execute(ProjectRemovedCommand, ProjectRemovedCommandParameter);
         });
-        _chipsRow = e.NameScope.Find<WrapPanel>("PART_ChipsRow");
+        _chipsRow = e.NameScope.Find<Panel>("PART_ChipsRow");
         if (_skillPicker is not null)
             _skillPicker.ItemToggled -= OnSkillPickerToggled;
         if (_chatPicker is not null)
@@ -3488,13 +3488,16 @@ public partial class StrataChatComposer : TemplatedControl
         };
         var surface = new Border { IsHitTestVisible = false };
         surface.Classes.Add("composer-chip-surface");
+        // The button's place, which on the desktop opens only while the chip is pointed at or focused.
+        var removeSlot = new Panel { Children = { removeBtn } };
+        removeSlot.Classes.Add("chip-remove-slot");
         Grid.SetColumnSpan(surface, 3);
         Grid.SetColumn(nameText, 1);
-        Grid.SetColumn(removeBtn, 2);
+        Grid.SetColumn(removeSlot, 2);
         panel.Children.Add(surface);
         panel.Children.Add(tile);
         panel.Children.Add(nameText);
-        panel.Children.Add(removeBtn);
+        panel.Children.Add(removeSlot);
 
         var border = new Border { Child = panel };
         border.Classes.Add("composer-chip");

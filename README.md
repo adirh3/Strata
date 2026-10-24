@@ -539,6 +539,13 @@ Typing `#` lists matching chats before files. A picker hides while its host offe
 (`AvailableSkills` or `AvailableChats` is null) and on `Classes="mobile"`; an empty list opens on an
 empty state instead. Below 600 px wide the Skills pill shrinks to its icon.
 
+What a message carries (agent, project, skills and chats) shows as chips above the text. On the
+desktop a chip keeps no room for its remove button: it ends just after its name and, while the
+pointer or the keyboard is on it, widens by the button in 180 ms (at once with `motion-disabled`) to
+show it. The chips row breaks its rows by the chips' resting widths and keeps that room free at the
+end of each, so a chip widens in place instead of jumping to the next row. Touch chips
+(`Classes="mobile"`) always show their remove button.
+
 ## Mobile composer
 
 `StrataChatComposer` with `Classes="mobile"` supports an optional `IsCompact` presentation.
