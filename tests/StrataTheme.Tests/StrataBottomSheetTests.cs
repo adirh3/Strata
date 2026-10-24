@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
@@ -131,6 +132,13 @@ public sealed class StrataBottomSheetTests
     }
 
     [Fact]
+    public void SheetMotionHasTimeToSettleInsteadOfSnapping()
+    {
+        Assert.Equal(TimeSpan.FromMilliseconds(300), StrataBottomSheet.OpenDuration);
+        Assert.Equal(TimeSpan.FromMilliseconds(240), StrataBottomSheet.CloseDuration);
+    }
+
+    [Fact]
     public async Task HeaderCloseRespectsDismissabilityAndPresentationLifetime()
     {
         await _fixture.Dispatch(async () =>
@@ -153,7 +161,7 @@ public sealed class StrataBottomSheetTests
                 window.Show();
                 bottomSheet.ApplyTemplate();
                 Dispatcher.UIThread.RunJobs();
-                await Task.Delay(260);
+                await Task.Delay(StrataBottomSheet.OpenDuration + TimeSpan.FromMilliseconds(60));
                 var close = bottomSheet.GetVisualDescendants().OfType<Button>()
                     .Single(button => button.Name == "PART_CloseButton");
                 var description = bottomSheet.GetVisualDescendants().OfType<TextBlock>()
@@ -175,14 +183,14 @@ public sealed class StrataBottomSheetTests
                 Assert.False(bottomSheet.IsOpen);
                 Assert.True(bottomSheet.IsPresented);
                 Assert.Equal(1, closedCount);
-                await Task.Delay(200);
+                await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
                 Assert.False(bottomSheet.IsPresented);
 
                 bottomSheet.IsOpen = true;
                 await Task.Delay(60);
                 bottomSheet.Close();
                 bottomSheet.IsOpen = true;
-                await Task.Delay(260);
+                await Task.Delay(StrataBottomSheet.OpenDuration + TimeSpan.FromMilliseconds(60));
                 Assert.True(bottomSheet.IsPresented);
             }
             finally
@@ -367,6 +375,56 @@ public sealed class StrataBottomSheetTests
     }
 
     [Fact]
+    public async Task ClosingBeforeTheFirstFrameDoesNotRevealThePayloadAndCanReopen()
+    {
+        await _fixture.Dispatch(async () =>
+        {
+            var bottomSheet = new StrataBottomSheet
+            {
+                Title = "Projects",
+                Content = new TextBlock { Text = "Sheet content" }
+            };
+            var window = new Window { Width = 320, Height = 480 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+            });
+            window.Content = bottomSheet;
+            try
+            {
+                window.Show();
+                bottomSheet.ApplyTemplate();
+                Dispatcher.UIThread.RunJobs();
+                bottomSheet.IsOpen = true;
+                bottomSheet.Close();
+
+                Assert.True(bottomSheet.IsPresented);
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                Dispatcher.UIThread.RunJobs();
+                var motion = bottomSheet.GetVisualDescendants().OfType<Border>()
+                    .Single(border => border.Name == "PART_SheetMotion");
+                Assert.Equal(0, motion.Opacity);
+                await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
+                Assert.False(bottomSheet.IsPresented);
+                Assert.False(motion.IsVisible);
+
+                bottomSheet.IsOpen = true;
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                await Task.Delay(StrataBottomSheet.OpenDuration + TimeSpan.FromMilliseconds(60));
+                Assert.True(bottomSheet.IsPresented);
+                Assert.True(motion.IsVisible);
+                Assert.Equal(1, motion.Opacity);
+                Assert.Null(motion.Transitions);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public async Task ProductionThemeDragAndDismissContinueFromTheFingerWithoutSnapping()
     {
         await _fixture.Dispatch(async () =>
@@ -390,7 +448,7 @@ public sealed class StrataBottomSheetTests
             window.Show();
             bottomSheet.ApplyTemplate();
             Dispatcher.UIThread.RunJobs();
-            await Task.Delay(260);
+            await Task.Delay(StrataBottomSheet.OpenDuration + TimeSpan.FromMilliseconds(60));
             var (sheetPart, handlePart) = FindParts(bottomSheet);
             var motionPart = bottomSheet.GetVisualDescendants()
                 .OfType<Border>()
@@ -408,7 +466,7 @@ public sealed class StrataBottomSheetTests
             Release(handlePart, bottomSheet, pointer, new Point(10, 180), 2_000);
             Assert.False(bottomSheet.IsOpen);
             Assert.Equal(80, motionPart.RenderTransform!.Value.M32, precision: 2);
-            await Task.Delay(200);
+            await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
             Assert.Equal(0, motionPart.Opacity);
             window.Close();
         });

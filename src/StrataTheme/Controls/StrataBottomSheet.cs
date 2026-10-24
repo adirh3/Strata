@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -11,6 +12,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
+using Avalonia.Rendering.Composition;
+using Avalonia.Rendering.Composition.Animations;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -43,6 +46,8 @@ public class StrataBottomSheet : ContentControl
     /// <summary>Drag distance past which releasing dismisses instead of springing back.</summary>
     private const double DismissThreshold = 72;
     private const double DismissVelocity = 900;
+    internal static readonly TimeSpan OpenDuration = TimeSpan.FromMilliseconds(300);
+    internal static readonly TimeSpan CloseDuration = TimeSpan.FromMilliseconds(240);
 
     private Border? _scrim;
     private Border? _sheet;
@@ -59,6 +64,13 @@ public class StrataBottomSheet : ContentControl
         Easing = new CubicEaseOut()
     };
     private readonly TranslateTransform _dragTransform = new();
+    private CompositionVisual? _motionVisual;
+    private CompositionVisual? _scrimVisual;
+    private long _animationStarted;
+    private double _animationFrom;
+    private double _animationTo;
+    private TimeSpan _animationDuration;
+    private Easing _animationEasing = new CubicEaseOut();
     private bool _isPresented;
 
     private double _dragStartY;
@@ -178,6 +190,7 @@ public class StrataBottomSheet : ContentControl
         EndDrag();
         _closeTimer?.Stop();
         _motionVersion++;
+        StopComposition();
 
         if (_scrim is not null)
             _scrim.PointerPressed -= OnScrimPressed;
@@ -254,29 +267,26 @@ public class StrataBottomSheet : ContentControl
         if (IsOpen)
         {
             var wasPresented = _contentPresenter.IsVisible;
+            if (!wasPresented)
+            {
+                _motion.Transitions = null;
+                _motion.RenderTransform = TransformOperations.Identity;
+                _motion.Opacity = 0;
+                if (_scrim is not null)
+                    _scrim.Opacity = 0;
+            }
             _motion.IsVisible = true;
             _contentPresenter.IsVisible = true;
             _contentPresenter.IsHitTestVisible = true;
             SetPresented(true);
 
-            // Measure the newly mounted payload before starting; a fixed 900px entry skips most
-            // of a short sheet's animation and a close must retain its content through the exit.
+            // Measure the payload once, then let the compositor move it independently of UI work.
             Dispatcher.UIThread.Post(() =>
             {
                 if (version != _motionVersion || !IsOpen || !this.IsAttachedToVisualTree())
                     return;
 
-                if (!wasPresented)
-                {
-                    _motion.Transitions = null;
-                    _motion.RenderTransform = ClosedTransform();
-                    _motion.Opacity = 0;
-                }
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (version == _motionVersion && IsOpen)
-                        AnimateMotion(open: true);
-                }, DispatcherPriority.Render);
+                AnimateMotion(open: true, initial: !wasPresented || _motion.Opacity == 0);
             }, DispatcherPriority.Loaded);
             return;
         }
@@ -284,54 +294,173 @@ public class StrataBottomSheet : ContentControl
         _contentPresenter.IsHitTestVisible = false;
         if (!_contentPresenter.IsVisible || !this.IsAttachedToVisualTree())
         {
-            _motion.Transitions = null;
-            _motion.RenderTransform = ClosedTransform();
-            _motion.Opacity = 0;
-            _motion.IsVisible = false;
-            _contentPresenter.IsVisible = false;
-            SetPresented(false);
+            FinishClose();
+            return;
+        }
+
+        // A cancelled entrance stays invisible, but native overlays still wait for dismissal.
+        if (_motionVisual is null && _motion.Opacity == 0)
+        {
+            StartCloseTimer();
             return;
         }
 
         AnimateMotion(open: false);
-        _closeTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(160) };
-        _closeTimer.Tick -= OnCloseAnimationFinished;
-        _closeTimer.Tick += OnCloseAnimationFinished;
-        _closeTimer.Start();
     }
 
-    private TransformOperations ClosedTransform()
-    {
-        var distance = Math.Max(32, (_sheet?.Bounds.Height ?? 0) + SheetMargin.Bottom);
-        return TranslationY(distance);
-    }
+    private double ClosedOffset() => Math.Max(32, (_sheet?.Bounds.Height ?? 0) + SheetMargin.Bottom);
+
+    private TransformOperations ClosedTransform() => TranslationY(ClosedOffset());
 
     private static TransformOperations TranslationY(double offset) =>
         TransformOperations.Parse(FormattableString.Invariant($"translateY({offset}px)"));
 
-    private void AnimateMotion(bool open)
+    private void AnimateMotion(bool open, bool initial = false)
     {
         if (_motion is null)
             return;
 
-        var duration = TimeSpan.FromMilliseconds(open ? 220 : 160);
+        var version = ++_motionVersion;
+        var duration = open ? OpenDuration : CloseDuration;
+        var easing = open ? (Easing)new CubicEaseOut() : new CubicEaseInOut();
+        var destination = open ? 0 : ClosedOffset();
+        if (ElementComposition.GetElementVisual(_motion) is { } visual)
+        {
+            visual.Compositor.RequestCompositionUpdate(() =>
+            {
+                if (version != _motionVersion || !this.IsAttachedToVisualTree())
+                    return;
+
+                var continuing = ReferenceEquals(_motionVisual, visual);
+                var from = initial ? ClosedOffset() : CurrentOffset();
+                _motionVisual = visual;
+                _motion.Transitions = null;
+                _motion.RenderTransform = TransformOperations.Identity;
+                _motion.Opacity = 1;
+
+                var slide = visual.Compositor.CreateStableVector3DKeyFrameAnimation();
+                slide.Duration = duration;
+                slide.StopBehavior = AnimationStopBehavior.SetToFinalValue;
+                if (continuing && !initial)
+                    slide.InsertExpressionKeyFrame(0, "this.StartingValue", easing);
+                else
+                    slide.InsertKeyFrame(0, new Vector3D(0, from, 0), easing);
+                slide.InsertKeyFrame(1, new Vector3D(0, destination, 0), easing);
+                visual.Translation = default;
+                visual.StartAnimation(nameof(CompositionVisual.Translation), slide);
+                AnimateOpacity(visual, open, initial ? 0 : 1, continuing && !initial, duration, easing);
+
+                if (_scrim is not null && ElementComposition.GetElementVisual(_scrim) is { } scrim)
+                {
+                    var resumeScrim = ReferenceEquals(_scrimVisual, scrim);
+                    _scrimVisual = scrim;
+                    _scrim.Opacity = 1;
+                    AnimateOpacity(scrim, open, initial ? 0 : 1, resumeScrim && !initial, duration, easing);
+                }
+
+                _animationFrom = from;
+                _animationTo = destination;
+                _animationStarted = Stopwatch.GetTimestamp();
+                _animationDuration = duration;
+                _animationEasing = easing;
+                if (!open)
+                    StartCloseTimer();
+            });
+            return;
+        }
+
+        // Custom hosts without a composition visual retain the transition-based fallback.
+        if (initial)
+        {
+            _motion.Transitions = null;
+            _motion.RenderTransform = ClosedTransform();
+            _motion.Opacity = 0;
+        }
         _fadeTransition.Duration = duration;
         _slideTransition.Duration = duration;
+        _fadeTransition.Easing = easing;
+        _slideTransition.Easing = easing;
         _motion.Transitions ??= new Transitions { _fadeTransition, _slideTransition };
         _motion.RenderTransform = open ? TransformOperations.Identity : ClosedTransform();
         _motion.Opacity = open ? 1 : 0;
+        if (_scrim is not null)
+            _scrim.Opacity = open ? 1 : 0;
+        if (!open)
+            StartCloseTimer();
+    }
+
+    private static void AnimateOpacity(
+        CompositionVisual visual, bool open, float from, bool continuing, TimeSpan duration, Easing easing)
+    {
+        var fade = visual.Compositor.CreateStableScalarKeyFrameAnimation();
+        fade.Duration = duration;
+        fade.StopBehavior = AnimationStopBehavior.SetToFinalValue;
+        if (continuing)
+            fade.InsertExpressionKeyFrame(0, "this.StartingValue", easing);
+        else
+            fade.InsertKeyFrame(0, from, easing);
+        fade.InsertKeyFrame(1, open ? 1 : 0, easing);
+        visual.Opacity = 1;
+        visual.StartAnimation(nameof(CompositionVisual.Opacity), fade);
+    }
+
+    private double CurrentOffset()
+    {
+        if (_animationStarted == 0)
+            return _motion?.RenderTransform?.Value.M32 ?? 0;
+        var progress = Math.Clamp(
+            Stopwatch.GetElapsedTime(_animationStarted).TotalMilliseconds / _animationDuration.TotalMilliseconds, 0, 1);
+        return _animationFrom + (_animationTo - _animationFrom) * _animationEasing.Ease(progress);
+    }
+
+    private void StopComposition()
+    {
+        if (_motionVisual is { } motion)
+        {
+            motion.StopAnimation(nameof(CompositionVisual.Translation));
+            motion.StopAnimation(nameof(CompositionVisual.Opacity));
+            motion.Translation = default;
+            motion.Opacity = (float)(_motion?.Opacity ?? 0);
+            _motionVisual = null;
+        }
+        if (_scrimVisual is { } scrim)
+        {
+            scrim.StopAnimation(nameof(CompositionVisual.Opacity));
+            scrim.Opacity = (float)(_scrim?.Opacity ?? 0);
+            _scrimVisual = null;
+        }
+        _animationStarted = 0;
+    }
+
+    private void StartCloseTimer()
+    {
+        _closeTimer ??= new DispatcherTimer { Interval = CloseDuration };
+        _closeTimer.Tick -= OnCloseAnimationFinished;
+        _closeTimer.Tick += OnCloseAnimationFinished;
+        _closeTimer.Start();
     }
 
     private void OnCloseAnimationFinished(object? sender, EventArgs e)
     {
         _closeTimer?.Stop();
         if (!IsOpen && _contentPresenter is not null)
-        {
+            FinishClose();
+    }
+
+    private void FinishClose()
+    {
+        if (_contentPresenter is not null)
             _contentPresenter.IsVisible = false;
-            if (_motion is not null)
-                _motion.IsVisible = false;
-            SetPresented(false);
+        if (_motion is not null)
+        {
+            _motion.Transitions = null;
+            _motion.Opacity = 0;
+            _motion.IsVisible = false;
         }
+        if (_scrim is not null)
+            _scrim.Opacity = 0;
+        StopComposition();
+        SetPresented(false);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -345,15 +474,7 @@ public class StrataBottomSheet : ContentControl
         _motionVersion++;
         _closeTimer?.Stop();
         EndDrag();
-        if (_contentPresenter is not null)
-            _contentPresenter.IsVisible = false;
-        if (_motion is not null)
-        {
-            _motion.Transitions = null;
-            _motion.Opacity = 0;
-            _motion.IsVisible = false;
-        }
-        SetPresented(false);
+        FinishClose();
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -385,7 +506,9 @@ public class StrataBottomSheet : ContentControl
             && (ReferenceEquals(source, close) || source.GetVisualAncestors().Contains(close)))
             return;
 
-        var offset = _motion?.RenderTransform?.Value.M32 ?? 0;
+        var offset = CurrentOffset();
+        _motionVersion++;
+        StopComposition();
         if (_motion is not null)
         {
             _motion.Transitions = null;
