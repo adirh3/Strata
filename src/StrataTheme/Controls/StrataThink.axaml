@@ -200,6 +200,10 @@
         <Style Selector="^:preview /template/ ContentPresenter#PART_PreviewHost">
           <Setter Property="IsVisible" Value="True" />
         </Style>
+        <Style Selector="^:has-header-command /template/ controls|StrataLineIcon#PART_ExpandIcon">
+          <Setter Property="Data" Value="{x:Static controls:StrataIcons.ChevronRight}" />
+          <Setter Property="Opacity" Value="1" />
+        </Style>
 
         <!-- ─── Hover: the glass firms, the rim brightens and the chevron appears ─── -->
         <Style Selector="^:pointerover:not(:expanded):not(:activity) /template/ Border#PART_Pill">
@@ -230,7 +234,7 @@
           <Setter Property="FontSize" Value="13" />
           <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         </Style>
-        <Style Selector="^:expanded /template/ controls|StrataLineIcon#PART_ExpandIcon">
+        <Style Selector="^:expanded:not(:has-header-command) /template/ controls|StrataLineIcon#PART_ExpandIcon">
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="rotate(180deg)" />
         </Style>

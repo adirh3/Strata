@@ -147,6 +147,10 @@
         <Style Selector="^:has-detail /template/ TextBlock#PART_DetailText">
           <Setter Property="IsVisible" Value="True" />
         </Style>
+        <Style Selector="^:has-header-command /template/ controls|StrataLineIcon#PART_ExpandIcon">
+          <Setter Property="Data" Value="{x:Static controls:StrataIcons.ChevronRight}" />
+          <Setter Property="Opacity" Value="1" />
+        </Style>
 
         <!-- ─── Hover and open: the row's header tints; a row with details shows its chevron ─── -->
         <Style Selector="^ /template/ Border#PART_Header:pointerover">
@@ -159,7 +163,7 @@
           <Setter Property="Opacity" Value="1" />
         </Style>
         <!-- Open: only a row with something to show opens; the chevron turns and the well reveals it. -->
-        <Style Selector="^:expanded:has-params /template/ controls|StrataLineIcon#PART_ExpandIcon, ^:expanded:has-info /template/ controls|StrataLineIcon#PART_ExpandIcon">
+        <Style Selector="^:expanded:has-params:not(:has-header-command) /template/ controls|StrataLineIcon#PART_ExpandIcon, ^:expanded:has-info:not(:has-header-command) /template/ controls|StrataLineIcon#PART_ExpandIcon">
           <Setter Property="Opacity" Value="1" />
           <Setter Property="RenderTransform" Value="rotate(180deg)" />
         </Style>

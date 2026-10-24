@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace StrataTheme.Controls;
 
@@ -44,7 +45,7 @@ public enum StrataAiToolCallStatus
 /// PART_Icon (StrataLineIcon), PART_StatusText (TextBlock), PART_Detail (Border),
 /// PART_Details (<see cref="StrataToolDetails"/>).</para>
 /// <para><b>Pseudo-classes:</b> :expanded, :inprogress, :completed, :failed, :stopped, :has-params, :has-info,
-/// :has-duration, :has-icon, :has-detail.</para>
+/// :has-duration, :has-icon, :has-detail, :has-header-command.</para>
 /// </remarks>
 public class StrataAiToolCall : TemplatedControl
 {
@@ -100,6 +101,16 @@ public class StrataAiToolCall : TemplatedControl
     public static readonly StyledProperty<object?> HeaderActionProperty =
         AvaloniaProperty.Register<StrataAiToolCall, object?>(nameof(HeaderAction));
 
+    /// <summary>Optional header action instead of expanding the tool details.</summary>
+    public static readonly StyledProperty<ICommand?> HeaderCommandProperty =
+        AvaloniaProperty.Register<StrataAiToolCall, ICommand?>(nameof(HeaderCommand));
+
+    public ICommand? HeaderCommand
+    {
+        get => GetValue(HeaderCommandProperty);
+        set => SetValue(HeaderCommandProperty, value);
+    }
+
     /// <summary>Whether the detail pane (parameters, info, duration) is visible.</summary>
     public static readonly StyledProperty<bool> IsExpandedProperty =
         AvaloniaProperty.Register<StrataAiToolCall, bool>(
@@ -137,6 +148,7 @@ public class StrataAiToolCall : TemplatedControl
         DurationMsProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         IconProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         DetailProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
+        HeaderCommandProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.UpdateState());
         RunningSinceProperty.Changed.AddClassHandler<StrataAiToolCall>((control, _) => control.OnElapsedTick());
     }
 
@@ -299,7 +311,7 @@ public class StrataAiToolCall : TemplatedControl
     {
         if (pointerEvent.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            IsExpanded = !IsExpanded;
+            ActivateHeader();
             pointerEvent.Handled = true;
         }
     }
@@ -334,7 +346,7 @@ public class StrataAiToolCall : TemplatedControl
 
         if (e.Key is Key.Enter or Key.Space)
         {
-            IsExpanded = !IsExpanded;
+            ActivateHeader();
             e.Handled = true;
         }
         else if (e.Key == Key.Escape && IsExpanded)
@@ -342,6 +354,18 @@ public class StrataAiToolCall : TemplatedControl
             IsExpanded = false;
             e.Handled = true;
         }
+    }
+
+    private void ActivateHeader()
+    {
+        if (HeaderCommand is { } command)
+        {
+            if (command.CanExecute(null))
+                command.Execute(null);
+            return;
+        }
+
+        IsExpanded = !IsExpanded;
     }
 
     private void UpdateState()
@@ -363,6 +387,7 @@ public class StrataAiToolCall : TemplatedControl
         PseudoClasses.Set(":has-duration", DurationMs > 0);
         PseudoClasses.Set(":has-icon", Icon is not null);
         PseudoClasses.Set(":has-detail", !string.IsNullOrWhiteSpace(Detail));
+        PseudoClasses.Set(":has-header-command", HeaderCommand is not null);
 
         if (_details is not null)
         {

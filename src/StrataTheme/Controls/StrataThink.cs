@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
@@ -30,7 +31,7 @@ namespace StrataTheme.Controls;
 /// PART_Dot (Border), PART_Icon (StrataLineIcon), PART_Stratum (Border), PART_PreviewHost
 /// (ContentPresenter), PART_ContentScrollViewer (ScrollViewer).</para>
 /// <para><b>Pseudo-classes:</b> :active, :activity, :preview, :expanded, :has-icon, :error, :has-meta,
-/// :has-progress, :complete.</para>
+/// :has-progress, :complete, :has-header-command.</para>
 /// </remarks>
 public class StrataThink : TemplatedControl
 {
@@ -84,6 +85,10 @@ public class StrataThink : TemplatedControl
     public static readonly StyledProperty<object?> HeaderExtraProperty =
         AvaloniaProperty.Register<StrataThink, object?>(nameof(HeaderExtra));
 
+    /// <summary>Optional header action instead of expanding the card.</summary>
+    public static readonly StyledProperty<ICommand?> HeaderCommandProperty =
+        AvaloniaProperty.Register<StrataThink, ICommand?>(nameof(HeaderCommand));
+
     /// <summary>
     /// Optional lightweight activity preview shown below the header while active and collapsed.
     /// Supplying a preview gives the active or expanded control a responsive card layout.
@@ -133,6 +138,7 @@ public class StrataThink : TemplatedControl
         });
         HasErrorProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdatePseudoClasses());
         ProgressValueProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdatePseudoClasses());
+        HeaderCommandProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdatePseudoClasses());
     }
 
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
@@ -150,6 +156,7 @@ public class StrataThink : TemplatedControl
         private set => SetAndRaise(DisplayedContentProperty, ref _displayedContent, value);
     }
     public object? HeaderExtra { get => GetValue(HeaderExtraProperty); set => SetValue(HeaderExtraProperty, value); }
+    public ICommand? HeaderCommand { get => GetValue(HeaderCommandProperty); set => SetValue(HeaderCommandProperty, value); }
     /// <summary>Gets or sets the compact running-activity preview; see <see cref="PreviewContentProperty"/>.</summary>
     public object? PreviewContent { get => GetValue(PreviewContentProperty); set => SetValue(PreviewContentProperty, value); }
     /// <summary>The preview currently hosted by the template, or null when expanded or inactive.</summary>
@@ -239,8 +246,7 @@ public class StrataThink : TemplatedControl
         if (e.Key is Key.Enter or Key.Space)
         {
             e.Handled = true;
-            _isUserInteractionExpand = !IsExpanded;
-            IsExpanded = !IsExpanded;
+            ActivateHeader();
         }
     }
 
@@ -248,8 +254,7 @@ public class StrataThink : TemplatedControl
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            _isUserInteractionExpand = !IsExpanded;
-            IsExpanded = !IsExpanded;
+            ActivateHeader();
             e.Handled = true;
         }
     }
@@ -261,10 +266,22 @@ public class StrataThink : TemplatedControl
         // prevents clicks on child content from collapsing the parent.
         if (!IsExpanded && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            _isUserInteractionExpand = true;
-            IsExpanded = true;
+            ActivateHeader();
             e.Handled = true;
         }
+    }
+
+    private void ActivateHeader()
+    {
+        if (HeaderCommand is { } command)
+        {
+            if (command.CanExecute(null))
+                command.Execute(null);
+            return;
+        }
+
+        _isUserInteractionExpand = !IsExpanded;
+        IsExpanded = !IsExpanded;
     }
 
     private void UpdatePseudoClasses()
@@ -293,6 +310,7 @@ public class StrataThink : TemplatedControl
         PseudoClasses.Set(":has-meta", !string.IsNullOrWhiteSpace(Meta));
         PseudoClasses.Set(":has-progress", ProgressValue >= 0);
         PseudoClasses.Set(":complete", ProgressValue >= 99.999);
+        PseudoClasses.Set(":has-header-command", HeaderCommand is not null);
     }
 
     private void UpdateDisplayedContent()
