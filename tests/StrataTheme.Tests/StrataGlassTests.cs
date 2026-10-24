@@ -132,7 +132,7 @@ public sealed class StrataGlassTests
                     $"The frost must cover the sheet ({frost.Bounds}), not the window ({sheet.Bounds}).");
 
                 sheet.Close();
-                await Task.Delay(200);
+                await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
                 Pump(window);
                 Assert.False(frost.IsEffectivelyVisible);
             }

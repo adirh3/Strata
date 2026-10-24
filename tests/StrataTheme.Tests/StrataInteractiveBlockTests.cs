@@ -415,7 +415,7 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
                 Assert.False(picker.IsOpen);
                 Assert.True(picker.IsPresented);
                 Assert.Equal("Balanced", InteractiveState.Parse(control.StateJson!).Values["pace"]);
-                await Task.Delay(200);
+                await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
                 Assert.Empty(host.Children.OfType<StrataBottomSheet>());
                 input.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
@@ -430,7 +430,7 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
                 window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
                 window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
                 Assert.False(host.Children.OfType<StrataBottomSheet>().Single().IsOpen);
-                await Task.Delay(200);
+                await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
                 Assert.Empty(host.Children.OfType<StrataBottomSheet>());
             }
             finally { window.Close(); }
@@ -590,7 +590,7 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
                 Assert.Equal(1, saves);
                 Assert.Equal("2026-10-24", InteractiveState.Parse(control.StateJson!).Values["date"]);
                 Assert.False(host.Children.OfType<StrataBottomSheet>().Single().IsOpen);
-                await Task.Delay(200);
+                await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
                 Assert.Empty(host.Children.OfType<StrataBottomSheet>());
             }
             finally { window.Close(); }
@@ -635,7 +635,7 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
                 Assert.True(current.IsOpen);
                 Assert.True(presented);
                 control.ClosePicker();
-                await Task.Delay(200);
+                await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
                 Assert.Empty(host.Children.OfType<StrataBottomSheet>());
                 Assert.False(presented);
             }
