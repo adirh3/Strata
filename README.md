@@ -127,7 +127,7 @@ Other languages preserve source layout with horizontal scrolling. There is no wr
 Wrapping is visual only: selection and Copy preserve the original source, including during streaming.
 Standalone `StrataCodeBlock.TextWrapping` defaults to `NoWrap` for existing scroll hosts.
 
-Scrollbar thumbs keep their visual inset inside the template, not on the thumb's layout bounds.
+Scrollbar thumbs keep their visual inset inside the template (the thumb's `Padding`), not on the thumb's layout bounds.
 This preserves Avalonia's drag-position correction so small mouse movements continue scrolling
 reliably in both directions, including ordinary and nested scroll viewers.
 
@@ -859,7 +859,7 @@ Density affects control heights, padding, spacing, and font sizes.
 - **TabControl / TabItem** — with bottom accent strip (Strata signature)
 - **Slider** — custom thumb
 - **ProgressBar** — rounded indicator
-- **ScrollBar** — minimal thin track
+- **ScrollBar** — a slim thumb at rest; with the pointer on the bar a hairline track fades in and the thumb widens; dragging lights it in the accent
 - **Menu / ContextMenu / MenuItem** — rounded popup with hover states
 - **ToolTip** — compact, bordered
 - **DataGrid** — styled headers, rows, selection, gridlines
