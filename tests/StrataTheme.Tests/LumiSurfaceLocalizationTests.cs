@@ -49,6 +49,37 @@ public sealed class LumiSurfaceLocalizationTests(AvaloniaFixture fixture)
     });
 
     [Fact]
+    public async Task CompletedAttachmentLabelsFollowTheUiCultureAndPreserveHostOverrides() =>
+        await fixture.Dispatch(() =>
+    {
+        var original = CultureInfo.CurrentUICulture;
+        try
+        {
+            foreach (var (language, ready, edited) in new[]
+                     {
+                         ("en-US", "Ready", "Edited"),
+                         ("he-IL", "מוכן", "נערך")
+                     })
+            {
+                CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
+                var attachment = new StrataFileAttachment { Status = StrataAttachmentStatus.Completed };
+                Assert.Equal(ready, attachment.StatusText);
+
+                attachment.IsEdited = true;
+                Assert.Equal(edited, attachment.StatusText);
+                attachment.EditedLabel = "Host-owned wording";
+                Assert.Equal("Host-owned wording", attachment.StatusText);
+                attachment.ClearValue(StrataFileAttachment.EditedLabelProperty);
+                Assert.Equal(edited, attachment.StatusText);
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = original;
+        }
+    });
+
+    [Fact]
     public async Task TemplateTextLoadedBeforeTheLanguageUsesTheCultureAtStyleApplication() =>
         await fixture.Dispatch(() =>
     {

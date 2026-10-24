@@ -187,7 +187,9 @@ public class StrataFileAttachment : TemplatedControl
     {
         StrataAttachmentStatus.Pending => InteractiveLabels.Current["statusPending"],
         StrataAttachmentStatus.Uploading => InteractiveLabels.Current.Format("statusUploading", Progress),
-        StrataAttachmentStatus.Completed => IsEdited ? EditedLabel : "Ready",
+        StrataAttachmentStatus.Completed when IsEdited => IsSet(EditedLabelProperty)
+            ? EditedLabel : InteractiveLabels.Current["statusEdited"],
+        StrataAttachmentStatus.Completed => InteractiveLabels.Current["statusReady"],
         StrataAttachmentStatus.Failed => InteractiveLabels.Current["statusFailed"],
         _ => ""
     };
