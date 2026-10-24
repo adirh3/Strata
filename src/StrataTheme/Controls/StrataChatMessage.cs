@@ -1153,7 +1153,7 @@ public class StrataChatMessage : TemplatedControl
 
             var forkItem = new MenuItem
             {
-                Header = string.IsNullOrWhiteSpace(ForkMenuHeader) ? "Fork from here" : ForkMenuHeader,
+                Header = string.IsNullOrWhiteSpace(ForkMenuHeader) ? InteractiveLabels.Current["forkFromHere"] : ForkMenuHeader,
                 Icon = CreateForkMenuIcon()
             };
             forkItem.Click += (_, _) => RaiseEvent(new RoutedEventArgs(ForkRequestedEvent));
@@ -1166,11 +1166,11 @@ public class StrataChatMessage : TemplatedControl
             {
                 items.Add(new Separator());
 
-                var saveItem = new MenuItem { Header = "Save", Icon = CreateMenuIcon("\uE74E") };
+                var saveItem = new MenuItem { Header = InteractiveLabels.Current["save"], Icon = CreateMenuIcon("\uE74E") };
                 saveItem.Click += (_, _) => ConfirmEdit();
                 items.Add(saveItem);
 
-                var cancelItem = new MenuItem { Header = "Cancel", Icon = CreateMenuIcon("\uE711") };
+                var cancelItem = new MenuItem { Header = InteractiveLabels.Current["cancelInput"], Icon = CreateMenuIcon("\uE711") };
                 cancelItem.Click += (_, _) => CancelEdit();
                 items.Add(cancelItem);
             }

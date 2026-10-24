@@ -160,13 +160,13 @@ public class StrataAiSkill : TemplatedControl
 
         var items = new List<object>();
 
-        var copySummaryItem = new MenuItem { Header = "Copy summary", Icon = CreateMenuIcon("\uE8C8") };
+        var copySummaryItem = new MenuItem { Header = InteractiveLabels.Current["copySummary"], Icon = CreateMenuIcon("\uE8C8") };
         copySummaryItem.Click += async (_, _) => await CopyToClipboardAsync(GetSummaryText());
         items.Add(copySummaryItem);
 
         if (!string.IsNullOrWhiteSpace(DetailMarkdown))
         {
-            var copyDetailsItem = new MenuItem { Header = "Copy details", Icon = CreateMenuIcon("\uE8A7") };
+            var copyDetailsItem = new MenuItem { Header = InteractiveLabels.Current["copyDetails"], Icon = CreateMenuIcon("\uE8A7") };
             copyDetailsItem.Click += async (_, _) => await CopyToClipboardAsync(DetailMarkdown!);
             items.Add(copyDetailsItem);
         }
@@ -176,7 +176,7 @@ public class StrataAiSkill : TemplatedControl
 
         var toggleItem = new MenuItem
         {
-            Header = IsExpanded ? "Collapse" : "Expand",
+            Header = InteractiveLabels.Current[IsExpanded ? "collapse" : "expand"],
             Icon = CreateMenuIcon(IsExpanded ? "\uE70E" : "\uE70D")
         };
         toggleItem.Click += (_, _) => IsExpanded = !IsExpanded;

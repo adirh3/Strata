@@ -228,16 +228,16 @@ public class StrataAiToolCall : TemplatedControl
 
     public string StatusText => Status switch
     {
-        StrataAiToolCallStatus.InProgress => "Running",
-        StrataAiToolCallStatus.Completed => "Completed",
-        StrataAiToolCallStatus.Failed => "Failed",
-        StrataAiToolCallStatus.Stopped => "Stopped",
-        _ => "Unknown"
+        StrataAiToolCallStatus.InProgress => InteractiveLabels.Current["statusRunning"],
+        StrataAiToolCallStatus.Completed => InteractiveLabels.Current["statusCompleted"],
+        StrataAiToolCallStatus.Failed => InteractiveLabels.Current["statusFailed"],
+        StrataAiToolCallStatus.Stopped => InteractiveLabels.Current["stopped"],
+        _ => InteractiveLabels.Current["statusUnknown"]
     };
 
     public string DurationText => DurationMs >= 1000
-        ? $"Duration \u00b7 {DurationMs / 1000d:F2}s"
-        : $"Duration \u00b7 {DurationMs:F0} ms";
+        ? InteractiveLabels.Current.Format("toolDurationSeconds", DurationMs / 1000d)
+        : InteractiveLabels.Current.Format("toolDurationMilliseconds", DurationMs);
 
     public string CompactDurationText => Status == StrataAiToolCallStatus.Completed
         ? RunningElapsedClock.FormatDuration(DurationMs)
@@ -429,20 +429,20 @@ public class StrataAiToolCall : TemplatedControl
 
         var items = new List<object>();
 
-        var copySummaryItem = new MenuItem { Header = "Copy summary", Icon = CreateMenuIcon("\uE8C8") };
+        var copySummaryItem = new MenuItem { Header = InteractiveLabels.Current["copySummary"], Icon = CreateMenuIcon("\uE8C8") };
         copySummaryItem.Click += async (_, _) => await CopyToClipboardAsync(GetSummaryText());
         items.Add(copySummaryItem);
 
         if (!string.IsNullOrWhiteSpace(InputParameters))
         {
-            var copyDetailsItem = new MenuItem { Header = "Copy details", Icon = CreateMenuIcon("\uE8A7") };
+            var copyDetailsItem = new MenuItem { Header = InteractiveLabels.Current["copyDetails"], Icon = CreateMenuIcon("\uE8A7") };
             copyDetailsItem.Click += async (_, _) => await CopyToClipboardAsync(InputParameters!);
             items.Add(copyDetailsItem);
         }
 
         if (!string.IsNullOrWhiteSpace(MoreInfo))
         {
-            var copyInfoItem = new MenuItem { Header = "Copy info", Icon = CreateMenuIcon("\uE946") };
+            var copyInfoItem = new MenuItem { Header = InteractiveLabels.Current["copyInfo"], Icon = CreateMenuIcon("\uE946") };
             copyInfoItem.Click += async (_, _) => await CopyToClipboardAsync(MoreInfo!);
             items.Add(copyInfoItem);
         }
@@ -452,7 +452,7 @@ public class StrataAiToolCall : TemplatedControl
 
         var toggleItem = new MenuItem
         {
-            Header = IsExpanded ? "Collapse" : "Expand",
+            Header = InteractiveLabels.Current[IsExpanded ? "collapse" : "expand"],
             Icon = CreateMenuIcon(IsExpanded ? "\uE70E" : "\uE70D")
         };
         toggleItem.Click += (_, _) => IsExpanded = !IsExpanded;

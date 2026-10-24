@@ -210,11 +210,11 @@ public class StrataAgentRun : TemplatedControl
     public string StatusText => string.IsNullOrWhiteSpace(StatusLabel)
         ? Status switch
         {
-            StrataAiToolCallStatus.InProgress => "Working",
-            StrataAiToolCallStatus.Completed => "Done",
-            StrataAiToolCallStatus.Failed => "Failed",
-            StrataAiToolCallStatus.Stopped => "Stopped",
-            _ => "Unknown"
+            StrataAiToolCallStatus.InProgress => InteractiveLabels.Current["statusWorking"],
+            StrataAiToolCallStatus.Completed => InteractiveLabels.Current["statusDone"],
+            StrataAiToolCallStatus.Failed => InteractiveLabels.Current["statusFailed"],
+            StrataAiToolCallStatus.Stopped => InteractiveLabels.Current["stopped"],
+            _ => InteractiveLabels.Current["statusUnknown"]
         }
         : StatusLabel!;
 
@@ -255,9 +255,9 @@ public class StrataAgentRun : TemplatedControl
         if (durationMs <= 0)
             return "";
         if (durationMs < 1000)
-            return $"{durationMs:F0} ms";
+            return InteractiveLabels.Current.Format("durationMilliseconds", durationMs);
         if (durationMs < 60_000)
-            return $"{durationMs / 1000d:F1}s";
+            return InteractiveLabels.Current.Format("durationSeconds", durationMs / 1000d);
         return RunningElapsedClock.Format(TimeSpan.FromMilliseconds(durationMs));
     }
 

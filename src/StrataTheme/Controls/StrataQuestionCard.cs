@@ -57,7 +57,7 @@ public class StrataQuestionCard : TemplatedControl
         AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(AllowMultiSelect));
 
     public static readonly StyledProperty<string?> FreeTextPlaceholderProperty =
-        AvaloniaProperty.Register<StrataQuestionCard, string?>(nameof(FreeTextPlaceholder), "Type your answer...");
+        AvaloniaProperty.Register<StrataQuestionCard, string?>(nameof(FreeTextPlaceholder), InteractiveLabels.Current["questionPlaceholder"]);
 
     public static readonly StyledProperty<string?> SelectedAnswerProperty =
         AvaloniaProperty.Register<StrataQuestionCard, string?>(nameof(SelectedAnswer));

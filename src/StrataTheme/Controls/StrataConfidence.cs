@@ -139,7 +139,7 @@ public class StrataConfidence : TemplatedControl
         var band = value >= 80 ? "High" : value >= 55 ? "Medium" : "Low";
 
         if (_bandText is not null)
-            _bandText.Text = band;
+            _bandText.Text = InteractiveLabels.Current["confidence" + band];
 
         PseudoClasses.Set(":high", band == "High");
         PseudoClasses.Set(":medium", band == "Medium");

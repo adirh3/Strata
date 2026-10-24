@@ -15,12 +15,12 @@
             <TextBlock x:Name="ChangeCountText" Classes="caption" VerticalAlignment="Center"
                        Foreground="{DynamicResource Brush.TextTertiary}" Margin="0,0,4,0" />
             <Button x:Name="PrevChangeBtn" Classes="subtle" Padding="4,2" MinHeight="0" Height="24"
-                    Width="24" ToolTip.Tip="Previous change" Cursor="Hand">
+                    Width="24" ToolTip.Tip="{sc:InteractiveLabel previousChange}" Cursor="Hand">
               <PathIcon Data="M2 8 L7 3 L12 8 L10.6 9.4 L7 5.8 L3.4 9.4 Z"
                         Width="12" Height="12" />
             </Button>
             <Button x:Name="NextChangeBtn" Classes="subtle" Padding="4,2" MinHeight="0" Height="24"
-                    Width="24" ToolTip.Tip="Next change" Cursor="Hand">
+                    Width="24" ToolTip.Tip="{sc:InteractiveLabel nextChange}" Cursor="Hand">
               <PathIcon Data="M2 3 L7 8 L12 3 L10.6 1.6 L7 5.2 L3.4 1.6 Z"
                         Width="12" Height="12" />
             </Button>
@@ -48,7 +48,7 @@
 
     <!-- Centered loading overlay -->
     <Panel x:Name="LoadingOverlay" IsVisible="False" IsHitTestVisible="False">
-      <sc:StrataTypingIndicator x:Name="LoadingIndicator" Label="Loading diff…"
+      <sc:StrataTypingIndicator x:Name="LoadingIndicator" Label="{sc:InteractiveLabel loadingDiff}"
                                 IsActive="{Binding #DiffRoot.IsRendering}"
                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
     </Panel>

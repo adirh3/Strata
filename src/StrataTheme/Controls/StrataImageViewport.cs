@@ -42,8 +42,8 @@ internal sealed class StrataImageViewport : Border
                 ZoomBy(2, e.GetPosition(this));
             e.Handled = true;
         });
-        AutomationProperties.SetName(this, "Image viewer");
-        AutomationProperties.SetHelpText(this, "Pinch to zoom. Drag to move. Double-tap to zoom or fit.");
+        AutomationProperties.SetName(this, InteractiveLabels.Current["imageViewer"]);
+        AutomationProperties.SetHelpText(this, InteractiveLabels.Current["imageViewerHelp"]);
     }
 
     public double Zoom => _zoom;
@@ -63,9 +63,9 @@ internal sealed class StrataImageViewport : Border
             Spacing = 8,
             Margin = new Thickness(0, 8)
         };
-        toolbar.Children.Add(Action("MarkdownImageZoomOut", "-", "Zoom out", () => ZoomBy(0.8)));
-        toolbar.Children.Add(Action("MarkdownImageReset", "Fit", "Fit image", Fit));
-        toolbar.Children.Add(Action("MarkdownImageZoomIn", "+", "Zoom in", () => ZoomBy(1.25)));
+        toolbar.Children.Add(Action("MarkdownImageZoomOut", "-", InteractiveLabels.Current["zoomOut"], () => ZoomBy(0.8)));
+        toolbar.Children.Add(Action("MarkdownImageReset", InteractiveLabels.Current["fit"], InteractiveLabels.Current["fitImage"], Fit));
+        toolbar.Children.Add(Action("MarkdownImageZoomIn", "+", InteractiveLabels.Current["zoomIn"], () => ZoomBy(1.25)));
         toolbar.Children.Add(label);
         return toolbar;
     }

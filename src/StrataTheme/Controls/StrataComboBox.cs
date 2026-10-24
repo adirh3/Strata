@@ -77,7 +77,7 @@ public class StrataComboBox : TemplatedControl
 
     /// <summary>Text displayed for the select-all option.</summary>
     public static readonly StyledProperty<string?> SelectAllTextProperty =
-        AvaloniaProperty.Register<StrataComboBox, string?>(nameof(SelectAllText), "Select all");
+        AvaloniaProperty.Register<StrataComboBox, string?>(nameof(SelectAllText));
 
     /// <summary>Maximum height of the dropdown popup.</summary>
     public static readonly StyledProperty<double> MaxDropDownHeightProperty =
@@ -193,7 +193,7 @@ public class StrataComboBox : TemplatedControl
     /// <inheritdoc cref="SelectAllTextProperty"/>
     public string? SelectAllText
     {
-        get => GetValue(SelectAllTextProperty);
+        get => GetValue(SelectAllTextProperty) ?? InteractiveLabels.Current["selectAllOptions"];
         set => SetValue(SelectAllTextProperty, value);
     }
 
@@ -483,7 +483,7 @@ public class StrataComboBox : TemplatedControl
             if (_selectAllItem is not null)
             {
                 _selectAllItem.Item = _selectAllSentinel;
-                _selectAllItem.Text = SelectAllText ?? "Select all";
+                _selectAllItem.Text = SelectAllText;
             }
             UpdateSelectAllVisibility();
 

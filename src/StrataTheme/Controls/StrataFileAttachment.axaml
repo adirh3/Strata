@@ -132,7 +132,7 @@
                             Background="Transparent"
                             BorderThickness="0"
                             Cursor="Hand"
-                            ToolTip.Tip="Remove attachment">
+                            ToolTip.Tip="{controls:InteractiveLabel removeAttachment}">
                       <TextBlock Text="✕"
                                  FontSize="12"
                                  FontWeight="SemiBold"

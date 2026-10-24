@@ -310,7 +310,7 @@ public partial class StrataDiffView : UserControl
 
         if (document.Hunks.Count == 0)
         {
-            _diffContent.Children.Add(BuildEmptyState(document.EmptyStateText ?? "No diff available."));
+            _diffContent.Children.Add(BuildEmptyState(document.EmptyStateText ?? InteractiveLabels.Current["noDiff"]));
             return;
         }
 
@@ -414,7 +414,7 @@ public partial class StrataDiffView : UserControl
             Margin = new Thickness(0, 6, 0, 2),
             Child = new TextBlock
             {
-                Text = string.IsNullOrWhiteSpace(headerText) ? "Change" : headerText,
+                Text = string.IsNullOrWhiteSpace(headerText) ? InteractiveLabels.Current["change"] : headerText,
                 FontFamily = font,
                 FontSize = fontSize * 0.95,
                 Foreground = palette.HeaderForeground,
@@ -617,7 +617,7 @@ public partial class StrataDiffView : UserControl
         _changeCountText.Text = _changeRegionControls.Count > 0
             ? _currentChangeIndex >= 0
                 ? $"{_currentChangeIndex + 1} / {_changeRegionControls.Count}"
-                : $"{_changeRegionControls.Count} changes"
+                : InteractiveLabels.Current.Format("changesCount", _changeRegionControls.Count)
             : string.Empty;
         if (_prevBtn is not null) _prevBtn.IsEnabled = _changeRegionControls.Count > 0;
         if (_nextBtn is not null) _nextBtn.IsEnabled = _changeRegionControls.Count > 0;

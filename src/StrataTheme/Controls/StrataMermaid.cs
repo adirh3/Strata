@@ -98,8 +98,8 @@ public partial class StrataMermaid : TemplatedControl
                     Width = 14, Height = 14,
                     Data = Geometry.Parse("M1,0 L7,6 L13,0 L14,1 L8,7 L14,13 L13,14 L7,8 L1,14 L0,13 L6,7 L0,1 Z")
                 };
-                ToolTip.SetTip(_expand, "Close full screen (Esc)");
-                AutomationProperties.SetName(_expand, "Close full screen");
+                ToolTip.SetTip(_expand, InteractiveLabels.Current["closeFullScreenShortcut"]);
+                AutomationProperties.SetName(_expand, InteractiveLabels.Current["closeFullScreen"]);
             }
         }
 
@@ -402,7 +402,7 @@ public partial class StrataMermaid : TemplatedControl
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
             _viewMode = owner._expandedOwner is null ? ViewMode.Readable : ViewMode.Fit;
-            AutomationProperties.SetName(this, "Diagram canvas");
+            AutomationProperties.SetName(this, InteractiveLabels.Current["diagramCanvas"]);
             GestureRecognizers.Add(new PinchGestureRecognizer());
             AddHandler(InputElement.PinchEvent, OnPinch);
             AddHandler(InputElement.PinchEndedEvent, (_, _) => _lastPinchScale = 1);

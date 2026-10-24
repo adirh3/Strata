@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
@@ -225,7 +227,22 @@ public class StrataIconPicker : TemplatedControl
 }
 
 /// <summary>Represents a single emoji entry with its icon and descriptive keyword.</summary>
-public record EmojiItem(string Emoji, string Keyword);
+public record EmojiItem(string Emoji, string Keyword)
+{
+    public string DisplayKeyword => InteractiveLabels.Current["emoji." + Keyword];
+}
+
+/// <summary>Localizes category captions without changing the picker's stable category values.</summary>
+public sealed class EmojiCategoryNameConverter : IValueConverter
+{
+    public static readonly EmojiCategoryNameConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is string category ? InteractiveLabels.Current["emojiCategory." + category] : value;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
 
 /// <summary>Static catalog of emoji icons organized by category with search capability.</summary>
 internal static class EmojiCatalog
@@ -345,6 +362,7 @@ internal static class EmojiCatalog
             foreach (var item in kvp.Value)
             {
                 if (item.Keyword.Contains(lower, StringComparison.OrdinalIgnoreCase) ||
+                    item.DisplayKeyword.Contains(lower, StringComparison.OrdinalIgnoreCase) ||
                     item.Emoji.Contains(query, StringComparison.Ordinal))
                 {
                     results.Add(item);

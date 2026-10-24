@@ -1387,10 +1387,10 @@ public partial class StrataChatComposer : TemplatedControl
 
     private ContextMenu BuildInputContextMenu(TextBox textBox)
     {
-        var cut = new MenuItem { Header = "Cut", InputGesture = new KeyGesture(Key.X, KeyModifiers.Control) };
-        var copy = new MenuItem { Header = "Copy", InputGesture = new KeyGesture(Key.C, KeyModifiers.Control) };
-        var paste = new MenuItem { Header = "Paste", InputGesture = new KeyGesture(Key.V, KeyModifiers.Control) };
-        var selectAll = new MenuItem { Header = "Select All", InputGesture = new KeyGesture(Key.A, KeyModifiers.Control) };
+        var cut = new MenuItem { Header = InteractiveLabels.Current["cut"], InputGesture = new KeyGesture(Key.X, KeyModifiers.Control) };
+        var copy = new MenuItem { Header = InteractiveLabels.Current["copy"], InputGesture = new KeyGesture(Key.C, KeyModifiers.Control) };
+        var paste = new MenuItem { Header = InteractiveLabels.Current["paste"], InputGesture = new KeyGesture(Key.V, KeyModifiers.Control) };
+        var selectAll = new MenuItem { Header = InteractiveLabels.Current["selectAllText"], InputGesture = new KeyGesture(Key.A, KeyModifiers.Control) };
 
         async void DoCut()
         {
@@ -1943,16 +1943,17 @@ public partial class StrataChatComposer : TemplatedControl
 
     private string GetAutoCompleteHeader(ChipKind kind)
     {
-        var action = EditorContent is null ? "Enter" : "Tap";
+        var labels = InteractiveLabels.Current;
+        var action = labels[EditorContent is null ? "enterAction" : "tapAction"];
         return kind switch
         {
-            ChipKind.Agent => $"Agents · {action} to select",
-            ChipKind.Skill => $"Skills · {action} to add",
-            ChipKind.Project => $"Projects · {action} to switch",
-            ChipKind.Chat => $"Chats · {action} to bring in",
-            ChipKind.File => $"Files · {action} to attach",
-            ChipKind.Mcp => "MCPs",
-            _ => "Suggestions",
+            ChipKind.Agent => labels.Format("agentsAutocomplete", action),
+            ChipKind.Skill => labels.Format("skillsAutocomplete", action),
+            ChipKind.Project => labels.Format("projectsAutocomplete", action),
+            ChipKind.Chat => labels.Format("chatsAutocomplete", action),
+            ChipKind.File => labels.Format("filesAutocomplete", action),
+            ChipKind.Mcp => labels["connectors"],
+            _ => labels["suggestions"],
         };
     }
 
@@ -2488,9 +2489,9 @@ public partial class StrataChatComposer : TemplatedControl
                 ? EditingSubmitLabel
                 : effectiveBusy
                     ? canSendWhileBusy
-                        ? SteerWhileBusy ? "Send to steer" : "Stop & send"
-                        : "Stop generation"
-                    : "Send";
+                        ? InteractiveLabels.Current[SteerWhileBusy ? "sendToSteer" : "stopAndSend"]
+                        : InteractiveLabels.Current["stopGeneration"]
+                    : InteractiveLabels.Current["send"];
             AutomationProperties.SetName(_sendButton, actionLabel);
             ToolTip.SetTip(_sendButton, actionLabel);
         }
@@ -2817,7 +2818,7 @@ public partial class StrataChatComposer : TemplatedControl
         // Label
         var label = new TextBlock
         {
-            Text = "REASONING EFFORT",
+            Text = InteractiveLabels.Current["reasoningEffort"],
             FontSize = 9.5,
             FontWeight = FontWeight.SemiBold,
             LetterSpacing = 0.6,
@@ -2903,7 +2904,7 @@ public partial class StrataChatComposer : TemplatedControl
 
         var label = new TextBlock
         {
-            Text = "CONTEXT WINDOW",
+            Text = InteractiveLabels.Current["contextWindow"],
             FontSize = 9.5,
             FontWeight = FontWeight.SemiBold,
             LetterSpacing = 0.6,
@@ -2982,9 +2983,9 @@ public partial class StrataChatComposer : TemplatedControl
     {
         "claude" => "ANTHROPIC",
         "gpt" => "OPENAI",
-        "reasoning" => "REASONING",
+        "reasoning" => InteractiveLabels.Current["reasoningGroup"],
         "gemini" => "GOOGLE",
-        _ => "OTHER"
+        _ => InteractiveLabels.Current["otherGroup"]
     };
 
     private static int GetModelVersionRank(string modelId)
@@ -3461,7 +3462,7 @@ public partial class StrataChatComposer : TemplatedControl
         };
         removeBtn.Classes.Add("subtle");
         removeBtn.Classes.Add("chip-remove");
-        Avalonia.Automation.AutomationProperties.SetName(removeBtn, $"Remove {name}");
+        Avalonia.Automation.AutomationProperties.SetName(removeBtn, InteractiveLabels.Current.Format("removeItem", name));
 
         var capturedItem = item;
         removeBtn.Click += (_, _) =>

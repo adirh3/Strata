@@ -17,35 +17,35 @@
                   <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
                       <Button Name="PART_ZoomOut" Width="28" Height="28"
-                              ToolTip.Tip="Zoom out (-)" AutomationProperties.Name="Zoom out"
+                              ToolTip.Tip="{controls:InteractiveLabel zoomOutShortcut}" AutomationProperties.Name="{controls:InteractiveLabel zoomOut}"
                               Padding="0" Background="Transparent"
                               BorderThickness="0" CornerRadius="4"
                               HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                               Foreground="{DynamicResource Brush.TextSecondary}"
                               FontSize="14" Content="−" />
                       <Button Name="PART_ActualSize" Width="46" Height="28"
-                              ToolTip.Tip="Actual size (100%)" AutomationProperties.Name="Actual size"
+                              ToolTip.Tip="{controls:InteractiveLabel actualSizeTip}" AutomationProperties.Name="{controls:InteractiveLabel actualSize}"
                               Padding="0" Background="Transparent" BorderThickness="0" CornerRadius="4"
                               HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                         <TextBlock Name="PART_ZoomLabel" Text="100%" FontSize="11"
                                    Foreground="{DynamicResource Brush.TextSecondary}" />
                       </Button>
                       <Button Name="PART_ZoomIn" Width="28" Height="28"
-                              ToolTip.Tip="Zoom in (+)" AutomationProperties.Name="Zoom in"
+                              ToolTip.Tip="{controls:InteractiveLabel zoomInShortcut}" AutomationProperties.Name="{controls:InteractiveLabel zoomIn}"
                               Padding="0" Background="Transparent"
                               BorderThickness="0" CornerRadius="4"
                               HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                               Foreground="{DynamicResource Brush.TextSecondary}"
                               FontSize="14" Content="+" />
                       <Button Name="PART_ZoomReset" MinWidth="36" Height="28"
-                              ToolTip.Tip="Fit entire diagram (Home)" AutomationProperties.Name="Fit diagram"
+                              ToolTip.Tip="{controls:InteractiveLabel fitDiagramShortcut}" AutomationProperties.Name="{controls:InteractiveLabel fitDiagram}"
                               Padding="6,0" Background="Transparent"
                               BorderThickness="0" CornerRadius="4"
                               HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                               Foreground="{DynamicResource Brush.TextSecondary}"
-                              FontSize="11" Content="Fit" />
+                              FontSize="11" Content="{controls:InteractiveLabel fit}" />
                       <Button Name="PART_Expand" Width="28" Height="28"
-                              ToolTip.Tip="Full screen" AutomationProperties.Name="Full screen"
+                              ToolTip.Tip="{controls:InteractiveLabel fullScreen}" AutomationProperties.Name="{controls:InteractiveLabel fullScreen}"
                               Padding="0" Background="Transparent"
                               BorderThickness="0" CornerRadius="4"
                               HorizontalContentAlignment="Center" VerticalContentAlignment="Center"

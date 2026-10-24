@@ -35,6 +35,19 @@ Or, if published as a NuGet package:
 
 > **Note:** `SimpleTheme` provides base templates for controls that Strata does not fully re-template. Strata's styles layer on top and override all visual properties.
 
+## Built-in control localization
+
+Library-owned menus, viewer chrome, status labels, emoji captions and elapsed-time text use the
+existing `InteractiveLabels` English/Hebrew tables. Set `CultureInfo.CurrentUICulture` before creating
+controls. `{controls:InteractiveLabel key}` defers its lookup until the target is created, so loading
+the theme before the host reads its saved language does not freeze template text in English.
+Host-specific wording should still use each control's existing label properties, resolved after its
+saved language is loaded.
+
+`StrataMarkdown.InteractionLanguage` also selects its generated copy/link/image text and is passed to
+nested markdown content. Localization changes captions only: category values, model/provider IDs,
+interaction status tokens and authored content keep their original values.
+
 ---
 
 ## Popup motion

@@ -23,7 +23,7 @@ namespace StrataTheme.Controls;
 public class StrataTerminalPreview : TemplatedControl
 {
     internal const int MaxRenderedOutputLength = 8_192;
-    internal const string TruncatedOutputPrefix = "[Earlier output omitted]\n";
+    internal static string TruncatedOutputPrefix => InteractiveLabels.Current["earlierOutputOmitted"];
 
     private Border? _header;
     private Border? _root;
@@ -157,13 +157,13 @@ public class StrataTerminalPreview : TemplatedControl
     }
 
     public string StatusText => IsRunningInBackground && Status != StrataAiToolCallStatus.InProgress
-        ? "Running in background"
+        ? InteractiveLabels.Current["statusBackground"]
         : Status switch
         {
-            StrataAiToolCallStatus.InProgress => "Running",
-            StrataAiToolCallStatus.Completed => "Completed",
-            StrataAiToolCallStatus.Failed => "Failed",
-            StrataAiToolCallStatus.Stopped => "Stopped",
+            StrataAiToolCallStatus.InProgress => InteractiveLabels.Current["statusRunning"],
+            StrataAiToolCallStatus.Completed => InteractiveLabels.Current["statusCompleted"],
+            StrataAiToolCallStatus.Failed => InteractiveLabels.Current["statusFailed"],
+            StrataAiToolCallStatus.Stopped => InteractiveLabels.Current["stopped"],
             _ => ""
         };
 
@@ -183,8 +183,8 @@ public class StrataTerminalPreview : TemplatedControl
         => IsRunningInBackground || Status == StrataAiToolCallStatus.InProgress || DurationMs <= 0
             ? ""
             : DurationMs >= 1000
-                ? $"{DurationMs / 1000d:F2}s"
-                : $"{DurationMs:F0} ms";
+                ? InteractiveLabels.Current.Format("durationPreciseSeconds", DurationMs / 1000d)
+                : InteractiveLabels.Current.Format("durationMilliseconds", DurationMs);
 
     public string GlanceText
     {

@@ -85,7 +85,7 @@
                     <StackPanel Spacing="8">
                       <TextBlock Name="PART_EmptyText"
                                  IsVisible="False"
-                                 Text="No skill detail is available."
+                                 Text="{controls:InteractiveLabel noSkillDetails}"
                                  FontSize="12"
                                  Foreground="{DynamicResource Brush.TextTertiary}" />
 

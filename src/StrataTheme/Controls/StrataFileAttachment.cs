@@ -185,10 +185,10 @@ public class StrataFileAttachment : TemplatedControl
 
     public string StatusText => Status switch
     {
-        StrataAttachmentStatus.Pending => "Pending",
-        StrataAttachmentStatus.Uploading => $"Uploading {Progress:0}%",
+        StrataAttachmentStatus.Pending => InteractiveLabels.Current["statusPending"],
+        StrataAttachmentStatus.Uploading => InteractiveLabels.Current.Format("statusUploading", Progress),
         StrataAttachmentStatus.Completed => IsEdited ? EditedLabel : "Ready",
-        StrataAttachmentStatus.Failed => "Failed",
+        StrataAttachmentStatus.Failed => InteractiveLabels.Current["statusFailed"],
         _ => ""
     };
 

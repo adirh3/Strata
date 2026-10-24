@@ -32,6 +32,7 @@ public partial class StrataMarkdown
     public bool CanSubmitInteractions { get => GetValue(CanSubmitInteractionsProperty); set => SetValue(CanSubmitInteractionsProperty, value); }
     public bool InteractionsHosted { get => GetValue(InteractionsHostedProperty); set => SetValue(InteractionsHostedProperty, value); }
     public string InteractionLanguage { get => GetValue(InteractionLanguageProperty); set => SetValue(InteractionLanguageProperty, value); }
+    private InteractiveLabels UiLabels => InteractiveLabels.ForLanguage(InteractionLanguage);
     public bool InteractionTouchMode { get => GetValue(InteractionTouchModeProperty); set => SetValue(InteractionTouchModeProperty, value); }
     public Panel? InteractionPickerHost { get => GetValue(InteractionPickerHostProperty); set => SetValue(InteractionPickerHostProperty, value); }
 

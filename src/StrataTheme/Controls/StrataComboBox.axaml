@@ -230,7 +230,7 @@
                             DockPanel.Dock="Top"
                             IsVisible="False">
                       <controls:StrataComboBoxItem x:Name="PART_SelectAllItem"
-                                                   Text="Select all"
+                                                   Text="{controls:InteractiveLabel selectAllOptions}"
                                                    IsMultiSelect="True"
                                                    Margin="0,0,0,2" />
                     </Border>

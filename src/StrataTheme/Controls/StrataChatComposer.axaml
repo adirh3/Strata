@@ -191,7 +191,7 @@
                       <Panel Grid.Column="2" Classes="chip-remove-slot">
                         <Button Name="PART_AgentRemoveButton"
                                 Classes="subtle chip-remove"
-                                AutomationProperties.Name="Remove agent"
+                                AutomationProperties.Name="{controls:InteractiveLabel removeAgent}"
                                 VerticalAlignment="Center"
                                 Cursor="Hand">
                           <TextBlock Name="PART_AgentRemoveGlyph" Text="×"
@@ -223,7 +223,7 @@
                       <Panel Grid.Column="2" Classes="chip-remove-slot">
                         <Button Name="PART_ProjectRemoveButton"
                                 Classes="subtle chip-remove"
-                                AutomationProperties.Name="Remove project"
+                                AutomationProperties.Name="{controls:InteractiveLabel removeProject}"
                                 VerticalAlignment="Center"
                                 Cursor="Hand">
                           <PathIcon Width="8" Height="8" Foreground="{DynamicResource Brush.TextTertiary}"
@@ -615,7 +615,7 @@
                               Background="{DynamicResource Brush.AccentGradient}"
                               Foreground="{DynamicResource Brush.TextOnAccent}"
                               VerticalAlignment="Center"
-                              ToolTip.Tip="Send (Enter)"
+                              ToolTip.Tip="{controls:InteractiveLabel sendShortcut}"
                               RenderTransformOrigin="0.5,0.5"
                               RenderTransform="translateY(0px)">
                         <Button.Transitions>
@@ -856,29 +856,29 @@
         <!-- ── Tools ── -->
         <!-- The pickers' own words; hosts localize them with a style on each picker's class. -->
         <Style Selector="^ /template/ controls|StrataComposerPicker#PART_SkillPicker">
-          <Setter Property="Label" Value="Skills" />
-          <Setter Property="ButtonToolTip" Value="Give Lumi skills for this chat (/)" />
-          <Setter Property="SearchWatermark" Value="Search skills" />
-          <Setter Property="SelectedLabel" Value="In this chat" />
-          <Setter Property="ItemsLabel" Value="All skills" />
-          <Setter Property="EmptyTitle" Value="No skills yet" />
-          <Setter Property="EmptyText" Value="Skills teach the assistant how to do something your way." />
-          <Setter Property="NoResultsFormat" Value="No skills match &#x201C;{0}&#x201D;" />
-          <Setter Property="HintText" Value="Tip: type / to add a skill as you write" />
-          <Setter Property="ManageLabel" Value="Manage skills" />
+          <Setter Property="Label" Value="{controls:InteractiveLabel skills}" />
+          <Setter Property="ButtonToolTip" Value="{controls:InteractiveLabel composerSkillsTip}" />
+          <Setter Property="SearchWatermark" Value="{controls:InteractiveLabel searchSkills}" />
+          <Setter Property="SelectedLabel" Value="{controls:InteractiveLabel inThisChat}" />
+          <Setter Property="ItemsLabel" Value="{controls:InteractiveLabel allSkills}" />
+          <Setter Property="EmptyTitle" Value="{controls:InteractiveLabel noSkills}" />
+          <Setter Property="EmptyText" Value="{controls:InteractiveLabel skillsEmptyHelp}" />
+          <Setter Property="NoResultsFormat" Value="{controls:InteractiveLabel skillsNoMatches}" />
+          <Setter Property="HintText" Value="{controls:InteractiveLabel skillsHint}" />
+          <Setter Property="ManageLabel" Value="{controls:InteractiveLabel manageSkills}" />
         </Style>
         <Style Selector="^ /template/ controls|StrataComposerPicker#PART_ChatPicker">
-          <Setter Property="Label" Value="Chats" />
-          <Setter Property="SearchWatermark" Value="Search chats" />
-          <Setter Property="SelectedLabel" Value="In this message" />
-          <Setter Property="ItemsLabel" Value="Recent chats" />
-          <Setter Property="EmptyTitle" Value="No other chats yet" />
-          <Setter Property="EmptyText" Value="Once you have more conversations, you can bring any of them into a message." />
-          <Setter Property="NoResultsFormat" Value="No chats match &#x201C;{0}&#x201D;" />
-          <Setter Property="HintText" Value="Tip: type # to find a chat as you write" />
+          <Setter Property="Label" Value="{controls:InteractiveLabel chats}" />
+          <Setter Property="SearchWatermark" Value="{controls:InteractiveLabel searchChats}" />
+          <Setter Property="SelectedLabel" Value="{controls:InteractiveLabel inThisMessage}" />
+          <Setter Property="ItemsLabel" Value="{controls:InteractiveLabel recentChats}" />
+          <Setter Property="EmptyTitle" Value="{controls:InteractiveLabel noOtherChats}" />
+          <Setter Property="EmptyText" Value="{controls:InteractiveLabel chatsEmptyHelp}" />
+          <Setter Property="NoResultsFormat" Value="{controls:InteractiveLabel chatsNoMatches}" />
+          <Setter Property="HintText" Value="{controls:InteractiveLabel chatsHint}" />
         </Style>
         <Style Selector="^ /template/ controls|StrataConnectorPicker#PART_ConnectorPicker">
-          <Setter Property="Label" Value="Connectors" />
+          <Setter Property="Label" Value="{controls:InteractiveLabel connectors}" />
         </Style>
         <Style Selector="^:narrow /template/ controls|StrataComposerPicker">
           <Setter Property="ShowLabel" Value="False" />
@@ -917,7 +917,7 @@
 
         <!-- Busy: stop mode -->
         <Style Selector="^:busy /template/ Button#PART_SendButton">
-          <Setter Property="ToolTip.Tip" Value="Stop generation" />
+          <Setter Property="ToolTip.Tip" Value="{controls:InteractiveLabel stopGeneration}" />
         </Style>
         <Style Selector="^.mobile:busy /template/ Button#PART_SendButton">
           <Setter Property="Background" Value="{DynamicResource Brush.ComposerStop}" />
@@ -934,7 +934,7 @@
 
         <!-- Busy + has text: queue the draft, stop the current turn, then send after cleanup. -->
         <Style Selector="^:stop-send /template/ Button#PART_SendButton">
-          <Setter Property="ToolTip.Tip" Value="Stop &amp; send (Enter)" />
+          <Setter Property="ToolTip.Tip" Value="{controls:InteractiveLabel stopAndSendShortcut}" />
         </Style>
         <Style Selector="^.mobile:stop-send /template/ Button#PART_SendButton">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
@@ -951,7 +951,7 @@
 
         <!-- Busy + has text + steering: inject the draft into the running turn without stopping it. -->
         <Style Selector="^:steer /template/ Button#PART_SendButton">
-          <Setter Property="ToolTip.Tip" Value="Send to steer (Enter)" />
+          <Setter Property="ToolTip.Tip" Value="{controls:InteractiveLabel steerShortcut}" />
         </Style>
         <Style Selector="^.mobile:steer /template/ Button#PART_SendButton">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />

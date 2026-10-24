@@ -95,7 +95,7 @@ public partial class StrataMarkdown
 
         var placeholder = new TextBlock
         {
-            Text = $"Image: {(string.IsNullOrWhiteSpace(altText) ? "Image unavailable" : altText)}",
+            Text = UiLabels.Format("imageFallback", string.IsNullOrWhiteSpace(altText) ? UiLabels["imageUnavailable"] : altText),
             FontSize = _bodyFontSize,
             FontStyle = FontStyle.Italic,
             TextWrapping = TextWrapping.Wrap,
@@ -204,7 +204,7 @@ public partial class StrataMarkdown
             IsVisible = false
         };
         expandButton.Classes.Add("strata-md-image-expand");
-        AutomationProperties.SetName(expandButton, "View image full screen");
+        AutomationProperties.SetName(expandButton, UiLabels["imageFullScreen"]);
         AutomationProperties.SetHelpText(expandButton, label);
         content.Children.Add(expandButton);
 
@@ -220,7 +220,7 @@ public partial class StrataMarkdown
         };
         frame.Classes.Add("strata-md-image");
         AutomationProperties.SetName(frame, label);
-        AutomationProperties.SetHelpText(frame, $"Loading markdown image from {source.DisplayTarget}");
+        AutomationProperties.SetHelpText(frame, UiLabels.Format("imageLoadingFrom", source.DisplayTarget));
         ToolTip.SetTip(frame, source.DisplayTarget);
         expandButton.Click += (_, _) => OpenMarkdownImageViewer(frame, image, label, source);
 
@@ -271,7 +271,7 @@ public partial class StrataMarkdown
             }
         };
         closeButton.Classes.Add("strata-md-image-viewer-close");
-        AutomationProperties.SetName(closeButton, "Close full screen");
+        AutomationProperties.SetName(closeButton, UiLabels["closeFullScreen"]);
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         header.Children.Add(caption);
         Grid.SetColumn(closeButton, 1);
@@ -281,7 +281,7 @@ public partial class StrataMarkdown
         progress.Classes.Add("strata-md-image-progress");
         var status = new TextBlock
         {
-            Text = "Loading full-resolution image...",
+            Text = UiLabels["imageLoadingFull"],
             TextWrapping = TextWrapping.Wrap,
             HorizontalAlignment = HorizontalAlignment.Center
         };
@@ -363,7 +363,7 @@ public partial class StrataMarkdown
                     if (cancellationToken.IsCancellationRequested)
                         return;
                     progress.IsVisible = false;
-                    status.Text = "Full-resolution image unavailable. Showing the inline preview.";
+                    status.Text = UiLabels["imageFullUnavailable"];
                     AutomationProperties.SetHelpText(status, ex.Message);
                 });
             }
@@ -374,10 +374,10 @@ public partial class StrataMarkdown
         }
     }
 
-    private static Inline CreateImageFallbackInline(string altText, double fontSize)
+    private Inline CreateImageFallbackInline(string altText, double fontSize)
     {
-        var label = string.IsNullOrWhiteSpace(altText) ? "Image unavailable" : altText;
-        return new Run($"Image: {label}")
+        var label = string.IsNullOrWhiteSpace(altText) ? UiLabels["imageUnavailable"] : altText;
+        return new Run(UiLabels.Format("imageFallback", label))
         {
             FontSize = fontSize,
             FontStyle = FontStyle.Italic,
@@ -413,7 +413,7 @@ public partial class StrataMarkdown
                 expandButton.IsVisible = true;
                 AutomationProperties.SetHelpText(
                     frame,
-                    $"Markdown image from {cacheEntry.Source.DisplayTarget}");
+                    UiLabels.Format("imageFrom", cacheEntry.Source.DisplayTarget));
             });
         }
         catch (OperationCanceledException ex)
@@ -451,11 +451,11 @@ public partial class StrataMarkdown
     {
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            placeholder.Text = $"{label}\nImage unavailable";
+            placeholder.Text = UiLabels.Format("imageFailed", label);
             progress.IsVisible = false;
             loadingContent.IsVisible = true;
             ToolTip.SetTip(frame, error.Message);
-            AutomationProperties.SetHelpText(frame, $"Image unavailable: {error.Message}");
+            AutomationProperties.SetHelpText(frame, UiLabels.Format("imageError", error.Message));
         });
     }
 
@@ -470,7 +470,7 @@ public partial class StrataMarkdown
             or InvalidOperationException
             or System.Security.SecurityException;
 
-    private static string GetMarkdownImageLabel(string altText, MarkdownImageSource source)
+    private string GetMarkdownImageLabel(string altText, MarkdownImageSource source)
     {
         if (!string.IsNullOrWhiteSpace(altText))
             return altText.Trim();
@@ -478,7 +478,7 @@ public partial class StrataMarkdown
         var candidate = source.LocalPath is { Length: > 0 }
             ? Path.GetFileName(source.LocalPath)
             : Path.GetFileName(source.RemoteUri?.AbsolutePath);
-        return string.IsNullOrWhiteSpace(candidate) ? "Markdown image" : Uri.UnescapeDataString(candidate);
+        return string.IsNullOrWhiteSpace(candidate) ? UiLabels["markdownImage"] : Uri.UnescapeDataString(candidate);
     }
 
     private static bool CanContainInlineImages(MdBlockKind kind) => kind is
@@ -662,7 +662,7 @@ public partial class StrataMarkdown
         PixelSize? decodeBounds = null)
     {
         if (!TryResolveMarkdownImageSource(imageTarget, out var source))
-            throw new NotSupportedException($"Unsupported markdown image source: {imageTarget}");
+            throw new NotSupportedException(InteractiveLabels.Current.Format("imageUnsupportedSource", imageTarget));
 
         using var componentGate = new SemaphoreSlim(
             MaxConcurrentMarkdownImagesPerComponent,
@@ -691,10 +691,10 @@ public partial class StrataMarkdown
         }
 
         var localPath = source.LocalPath
-            ?? throw new InvalidOperationException("A markdown image source must be remote or local.");
+            ?? throw new InvalidOperationException(InteractiveLabels.Current["imageSourceRequired"]);
         var fileInfo = new FileInfo(localPath);
         if (!fileInfo.Exists)
-            throw new FileNotFoundException("Markdown image file was not found.", localPath);
+            throw new FileNotFoundException(InteractiveLabels.Current["imageFileNotFound"], localPath);
 
         await using var fileStream = new FileStream(
             localPath,
@@ -862,7 +862,7 @@ public partial class StrataMarkdown
         for (var redirect = 0; redirect <= MaxMarkdownImageRedirects; redirect++)
         {
             if (!IsAllowedRemoteMarkdownImageUri(currentUri))
-                throw new HttpRequestException("Remote markdown images must resolve to a public internet address.");
+                throw new HttpRequestException(InteractiveLabels.Current["imagePublicAddressRequired"]);
 
             var hostLimiter = GetRemoteMarkdownImageHostLimiter(currentUri);
             if (hostLimiter is not null)
@@ -885,7 +885,7 @@ public partial class StrataMarkdown
                     && response.Headers.Location is { } location)
                 {
                     if (redirect == MaxMarkdownImageRedirects)
-                        throw new HttpRequestException("Remote markdown image redirected too many times.");
+                        throw new HttpRequestException(InteractiveLabels.Current["imageTooManyRedirects"]);
 
                     var nextUri = location.IsAbsoluteUri ? location : new Uri(currentUri, location);
                     response.Dispose();
@@ -905,7 +905,7 @@ public partial class StrataMarkdown
             }
         }
 
-        throw new HttpRequestException("Remote markdown image redirected too many times.");
+        throw new HttpRequestException(InteractiveLabels.Current["imageTooManyRedirects"]);
     }
 
     internal static async Task<MarkdownImageDownload> DownloadPublicMarkdownImageAsync(
@@ -985,7 +985,7 @@ public partial class StrataMarkdown
         }
 
         throw new HttpRequestException(
-            $"Could not connect to public markdown image host '{context.DnsEndPoint.Host}'.",
+            InteractiveLabels.Current.Format("imageConnectFailed", context.DnsEndPoint.Host),
             lastError);
     }
 
@@ -1071,18 +1071,18 @@ public partial class StrataMarkdown
             }
             catch (SocketException ex)
             {
-                throw new HttpRequestException($"Could not resolve markdown image host '{host}'.", ex);
+                throw new HttpRequestException(InteractiveLabels.Current.Format("imageResolveFailed", host), ex);
             }
         }
 
         if (addresses.Length == 0)
-            throw new HttpRequestException($"Markdown image host '{host}' did not resolve.");
+            throw new HttpRequestException(InteractiveLabels.Current.Format("imageHostUnresolved", host));
 
         foreach (var candidate in addresses)
         {
             if (!IsPublicInternetAddress(candidate))
                 throw new HttpRequestException(
-                    $"Markdown image host '{host}' resolved to a non-public address.");
+                    InteractiveLabels.Current.Format("imageHostNotPublic", host));
         }
 
         return addresses;
@@ -1132,7 +1132,7 @@ public partial class StrataMarkdown
         CancellationToken cancellationToken)
     {
         if (knownLength > MaxMarkdownImageBytes)
-            throw new InvalidDataException($"Markdown images cannot exceed {MaxMarkdownImageBytes / (1024 * 1024)} MB.");
+            throw new InvalidDataException(InteractiveLabels.Current.Format("imageTooLarge", MaxMarkdownImageBytes / (1024 * 1024)));
 
         var capacity = knownLength is > 0 and <= int.MaxValue ? (int)knownLength.Value : 0;
         var destination = new MemoryStream(capacity);
@@ -1148,7 +1148,7 @@ public partial class StrataMarkdown
                     break;
 
                 if (destination.Length + read > MaxMarkdownImageBytes)
-                    throw new InvalidDataException($"Markdown images cannot exceed {MaxMarkdownImageBytes / (1024 * 1024)} MB.");
+                    throw new InvalidDataException(InteractiveLabels.Current.Format("imageTooLarge", MaxMarkdownImageBytes / (1024 * 1024)));
 
                 await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
             }
@@ -1171,7 +1171,7 @@ public partial class StrataMarkdown
                 buffer.Array.AsSpan(buffer.Offset, checked((int)imageData.Length)),
                 out var pixelSize))
         {
-            throw new InvalidDataException("The markdown image format is unsupported or invalid.");
+            throw new InvalidDataException(InteractiveLabels.Current["imageInvalidFormat"]);
         }
 
         var targetWidth = CalculateMarkdownImageDecodeWidth(pixelSize, decodeBounds);
@@ -1185,9 +1185,9 @@ public partial class StrataMarkdown
     internal static int CalculateMarkdownImageDecodeWidth(PixelSize pixelSize, PixelSize? decodeBounds = null)
     {
         if (pixelSize.Width <= 0 || pixelSize.Height <= 0)
-            throw new ArgumentOutOfRangeException(nameof(pixelSize), "Image dimensions must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(pixelSize), InteractiveLabels.Current["imageInvalidDimensions"]);
         if (decodeBounds is { } bounds && (bounds.Width <= 0 || bounds.Height <= 0))
-            throw new ArgumentOutOfRangeException(nameof(decodeBounds), "Decode bounds must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(decodeBounds), InteractiveLabels.Current["imageInvalidDecodeBounds"]);
 
         double maxWidth = decodeBounds?.Width ?? (int)MaxMarkdownImageWidth;
         double maxHeight = decodeBounds?.Height ?? (int)MaxMarkdownImageHeight;

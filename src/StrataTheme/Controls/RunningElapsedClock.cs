@@ -71,11 +71,11 @@ internal sealed class RunningElapsedClock : IDisposable
         // The unit is chosen after rounding, so 999.6 ms reads "1.0s" rather than "1000 ms", and
         // 59.96 s reads "1m 00s" rather than "60.0s".
         if (Math.Round(milliseconds) < 1000)
-            return $"{milliseconds:F0} ms";
+            return InteractiveLabels.Current.Format("durationMilliseconds", milliseconds);
 
         var seconds = Math.Round(milliseconds / 1000d, 1);
         return seconds < 60
-            ? $"{seconds:F1}s"
+            ? InteractiveLabels.Current.Format("durationSeconds", seconds)
             : Format(TimeSpan.FromSeconds(Math.Round(milliseconds / 1000d)));
     }
 
@@ -88,16 +88,16 @@ internal sealed class RunningElapsedClock : IDisposable
         var totalSeconds = (long)Math.Max(0, Math.Floor(elapsed.TotalSeconds));
 
         if (totalSeconds < 60)
-            return $"{totalSeconds}s";
+            return InteractiveLabels.Current.Format("elapsedSeconds", totalSeconds);
 
         var minutes = totalSeconds / 60;
         var seconds = totalSeconds % 60;
 
         if (minutes < 60)
-            return $"{minutes}m {seconds:D2}s";
+            return InteractiveLabels.Current.Format("elapsedMinutesSeconds", minutes, seconds);
 
         var hours = minutes / 60;
         minutes %= 60;
-        return $"{hours}h {minutes:D2}m";
+        return InteractiveLabels.Current.Format("elapsedHoursMinutes", hours, minutes);
     }
 }

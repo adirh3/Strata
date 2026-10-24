@@ -117,7 +117,7 @@
                                Text="{TemplateBinding SelectedIcon}"
                                FontSize="28"
                                VerticalAlignment="Center" />
-                    <TextBlock Text="Selected"
+                    <TextBlock Text="{controls:InteractiveLabel emojiSelected}"
                                FontSize="{DynamicResource Font.SizeCaption}"
                                Foreground="{DynamicResource Brush.TextTertiary}"
                                VerticalAlignment="Center" />
@@ -126,7 +126,7 @@
 
                 <!-- Search box -->
                 <TextBox Name="PART_SearchBox"
-                         PlaceholderText="Search emoji…"
+                         PlaceholderText="{controls:InteractiveLabel emojiSearch}"
                          FontSize="{DynamicResource Font.SizeBody}"
                          Height="{DynamicResource Size.ControlHeightS}" />
 
@@ -143,7 +143,7 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="x:String">
                         <Button Theme="{StaticResource StrataIconPickerCategory}"
-                                Content="{Binding}"
+                                Content="{Binding Converter={x:Static controls:EmojiCategoryNameConverter.Instance}}"
                                 Tag="{Binding}" />
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -170,14 +170,14 @@
                       <DataTemplate x:DataType="controls:EmojiItem">
                         <Button Theme="{StaticResource StrataIconPickerCell}"
                                 Tag="{Binding Emoji}"
-                                ToolTip.Tip="{Binding Keyword}" />
+                                ToolTip.Tip="{Binding DisplayKeyword}" />
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                 </ScrollViewer>
 
                 <!-- Empty state -->
-                <TextBlock Text="No emoji found"
+                <TextBlock Text="{controls:InteractiveLabel emojiEmpty}"
                            FontSize="{DynamicResource Font.SizeCaption}"
                            Foreground="{DynamicResource Brush.TextTertiary}"
                            HorizontalAlignment="Center"

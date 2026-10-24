@@ -1397,12 +1397,12 @@ public class StrataModelPicker : TemplatedControl
         ? group[ProviderGroupPrefix.Length..].ToUpperInvariant()
         : group switch
     {
-        PinnedGroup => "PINNED",
+        PinnedGroup => InteractiveLabels.Current["pinnedGroup"],
         "claude" => "ANTHROPIC",
         "gpt" => "OPENAI",
-        "reasoning" => "REASONING",
+        "reasoning" => InteractiveLabels.Current["reasoningGroup"],
         "gemini" => "GOOGLE",
-        _ => "OTHER"
+        _ => InteractiveLabels.Current["otherGroup"]
     };
 
     private static int GetModelVersionRank(string modelId)

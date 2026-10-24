@@ -2025,18 +2025,18 @@ public partial class StrataMarkdown : ContentControl
         {
             return IsAllowedExternalUri(absoluteUri)
                    || (AllowLocalFileLinks && absoluteUri.IsFile)
-                ? $"Open {absoluteUri}"
-                : $"Blocked link: {absoluteUri}";
+                ? UiLabels.Format("openLink", absoluteUri)
+                : UiLabels.Format("blockedLink", absoluteUri);
         }
 
         if (AllowLocalFileLinks)
         {
             var resolvedPath = ResolveLocalPath(linkTarget);
             if (!string.IsNullOrWhiteSpace(resolvedPath))
-                return $"Open file: {resolvedPath}";
+                return UiLabels.Format("openFile", resolvedPath);
         }
 
-        return $"Reference: {linkTarget}";
+        return UiLabels.Format("reference", linkTarget);
     }
 
     internal static bool IsAllowedExternalUri(Uri uri) =>
@@ -2312,7 +2312,7 @@ public partial class StrataMarkdown : ContentControl
         {
             Content = new TextBlock
             {
-                Text = "Copy",
+                Text = UiLabels["copy"],
                 FontSize = 11,
                 Foreground = Brushes.Gray
             },
@@ -2368,9 +2368,9 @@ public partial class StrataMarkdown : ContentControl
 
             if (copyBtn.Content is TextBlock tb)
             {
-                tb.Text = "Copied!";
+                tb.Text = UiLabels["copied"];
                 await Task.Delay(1200);
-                tb.Text = "Copy";
+                tb.Text = UiLabels["copy"];
             }
         };
 
@@ -2755,13 +2755,13 @@ public partial class StrataMarkdown : ContentControl
         for (int i = 0; i < barSeriesValues.Count; i++)
             seriesList.Add(new StrataChartSeries
             {
-                Name = barSeriesValues.Count > 1 ? $"Bar {i + 1}" : title ?? "Bar",
+                Name = barSeriesValues.Count > 1 ? UiLabels.Format("barSeries", i + 1) : title ?? UiLabels["bar"],
                 Values = barSeriesValues[i]
             });
         for (int i = 0; i < lineSeriesValues.Count; i++)
             seriesList.Add(new StrataChartSeries
             {
-                Name = lineSeriesValues.Count > 1 ? $"Line {i + 1}" : title ?? "Line",
+                Name = lineSeriesValues.Count > 1 ? UiLabels.Format("lineSeries", i + 1) : title ?? UiLabels["line"],
                 Values = lineSeriesValues[i]
             });
 
@@ -3036,7 +3036,7 @@ public partial class StrataMarkdown : ContentControl
             using var doc = ParseVizJson(trimmed, allowRepair);
             var root = doc.RootElement;
 
-            var label = root.TryGetProperty("label", out var lp) ? lp.GetString() ?? "Confidence" : "Confidence";
+            var label = root.TryGetProperty("label", out var lp) ? lp.GetString() ?? UiLabels["confidence"] : UiLabels["confidence"];
             var value = root.TryGetProperty("value", out var vp) && vp.TryGetDouble(out var v) ? v : 72;
             var explanation = root.TryGetProperty("explanation", out var ep) ? ep.GetString() : null;
 
@@ -3048,7 +3048,7 @@ public partial class StrataMarkdown : ContentControl
             };
 
             if (!string.IsNullOrWhiteSpace(explanation))
-                ctrl.Explanation = new StrataMarkdown { Markdown = explanation, IsInline = true };
+                ctrl.Explanation = new StrataMarkdown { Markdown = explanation, IsInline = true, InteractionLanguage = InteractionLanguage };
 
             _confidenceCache[trimmed] = ctrl;
             _confidenceKeysUsed.Add(trimmed);
@@ -3078,9 +3078,9 @@ public partial class StrataMarkdown : ContentControl
             using var doc = ParseVizJson(trimmed, allowRepair);
             var root = doc.RootElement;
 
-            var titleA = "Option A";
+            var titleA = UiLabels["optionA"];
             var contentA = "";
-            var titleB = "Option B";
+            var titleB = UiLabels["optionB"];
             var contentB = "";
 
             if (root.TryGetProperty("optionA", out var aProp))
@@ -3099,8 +3099,8 @@ public partial class StrataMarkdown : ContentControl
             {
                 OptionATitle = titleA,
                 OptionBTitle = titleB,
-                OptionAContent = new StrataMarkdown { Markdown = contentA, IsInline = true },
-                OptionBContent = new StrataMarkdown { Markdown = contentB, IsInline = true },
+                OptionAContent = new StrataMarkdown { Markdown = contentA, IsInline = true, InteractionLanguage = InteractionLanguage },
+                OptionBContent = new StrataMarkdown { Markdown = contentB, IsInline = true, InteractionLanguage = InteractionLanguage },
                 Margin = new Thickness(0, 4, 0, 4),
             };
 
@@ -3153,10 +3153,10 @@ public partial class StrataMarkdown : ContentControl
             }
 
             if (!string.IsNullOrWhiteSpace(summary))
-                ctrl.Summary = new StrataMarkdown { Markdown = summary, IsInline = true };
+                ctrl.Summary = new StrataMarkdown { Markdown = summary, IsInline = true, InteractionLanguage = InteractionLanguage };
 
             if (!string.IsNullOrWhiteSpace(detail))
-                ctrl.Detail = new StrataMarkdown { Markdown = detail, IsInline = true };
+                ctrl.Detail = new StrataMarkdown { Markdown = detail, IsInline = true, InteractionLanguage = InteractionLanguage };
 
             _cardCache[trimmed] = ctrl;
             _cardKeysUsed.Add(trimmed);
@@ -3198,7 +3198,7 @@ public partial class StrataMarkdown : ContentControl
             var index = 1;
             foreach (var src in sourcesProp.EnumerateArray())
             {
-                var title = src.TryGetProperty("title", out var tp) ? tp.GetString() ?? "Source" : "Source";
+                var title = src.TryGetProperty("title", out var tp) ? tp.GetString() ?? UiLabels["source"] : UiLabels["source"];
                 var snippet = src.TryGetProperty("snippet", out var snp) ? snp.GetString() : null;
                 var origin = src.TryGetProperty("origin", out var op) ? op.GetString() : null;
                 var relevance = src.TryGetProperty("relevance", out var rp) && rp.TryGetDouble(out var rv) ? rv : 0;
@@ -3661,7 +3661,7 @@ public partial class StrataMarkdown : ContentControl
 
     private Control CreateTableView(string[] headers, List<string[]> rows, string cacheKey)
     {
-        var tableView = new MarkdownTableView();
+        var tableView = new MarkdownTableView(UiLabels);
         tableView.Update(this, headers, rows);
         _tableCache[cacheKey] = tableView;
         TrackTableDiagnostics(headers.Length, rows.Count, reused: false);
@@ -3683,6 +3683,7 @@ public partial class StrataMarkdown : ContentControl
 
     private sealed class MarkdownTableView : Border
     {
+        private readonly InteractiveLabels _labels;
         private readonly Grid _grid;
         private readonly ScrollViewer _scrollViewer;
         private readonly TextBlock _copyLabel;
@@ -3699,8 +3700,9 @@ public partial class StrataMarkdown : ContentControl
         // columns with a horizontal scrollbar instead of cramped wrapping.
         private const double MinColumnWidth = 120;
 
-        public MarkdownTableView()
+        public MarkdownTableView(InteractiveLabels labels)
         {
+            _labels = labels;
             _grid = new Grid
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -3739,9 +3741,9 @@ public partial class StrataMarkdown : ContentControl
             };
             _copyButton.Classes.Add("subtle");
             _copyButton.Classes.Add("strata-md-table-copy-button");
-            ToolTip.SetTip(_copyButton, "Copy this table.");
-            AutomationProperties.SetName(_copyButton, "Copy table");
-            AutomationProperties.SetHelpText(_copyButton, "Copy this table with formatting. Right-click for other formats.");
+            ToolTip.SetTip(_copyButton, _labels["copyTableTip"]);
+            AutomationProperties.SetName(_copyButton, _labels["copyTable"]);
+            AutomationProperties.SetHelpText(_copyButton, _labels["copyTableHelp"]);
             _copyButton.ContextMenu = CreateCopyFormatMenu();
             _copyButton.Click += OnCopyButtonClick;
 
@@ -3912,12 +3914,12 @@ public partial class StrataMarkdown : ContentControl
 
         private ContextMenu CreateCopyFormatMenu()
         {
-            var plainItem = new MenuItem { Header = "Plain text" };
+            var plainItem = new MenuItem { Header = _labels["plainText"] };
             plainItem.Click += async (_, _) => await CopyTableAsync(TableCopyFormat.Text);
-            var markdownItem = new MenuItem { Header = "Markdown" };
+            var markdownItem = new MenuItem { Header = _labels["markdown"] };
             markdownItem.Click += async (_, _) => await CopyTableAsync(TableCopyFormat.Markdown);
 
-            var htmlItem = new MenuItem { Header = "Rich text" };
+            var htmlItem = new MenuItem { Header = _labels["richText"] };
             htmlItem.Click += async (_, _) => await CopyTableAsync(TableCopyFormat.Html);
 
             var menu = new ContextMenu
@@ -3932,9 +3934,9 @@ public partial class StrataMarkdown : ContentControl
             menu.Opening += (_, _) =>
             {
                 var message = this.FindAncestorOfType<StrataChatMessage>();
-                plainItem.Header = message?.CopyPlainTextLabel ?? "Plain text";
-                markdownItem.Header = message?.CopyMarkdownLabel ?? "Markdown";
-                htmlItem.Header = message?.CopyRichTextLabel ?? "Rich text";
+                plainItem.Header = message?.CopyPlainTextLabel ?? _labels["plainText"];
+                markdownItem.Header = message?.CopyMarkdownLabel ?? _labels["markdown"];
+                htmlItem.Header = message?.CopyRichTextLabel ?? _labels["richText"];
             };
             return menu;
         }
@@ -3944,7 +3946,7 @@ public partial class StrataMarkdown : ContentControl
             var topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.Clipboard is null)
             {
-                await ShowCopyStatusAsync("Clipboard unavailable");
+                await ShowCopyStatusAsync(_labels["clipboardUnavailable"]);
                 return;
             }
 
@@ -3963,7 +3965,7 @@ public partial class StrataMarkdown : ContentControl
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to copy markdown table to clipboard: {ex}");
-                await ShowCopyStatusAsync("Copy failed");
+                await ShowCopyStatusAsync(_labels["copyFailed"]);
             }
         }
 

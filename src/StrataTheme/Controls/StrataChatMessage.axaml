@@ -135,10 +135,10 @@
                         <Button Name="PART_EditButton" Classes="subtle strata-message-action"
                                 Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4"
                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                ToolTip.Tip="Edit" AutomationProperties.Name="Edit">
+                                ToolTip.Tip="{controls:InteractiveLabel edit}" AutomationProperties.Name="{controls:InteractiveLabel edit}">
                           <Panel>
                             <Path Classes="strata-message-icon" Data="{DynamicResource Icon.MessageEdit}" />
-                            <TextBlock Classes="strata-message-label" Text="Edit" FontSize="11" />
+                            <TextBlock Classes="strata-message-label" Text="{controls:InteractiveLabel edit}" FontSize="11" />
                           </Panel>
                         </Button>
                         <Border Name="PART_RegenerateSep" Width="1" Margin="2,3"
@@ -146,10 +146,10 @@
                         <Button Name="PART_RegenerateButton" Classes="subtle strata-message-action"
                                 Padding="8,3" MinHeight="22" MinWidth="0" CornerRadius="4"
                                 Foreground="{DynamicResource Brush.TextTertiary}"
-                                ToolTip.Tip="Retry" AutomationProperties.Name="Retry">
+                                ToolTip.Tip="{controls:InteractiveLabel retry}" AutomationProperties.Name="{controls:InteractiveLabel retry}">
                           <Panel>
                             <Path Classes="strata-message-icon" Data="{DynamicResource Icon.MessageRetry}" />
-                            <TextBlock Classes="strata-message-label" Text="Retry" FontSize="11" />
+                            <TextBlock Classes="strata-message-label" Text="{controls:InteractiveLabel retry}" FontSize="11" />
                           </Panel>
                         </Button>
                         <Button Name="PART_MoreButton" Classes="subtle strata-message-action"
@@ -209,21 +209,21 @@
                                Foreground="{DynamicResource Brush.TextTertiary}"
                                Opacity="0.7"
                                VerticalAlignment="Center"
-                               Text="Enter to save · Esc to cancel · Shift+Enter for newline" />
+                               Text="{controls:InteractiveLabel inlineEditHint}" />
                     <StackPanel Orientation="Horizontal" Spacing="4"
                                 DockPanel.Dock="Right"
                                 HorizontalAlignment="Right">
                       <Button Name="PART_CancelButton" Classes="subtle"
                               Padding="10,4" MinHeight="0" CornerRadius="6"
-                              FontSize="11" ToolTip.Tip="Cancel (Esc)">
-                        <TextBlock Text="Cancel"
+                              FontSize="11" ToolTip.Tip="{controls:InteractiveLabel cancelShortcut}">
+                        <TextBlock Text="{controls:InteractiveLabel cancelInput}"
                                    Foreground="{DynamicResource Brush.TextTertiary}" />
                       </Button>
                       <Button Name="PART_SaveButton" Classes="accent"
                               Padding="10,4" MinHeight="0" CornerRadius="6"
                               FontSize="11" FontWeight="SemiBold"
-                              ToolTip.Tip="Save (Enter)">
-                        <TextBlock Text="Save" />
+                              ToolTip.Tip="{controls:InteractiveLabel saveShortcut}">
+                        <TextBlock Text="{controls:InteractiveLabel save}" />
                       </Button>
                     </StackPanel>
                   </DockPanel>

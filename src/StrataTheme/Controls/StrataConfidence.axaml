@@ -36,7 +36,7 @@
                                Classes="caption"
                                Foreground="{DynamicResource Brush.AccentDefault}"
                                FontWeight="SemiBold"
-                               Text="Medium">
+                               Text="{controls:InteractiveLabel confidenceMedium}">
                       <TextBlock.Transitions>
                         <Transitions>
                           <BrushTransition Property="Foreground" Duration="0:0:0.2" />

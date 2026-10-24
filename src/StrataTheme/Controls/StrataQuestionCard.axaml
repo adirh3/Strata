@@ -30,7 +30,7 @@
                                          VerticalAlignment="Center"
                                          Data="{x:Static controls:StrataIcons.Question}"
                                          Foreground="{DynamicResource Brush.AccentDefault}" />
-                <TextBlock Text="Question"
+                <TextBlock Text="{controls:InteractiveLabel question}"
                            FontSize="12"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource Brush.TextTertiary}" />
@@ -154,7 +154,7 @@
                       HorizontalAlignment="Left"
                       Cursor="Hand"
                       IsVisible="False"
-                      Content="Confirm selection" />
+                      Content="{controls:InteractiveLabel confirmSelection}" />
             </StackPanel>
 
             <!-- Answered: the question and its answer, on one 31px line like the other chips -->

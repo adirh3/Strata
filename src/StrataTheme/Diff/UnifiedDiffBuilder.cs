@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using StrataTheme.Controls;
 
 namespace StrataTheme.Diff;
 
@@ -37,7 +38,7 @@ public static class UnifiedDiffBuilder
         var hunks = CollapseToHunks(diffLines, contextLineCount);
 
         if (hunks.Count == 0)
-            return new DiffDocument([], 0, 0, HasAccurateLineNumbers: true, EmptyStateText: "No visible changes.");
+            return new DiffDocument([], 0, 0, HasAccurateLineNumbers: true, EmptyStateText: InteractiveLabels.Current["diffNoVisibleChanges"]);
 
         return new DiffDocument(
             hunks,
@@ -58,7 +59,7 @@ public static class UnifiedDiffBuilder
         }
 
         if (edits.Count == 0)
-            return new DiffDocument([], 0, 0, HasAccurateLineNumbers: false, EmptyStateText: "No diff information was captured for this change.");
+            return new DiffDocument([], 0, 0, HasAccurateLineNumbers: false, EmptyStateText: InteractiveLabels.Current["diffNotCaptured"]);
 
         var hunks = new List<DiffHunk>(edits.Count);
         var added = 0;
@@ -74,12 +75,12 @@ public static class UnifiedDiffBuilder
             added += diffLines.Count(static line => line.Kind == DiffLineKind.Added);
             removed += diffLines.Count(static line => line.Kind == DiffLineKind.Removed);
 
-            var header = edits.Count > 1 ? $"Edit {i + 1}" : null;
+            var header = edits.Count > 1 ? InteractiveLabels.Current.Format("diffEditHeader", i + 1) : null;
             hunks.Add(new DiffHunk(header, diffLines));
         }
 
         if (hunks.Count == 0)
-            return new DiffDocument([], 0, 0, HasAccurateLineNumbers: false, EmptyStateText: "No visible changes.");
+            return new DiffDocument([], 0, 0, HasAccurateLineNumbers: false, EmptyStateText: InteractiveLabels.Current["diffNoVisibleChanges"]);
 
         return new DiffDocument(hunks, added, removed, HasAccurateLineNumbers: false);
     }
@@ -87,7 +88,7 @@ public static class UnifiedDiffBuilder
     public static DiffDocument BuildFromUnifiedDiff(string? unifiedDiff)
     {
         if (string.IsNullOrWhiteSpace(unifiedDiff))
-            return new DiffDocument([], 0, 0, HasAccurateLineNumbers: true, EmptyStateText: "Unable to load diff.");
+            return new DiffDocument([], 0, 0, HasAccurateLineNumbers: true, EmptyStateText: InteractiveLabels.Current["diffLoadFailed"]);
 
         var hunks = new List<DiffHunk>();
         var added = 0;
