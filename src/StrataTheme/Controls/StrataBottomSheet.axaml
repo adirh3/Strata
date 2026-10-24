@@ -26,13 +26,7 @@
               <Border Name="PART_Scrim"
                       Background="#99000000"
                       Opacity="0"
-                      IsHitTestVisible="False">
-                <Border.Transitions>
-                  <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
-                  </Transitions>
-                </Border.Transitions>
-              </Border>
+                      IsHitTestVisible="False" />
 
               <Border Name="PART_SheetMotion"
                       VerticalAlignment="Bottom"

@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
+using Avalonia.Rendering.Composition;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using StrataTheme.Controls;
@@ -321,7 +322,7 @@ public sealed class MobileSurfaceMotionTests(AvaloniaFixture fixture)
             {
                 sheet.IsOpen = true;
                 Dispatcher.UIThread.RunJobs();
-                await Task.Delay(280);
+                await Task.Delay(StrataBottomSheet.OpenDuration + TimeSpan.FromMilliseconds(60));
                 var motion = sheet.GetVisualDescendants().OfType<Border>()
                     .Single(control => control.Name == "PART_SheetMotion");
                 var presenter = sheet.GetVisualDescendants().OfType<ContentPresenter>()
@@ -338,7 +339,7 @@ public sealed class MobileSurfaceMotionTests(AvaloniaFixture fixture)
 
                 sheet.IsOpen = true;
                 Dispatcher.UIThread.RunJobs();
-                await Task.Delay(280);
+                await Task.Delay(StrataBottomSheet.OpenDuration + TimeSpan.FromMilliseconds(60));
                 Assert.True(presenter.IsVisible);
                 Assert.True(presenter.IsHitTestVisible);
                 Assert.Equal(1, motion.Opacity, precision: 2);
@@ -364,27 +365,31 @@ public sealed class MobileSurfaceMotionTests(AvaloniaFixture fixture)
                 Assert.False(sheet.IsPresented);
                 sheet.IsOpen = true;
                 Dispatcher.UIThread.RunJobs();
-                await Task.Delay(280);
+                await Task.Delay(StrataBottomSheet.OpenDuration + TimeSpan.FromMilliseconds(60));
                 Assert.True(presenter.IsVisible);
                 Assert.True(sheet.IsPresented);
                 var motion = sheet.GetVisualDescendants().OfType<Border>()
                     .Single(control => control.Name == "PART_SheetMotion");
-                Assert.Equal(2, motion.Transitions!.Count);
-                var transitions = motion.Transitions;
+                Assert.Null(motion.Transitions);
+                var visual = ElementComposition.GetElementVisual(motion);
+                Assert.NotNull(visual);
+                var bounds = motion.Bounds;
                 sheet.IsOpen = false;
-                Assert.Same(transitions, motion.Transitions);
+                Assert.Null(motion.Transitions);
                 Assert.True(presenter.IsVisible);
                 Assert.False(presenter.IsHitTestVisible);
                 await Task.Delay(60);
                 sheet.IsOpen = true;
                 Dispatcher.UIThread.RunJobs();
-                Assert.Same(transitions, motion.Transitions);
-                await Task.Delay(300);
+                Assert.Null(motion.Transitions);
+                Assert.Same(visual, ElementComposition.GetElementVisual(motion));
+                Assert.Equal(bounds, motion.Bounds);
+                await Task.Delay(StrataBottomSheet.OpenDuration + TimeSpan.FromMilliseconds(60));
                 Assert.True(presenter.IsVisible);
                 Assert.True(presenter.IsHitTestVisible);
                 Assert.Equal(1, motion.Opacity, precision: 3);
                 sheet.IsOpen = false;
-                await Task.Delay(240);
+                await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
                 Assert.False(presenter.IsVisible);
                 Assert.False(sheet.IsPresented);
             }

@@ -216,7 +216,11 @@ not a `StackPanel` inside an outer `ScrollViewer`.
 
 ## Bottom sheets
 
-`StrataBottomSheet` keeps its content mounted through a 220 ms entrance and 160 ms exit.
+`StrataBottomSheet` keeps its content mounted through a 300 ms entrance and 240 ms exit.
+The entrance eases into place; the exit eases at both ends rather than accelerating into a snap.
+The slide, surface fade and scrim fade run on the render thread, so loading or streaming on the
+UI thread does not stall them or remeasure the payload on each frame. Reopening during an exit
+continues from the current rendered position; dragging takes over from the moving sheet.
 Use `Description` for supporting header text and `ShowCloseButton` for an explicit close
 action. Localize `CloseLabel` in the host. The close button, scrim, grip and Escape respect
 `IsDismissable`; the close button does not capture a drag. Hosts still own safe-area/keyboard
