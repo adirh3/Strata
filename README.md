@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.73" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.74" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -49,6 +49,13 @@ nested markdown content. Localization changes captions only: category values, mo
 interaction status tokens and authored content keep their original values.
 
 ---
+
+## Entrance motion
+
+`SlideFadeEntrance.PlayComposited` reveals an attached host without changing its measured
+layout. Completion, explicit stop, hiding, detaching and replaying restore the renderer's
+resting opacity and translation, including when cleanup interrupts an unfinished frame.
+The host must let the entrance own its opacity, transform and transitions.
 
 ## Popup motion
 
