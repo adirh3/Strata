@@ -554,6 +554,20 @@ public partial class StrataChatComposer : TemplatedControl
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(TrailingContent));
 
     /// <summary>
+    /// Optional host content right before the send button, such as a Pause that pairs with Stop while
+    /// the chat works.
+    /// </summary>
+    public static readonly StyledProperty<object?> SendAccessoryContentProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(SendAccessoryContent));
+
+    /// <summary>
+    /// Optional host chips in the context row, right after the project chip: more about where the message
+    /// goes, such as the project's checkout. They show while the row does.
+    /// </summary>
+    public static readonly StyledProperty<object?> ContextChipsContentProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(ContextChipsContent));
+
+    /// <summary>
     /// Additional clipboard data formats the host wants to handle itself before
     /// the composer falls back to inserting plain text.
     /// </summary>
@@ -990,6 +1004,8 @@ public partial class StrataChatComposer : TemplatedControl
     public object? ToolbarContent { get => GetValue(ToolbarContentProperty); set => SetValue(ToolbarContentProperty, value); }
     public object? LeadingContent { get => GetValue(LeadingContentProperty); set => SetValue(LeadingContentProperty, value); }
     public object? TrailingContent { get => GetValue(TrailingContentProperty); set => SetValue(TrailingContentProperty, value); }
+    public object? SendAccessoryContent { get => GetValue(SendAccessoryContentProperty); set => SetValue(SendAccessoryContentProperty, value); }
+    public object? ContextChipsContent { get => GetValue(ContextChipsContentProperty); set => SetValue(ContextChipsContentProperty, value); }
     public IEnumerable? ClipboardPasteInterceptFormats { get => GetValue(ClipboardPasteInterceptFormatsProperty); set => SetValue(ClipboardPasteInterceptFormatsProperty, value); }
 
     /// <summary>
@@ -3399,8 +3415,9 @@ public partial class StrataChatComposer : TemplatedControl
     {
         if (_chipsRow is null) return;
 
-        // Remove the previous skill and chat chips (PART_AgentChip at 0, PART_ProjectChip at 1 stay)
-        while (_chipsRow.Children.Count > 2)
+        // Remove the previous skill and chat chips (PART_AgentChip, PART_ProjectChip and the host's
+        // PART_ContextChipsContent stay at 0, 1 and 2)
+        while (_chipsRow.Children.Count > 3)
             _chipsRow.Children.RemoveAt(_chipsRow.Children.Count - 1);
 
         if (SkillItems is not null)

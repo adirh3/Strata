@@ -232,6 +232,10 @@
                       </Panel>
                     </Grid>
                   </Border>
+                  <!-- Host chips about the project, such as its checkout -->
+                  <ContentPresenter Name="PART_ContextChipsContent"
+                                    Content="{TemplateBinding ContextChipsContent}"
+                                    IsVisible="{TemplateBinding ContextChipsContent, Converter={x:Static ObjectConverters.IsNotNull}}" />
                   <!-- Skill and chat chips are appended here programmatically -->
                 </controls:ComposerChipsPanel>
                 </ScrollViewer>
@@ -594,6 +598,14 @@
                       </Panel>
                     </Button>
 
+                    <!-- Send, and what the host pairs with it (a Pause beside Stop), as one group: a hidden
+                         accessory leaves no gap, and one beside the button sets its own spacing. -->
+                    <StackPanel Name="PART_SendGroup" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ContentPresenter Name="PART_SendAccessoryContent"
+                                      Content="{TemplateBinding SendAccessoryContent}"
+                                      IsVisible="{TemplateBinding SendAccessoryContent, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                      VerticalAlignment="Center" />
+
                     <Panel Name="PART_SendWrap" VerticalAlignment="Center">
                       <!-- While Lumi works: light breathing around the stop button. -->
                       <Border Name="PART_SendHalo"
@@ -669,6 +681,7 @@
                         </Panel>
                       </Button>
                     </Panel>
+                    </StackPanel>
                   </StackPanel>
 
                   <!-- Dictation: a pulse, the time (or a short status), the live waveform, the language and discard. It
@@ -1031,6 +1044,9 @@
           <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:not(.mobile):recording /template/ ContentPresenter#PART_TrailingContent">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile):recording /template/ StackPanel#PART_SendGroup">
           <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^:not(.mobile):recording /template/ Panel#PART_ModelPickerWrap">

@@ -85,10 +85,16 @@ public static class StrataIcons
     public static Geometry ChevronRight => Parse("M10 7l5 5-5 5");
     public static Geometry ArrowUp => Parse("M12 18.5V6 M6.5 11.5 12 6l5.5 5.5");
 
+    /// <summary>A git branch: a trunk, its tip and a branch curving off it.</summary>
+    public static Geometry Branch => Parse("M6.5 4v10 M4 17a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0 M15 7a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0 M17.5 9.5a7.5 7.5 0 0 1-8.5 7.5");
+
     /// <summary>Send, then stop: an arrow over a baseline.</summary>
     public static Geometry StopSend => Parse("M12 15V5.5 M7.5 10 12 5.5l4.5 4.5 M7 19h10");
 
     public static Geometry Mic => Parse("M12 3.5a3 3 0 0 0-3 3V12a3 3 0 0 0 6 0V6.5a3 3 0 0 0-3-3z M6 11.5a6 6 0 0 0 12 0 M12 17.5v3");
+
+    /// <summary>Pause: two upright bars.</summary>
+    public static Geometry Pause => Parse("M9.5 6.5v11 M14.5 6.5v11");
 
     /// <summary>The microphone can't be used: a microphone, struck through.</summary>
     public static Geometry MicOff => Parse("M12 3.5a3 3 0 0 0-3 3V12a3 3 0 0 0 6 0V6.5a3 3 0 0 0-3-3z M6 11.5a6 6 0 0 0 12 0 M12 17.5v3 M4.5 4.5l15 15");
