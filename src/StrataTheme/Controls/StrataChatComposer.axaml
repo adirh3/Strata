@@ -38,7 +38,7 @@
           <SolidColorBrush x:Key="Brush.ComposerSkillTile" Color="#1F8F6A22" />
           <SolidColorBrush x:Key="Brush.ComposerSkillHue" Color="#8F6A22" />
           <SolidColorBrush x:Key="Brush.ComposerChatTile" Color="#1F4F46E5" />
-          <!-- Glass at rest, and in focus: it comes forward, so its shadow deepens and its top edge catches the
+          <!-- Glass at rest, and in focus: its shadow deepens and its top edge catches the
                light. Both have the same layers, so one blends into the other. -->
           <BoxShadows x:Key="Shadow.ComposerGlassRest">0 10 28 -14 #3D101828, 0 2 6 -2 #12101828, inset 0 1 0 0 #00FFFFFF</BoxShadows>
           <BoxShadows x:Key="Shadow.ComposerGlassFocus">0 18 40 -16 #4D101828, 0 3 10 -3 #18101828, inset 0 1 0 0 #FFFFFFFF</BoxShadows>
@@ -807,10 +807,9 @@
 
         <!-- Glass: a translucent card over a frost of whatever runs beneath the composer: the overlay surface at
              two thirds with a hairline rim, frosted like the other floating glass. It stays as clear, with
-             no coloured outline. At rest the whole composer sits back a little; while you write (:engaged, focus
-             in the composer or in one of its lists) it comes forward as one piece, glass, text and tools together,
-             to its full size (the focus depth, scaled on the render thread in StrataChatComposer.FocusDepth.cs).
-             With it the shadow deepens, the rim brightens, the top edge catches the light and the Strata line
+             no coloured outline. While you write (:engaged, focus in the composer or in one of its lists),
+             the composer stays at full size while the shadow deepens, the rim brightens, the top edge catches
+             the light and the Strata line
              draws in under the text, finer than the plain composer's and feathered at its ends. -->
         <Style Selector="^.glass /template/ controls|StrataBackdropBlur#PART_Backdrop">
           <Setter Property="IsVisible" Value="True" />

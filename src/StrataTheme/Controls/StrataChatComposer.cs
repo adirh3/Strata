@@ -145,9 +145,8 @@ public class FileSelectedEventArgs : EventArgs
 /// <see cref="VoiceStatus"/>, the time and (with <see cref="VoiceLanguages"/>) the language it listens for;
 /// <see cref="VoicePreview"/> shows the words heard so far.</para>
 /// <para><b>Glass:</b> the <c>glass</c> class turns the surface translucent over a frosted backdrop, for hosts
-/// whose content runs beneath the composer. A glass composer sits back a little at rest and comes forward,
-/// whole, while the user writes (its focus depth, scaled on the render thread); <c>motion-disabled</c> and
-/// <c>mobile</c> keep it at full size.</para>
+/// whose content runs beneath the composer. It stays at full size at rest and while the user writes;
+/// focus brightens its rim, deepens its shadow and draws the Strata line without scaling it.</para>
 /// </remarks>
 public partial class StrataChatComposer : TemplatedControl
 {
@@ -872,7 +871,6 @@ public partial class StrataChatComposer : TemplatedControl
                 return;
 
             UpdateFocusSweep();
-            UpdateFocusDepth();
             Sync();
         };
 
@@ -1105,9 +1103,6 @@ public partial class StrataChatComposer : TemplatedControl
             _subscribedAvailableFileCollection = null;
         }
         _fileAutoCompleteRefreshQueued = false;
-        // The visual goes with the tree; the next attach brings a new one.
-        _depthVisual = null;
-        _depthScale = null;
 
         base.OnDetachedFromVisualTree(e);
         StopRecordingClock();
@@ -1210,8 +1205,8 @@ public partial class StrataChatComposer : TemplatedControl
     /// <summary>
     /// Whether the user is writing here: the keyboard is in the composer, or in one of its own lists (which
     /// open in the overlay layer, outside its visual tree), or such a list has just closed and is handing the
-    /// keyboard back. Shown as <c>:engaged</c>; the focus line's sweep and the focus depth follow it, so using
-    /// the + menu or a picker neither sends the composer back nor replays the line.
+    /// keyboard back. Shown as <c>:engaged</c>; the focus line's sweep follows it, so using
+    /// the + menu or a picker does not replay the line.
     /// </summary>
     private bool IsEngaged => IsKeyboardFocusWithin || _openOwnPopups.Count > 0 || _engagedHold;
 
@@ -1219,7 +1214,6 @@ public partial class StrataChatComposer : TemplatedControl
     {
         PseudoClasses.Set(":engaged", IsEngaged);
         UpdateFocusSweep();
-        UpdateFocusDepth();
     }
 
     /// <summary>
@@ -2615,7 +2609,6 @@ public partial class StrataChatComposer : TemplatedControl
     {
         base.OnSizeChanged(e);
         PseudoClasses.Set(":narrow", e.NewSize.Width < NarrowWidth);
-        UpdateFocusDepthCenter();
     }
 
     private bool HasAnyAvailableMcps()

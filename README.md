@@ -486,14 +486,10 @@ leaves. Refocusing replays the sequence; typing and resizing do not extend it. M
 change layout. The sweep and its pending timers stop on blur, hiding, or detachment. Apply
 `Classes="motion-disabled"` to show the static focus line immediately without either animation.
 The `glass` composer draws a finer line (1.5 px) feathered at both ends, and no ring: focus keeps the
-glass as clear while its rim brightens, its shadow deepens and its top edge catches the light. At rest the
-whole composer sits back to 98% of its size, about its bottom centre; while the user writes (`:engaged`:
-focus in the composer, or in one of its own menus and lists, which open in the overlay layer) it comes
-forward to full size, glass, text and tools together, in 450 ms on a curve that starts gently and lands
-softly, and settles back in 350 ms. The scale runs on the composer's composition visual on the render thread, so it never changes
-layout, hit testing or popup placement, and the user always writes at full size, where text is crisp and
-lists line up with the controls that opened them. A change of mind turns the motion round from wherever it
-is. `motion-disabled` and `mobile` keep the composer at full size. Desktop composers give the
+glass as clear while its rim brightens, its shadow deepens and its top edge catches the light. The
+composer stays at full size at rest and while the user writes (`:engaged`: focus in the composer,
+or in one of its own menus and lists, which open in the overlay layer); focus never scales it.
+Desktop composers give the
 text room, 18 px around it (12 px under chips) with 10 px around the toolbar; `Classes="mobile"` keeps
 its own touch metrics.
 

@@ -55,7 +55,7 @@ public sealed class StrataChatShellTemplateTests
     }
 
     [Fact]
-    public async Task GlassComposer_ComesForwardWholeWhileWriting_AndDrawsAFinerStrataLine()
+    public async Task GlassComposer_StaysFullSizeWhileWriting_AndDrawsAFinerStrataLine()
     {
         await _fixture.Dispatch(() =>
         {
@@ -87,10 +87,9 @@ public sealed class StrataChatShellTemplateTests
             var resting = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(root.Background);
             Assert.True(root.BoxShadow.Count > 0);
 
-            // At rest the whole composer sits back a little, about its bottom edge, from the moment it shows.
-            Assert.Equal(StrataChatComposer.RestingDepthScale, composer.FocusDepthScale);
-            Assert.False(composer.FocusDepthAnimated);
-            Assert.Equal(new Vector3D(composer.Bounds.Width / 2, composer.Bounds.Height, 0), visual!.CenterPoint);
+            var fullSize = new Vector3D(1, 1, 1);
+            Assert.Equal(fullSize, visual!.Scale);
+            Assert.Equal(default, visual.CenterPoint);
             var bounds = composer.Bounds;
             var inputBounds = input.Bounds;
 
@@ -98,39 +97,33 @@ public sealed class StrataChatShellTemplateTests
             Dispatcher.UIThread.RunJobs();
             Assert.Contains(":engaged", composer.Classes);
 
-            // Writing brings it forward, whole, to full size: scaled on the render thread, so nothing is laid out
-            // again, and the glass stays as clear.
-            Assert.Equal(1, composer.FocusDepthScale);
-            Assert.True(composer.FocusDepthAnimated);
+            Assert.Equal(fullSize, visual.Scale);
+            Assert.Equal(default, visual.CenterPoint);
             Assert.Equal(bounds, composer.Bounds);
             Assert.Equal(inputBounds, input.Bounds);
             Assert.Same(resting, root.Background);
 
-            // Leaving sends it back.
             Assert.True(elsewhere.Focus());
             Dispatcher.UIThread.RunJobs();
             Assert.DoesNotContain(":engaged", composer.Classes);
-            Assert.Equal(StrataChatComposer.RestingDepthScale, composer.FocusDepthScale);
-            Assert.True(composer.FocusDepthAnimated);
+            Assert.Equal(fullSize, visual.Scale);
+            Assert.Equal(default, visual.CenterPoint);
 
-            // Without motion, and on touch, it stays at full size, taken up at once.
             composer.Classes.Add("mobile");
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(1, composer.FocusDepthScale);
-            Assert.False(composer.FocusDepthAnimated);
+            Assert.Equal(fullSize, visual.Scale);
             composer.Classes.Remove("mobile");
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(StrataChatComposer.RestingDepthScale, composer.FocusDepthScale);
-            Assert.False(composer.FocusDepthAnimated);
+            Assert.Equal(fullSize, visual.Scale);
             // Without motion the line also settles at once, so the rest reads its looks.
             composer.Classes.Add("motion-disabled");
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(1, composer.FocusDepthScale);
-            Assert.False(composer.FocusDepthAnimated);
+            Assert.Equal(fullSize, visual.Scale);
 
             Assert.True(input.Focus());
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(1, composer.FocusDepthScale);
+            Assert.Equal(fullSize, visual.Scale);
+            Assert.Equal(default, visual.CenterPoint);
 
             // The Strata line: finer than the plain composer's, and feathered at its ends.
             Assert.True(line.IsEffectivelyVisible);
