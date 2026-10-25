@@ -117,6 +117,9 @@ public class ChatClipboardDataTests
 
         Assert.StartsWith("<html>", Encoding.UTF8.GetString(bytes[startHtml..endHtml]));
         Assert.Equal(fragment, Encoding.UTF8.GetString(bytes[startFragment..endFragment]));
+        Assert.EndsWith("</body></html>", Encoding.UTF8.GetString(bytes[startHtml..endHtml]));
+        Assert.Equal(bytes.Length - 1, endHtml);
+        Assert.Equal(0, bytes[^1]);
     }
 
     [Fact]

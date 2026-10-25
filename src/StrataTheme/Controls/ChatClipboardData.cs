@@ -91,7 +91,8 @@ internal static partial class ChatClipboardData
             startFragment,
             endFragment);
 
-        return Encoding.UTF8.GetBytes(header + htmlPrefix + htmlFragment + htmlSuffix);
+        // Native text readers expect a terminator; CF_HTML offsets exclude it.
+        return Encoding.UTF8.GetBytes(header + htmlPrefix + htmlFragment + htmlSuffix + '\0');
     }
 
     private static DataTransfer CreateTransfer(DataTransferItem item)
