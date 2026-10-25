@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
@@ -169,16 +170,98 @@ public sealed class AnimationLifecycleTests
                     Dispatcher.UIThread.RunJobs();
                 await Task.Delay(160);
                 Dispatcher.UIThread.RunJobs();
+                using (window.CaptureRenderedFrame())
+                    Dispatcher.UIThread.RunJobs();
                 Assert.False(SlideFadeEntrance.IsCompositedRunning(target));
                 Assert.Equal(bounds, target.Bounds);
                 Assert.Equal(1, target.Opacity);
-                Assert.Equal(default, ElementComposition.GetElementVisual(target)!.Translation);
+                var visual = ElementComposition.GetElementVisual(target)!;
+                Assert.Equal(default, visual.Translation);
+                Assert.Equal(1f, GetRenderedVisualValue<float>(visual, "Opacity"));
+                Assert.Equal(default, GetRenderedVisualValue<Vector3D>(visual, "Translation"));
             }
             finally
             {
                 window.Close();
             }
         });
+    }
+
+    [Theory]
+    [InlineData("stop")]
+    [InlineData("hide")]
+    [InlineData("detach")]
+    [InlineData("replay")]
+    public Task CompositedEntranceInterruptionRestoresRenderedValues(string interruption) =>
+        _fixture.Dispatch(() =>
+        {
+            var target = new Border { Width = 80, Height = 40 };
+            var parent = new Border { Child = target };
+            var window = new Window { Width = 200, Height = 160, Content = parent };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                SlideFadeEntrance.PlayComposited(target, offsetY: 16,
+                    duration: TimeSpan.FromMinutes(1));
+                RenderFrame();
+                var visual = ElementComposition.GetElementVisual(target)!;
+                Assert.Equal(1, target.Opacity);
+                Assert.Equal(1f, visual.Opacity);
+                Assert.True(GetRenderedVisualValue<float>(visual, "Opacity") < 1f);
+                Assert.True(GetRenderedVisualValue<Vector3D>(visual, "Translation").Y > 0);
+
+                switch (interruption)
+                {
+                    case "stop":
+                        SlideFadeEntrance.StopComposited(target);
+                        break;
+                    case "hide":
+                        parent.IsVisible = false;
+                        parent.IsVisible = true;
+                        break;
+                    case "detach":
+                        parent.Child = null;
+                        parent.Child = target;
+                        break;
+                    case "replay":
+                        SlideFadeEntrance.PlayComposited(target);
+                        SlideFadeEntrance.StopComposited(target);
+                        break;
+                }
+
+                RenderFrame();
+                Assert.False(SlideFadeEntrance.IsCompositedRunning(target));
+                Assert.Equal(1, target.Opacity);
+                visual = ElementComposition.GetElementVisual(target)!;
+                Assert.Equal(1f, visual.Opacity);
+                Assert.Equal(default, visual.Translation);
+                Assert.Equal(1f, GetRenderedVisualValue<float>(visual, "Opacity"));
+                Assert.Equal(default, GetRenderedVisualValue<Vector3D>(visual, "Translation"));
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            void RenderFrame()
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Dispatcher.UIThread.RunJobs();
+            }
+        });
+
+    private static T GetRenderedVisualValue<T>(CompositionVisual visual, string property)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        // The public composition properties report UI-side base values, not the rendered values.
+        var serverProperty = typeof(CompositionObject).GetProperty("Server", flags);
+        Assert.NotNull(serverProperty);
+        var server = serverProperty.GetValue(visual);
+        Assert.NotNull(server);
+        var renderedProperty = server.GetType().GetProperty(property, flags);
+        Assert.NotNull(renderedProperty);
+        return Assert.IsType<T>(renderedProperty.GetValue(server));
     }
 
     [Fact]

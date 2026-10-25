@@ -186,7 +186,12 @@ public static class SlideFadeEntrance
             {
                 _visual.StopAnimation(nameof(CompositionVisual.Opacity));
                 _visual.StopAnimation(nameof(CompositionVisual.Translation));
-                _visual.Opacity = (float)_host.Opacity;
+                // Unchanged base values are not serialized, even after StopAnimation.
+                // These writes coalesce into one commit containing only the resting values.
+                var restingOpacity = (float)_host.Opacity;
+                _visual.Opacity = restingOpacity == 0f ? 1f : 0f;
+                _visual.Opacity = restingOpacity;
+                _visual.Translation = new Vector3D(0, 1, 0);
                 _visual.Translation = default;
                 _visual = null;
             }
