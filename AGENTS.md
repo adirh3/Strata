@@ -75,6 +75,7 @@ Expected behavior standards:
 - Do not rely on unsupported keyframe animation targets (e.g., some `RenderTransform` keyframe scenarios can fail at runtime).
 - If build fails with locked `StrataDemo.exe`, stop running demo process and rebuild.
 - Forgetting to register new control AXAML in `StrataTheme.axaml`.
+- Scope component-only helper styles to a static owning control/template or the popup's own root, so unrelated controls do not retain inactive setter/binding graphs. Keep class and pseudo-class conditions when adding static gates to preserve trigger priority. Shared utility classes and host-supplied slot content may intentionally have no owning-control ancestor; preserve those contracts.
 - Adding user-facing demo text without localization keys.
 
 ## 8) Strata Design Principles

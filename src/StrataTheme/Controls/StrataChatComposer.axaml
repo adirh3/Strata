@@ -1252,8 +1252,9 @@
   </Style>
 
   <!-- ── The + menu ──
-       Rows a pointer or the arrow keys walk: a line icon, a label, then what the row leads to. -->
-  <Style Selector="Button.add-menu-row">
+       Rows a pointer or the arrow keys walk: a line icon, a label, then what the row leads to.
+       Scope to the popup's own root: it may be hosted outside the composer's logical tree. -->
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -1262,39 +1263,39 @@
     <Setter Property="CornerRadius" Value="10" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
-  <Style Selector="Button.add-menu-row /template/ Border#PART_Surface">
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row /template/ Border#PART_Surface">
     <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
   </Style>
-  <Style Selector="Button.add-menu-row:pressed /template/ Border#PART_Surface">
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row:pressed /template/ Border#PART_Surface">
     <Setter Property="RenderTransform" Value="none" />
   </Style>
-  <Style Selector="Button.add-menu-row:focus-visible /template/ Border#PART_Surface">
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row:focus-visible /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
   </Style>
-  <Style Selector="Button.add-menu-row:focus-visible /template/ Border#PART_FocusRing">
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row:focus-visible /template/ Border#PART_FocusRing">
     <Setter Property="BorderBrush" Value="Transparent" />
   </Style>
-  <Style Selector="Button.add-menu-row controls|StrataLineIcon.add-menu-icon">
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row controls|StrataLineIcon.add-menu-icon">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
-  <Style Selector="Button.add-menu-row:pointerover controls|StrataLineIcon.add-menu-icon,
-                   Button.add-menu-row:focus-visible controls|StrataLineIcon.add-menu-icon">
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row:pointerover controls|StrataLineIcon.add-menu-icon,
+                   Border#PART_AddPanel Button.add-menu-row:focus-visible controls|StrataLineIcon.add-menu-icon">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
-  <Style Selector="Button.add-menu-row TextBlock.add-menu-label">
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row TextBlock.add-menu-label">
     <Setter Property="FontSize" Value="13.5" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
-  <Style Selector="Button.add-menu-row TextBlock.add-menu-meta">
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row TextBlock.add-menu-meta">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
-  <Style Selector="Button.add-menu-row controls|StrataLineIcon.add-menu-chevron">
+  <Style Selector="Border#PART_AddPanel Button.add-menu-row controls|StrataLineIcon.add-menu-chevron">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
   </Style>
-  <Style Selector="Border.add-menu-key">
+  <Style Selector="Border#PART_AddPanel Border.add-menu-key">
     <Setter Property="MinWidth" Value="20" />
     <Setter Property="Height" Value="20" />
     <Setter Property="Padding" Value="5,0" />
@@ -1304,7 +1305,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.PickerTileBorder}" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
-  <Style Selector="Border.add-menu-key TextBlock">
+  <Style Selector="Border#PART_AddPanel Border.add-menu-key TextBlock">
     <Setter Property="FontFamily" Value="{DynamicResource Font.FamilyMono}" />
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
@@ -1312,64 +1313,64 @@
     <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
-  <Style Selector="Border.add-menu-tile">
+  <Style Selector="Border#PART_AddPanel Border.add-menu-tile">
     <Setter Property="Width" Value="26" />
     <Setter Property="Height" Value="26" />
     <Setter Property="CornerRadius" Value="8" />
     <Setter Property="Background" Value="{DynamicResource Brush.ComposerChatTile}" />
   </Style>
-  <Style Selector="Border.add-menu-tile controls|StrataLineIcon">
+  <Style Selector="Border#PART_AddPanel Border.add-menu-tile controls|StrataLineIcon">
     <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
   </Style>
-  <Style Selector="TextBlock.add-menu-header">
+  <Style Selector="Border#PART_AddPanel TextBlock.add-menu-header">
     <Setter Property="FontSize" Value="10.5" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.3" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
-  <Style Selector="Border.add-menu-separator">
+  <Style Selector="Border#PART_AddPanel Border.add-menu-separator">
     <Setter Property="Height" Value="1" />
     <Setter Property="Margin" Value="8,5" />
     <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
   </Style>
 
   <!-- Embedded TextBox chrome removal (regular styles, outside ControlTheme) -->
-  <Style Selector="TextBox.composer-embed /template/ Border#PART_Border">
+  <Style Selector=":is(controls|StrataChatComposer) TextBox.composer-embed /template/ Border#PART_Border">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
     <Setter Property="MinHeight" Value="0" />
   </Style>
-  <Style Selector="TextBox.composer-embed:focus /template/ Border#PART_Border">
+  <Style Selector=":is(controls|StrataChatComposer) TextBox.composer-embed:focus /template/ Border#PART_Border">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
   </Style>
-  <Style Selector="TextBox.composer-embed:pointerover /template/ Border#PART_Border">
+  <Style Selector=":is(controls|StrataChatComposer) TextBox.composer-embed:pointerover /template/ Border#PART_Border">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
   </Style>
-  <Style Selector="TextBox.composer-embed /template/ Border#FocusAccentBar">
+  <Style Selector=":is(controls|StrataChatComposer) TextBox.composer-embed /template/ Border#FocusAccentBar">
     <Setter Property="IsVisible" Value="False" />
     <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="False" />
   </Style>
 
-  <Style Selector="ComboBox.composer-select /template/ Border#Border">
+  <Style Selector=":is(controls|StrataChatComposer) ComboBox.composer-select /template/ Border#Border">
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="CornerRadius" Value="15" />
   </Style>
-  <Style Selector="ComboBox.composer-select:pointerover /template/ Border#Border">
+  <Style Selector=":is(controls|StrataChatComposer) ComboBox.composer-select:pointerover /template/ Border#Border">
     <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
   </Style>
-  <Style Selector="ComboBox.composer-select:focus-visible /template/ Border#Border">
+  <Style Selector=":is(controls|StrataChatComposer) ComboBox.composer-select:focus-visible /template/ Border#Border">
     <Setter Property="BoxShadow" Value="0 0 0 1 #28818CF8" />
   </Style>
 
   <!-- Suggestion chip polish -->
-  <Style Selector="Button.suggestion-chip">
+  <Style Selector=":is(controls|StrataChatComposer) Button.suggestion-chip">
     <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
     <Setter Property="Transitions">
       <Transitions>
@@ -1380,14 +1381,14 @@
   </Style>
 
   <!-- Suggestion loading placeholders -->
-  <Style Selector="Border.suggestion-loading-pill">
+  <Style Selector=":is(controls|StrataChatComposer) Border.suggestion-loading-pill">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="Opacity" Value="0.35" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
 
-  <Style Selector="Border.suggestion-loading-pill.phase-a">
+  <Style Selector=":is(controls|StrataChatComposer) Border.suggestion-loading-pill.phase-a">
     <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.28" />
     <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.62" />
     <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:0.95" />
@@ -1395,7 +1396,7 @@
     <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
   </Style>
 
-  <Style Selector="Border.suggestion-loading-pill.phase-b">
+  <Style Selector=":is(controls|StrataChatComposer) Border.suggestion-loading-pill.phase-b">
     <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.28" />
     <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.62" />
     <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:0.95" />
@@ -1404,7 +1405,7 @@
     <Setter Property="sa:LifecycleOpacityPulse.IsActive" Value="True" />
   </Style>
 
-  <Style Selector="Border.suggestion-loading-pill.phase-c">
+  <Style Selector=":is(controls|StrataChatComposer) Border.suggestion-loading-pill.phase-c">
     <Setter Property="sa:LifecycleOpacityPulse.FromOpacity" Value="0.28" />
     <Setter Property="sa:LifecycleOpacityPulse.ToOpacity" Value="0.62" />
     <Setter Property="sa:LifecycleOpacityPulse.Duration" Value="0:0:0.95" />
@@ -1415,7 +1416,8 @@
 
   <!-- ── Context chips (template agent/project chips and the skill/chat chips built in code) ──
        28px pills: a hued tile, the name, and a remove button that brightens on hover. Sizes live
-       here rather than on the controls so a touch host can grow them. -->
+       here rather than on the controls so a touch host can grow them. Host-supplied chips can have
+       a different logical parent, so their shared helper classes intentionally remain unscoped. -->
   <Style Selector="Border.composer-chip-surface">
     <Setter Property="IsVisible" Value="False" />
   </Style>
@@ -1544,7 +1546,7 @@
   </Style>
 
   <!-- Autocomplete popup item styles -->
-  <Style Selector="Border.autocomplete-item">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item">
     <Setter Property="Background" Value="#00000000" />
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="BorderThickness" Value="1" />
@@ -1559,20 +1561,20 @@
       </Transitions>
     </Setter>
   </Style>
-  <Style Selector="Border.autocomplete-item:pointerover">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item:pointerover">
     <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
   </Style>
-  <Style Selector="Border.autocomplete-item.selected">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item.selected">
     <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolActive}" />
   </Style>
-  <Style Selector="TextBlock.autocomplete-header">
+  <Style Selector="StackPanel#PART_AutoCompletePanel TextBlock.autocomplete-header">
     <Setter Property="FontSize" Value="10.5" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.3" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
     <Setter Property="Margin" Value="10,8,10,4" />
   </Style>
-  <Style Selector="Border.autocomplete-item Border.autocomplete-glyph-wrap">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item Border.autocomplete-glyph-wrap">
     <Setter Property="Width" Value="28" />
     <Setter Property="Height" Value="28" />
     <Setter Property="Background" Value="{DynamicResource Brush.PickerTile}" />
@@ -1582,33 +1584,33 @@
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Center" />
   </Style>
-  <Style Selector="Border.autocomplete-item.selected Border.autocomplete-glyph-wrap">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item.selected Border.autocomplete-glyph-wrap">
     <Setter Property="Background" Value="{DynamicResource Brush.PickerTileSelected}" />
     <Setter Property="BorderBrush" Value="Transparent" />
   </Style>
-  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-glyph">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item TextBlock.autocomplete-glyph">
     <Setter Property="FontSize" Value="13" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
-  <Style Selector="Border.autocomplete-item controls|StrataLineIcon.autocomplete-icon">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item controls|StrataLineIcon.autocomplete-icon">
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
   </Style>
-  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-name">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item TextBlock.autocomplete-name">
     <Setter Property="FontSize" Value="12.5" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
-  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-secondary">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item TextBlock.autocomplete-secondary">
     <Setter Property="FontSize" Value="10.5" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
   </Style>
-  <Style Selector="Border.autocomplete-item Border.autocomplete-trailing-badge">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item Border.autocomplete-trailing-badge">
     <Setter Property="Background" Value="{DynamicResource Brush.PickerTile}" />
     <Setter Property="CornerRadius" Value="999" />
     <Setter Property="Padding" Value="7,2" />
@@ -1616,10 +1618,10 @@
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Right" />
   </Style>
-  <Style Selector="Border.autocomplete-item.selected Border.autocomplete-trailing-badge">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item.selected Border.autocomplete-trailing-badge">
     <Setter Property="Background" Value="Transparent" />
   </Style>
-  <Style Selector="Border.autocomplete-item TextBlock.autocomplete-trailing-text">
+  <Style Selector="StackPanel#PART_AutoCompletePanel Border.autocomplete-item TextBlock.autocomplete-trailing-text">
     <Setter Property="FontSize" Value="9.5" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />

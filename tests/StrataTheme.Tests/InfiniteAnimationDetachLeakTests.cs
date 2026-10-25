@@ -23,9 +23,9 @@ public sealed class InfiniteAnimationDetachLeakTests
         new("StrataThink.axaml", "^:active:has-icon:not(:activity):not(:expanded) /template/ Border#PART_Stratum", 1, 0.35, 1.6, Easing: "SineEaseInOut"),
         new("StrataChatShell.axaml", "^:online:has-presence /template/ Border#PART_PresenceDot", 1, 0.45, 1.5, Easing: "CompositorDefault"),
         new("StrataChatShell.axaml", "^:pulse-new-content /template/ Border#PART_NewContentDot", 1, 0.4, 1.8, Easing: "CompositorDefault"),
-        new("StrataChatComposer.axaml", "Border.suggestion-loading-pill.phase-a", 0.28, 0.62, 0.95, PeakAt: 0.38),
-        new("StrataChatComposer.axaml", "Border.suggestion-loading-pill.phase-b", 0.28, 0.62, 0.95, HoldUntil: 0.18, PeakAt: 0.56),
-        new("StrataChatComposer.axaml", "Border.suggestion-loading-pill.phase-c", 0.28, 0.62, 0.95, HoldUntil: 0.36, PeakAt: 0.74),
+        new("StrataChatComposer.axaml", ":is(controls|StrataChatComposer) Border.suggestion-loading-pill.phase-a", 0.28, 0.62, 0.95, PeakAt: 0.38),
+        new("StrataChatComposer.axaml", ":is(controls|StrataChatComposer) Border.suggestion-loading-pill.phase-b", 0.28, 0.62, 0.95, HoldUntil: 0.18, PeakAt: 0.56),
+        new("StrataChatComposer.axaml", ":is(controls|StrataChatComposer) Border.suggestion-loading-pill.phase-c", 0.28, 0.62, 0.95, HoldUntil: 0.36, PeakAt: 0.74),
     ];
 
     [Fact]
