@@ -642,6 +642,7 @@ public sealed class StrataMarkdownImageTests
                     Assert.Equal(WindowState.Normal, window.WindowState);
                     gate.Release(permits);
                     released = true;
+                    await WaitForImageViewerAsync(window, () => gate.CurrentCount == permits);
                     Assert.Equal(permits, gate.CurrentCount);
                 }
                 finally
