@@ -9,8 +9,8 @@ using Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindings;
 
 namespace StrataTheme.Controls;
 
-/// <summary>Shared English and Hebrew UI labels for native interactions.</summary>
-public sealed class InteractiveLabels
+/// <summary>Shared UI labels for native interactions.</summary>
+public sealed partial class InteractiveLabels
 {
     private readonly IReadOnlyDictionary<string, string> _values;
 
@@ -23,8 +23,28 @@ public sealed class InteractiveLabels
 
     public string Format(string key, params object[] values) => string.Format(CultureInfo.CurrentCulture, this[key], values);
 
-    public static InteractiveLabels ForLanguage(string? language) =>
-        language?.StartsWith("he", StringComparison.OrdinalIgnoreCase) == true ? Hebrew : English;
+    public static InteractiveLabels ForLanguage(string? language) => language?.Trim().ToLowerInvariant() switch
+    {
+        "he" => Hebrew,
+        { } code when code.StartsWith("he-", StringComparison.Ordinal) => Hebrew,
+        "de" => German,
+        { } code when code.StartsWith("de-", StringComparison.Ordinal) => German,
+        "fr" => French,
+        { } code when code.StartsWith("fr-", StringComparison.Ordinal) => French,
+        "ja" => Japanese,
+        { } code when code.StartsWith("ja-", StringComparison.Ordinal) => Japanese,
+        "ko" => Korean,
+        { } code when code.StartsWith("ko-", StringComparison.Ordinal) => Korean,
+        "ar" => Arabic,
+        { } code when code.StartsWith("ar-", StringComparison.Ordinal) => Arabic,
+        "es" => Spanish,
+        { } code when code.StartsWith("es-", StringComparison.Ordinal) => Spanish,
+        "pt" => Portuguese,
+        { } code when code.StartsWith("pt-", StringComparison.Ordinal) => Portuguese,
+        "zh" or "zh-hans" or "zh-cn" or "zh-sg" => Chinese,
+        { } code when code.StartsWith("zh-hans-", StringComparison.Ordinal) => Chinese,
+        _ => English
+    };
 
     /// <summary>Library-owned labels in the host's current UI language.</summary>
     public static InteractiveLabels Current => ForLanguage(CultureInfo.CurrentUICulture.Name);

@@ -108,7 +108,7 @@ public sealed class StrataActionReceipt : TemplatedControl
     private void Update()
     {
         var labels = InteractiveLabels.ForLanguage(Language);
-        FlowDirection = Language.StartsWith("he", StringComparison.OrdinalIgnoreCase)
+        FlowDirection = labels == InteractiveLabels.Hebrew || labels == InteractiveLabels.Arabic
             ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         PseudoClasses.Set(":expanded", IsExpanded);
         PseudoClasses.Set(":working", Status == "Working");

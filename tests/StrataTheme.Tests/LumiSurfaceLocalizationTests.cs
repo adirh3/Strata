@@ -111,17 +111,113 @@ public sealed class LumiSurfaceLocalizationTests(AvaloniaFixture fixture)
         }
     });
 
-    [Fact]
-    public void LibraryTranslationKeysAndCompositePlaceholdersMatch()
+    [Theory]
+    [InlineData("he")]
+    [InlineData("es")]
+    [InlineData("pt-BR")]
+    [InlineData("zh-Hans")]
+    [InlineData("de")]
+    [InlineData("fr")]
+    [InlineData("ja")]
+    [InlineData("ko")]
+    [InlineData("ar")]
+    public void LibraryTranslationKeysAndCompositePlaceholdersMatch(string language)
     {
-        Assert.Equal(InteractiveLabels.English.Keys.Order(), InteractiveLabels.Hebrew.Keys.Order());
+        var labels = InteractiveLabels.ForLanguage(language);
+        Assert.NotSame(InteractiveLabels.English, labels);
+        Assert.Equal(InteractiveLabels.English.Keys.Order(), labels.Keys.Order());
         foreach (var key in InteractiveLabels.English.Keys)
         {
             static IEnumerable<string> Placeholders(string value) =>
                 Regex.Matches(value, @"\{\d+(?:[^{}]*)\}").Select(match => match.Value).Order();
-            Assert.Equal(Placeholders(InteractiveLabels.English[key]), Placeholders(InteractiveLabels.Hebrew[key]));
+            Assert.Equal(Placeholders(InteractiveLabels.English[key]), Placeholders(labels[key]));
         }
     }
+
+    [Theory]
+    [InlineData("es-MX", "es")]
+    [InlineData("pt-PT", "pt-BR")]
+    [InlineData("zh-CN", "zh-Hans")]
+    [InlineData("zh-Hans-CN", "zh-Hans")]
+    [InlineData("zh-TW", "en")]
+    [InlineData("de-DE", "de")]
+    [InlineData("fr-CA", "fr")]
+    [InlineData("ja-JP", "ja")]
+    [InlineData("ko-KR", "ko")]
+    [InlineData("ar-SA", "ar")]
+    public void RegionalCulturesSelectTheSupportedLabels(string requested, string expected)
+        => Assert.Same(InteractiveLabels.ForLanguage(expected), InteractiveLabels.ForLanguage(requested));
+
+    [Theory]
+    [InlineData("es")]
+    [InlineData("pt-BR")]
+    [InlineData("zh-Hans")]
+    [InlineData("de")]
+    [InlineData("fr")]
+    [InlineData("ja")]
+    [InlineData("ko")]
+    [InlineData("ar")]
+    public async Task AddedLanguagesReachNativeControlsWithoutChangingAuthoredContent(string language) =>
+        await fixture.Dispatch(() =>
+    {
+        var original = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
+            var labels = InteractiveLabels.ForLanguage(language);
+            var tool = new StrataAiToolCall { Status = StrataAiToolCallStatus.InProgress };
+            Assert.NotEqual(InteractiveLabels.English["statusRunning"], labels["statusRunning"]);
+            Assert.Equal(labels["statusRunning"], tool.StatusText);
+            Assert.Equal(labels["selectAllOptions"], new StrataComboBox().SelectAllText);
+            var attachment = new StrataFileAttachment { Status = StrataAttachmentStatus.Completed };
+            Assert.Equal(labels["statusReady"], attachment.StatusText);
+            attachment.EditedLabel = "Authored override";
+            attachment.IsEdited = true;
+            Assert.Equal("Authored override", attachment.StatusText);
+            Assert.Equal(labels["emoji.grinning"], new EmojiItem("😀", "grinning").DisplayKeyword);
+            Assert.Equal("grinning", new EmojiItem("😀", "grinning").Keyword);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = original;
+        }
+    });
+
+    [Theory]
+    [InlineData("ar", Avalonia.Media.FlowDirection.RightToLeft)]
+    [InlineData("ar-EG", Avalonia.Media.FlowDirection.RightToLeft)]
+    [InlineData("he", Avalonia.Media.FlowDirection.RightToLeft)]
+    [InlineData("de", Avalonia.Media.FlowDirection.LeftToRight)]
+    public async Task InteractiveControlsAndReceiptsRespectTheirOwnLanguage(
+        string language, Avalonia.Media.FlowDirection direction) =>
+        await fixture.Dispatch(() =>
+    {
+        var definition = InteractiveDefinition.Parse("form",
+            """{"id":"language_test","title":"Authored title","fields":[{"id":"name","label":"Original field"}]}""");
+        var form = new StrataInteractiveBlock { Language = language, Definition = definition };
+        var receipt = new StrataActionReceipt
+        {
+            Language = language, Title = "Original receipt", Summary = "Original answer", Detail = "Original detail"
+        };
+        var window = StrataInteractiveBlockTests.Show(new StackPanel { Children = { form, receipt } }, width: 600);
+        try
+        {
+            receipt.Theme = Assert.IsType<ControlTheme>(window.FindResource(typeof(StrataActionReceipt)));
+            receipt.ApplyTemplate();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Assert.Equal(direction, form.FlowDirection);
+            Assert.Equal(direction, receipt.FlowDirection);
+            Assert.Equal("Authored title", form.Definition!.Title);
+            Assert.Equal("Original answer", receipt.Summary);
+            Assert.True(form.Bounds.Height > 0);
+            Assert.True(receipt.Bounds.Height > 0);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
 
     [Theory]
     [InlineData("en-US", "No visible changes.", "No diff information was captured for this change.", "Unable to load diff.", "Edit 1")]

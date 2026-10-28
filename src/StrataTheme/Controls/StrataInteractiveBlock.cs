@@ -150,7 +150,7 @@ public partial class StrataInteractiveBlock : TemplatedControl
 
         _labels = InteractiveLabels.ForLanguage(Language);
         Classes.Set("touch", TouchMode);
-        FlowDirection = Language.StartsWith("he", StringComparison.OrdinalIgnoreCase)
+        FlowDirection = _labels == InteractiveLabels.Hebrew || _labels == InteractiveLabels.Arabic
             ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         AutomationProperties.SetAutomationId(this, "Interaction_" + SafeName(definition.Id));
         AutomationProperties.SetName(this, definition.Title);

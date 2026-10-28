@@ -572,6 +572,20 @@ public class StrataComboBoxItem : TemplatedControl
             (c, _) => c.PseudoClasses.Set(":selected", c.IsItemSelected));
     }
 
+    public StrataComboBoxItem()
+    {
+        AddHandler(InputElement.TappedEvent, OnItemTapped);
+    }
+
+    private void OnItemTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Pointer.Type == PointerType.Mouse || Item is null)
+            return;
+
+        Owner?.OnItemClicked(Item);
+        e.Handled = true;
+    }
+
     /// <inheritdoc cref="ItemProperty"/>
     public object? Item
     {
@@ -603,6 +617,10 @@ public class StrataComboBoxItem : TemplatedControl
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+
+        // A touch or pen press may become a scroll; select only when it becomes a tap.
+        if (e.Pointer.Type != PointerType.Mouse)
+            return;
 
         if (Item is not null)
             Owner?.OnItemClicked(Item);
