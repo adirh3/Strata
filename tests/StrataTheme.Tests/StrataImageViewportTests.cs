@@ -116,6 +116,68 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
         finally { window.Close(); }
     });
 
+    [Fact]
+    public Task SourceShowsTheImageAndANewSourceFitsAgain() => fixture.Dispatch(() =>
+    {
+        var viewport = new StrataImageViewport();
+        Assert.Null(viewport.Name);
+        var window = new Window { Width = 320, Height = 480, Content = viewport };
+        window.Show();
+        try
+        {
+            var first = Drawing(400, 400);
+            viewport.Source = first;
+            window.UpdateLayout();
+            var image = Assert.IsType<Image>(viewport.Child);
+            Assert.Same(first, image.Source);
+            viewport.ZoomBy(3);
+            Assert.Equal(3, viewport.Zoom);
+
+            var second = Drawing(200, 100);
+            viewport.Source = second;
+            Assert.Same(second, image.Source);
+            Assert.Equal(1, viewport.Zoom);
+            Assert.Equal(default, viewport.Offset);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task LoadImageAsyncDecodesALocalImageFileAndRejectsOtherTargets() => fixture.Dispatch(async () =>
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"strata-viewport-{Guid.NewGuid():N}.png");
+        try
+        {
+            await File.WriteAllBytesAsync(path, Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQMcAAAAASUVORK5CYII="));
+
+            using var bitmap = await StrataImageViewport.LoadImageAsync(path, new PixelSize(100, 100));
+            Assert.InRange(bitmap.PixelSize.Width, 1, 100);
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = StrataImageViewport.LoadImageAsync("relative.png", new PixelSize(100, 100));
+            });
+            await Assert.ThrowsAsync<InvalidDataException>(async () =>
+            {
+                await File.WriteAllTextAsync(path, "not an image");
+                using var _ = await StrataImageViewport.LoadImageAsync(path, new PixelSize(100, 100));
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    });
+
+    private static DrawingImage Drawing(double width, double height) => new()
+    {
+        Drawing = new GeometryDrawing
+        {
+            Brush = Brushes.White,
+            Geometry = new RectangleGeometry(new Rect(0, 0, width, height))
+        }
+    };
+
     private static (Window Window, StrataImageViewport Viewport) CreateViewport(double width = 400, double height = 400)
     {
         var viewport = new StrataImageViewport(new Image

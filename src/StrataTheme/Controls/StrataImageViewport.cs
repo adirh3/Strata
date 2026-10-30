@@ -1,4 +1,7 @@
 using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -6,11 +9,26 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 
 namespace StrataTheme.Controls;
 
-internal sealed class StrataImageViewport : Border
+/// <summary>
+/// A touch-first image viewer. The image fits the viewport; pinch, double-tap, the mouse wheel and the
+/// <c>+</c>/<c>-</c> keys zoom it (up to 8×) about the point under the gesture, a drag pans it while it is
+/// zoomed, and <c>Home</c> or a second double-tap fits it again.
+/// </summary>
+/// <remarks>
+/// Set <see cref="Source"/> to show an image; a new source fits the viewport again.
+/// <see cref="LoadImageAsync"/> decodes a local image file no larger than a pixel bound, so a large photo
+/// does not cost its full resolution in memory.
+/// </remarks>
+public sealed class StrataImageViewport : Border
 {
+    /// <summary>Defines the <see cref="Source"/> property.</summary>
+    public static readonly StyledProperty<IImage?> SourceProperty =
+        AvaloniaProperty.Register<StrataImageViewport, IImage?>(nameof(Source));
+
     private readonly Image _image;
     private readonly MatrixTransform _transform = new();
     private double _zoom = 1;
@@ -20,9 +38,21 @@ internal sealed class StrataImageViewport : Border
     private Point _panStart;
     private Vector _panOffset;
 
-    public StrataImageViewport(Image image)
+    /// <summary>Creates an empty viewer; set <see cref="Source"/> to show an image.</summary>
+    public StrataImageViewport()
+        : this(new Image { Stretch = Stretch.Uniform }, name: null)
     {
-        Name = "MarkdownImageViewport";
+    }
+
+    internal StrataImageViewport(Image image)
+        : this(image, "MarkdownImageViewport")
+    {
+    }
+
+    private StrataImageViewport(Image image, string? name)
+    {
+        if (name is not null)
+            Name = name;
         _image = image;
         Child = image;
         Background = Brushes.Transparent;
@@ -46,10 +76,33 @@ internal sealed class StrataImageViewport : Border
         AutomationProperties.SetHelpText(this, InteractiveLabels.Current["imageViewerHelp"]);
     }
 
+    /// <summary>The image shown. Setting a new one fits it to the viewport.</summary>
+    public IImage? Source
+    {
+        get => GetValue(SourceProperty);
+        set => SetValue(SourceProperty, value);
+    }
+
+    /// <summary>The current zoom factor: 1 when the image fits the viewport, up to 8.</summary>
     public double Zoom => _zoom;
     internal Vector Offset => _offset;
 
     private event EventHandler? ZoomChanged;
+
+    /// <summary>
+    /// Decodes a local image file for display, scaled down (never up) to fit <paramref name="maxPixelSize"/>.
+    /// PNG, JPEG, GIF, BMP and WebP files up to 20 MB are supported. Decoding runs off the calling thread.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is not a fully qualified local path.</exception>
+    /// <exception cref="InvalidDataException">The file is too large or not a supported image.</exception>
+    public static Task<Bitmap> LoadImageAsync(
+        string path, PixelSize maxPixelSize, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
+            throw new ArgumentException(InteractiveLabels.Current["imageSourceRequired"], nameof(path));
+
+        return StrataMarkdown.LoadMarkdownImageAsync(path, cancellationToken, maxPixelSize);
+    }
 
     internal Control CreateToolbar()
     {
@@ -79,7 +132,8 @@ internal sealed class StrataImageViewport : Border
         return button;
     }
 
-    internal void Fit()
+    /// <summary>Fits the whole image to the viewport again.</summary>
+    public void Fit()
     {
         _zoom = 1;
         _offset = default;
@@ -133,7 +187,12 @@ internal sealed class StrataImageViewport : Border
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == BoundsProperty && change.GetOldValue<Rect>().Size != Bounds.Size)
+        if (change.Property == SourceProperty)
+        {
+            _image.Source = change.GetNewValue<IImage?>();
+            Fit();
+        }
+        else if (change.Property == BoundsProperty && change.GetOldValue<Rect>().Size != Bounds.Size)
             UpdateTransform();
     }
 
