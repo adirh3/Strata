@@ -170,10 +170,19 @@ and pinned items still appear first. Leaving `ProviderName` unset preserves the
 existing model-id grouping. Use `ModelItemTemplate` for clean model names and
 badges without encoding provider information in the model identifier.
 
+`SelectionAliases` can group several configured model values under one row.
+The picker checks and highlights that row for any alias and preserves an already
+selected variant when the row is chosen again. `SelectedModelDisplayName` gives
+the matching row's display name for a compact selected-value template without
+changing the host's saved selection.
+
+`SortPriority` places a host's leading choice before versioned models within its
+provider (higher first, default zero), without changing pinned items' order.
+
 A host that draws its own list, such as a touch bottom sheet, can call
 `StrataModelPicker.GetModelSections(models)` to list the same items in the
 picker's sections and order: pinned items first in their own order, then each
-provider as it first appears, newest versions first. Each `StrataModelSection`
+provider as it first appears, priority then newest version. Each `StrataModelSection`
 carries the heading the picker draws over it.
 
 The popup focuses search when opened. Search matches every query word against

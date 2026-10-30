@@ -61,6 +61,7 @@ public class StrataModelPicker : TemplatedControl
     private readonly HashSet<INotifyPropertyChanged> _observedModelItems = new(ReferenceEqualityComparer.Instance);
     private bool _isAttachedToVisualTree;
     private IDataTemplate? _effectiveSelectedModelTemplate;
+    private string _selectedModelDisplayName = string.Empty;
     private bool _catalogDirty = true;
     private bool _filterDirty = true;
     private bool _modelItemsDirty;
@@ -89,6 +90,11 @@ public class StrataModelPicker : TemplatedControl
 
     public static readonly StyledProperty<object?> SelectedModelProperty =
         AvaloniaProperty.Register<StrataModelPicker, object?>(nameof(SelectedModel));
+
+    /// <summary>The selected row's display name, including when a grouped row represents a variant.</summary>
+    public static readonly DirectProperty<StrataModelPicker, string> SelectedModelDisplayNameProperty =
+        AvaloniaProperty.RegisterDirect<StrataModelPicker, string>(
+            nameof(SelectedModelDisplayName), picker => picker.SelectedModelDisplayName);
 
     public static readonly StyledProperty<IDataTemplate?> ModelItemTemplateProperty =
         AvaloniaProperty.Register<StrataModelPicker, IDataTemplate?>(nameof(ModelItemTemplate));
@@ -227,7 +233,11 @@ public class StrataModelPicker : TemplatedControl
             picker.Sync();
             picker.RefreshModelPickerEffortIfOpen();
         });
-        SelectedModelProperty.Changed.AddClassHandler<StrataModelPicker>((picker, _) => picker.RefreshModelPickerSelectionIfOpen());
+        SelectedModelProperty.Changed.AddClassHandler<StrataModelPicker>((picker, _) =>
+        {
+            picker.UpdateSelectedModelDisplayName();
+            picker.RefreshModelPickerSelectionIfOpen();
+        });
         ModelItemTemplateProperty.Changed.AddClassHandler<StrataModelPicker>((picker, _) =>
         {
             picker.UpdateEffectiveSelectedModelTemplate();
@@ -266,6 +276,12 @@ public class StrataModelPicker : TemplatedControl
     {
         get => GetValue(SelectedModelProperty);
         set => SetValue(SelectedModelProperty, value);
+    }
+
+    public string SelectedModelDisplayName
+    {
+        get => _selectedModelDisplayName;
+        private set => SetAndRaise(SelectedModelDisplayNameProperty, ref _selectedModelDisplayName, value);
     }
 
     public IDataTemplate? ModelItemTemplate
@@ -436,8 +452,23 @@ public class StrataModelPicker : TemplatedControl
 
     /// <summary>The value written to <see cref="SelectedModel"/> when a row is chosen. Rich items
     /// resolve to their id so hosts can keep a plain string selection property.</summary>
-    private static object? ResolveSelectionValue(object? model)
-        => model is IStrataModelOption option ? option.ModelId : model;
+    private object? ResolveSelectionValue(object? model)
+        => model is IStrataModelOption option
+            ? option.MatchesModelId(ResolveModelId(SelectedModel)) ? ResolveModelId(SelectedModel) : option.ModelId
+            : model;
+
+    private static bool MatchesModelSelection(object? model, object? selection)
+        => model is IStrataModelOption option
+            ? option.MatchesModelId(ResolveModelId(selection))
+            : string.Equals(ResolveModelId(model), ResolveModelId(selection), StringComparison.Ordinal);
+
+    private void UpdateSelectedModelDisplayName()
+    {
+        var selected = Models?.Cast<object?>().FirstOrDefault(model => MatchesModelSelection(model, SelectedModel));
+        SelectedModelDisplayName = selected is IStrataModelOption option
+            ? option.DisplayName
+            : ResolveModelId(SelectedModel);
+    }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -590,8 +621,10 @@ public class StrataModelPicker : TemplatedControl
         if (sender is not IStrataModelOption
             || (!string.IsNullOrEmpty(e.PropertyName)
                 && e.PropertyName != nameof(IStrataModelOption.IsPinned)
+                && e.PropertyName != nameof(IStrataModelOption.SortPriority)
                 && e.PropertyName != nameof(IStrataModelOption.ProviderName)
-                && e.PropertyName != nameof(IStrataModelOption.DisplayName)))
+                && e.PropertyName != nameof(IStrataModelOption.DisplayName)
+                && e.PropertyName != nameof(IStrataModelOption.SelectionAliases)))
         {
             return;
         }
@@ -669,6 +702,7 @@ public class StrataModelPicker : TemplatedControl
 
     private void InvalidateModelRows()
     {
+        UpdateSelectedModelDisplayName();
         _catalogDirty = true;
         _filterDirty = true;
         RequestModelRowsRefresh();
@@ -804,7 +838,8 @@ public class StrataModelPicker : TemplatedControl
                 _visibleRows = visibleRows;
                 _modelPickerList.ItemsSource = visibleRows;
             }
-            _modelPickerList.SelectedItem = _visibleRows.FirstOrDefault(row => !row.IsHeader && row.ModelName == activeId)
+            _modelPickerList.SelectedItem = _visibleRows.FirstOrDefault(row => !row.IsHeader
+                    && (row.ModelName == activeId || activeId is not null && MatchesModelSelection(row.Model, activeId)))
                 ?? _visibleRows.FirstOrDefault(row => !row.IsHeader);
             // Opening, searching and filtering move the view to the active row; a catalog or pin
             // change keeps the user's scroll position instead of jumping to wherever a row moved.
@@ -816,7 +851,7 @@ public class StrataModelPicker : TemplatedControl
 
     /// <summary>
     /// The catalog in list order: pinned items first in their own order, then each provider in the
-    /// order it first appears among the unpinned items, newest versions first within a provider.
+    /// order it first appears among the unpinned items, priority then newest version within a provider.
     /// </summary>
     private static List<ModelPickerRowData> OrderCatalogRows(IEnumerable? models)
     {
@@ -830,7 +865,8 @@ public class StrataModelPicker : TemplatedControl
                     ? ProviderGroupPrefix + option.ProviderName
                     : GetModelGroup(modelId);
                 var searchText = NormalizeSearchText(
-                    $"{modelId} {option?.DisplayName} {option?.ProviderName} {GetModelProviderLabel(modelId)}");
+                    $"{modelId} {option?.DisplayName} {option?.ProviderName} {GetModelProviderLabel(modelId)} " +
+                    string.Join(' ', option?.SelectionAliases ?? []));
                 return new ModelPickerRowData(
                     model, modelId, isPinned ? PinnedGroup : providerGroup, isPinned, index, searchText);
             }).ToList();
@@ -843,6 +879,7 @@ public class StrataModelPicker : TemplatedControl
         }
         return rows
             .OrderBy(row => row.IsPinned ? -1 : groupOrder[row.Group])
+            .ThenByDescending(row => row.IsPinned ? 0 : (row.Model as IStrataModelOption)?.SortPriority ?? 0)
             .ThenByDescending(row => row.IsPinned ? 0 : GetModelVersionRank(row.ModelName))
             .ThenBy(row => row.OriginalIndex)
             .ToList();
@@ -850,7 +887,7 @@ public class StrataModelPicker : TemplatedControl
 
     /// <summary>
     /// Lists <paramref name="models"/> in the picker's sections and order — pinned items first in
-    /// their own order, then each provider as it first appears, newest versions first — so a host
+    /// their own order, then each provider as it first appears, priority then newest version — so a host
     /// that draws the list itself, such as a phone's bottom sheet, reads exactly as this picker does.
     /// </summary>
     /// <param name="models">Model ids or <see cref="IStrataModelOption"/> items, as for <see cref="Models"/>.</param>
@@ -1658,7 +1695,7 @@ public class StrataModelPicker : TemplatedControl
             tierText.Classes.Set("tier-fast", tier == "fast");
             tierText.Classes.Set("tier-reasoning", tier == "reasoning");
         }
-        SetRowChecked(row, modelName.Length > 0 && modelName == ResolveModelId(SelectedModel));
+        SetRowChecked(row, modelName.Length > 0 && MatchesModelSelection(model, SelectedModel));
     }
 
     private void UpdateRealizedModelRows()
@@ -1729,7 +1766,7 @@ public class StrataModelPicker : TemplatedControl
         SetCurrentValue(SelectedModelProperty, newModel);
         if (_modelPickerList is not null)
             _modelPickerList.SelectedItem = _visibleRows.FirstOrDefault(
-                row => !row.IsHeader && row.ModelName == ResolveModelId(newModel));
+                row => !row.IsHeader && MatchesModelSelection(row.Model, newModel));
     }
 
     private void UpdateModelPickerSelectionVisuals(object? selectedModel)
@@ -1737,12 +1774,11 @@ public class StrataModelPicker : TemplatedControl
         if (_modelPickerList is null)
             return;
 
-        var selectedId = ResolveModelId(selectedModel);
         foreach (var row in _modelPickerList.GetVisualDescendants().OfType<ModelPickerRow>())
         {
             var isNowSelected = row.Tag is string rowId
                 && rowId.Length > 0
-                && string.Equals(rowId, selectedId, StringComparison.Ordinal);
+                && MatchesModelSelection(row.Model, selectedModel);
             SetRowChecked(row, isNowSelected);
         }
     }
