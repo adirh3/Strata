@@ -132,7 +132,7 @@ public partial class StrataMarkdown
                 TextWrapping = Avalonia.Media.TextWrapping.Wrap
             });
             content.Children.Add(CreateCodeBlockControl(block.Content, "json"));
-            return new Border { Child = content };
+            return new MarkdownBorder { Child = content };
         }
     }
 

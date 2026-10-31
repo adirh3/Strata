@@ -103,7 +103,7 @@ public partial class StrataMarkdown
         };
         placeholder.Classes.Add("strata-md-image-placeholder");
 
-        var fallback = new Border
+        var fallback = new MarkdownBorder
         {
             Child = placeholder,
             MinWidth = 80,
@@ -208,7 +208,7 @@ public partial class StrataMarkdown
         AutomationProperties.SetHelpText(expandButton, label);
         content.Children.Add(expandButton);
 
-        var frame = new Border
+        var frame = new MarkdownBorder
         {
             Child = content,
             MinWidth = 80,

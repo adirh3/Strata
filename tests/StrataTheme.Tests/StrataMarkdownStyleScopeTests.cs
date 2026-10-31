@@ -108,6 +108,40 @@ public sealed class StrataMarkdownStyleScopeTests(AvaloniaFixture fixture)
         });
     }
 
+    [Fact]
+    public async Task AnAppsBorderStylesNeverReachTheMarkdownsOwnBorders()
+    {
+        await fixture.Dispatch(() =>
+        {
+            // An app styles its own borders by type; each such rule would otherwise attach to every cell, quote
+            // and code shell of every markdown it shows, which made long documents slow to build.
+            var unrelated = new Border { Classes = { "app-card" } };
+            var markdown = CreateMarkdown();
+            var window = CreateWindow(new StackPanel { Children = { unrelated, markdown } }, "Light");
+            window.Styles.Add(new Style(selector => selector.OfType<Border>())
+            {
+                Setters = { new Setter(Control.TagProperty, "app") },
+            });
+            try
+            {
+                Pump(window);
+                Assert.Equal("app", unrelated.Tag);
+                var owned = markdown.GetVisualDescendants().OfType<Border>()
+                    .Where(border => border.Classes.Any(name => name.StartsWith("strata-md-", StringComparison.Ordinal)))
+                    .ToList();
+                Assert.Contains(owned, border => border.Classes.Contains("strata-md-table-cell"));
+                Assert.Contains(owned, border => border.Classes.Contains("strata-md-blockquote"));
+                Assert.All(owned, border => Assert.Null(border.Tag));
+                // Their own rules still apply.
+                Assert.Equal(new Thickness(3, 0, 0, 0), FindBorder(markdown, "strata-md-blockquote").BorderThickness);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     private static StrataMarkdown CreateMarkdown(bool derived = false)
     {
         StrataMarkdown markdown = derived ? new DerivedMarkdown() : new StrataMarkdown();

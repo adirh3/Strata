@@ -382,7 +382,7 @@ public sealed class StrataMarkdownImageTests
                 markdown.AppendFormattedInlines(textBlock, $"Before ![fixture image]({path}) after");
 
                 var container = Assert.Single(textBlock.Inlines!.OfType<InlineUIContainer>());
-                var frame = Assert.IsType<Border>(container.Child);
+                var frame = Assert.IsAssignableFrom<Border>(container.Child);
                 var content = Assert.IsType<Grid>(frame.Child);
                 var image = Assert.Single(content.Children.OfType<Image>());
                 var loadingContent = Assert.Single(content.Children.OfType<StackPanel>());

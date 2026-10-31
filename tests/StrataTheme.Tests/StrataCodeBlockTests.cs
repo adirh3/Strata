@@ -445,7 +445,7 @@ public class StrataCodeBlockTests
 
             Assert.NotNull(method);
 
-            var shell = Assert.IsType<Border>(method!.Invoke(renderer, new object[] { code, "text" }));
+            var shell = Assert.IsAssignableFrom<Border>(method!.Invoke(renderer, new object[] { code, "text" }));
             var stack = Assert.IsType<StackPanel>(shell.Child);
             var codeScroller = Assert.IsType<ScrollViewer>(stack.Children[1]);
             var codeBlock = Assert.IsType<StrataCodeBlock>(codeScroller.Content);

@@ -8,7 +8,9 @@
   </Style>
 
   <!-- Renderer helpers belong to their markdown tree, not every control in the application.
-       Image-viewer helpers stay global because the full-screen overlay is hosted separately. -->
+       Image-viewer helpers stay global because the full-screen overlay is hosted separately.
+       The markdown builds its borders as its own Border type, which an app's Border.class styles
+       never attach to; select them here with :is(Border). -->
   <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-title">
     <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
     <Setter Property="FontWeight" Value="SemiBold" />
@@ -16,16 +18,16 @@
     <Setter Property="Margin" Value="2,0,0,0" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-bullet-dot">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-bullet-dot">
     <Setter Property="Background" Value="{DynamicResource Brush.TextTertiary}" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-hr">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-hr">
     <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
   </Style>
 
   <!-- Blockquote: left accent bar with subtle background -->
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-blockquote">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-blockquote">
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
     <Setter Property="BorderThickness" Value="3,0,0,0" />
     <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
@@ -49,7 +51,7 @@
     <Setter Property="TextDecorations" Value="Underline" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-image">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-image">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -58,7 +60,7 @@
     <Setter Property="Margin" Value="0,4" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-image:pointerover">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-image:pointerover">
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
   </Style>
 
@@ -135,15 +137,15 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-inline-code">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-inline-code">
     <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-inline-code TextBlock">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-inline-code TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-surface">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-surface">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -151,19 +153,19 @@
     <Setter Property="Padding" Value="12,10" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-surface:pointerover">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-surface:pointerover">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-surface-inline">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-surface-inline">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="0" />
     <Setter Property="Padding" Value="0" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-code-block">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-code-block">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -200,14 +202,14 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-table-header-cell">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table-header-cell">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="0,0,1,1" />
     <Setter Property="Padding" Value="8,6" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-table-cell">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table-cell">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
     <Setter Property="BorderThickness" Value="0,0,1,1" />

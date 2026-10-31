@@ -533,7 +533,7 @@
   <Style Selector="controls|StrataMarkdown[(controls|StrataChatMessage.IsWithinQuietUpdate)=True]">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
-  <Style Selector="controls|StrataChatMessage:user Border.strata-md-bullet-dot">
+  <Style Selector="controls|StrataChatMessage:user :is(Border).strata-md-bullet-dot">
     <Setter Property="Background" Value="{DynamicResource Brush.ChatUserBubbleText}" />
   </Style>
   <!-- User bubble: override text selection color for contrast on indigo background -->
