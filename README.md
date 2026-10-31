@@ -676,7 +676,9 @@ composer draw no frost.
 ## Responsive navigation and sheets
 
 `StrataNavigationDrawer` uses one measured panel for touch tracking, button toggles and interrupted
-animations. `IsModal` defaults to `true`; set it to `false` for a docked layout that should not dim
+animations. A closed panel rests hidden in place rather than translated off screen, so its content keeps
+the viewport it opens with: a virtualized list in it does not lay all its rows out again each time the
+next open begins. `IsModal` defaults to `true`; set it to `false` for a docked layout that should not dim
 or block the conversation. A docked host can follow `Progress` to move and resize its conversation
 alongside the pane, keeping the released area filled during gestures and button animation.
 `CanOpenFromAnywhere` enables chat-area

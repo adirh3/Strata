@@ -83,6 +83,7 @@ public class StrataNavigationDrawer : ContentControl
     private Border? _scrim;
     private TapReleaseHandler? _scrimTap;
     private ContentPresenter? _panel;
+    private bool _panelBuilt;
     private readonly TranslateTransform _panelTransform = new();
     private double _progress;
     private bool _dragging;
@@ -176,10 +177,16 @@ public class StrataNavigationDrawer : ContentControl
 
         _scrimTap?.Dispose();
 
+        if (_panel is not null)
+            _panel.LayoutUpdated -= OnPanelLayoutUpdated;
         _scrim = e.NameScope.Find<Border>("PART_Scrim");
         _panel = e.NameScope.Find<ContentPresenter>("PART_Panel");
+        _panelBuilt = false;
         if (_panel is not null)
+        {
             _panel.RenderTransform = _panelTransform;
+            _panel.LayoutUpdated += OnPanelLayoutUpdated;
+        }
         UpdateDirection();
 
         if (_scrim is not null)
@@ -324,18 +331,38 @@ public class StrataNavigationDrawer : ContentControl
 
     private void StopSettle() => _settleVersion++;
 
+    /// <summary>The panel's content has been laid out once, so a closed panel can rest hidden.</summary>
+    private void OnPanelLayoutUpdated(object? sender, EventArgs e)
+    {
+        if (sender is not ContentPresenter { Bounds.Width: > 0 } panel)
+            return;
+
+        panel.LayoutUpdated -= OnPanelLayoutUpdated;
+        if (!ReferenceEquals(panel, _panel))
+            return;
+
+        _panelBuilt = true;
+        ApplyProgress(Progress, animate: false);
+    }
+
     private void ApplyProgress(double progress, bool animate)
     {
         Progress = progress;
 
         if (_panel is not null)
         {
+            // A closed panel is laid out once while transparent, so its first open builds nothing, then
+            // rests hidden where it opens rather than translated off screen: hidden, nothing in it draws,
+            // takes input or keeps animating, and its content keeps the viewport it has when open. Off
+            // screen, a virtualized list in it would see its viewport shrink to nothing, and lay all its
+            // rows out again as the next open begins.
+            var shown = progress > 0.001;
             var width = Math.Max(1, PanelWidth);
             var direction = FlowDirection == Avalonia.Media.FlowDirection.RightToLeft ? 1 : -1;
-            _panelTransform.X = direction * width * (1 - progress);
-            _panel.Opacity = progress > 0.001 ? 1 : 0;
-            _panel.IsHitTestVisible = progress > 0.001;
-            _panel.IsEnabled = progress > 0.001;
+            _panelTransform.X = shown ? direction * width * (1 - progress) : 0;
+            _panel.Opacity = shown || _panelBuilt ? 1 : 0;
+            _panel.IsVisible = shown || !_panelBuilt;
+            _panel.IsHitTestVisible = shown;
             // Android can retain the previous composed frame when only the mutable transform changes.
             _panel.InvalidateVisual();
         }

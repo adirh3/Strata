@@ -156,16 +156,20 @@ public sealed class MobileSurfaceMotionTests(AvaloniaFixture fixture)
             {
                 var panel = drawer.GetVisualDescendants().OfType<ContentPresenter>()
                     .Single(control => control.Name == "PART_Panel");
-                Assert.True(panel.IsVisible);
-                Assert.False(panel.IsHitTestVisible);
+                // Closed, the panel has been laid out once, so the first drag builds nothing, and rests
+                // hidden in place: nothing in it draws or takes input.
                 Assert.True(payload.Measures > 0);
                 var initialMeasures = payload.Measures;
+                Assert.False(panel.IsVisible);
+                Assert.False(panel.IsHitTestVisible);
                 var transform = panel.RenderTransform;
 
                 for (var i = 0; i < 8; i++)
                     drawer.RaiseEvent(new EdgeDragEventArgs(EdgeDragGestureRecognizer.EdgeDragEvent, 4, 30 + i * 4));
                 Dispatcher.UIThread.RunJobs();
 
+                Assert.True(panel.IsVisible);
+                Assert.Equal(1, panel.Opacity);
                 Assert.Equal(initialMeasures, payload.Measures);
                 Assert.Same(transform, panel.RenderTransform);
                 Assert.Equal(32d / 320, drawer.Progress, precision: 6);
@@ -181,7 +185,65 @@ public sealed class MobileSurfaceMotionTests(AvaloniaFixture fixture)
                 Assert.False(drawer.IsOpen);
                 await Task.Delay(300);
                 Assert.Equal(0, drawer.Progress, precision: 3);
+                Assert.False(panel.IsVisible);
                 Assert.False(panel.IsHitTestVisible);
+                Assert.Equal(0, Assert.IsType<TranslateTransform>(panel.RenderTransform).X);
+
+                // What the panel built survives the close: opening again does not measure it anew.
+                drawer.RaiseEvent(new EdgeDragEventArgs(EdgeDragGestureRecognizer.EdgeDragEvent, 4, 30));
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(panel.IsVisible);
+                Assert.Equal(initialMeasures, payload.Measures);
+            }
+            finally { window.Close(); }
+        });
+
+    [Fact]
+    public Task AClosedDrawerLeavesItsListTheViewportItOpensWith() =>
+        fixture.Dispatch(async () =>
+        {
+            var list = new ItemsControl
+            {
+                ItemsSource = Enumerable.Range(0, 200).Select(i => $"Chat {i}").ToList(),
+                ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<string>((text, _) =>
+                    new TextBlock { Text = text, Height = 48 }),
+                Template = new Avalonia.Controls.Templates.FuncControlTemplate<ItemsControl>((_, scope) =>
+                {
+                    var presenter = new ItemsPresenter
+                    {
+                        Name = "PART_ItemsPresenter",
+                        ItemsPanel = new Avalonia.Controls.Templates.FuncTemplate<Panel?>(() => new VirtualizingStackPanel())
+                    };
+                    scope.Register(presenter.Name, presenter);
+                    return presenter;
+                })
+            };
+            var drawer = new StrataNavigationDrawer
+            {
+                PanelWidth = 320, Panel = new ScrollViewer { Content = list }, Content = new Border()
+            };
+            var window = CreateWindow(drawer);
+            try
+            {
+                drawer.IsOpen = true;
+                drawer.CompleteMotion();
+                Dispatcher.UIThread.RunJobs();
+                var rows = list.GetRealizedContainers().ToList();
+                Assert.InRange(rows.Count, 8, 40);
+                var viewports = new List<Rect>();
+                list.ItemsPanelRoot!.EffectiveViewportChanged += (_, e) => viewports.Add(e.EffectiveViewport);
+
+                // Translated off screen, the closed list would see its viewport shrink to nothing, and lay
+                // all its rows out again as the next open begins. Resting in place, it keeps its viewport.
+                drawer.IsOpen = false;
+                await Task.Delay(260);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(0, drawer.Progress);
+                drawer.RaiseEvent(new EdgeDragEventArgs(EdgeDragGestureRecognizer.EdgeDragEvent, 8, 30));
+                Dispatcher.UIThread.RunJobs();
+                Assert.InRange(drawer.Progress, 0.01, 0.1);
+                Assert.DoesNotContain(viewports, viewport => viewport.Width <= 0 || viewport.Height <= 0);
+                Assert.Equal(rows, list.GetRealizedContainers().ToList());
             }
             finally { window.Close(); }
         });
@@ -298,12 +360,13 @@ public sealed class MobileSurfaceMotionTests(AvaloniaFixture fixture)
 
                 drawer.IsOpen = false;
                 await Task.Delay(280);
-                Assert.False(inside.IsEffectivelyEnabled);
+                // Closed, the panel is hidden in place: focus leaves it and keys no longer reach it.
+                Assert.False(inside.IsEffectivelyVisible);
+                Assert.NotSame(inside, window.FocusManager!.GetFocusedElement());
                 window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.None, null);
                 window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.None, null);
                 Assert.Equal(1, clicks);
-                Assert.True(inside.IsEffectivelyVisible);
-                Assert.True(inside.Bounds.Width > 0);
+                Assert.False(inside.Focus());
             }
             finally { window.Close(); }
         });

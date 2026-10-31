@@ -31,7 +31,8 @@
                       Opacity="0"
                       IsVisible="False" />
 
-              <!-- Keep the bounded panel measured while closed, so the first drag is not a layout stall. -->
+              <!-- Laid out once while transparent, so its first open builds nothing; then a closed panel
+                   rests hidden in place, so its content keeps the viewport it opens with. -->
               <ContentPresenter Name="PART_Panel"
                                 HorizontalAlignment="Left"
                                 Width="{TemplateBinding PanelWidth}"
