@@ -434,16 +434,17 @@ public sealed partial class StrataTextSelection
 
         private Rect? HitBounds(SelectableTextBlock block)
         {
-            if (block.TranslatePoint(default, _root) is not { } origin)
+            // RTL ancestors can mirror coordinates; transforming only the origin reverses the bounds.
+            if (block.TransformToVisual(_root) is not { } transform)
                 return null;
-            var bounds = new Rect(origin, block.Bounds.Size);
+            var bounds = new Rect(block.Bounds.Size).TransformToAABB(transform);
             foreach (var ancestor in block.GetVisualAncestors().TakeWhile(ancestor => !ReferenceEquals(ancestor, _root)))
             {
                 if (!ancestor.ClipToBounds)
                     continue;
-                if (ancestor.TranslatePoint(default, _root) is not { } clipOrigin)
+                if (ancestor.TransformToVisual(_root) is not { } clipTransform)
                     return null;
-                bounds = bounds.Intersect(new Rect(clipOrigin, ancestor.Bounds.Size));
+                bounds = bounds.Intersect(new Rect(ancestor.Bounds.Size).TransformToAABB(clipTransform));
                 if (bounds.Width <= 0 || bounds.Height <= 0)
                     return null;
             }

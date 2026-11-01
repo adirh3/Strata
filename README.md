@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.75" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.76" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -95,6 +95,10 @@ Selection respects clipped inset content, and edge scrolling uses its own scroll
 when selecting inside a table or reasoning panel. Edge scrolling starts when the pointer
 moves to drag a selection, not on a stationary click or Shift-click.
 Editable fields, buttons and touch scrolling keep their own interactions.
+
+Hebrew and mixed-direction text use the same rendered glyph coordinates for pointer
+selection as LTR text. Selection hit bounds include RTL mirroring and scaling, including
+clipped paragraphs and table cells, so dragging does not jump into neighboring content.
 
 Markdown's renderer-only helper styles are scoped to its content tree, including derived
 Markdown controls, avoiding inactive style subscriptions on unrelated application controls.

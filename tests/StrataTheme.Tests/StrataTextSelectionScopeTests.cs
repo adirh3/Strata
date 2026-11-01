@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using StrataTheme.Controls;
@@ -142,6 +143,76 @@ public sealed class StrataTextSelectionScopeTests(AvaloniaFixture fixture)
     }
 
     [Theory]
+    [InlineData(FlowDirection.LeftToRight, false)]
+    [InlineData(FlowDirection.LeftToRight, true)]
+    [InlineData(FlowDirection.RightToLeft, false)]
+    [InlineData(FlowDirection.RightToLeft, true)]
+    public async Task Drag_InRtlParagraph_TracksTheRenderedGlyphs(FlowDirection hostDirection, bool reverse)
+    {
+        await fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                Markdown = "אחד שני שלישי רביעי", IsInline = true, StreamingRebuildThrottleMs = 0
+            };
+            var below = new SelectableTextBlock { Text = "The paragraph below must not be selected." };
+            var root = new StackPanel { FlowDirection = hostDirection, Children = { markdown, below } };
+            StrataTextSelection.SetIsSelectionScope(root, true);
+            var window = Show(root);
+            try
+            {
+                var text = Assert.Single(markdown.GetVisualDescendants().OfType<SelectableTextBlock>());
+                Assert.Equal(FlowDirection.RightToLeft, text.FlowDirection);
+                var start = GlyphEdgeAt(window, text, 4, rtl: true);
+                var end = GlyphEdgeAt(window, text, 6, rtl: true, trailing: true);
+                DragPointer(window, text, reverse ? end : start, reverse ? start : end);
+
+                Assert.Equal("שני", text.SelectedText);
+                Assert.True(string.IsNullOrEmpty(below.SelectedText), below.SelectedText);
+                Assert.Equal("שני", StrataTextSelection.GetSelectedText(root));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(FlowDirection.LeftToRight, false)]
+    [InlineData(FlowDirection.LeftToRight, true)]
+    [InlineData(FlowDirection.RightToLeft, false)]
+    [InlineData(FlowDirection.RightToLeft, true)]
+    public async Task Drag_AcrossOppositeDirectionParagraphs_TracksEachEndpoint(
+        FlowDirection hostDirection, bool reverse)
+    {
+        await fixture.Dispatch(() =>
+        {
+            var first = new StrataMarkdown
+            {
+                Markdown = "אחד שני שלישי רביעי", IsInline = true, StreamingRebuildThrottleMs = 0
+            };
+            var last = new StrataMarkdown
+            {
+                Markdown = "Alpha bravo", IsInline = true, StreamingRebuildThrottleMs = 0
+            };
+            var root = new StackPanel { FlowDirection = hostDirection, Spacing = 12, Children = { first, last } };
+            StrataTextSelection.SetIsSelectionScope(root, true);
+            var window = Show(root);
+            try
+            {
+                var firstText = Assert.Single(first.GetVisualDescendants().OfType<SelectableTextBlock>());
+                var lastText = Assert.Single(last.GetVisualDescendants().OfType<SelectableTextBlock>());
+                var start = GlyphEdgeAt(window, firstText, 8, rtl: true);
+                var end = GlyphEdgeAt(window, lastText, 4, rtl: false, trailing: true);
+                DragPointer(window, reverse ? lastText : firstText, reverse ? end : start, reverse ? start : end);
+
+                Assert.Equal("שלישי רביעי", firstText.SelectedText);
+                Assert.Equal("Alpha", lastText.SelectedText);
+                Assert.Equal("שלישי רביעי\n\nAlpha", StrataTextSelection.GetSelectedText(root));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Drag_SelectsAcrossTextCodeAndText_InEitherDirection(bool reverse)
@@ -176,8 +247,10 @@ public sealed class StrataTextSelectionScopeTests(AvaloniaFixture fixture)
         });
     }
 
-    [Fact]
-    public async Task Drag_PastClippedContent_EndsInTheVisibleParagraph()
+    [Theory]
+    [InlineData(FlowDirection.LeftToRight)]
+    [InlineData(FlowDirection.RightToLeft)]
+    public async Task Drag_PastClippedContent_EndsInTheVisibleParagraph(FlowDirection direction)
     {
         await fixture.Dispatch(() =>
         {
@@ -193,7 +266,7 @@ public sealed class StrataTextSelectionScopeTests(AvaloniaFixture fixture)
                     Children = { new SelectableTextBlock { Text = "Visible inset", Height = 40 }, hidden }
                 }
             };
-            var root = new StackPanel { Children = { first, clipped, last } };
+            var root = new StackPanel { FlowDirection = direction, Children = { first, clipped, last } };
             StrataTextSelection.SetIsSelectionScope(root, true);
             var window = Show(root);
             try
@@ -202,6 +275,42 @@ public sealed class StrataTextSelectionScopeTests(AvaloniaFixture fixture)
                 Drag(window, first, 6, last, 7);
                 Assert.Equal("bravo", first.SelectedText);
                 Assert.Equal("Charlie", last.SelectedText);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(FlowDirection.LeftToRight, 1)]
+    [InlineData(FlowDirection.RightToLeft, 1)]
+    [InlineData(FlowDirection.LeftToRight, 1.25)]
+    [InlineData(FlowDirection.RightToLeft, 1.25)]
+    public async Task Drag_InRtlTableCell_DoesNotSelectAdjacentCells(FlowDirection hostDirection, double scale)
+    {
+        await fixture.Dispatch(() =>
+        {
+            var markdown = new StrataMarkdown
+            {
+                Markdown = "| שם | ערך |\n| --- | --- |\n| אחד שני שלישי | תוכן סמוך |",
+                FlowDirection = hostDirection, IsInline = true, StreamingRebuildThrottleMs = 0,
+                Width = 480, RenderTransform = new ScaleTransform(scale, scale),
+                RenderTransformOrigin = RelativePoint.TopLeft
+            };
+            var root = new StackPanel { Children = { markdown } };
+            StrataTextSelection.SetIsSelectionScope(root, true);
+            var window = Show(root);
+            try
+            {
+                var blocks = markdown.GetVisualDescendants().OfType<SelectableTextBlock>().ToArray();
+                var text = Assert.Single(blocks, block => (block.Inlines?.Text ?? block.Text) == "אחד שני שלישי");
+                var start = GlyphEdgeAt(window, text, 4, rtl: true);
+                var end = GlyphEdgeAt(window, text, 6, rtl: true, trailing: true);
+                DragPointer(window, text, start, end);
+
+                Assert.Equal("שני", text.SelectedText);
+                Assert.All(blocks.Where(block => !ReferenceEquals(block, text)),
+                    block => Assert.True(string.IsNullOrEmpty(block.SelectedText), block.SelectedText));
+                Assert.Equal("שני", StrataTextSelection.GetSelectedText(markdown));
             }
             finally { window.Close(); }
         });
@@ -492,6 +601,26 @@ public sealed class StrataTextSelectionScopeTests(AvaloniaFixture fixture)
         var caret = text.TextLayout.HitTestTextPosition(index);
         return text.TranslatePoint(new Point(caret.X + 0.1 + text.Padding.Left,
             caret.Center.Y + text.Padding.Top), window)!.Value;
+    }
+
+    private static Point GlyphEdgeAt(Window window, SelectableTextBlock text, int index, bool rtl, bool trailing = false)
+    {
+        var glyph = Assert.Single(text.TextLayout.HitTestTextRange(index, 1));
+        var x = rtl != trailing ? glyph.Right - 0.1 : glyph.Left + 0.1;
+        return text.TranslatePoint(new Point(x + text.Padding.Left, glyph.Center.Y + text.Padding.Top), window)!.Value;
+    }
+
+    private static void DragPointer(Window window, SelectableTextBlock source, Point start, Point end)
+    {
+        source.Focus();
+        var pointer = NewPointer();
+        source.RaiseEvent(new PointerPressedEventArgs(source, pointer, window, start, 0,
+            new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed),
+            KeyModifiers.None));
+        source.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, source, pointer, window, end, 1,
+            new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.Other),
+            KeyModifiers.None));
+        Release(window, pointer, source, end);
     }
 
     private static void Drag(Window window, SelectableTextBlock from, int start, SelectableTextBlock to, int end)
