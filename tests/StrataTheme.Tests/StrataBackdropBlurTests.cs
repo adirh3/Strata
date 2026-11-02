@@ -6,6 +6,71 @@ namespace StrataTheme.Tests;
 public sealed class StrataBackdropBlurTests
 {
     [Fact]
+    public void UniformFrostDoesNotNeedAFadeMask()
+    {
+        Assert.Null(StrataBackdropBlur.CreateFadeMask(new SKRect(0, 0, 200, 100),
+            StrataBackdropFade.None, 0, 0));
+    }
+
+    [Fact]
+    public void TopAndSideFadesBlendTogetherInTheBackdropsOwnCoordinates()
+    {
+        using var bitmap = new SKBitmap(240, 140);
+        using var canvas = new SKCanvas(bitmap);
+        using var mask = StrataBackdropBlur.CreateFadeMask(new SKRect(20, 20, 220, 120),
+            StrataBackdropFade.Top, 40, 32);
+        using var paint = new SKPaint { Shader = mask };
+        canvas.Clear(SKColors.Transparent);
+        canvas.DrawRect(new SKRect(20, 20, 220, 120), paint);
+
+        Assert.InRange(bitmap.GetPixel(120, 20).Alpha, 0, 8);
+        Assert.Equal(255, bitmap.GetPixel(120, 70).Alpha);
+        Assert.InRange(bitmap.GetPixel(20, 70).Alpha, 0, 8);
+        Assert.InRange(bitmap.GetPixel(219, 70).Alpha, 0, 8);
+        // Halfway through the side's eased ramp, as halfway through the top's.
+        Assert.InRange(bitmap.GetPixel(36, 70).Alpha, 141, 161);
+        Assert.InRange(bitmap.GetPixel(120, 40).Alpha, 141, 161);
+        Assert.Equal(255, bitmap.GetPixel(52, 70).Alpha);
+        Assert.True(bitmap.GetPixel(36, 40).Alpha < bitmap.GetPixel(120, 40).Alpha);
+        Assert.True(bitmap.GetPixel(120, 30).Alpha < bitmap.GetPixel(120, 40).Alpha);
+        Assert.True(bitmap.GetPixel(120, 40).Alpha < bitmap.GetPixel(120, 50).Alpha);
+    }
+
+    [Theory]
+    [InlineData(StrataBackdropFade.Top, 0, 99)]
+    [InlineData(StrataBackdropFade.Bottom, 99, 0)]
+    public void ExistingVerticalFadeKeepsItsDirectionWithoutSideFading(
+        StrataBackdropFade fade, int clearY, int solidY)
+    {
+        using var bitmap = new SKBitmap(200, 100);
+        using var canvas = new SKCanvas(bitmap);
+        using var mask = StrataBackdropBlur.CreateFadeMask(new SKRect(0, 0, 200, 100), fade, 40, 0);
+        using var paint = new SKPaint { Shader = mask };
+        canvas.Clear(SKColors.Transparent);
+        canvas.DrawRect(new SKRect(0, 0, 200, 100), paint);
+
+        Assert.InRange(bitmap.GetPixel(100, clearY).Alpha, 0, 8);
+        Assert.Equal(255, bitmap.GetPixel(0, solidY).Alpha);
+        Assert.Equal(255, bitmap.GetPixel(199, solidY).Alpha);
+    }
+
+    [Fact]
+    public void SideFadesMeetAtTheCenterOnANarrowBackdrop()
+    {
+        using var bitmap = new SKBitmap(20, 10);
+        using var canvas = new SKCanvas(bitmap);
+        using var mask = StrataBackdropBlur.CreateFadeMask(new SKRect(0, 0, 20, 10),
+            StrataBackdropFade.None, 0, 32);
+        using var paint = new SKPaint { Shader = mask };
+        canvas.Clear(SKColors.Transparent);
+        canvas.DrawRect(new SKRect(0, 0, 20, 10), paint);
+
+        Assert.InRange(bitmap.GetPixel(0, 5).Alpha, 0, 16);
+        Assert.InRange(bitmap.GetPixel(9, 5).Alpha, 235, 255);
+        Assert.Equal(bitmap.GetPixel(0, 5).Alpha, bitmap.GetPixel(19, 5).Alpha);
+    }
+
+    [Fact]
     public void FullRedrawsRecomputeTheFrost()
     {
         var bounds = new SKRectI(0, 0, 400, 120);

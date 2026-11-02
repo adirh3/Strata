@@ -650,7 +650,11 @@ detaching an activity indicator also stops its loop; hosts do not need to clear 
 `StrataBackdropBlur` frosts whatever was drawn beneath its bounds earlier in the frame: a blurred,
 optionally saturated copy clipped to `CornerRadius`. It draws no tint or content, so place it
 directly under a translucent surface that supplies both. `Fade` (`Top`/`Bottom`) with `FadeLength`
-dissolves the frost toward one edge for scroll-edge bands. `SamplesBeyondEdges` also takes in what
+dissolves the frost toward one edge for scroll-edge bands. `HorizontalFadeLength` additionally feathers
+both side edges in device-independent pixels (off by default) with the same eased ramp, without an
+offscreen opacity mask that would interfere with backdrop sampling. It combines with the vertical fade.
+Size a band past the content it covers by its feather, so the feather falls on empty space and content
+never shows through it. `SamplesBeyondEdges` also takes in what
 lies just around the glass (three blur radii on every side), so content nearing the rim blurs into
 it as real glass does instead of the clamped edge stretching it; it suits small floating glass such
 as a navigation pill, whose host must not clip it. The glass samples only pixels redrawn

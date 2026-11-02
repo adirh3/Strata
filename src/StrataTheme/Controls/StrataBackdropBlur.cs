@@ -67,6 +67,10 @@ public class StrataBackdropBlur : Control
     public static readonly StyledProperty<double> FadeLengthProperty =
         AvaloniaProperty.Register<StrataBackdropBlur, double>(nameof(FadeLength));
 
+    /// <summary>Length of the fade at both side edges, in device-independent pixels. Zero leaves them sharp.</summary>
+    public static readonly StyledProperty<double> HorizontalFadeLengthProperty =
+        AvaloniaProperty.Register<StrataBackdropBlur, double>(nameof(HorizontalFadeLength));
+
     /// <summary>
     /// Whether the frost also takes in what lies just beyond its edges, as glass does, so content nearing
     /// the rim blurs into it gradually instead of the rim stretching whatever crosses it. The capture
@@ -91,6 +95,7 @@ public class StrataBackdropBlur : Control
     {
         AffectsRender<StrataBackdropBlur>(
             BlurRadiusProperty, SaturationProperty, CornerRadiusProperty, FadeProperty, FadeLengthProperty,
+            HorizontalFadeLengthProperty,
             SamplesBeyondEdgesProperty);
         IsHitTestVisibleProperty.OverrideDefaultValue<StrataBackdropBlur>(false);
         FocusableProperty.OverrideDefaultValue<StrataBackdropBlur>(false);
@@ -131,6 +136,13 @@ public class StrataBackdropBlur : Control
         set => SetValue(FadeLengthProperty, value);
     }
 
+    /// <inheritdoc cref="HorizontalFadeLengthProperty"/>
+    public double HorizontalFadeLength
+    {
+        get => GetValue(HorizontalFadeLengthProperty);
+        set => SetValue(HorizontalFadeLengthProperty, value);
+    }
+
     /// <inheritdoc cref="SamplesBeyondEdgesProperty"/>
     public bool SamplesBeyondEdges
     {
@@ -146,7 +158,7 @@ public class StrataBackdropBlur : Control
             return;
 
         context.Custom(new BackdropOperation(
-            new Rect(size), BlurRadius, Saturation, CornerRadius, Fade, FadeLength,
+            new Rect(size), BlurRadius, Saturation, CornerRadius, Fade, FadeLength, HorizontalFadeLength,
             SamplesBeyondEdges ? 3 * BlurRadius : 0));
     }
 
@@ -229,6 +241,41 @@ public class StrataBackdropBlur : Control
         inner.Left >= outer.Left && inner.Top >= outer.Top
         && inner.Right <= outer.Right && inner.Bottom <= outer.Bottom;
 
+    internal static SKShader? CreateFadeMask(
+        SKRect bounds, StrataBackdropFade fade, float fadeLength, float horizontalFadeLength)
+    {
+        // An eased ramp, from the clear edge inward, reads as a progressive blur rather than a hard-edged band.
+        SKColor faint = new(255, 255, 255, 72), most = new(255, 255, 255, 200);
+        SKShader? mask = null;
+        if (fade != StrataBackdropFade.None)
+        {
+            var length = fadeLength > 0 ? fadeLength : bounds.Height;
+            var (clear, solid) = fade == StrataBackdropFade.Bottom
+                ? (new SKPoint(0, bounds.Bottom), new SKPoint(0, bounds.Bottom - length))
+                : (new SKPoint(0, bounds.Top), new SKPoint(0, bounds.Top + length));
+            mask = SKShader.CreateLinearGradient(clear, solid,
+                [SKColors.Transparent, faint, most, SKColors.White], [0f, 0.3f, 0.65f, 1f], SKShaderTileMode.Clamp);
+        }
+
+        if (horizontalFadeLength > 0 && bounds.Width > 0)
+        {
+            var inset = Math.Min(horizontalFadeLength / bounds.Width, 0.5f);
+            var horizontal = SKShader.CreateLinearGradient(
+                new SKPoint(bounds.Left, 0), new SKPoint(bounds.Right, 0),
+                [SKColors.Transparent, faint, most, SKColors.White, SKColors.White, most, faint, SKColors.Transparent],
+                [0f, 0.3f * inset, 0.65f * inset, inset, 1 - inset, 1 - 0.65f * inset, 1 - 0.3f * inset, 1f],
+                SKShaderTileMode.Clamp);
+            if (mask is null)
+                return horizontal;
+
+            using (mask)
+            using (horizontal)
+                return SKShader.CreateBlend(SKBlendMode.DstIn, mask, horizontal);
+        }
+
+        return mask;
+    }
+
     private static bool IsLost(object context) =>
         context is GRContext gpu && (gpu.Handle == IntPtr.Zero || gpu.IsAbandoned);
 
@@ -294,6 +341,7 @@ public class StrataBackdropBlur : Control
         private readonly CornerRadius _cornerRadius;
         private readonly StrataBackdropFade _fade;
         private readonly double _fadeLength;
+        private readonly double _horizontalFadeLength;
         private readonly double _sampleMargin;
 
         // Render-thread state. A new operation is created for every UI-thread render, and a changed operation
@@ -329,6 +377,7 @@ public class StrataBackdropBlur : Control
             CornerRadius cornerRadius,
             StrataBackdropFade fade,
             double fadeLength,
+            double horizontalFadeLength,
             double sampleMargin)
         {
             Bounds = bounds;
@@ -337,6 +386,7 @@ public class StrataBackdropBlur : Control
             _cornerRadius = cornerRadius;
             _fade = fade;
             _fadeLength = fadeLength;
+            _horizontalFadeLength = horizontalFadeLength;
             _sampleMargin = sampleMargin;
         }
 
@@ -542,7 +592,9 @@ public class StrataBackdropBlur : Control
                 erase.Color = new SKColor(0, 0, 0, alpha);
                 paint.Color = new SKColor(255, 255, 255, alpha);
                 var destination = SKRect.Create(_frostDevice.Left, _frostDevice.Top, _frostDevice.Width, _frostDevice.Height);
-                if (_fade == StrataBackdropFade.None)
+                using var ramp = CreateFadeMask(device, _fade,
+                    (float)(_fadeLength * scaleY), (float)(_horizontalFadeLength * scaleX));
+                if (ramp is null)
                 {
                     canvas.DrawRect(destination, erase);
                     canvas.DrawImage(_frost, SKRect.Create(_frostSource.Left, _frostSource.Top,
@@ -552,14 +604,6 @@ public class StrataBackdropBlur : Control
 
                 using var image = _frost.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,
                     SKMatrix.CreateTranslation(_frostDevice.Left - _frostSource.Left, _frostDevice.Top - _frostSource.Top));
-                var fadeLength = _fadeLength > 0 ? (float)(_fadeLength * scaleY) : device.Height;
-                var (solid, clear) = _fade == StrataBackdropFade.Bottom
-                    ? (new SKPoint(0, device.Bottom - fadeLength), new SKPoint(0, device.Bottom))
-                    : (new SKPoint(0, device.Top + fadeLength), new SKPoint(0, device.Top));
-                // An eased ramp reads as a progressive blur rather than a hard-edged band.
-                using var ramp = SKShader.CreateLinearGradient(solid, clear,
-                    [SKColors.White, new SKColor(255, 255, 255, 200), new SKColor(255, 255, 255, 72), SKColors.Transparent],
-                    [0f, 0.35f, 0.7f, 1f], SKShaderTileMode.Clamp);
                 using var shader = SKShader.CreateBlend(SKBlendMode.DstIn, image, ramp);
                 erase.Shader = ramp;
                 canvas.DrawRect(destination, erase);
