@@ -340,24 +340,31 @@
                          strata:PopupAnimationHelper.EnableOpenAnimation="False"
                          strata:PopupAnimationHelper.EnableOverlayAnimation="True"
                          strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
-                    <Panel MinWidth="280" MaxWidth="560" TextOptions.TextRenderingMode="Antialias">
-                      <Border CornerRadius="14" ClipToBounds="True" IsHitTestVisible="False">
-                        <controls:StrataBackdropBlur CornerRadius="14" BlurRadius="22" Saturation="1.4" />
+                    <Border Name="PART_AutoCompleteSurface"
+                            MinWidth="280" MaxWidth="560" Margin="10"
+                            TextOptions.TextRenderingMode="Antialias"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource Brush.BorderDefault}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            BoxShadow="0 18 48 -10 #48000000, 0 4 14 0 #22000000"
+                            ClipToBounds="False">
+                      <Border Name="PART_AutoCompleteGlass" CornerRadius="13" ClipToBounds="True">
+                        <Panel>
+                          <controls:StrataBackdropBlur CornerRadius="13" BlurRadius="22" Saturation="1.4" />
+                          <Border Background="{DynamicResource Brush.Surface1Glass}"
+                                  CornerRadius="13"
+                                  Padding="6">
+                            <ScrollViewer Name="PART_AutoCompleteScrollViewer"
+                                          MaxHeight="340"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
+                              <StackPanel Name="PART_AutoCompletePanel" Spacing="1" />
+                            </ScrollViewer>
+                          </Border>
+                        </Panel>
                       </Border>
-                      <Border Background="{DynamicResource Brush.Surface1Glass}"
-                              BorderBrush="{DynamicResource Brush.BorderDefault}"
-                              BorderThickness="1"
-                              CornerRadius="14"
-                              Padding="6"
-                              BoxShadow="0 18 44 -10 #48000000, 0 4 14 0 #22000000">
-                        <ScrollViewer Name="PART_AutoCompleteScrollViewer"
-                                      MaxHeight="340"
-                                      HorizontalScrollBarVisibility="Disabled"
-                                      VerticalScrollBarVisibility="Auto">
-                          <StackPanel Name="PART_AutoCompletePanel" Spacing="1" />
-                        </ScrollViewer>
-                      </Border>
-                    </Panel>
+                    </Border>
                   </Popup>
                 </Panel>
 

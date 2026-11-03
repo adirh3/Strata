@@ -12,6 +12,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using StrataTheme.Controls;
@@ -191,6 +193,57 @@ public class StrataComposerPickerTests
             Assert.True(Part<Popup>(host.Composer, "_autoCompletePopup").IsOpen);
             Assert.Equal([ChipKind.File], AutoCompleteKinds(host.Composer));
             host.Window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData("/", false)]
+    [InlineData("/", true)]
+    [InlineData("#", false)]
+    [InlineData("#", true)]
+    public async Task AutoComplete_KeepsRoundedGlassInsideItsElevatedSurface(string trigger, bool dark)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var host = Host.Create();
+            try
+            {
+                host.Window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+                host.Composer.AvailableFiles =
+                    new[] { new StrataComposerChip("notes.md", Value: @"C:\notes.md") };
+                Assert.True(host.Input.Focus());
+                host.Window.KeyTextInput(trigger);
+                Dispatcher.UIThread.RunJobs();
+                host.Window.UpdateLayout();
+
+                var popup = Part<Popup>(host.Composer, "_autoCompletePopup");
+                Assert.True(popup.IsOpen);
+                Assert.True(popup.IsUsingOverlayLayer);
+                var surface = Assert.IsType<Border>(popup.Child);
+                Assert.Equal(new Avalonia.Thickness(10), surface.Margin);
+                Assert.Equal(new Avalonia.CornerRadius(14), surface.CornerRadius);
+                Assert.False(surface.ClipToBounds);
+                Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(surface.Background).Color);
+                Assert.Equal(BoxShadows.Parse("0 18 48 -10 #48000000, 0 4 14 0 #22000000"), surface.BoxShadow);
+
+                var glass = Assert.IsType<Border>(surface.Child);
+                Assert.True(glass.ClipToBounds);
+                Assert.Equal(new Avalonia.CornerRadius(13), glass.CornerRadius);
+                var frost = Assert.Single(glass.GetVisualDescendants().OfType<StrataBackdropBlur>());
+                Assert.Equal(glass.CornerRadius, frost.CornerRadius);
+                Assert.Equal(surface.Bounds.Width - 2, glass.Bounds.Width);
+                Assert.Equal(surface.Bounds.Height - 2, glass.Bounds.Height);
+                Assert.NotEmpty(AutoCompleteKinds(host.Composer));
+
+                Key(host.Input, Avalonia.Input.Key.Escape);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(popup.IsOpen);
+                Assert.Equal(trigger, host.Composer.PromptText);
+            }
+            finally
+            {
+                host.Window.Close();
+            }
         });
     }
 

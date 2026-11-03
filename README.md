@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.76" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.77" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -82,6 +82,9 @@ second animation. To opt out, set both popup properties and the presenter's
 `PopupAnimationHelper.OpenAnimationDuration` optionally changes one popup's
 opening time, without changing its 150 ms exit or other popups. The model picker
 uses a 120 ms near-full-size scale/fade instead of expanding from its button's height.
+
+Composer autocomplete uses the model picker's soft elevation, with space around its shadow
+and an inset rounded clip for the frost, tint and scrollable suggestions.
 
 ## Chat text selection and copying
 
