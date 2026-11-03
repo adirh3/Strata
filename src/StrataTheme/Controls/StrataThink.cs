@@ -48,6 +48,9 @@ public class StrataThink : TemplatedControl
     private bool _isCollapsedWidthClamped;
     private object? _displayedContent;
     private object? _displayedPreviewContent;
+    // Whether the live activity card is shown: follows IsActive after ActivityRevealDelay/ActivitySettleDelay.
+    private bool _isActivityShown;
+    private DispatcherTimer? _activityTimer;
 
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<StrataThink, string>(nameof(Label), "Thinking\u2026");
@@ -91,7 +94,8 @@ public class StrataThink : TemplatedControl
 
     /// <summary>
     /// Optional lightweight activity preview shown below the header while active and collapsed.
-    /// Supplying a preview gives the active or expanded control a responsive card layout.
+    /// Supplying a preview gives the active or expanded control a responsive card layout, once work has run for
+    /// <see cref="ActivityRevealDelay"/> and until it has stopped for <see cref="ActivitySettleDelay"/>.
     /// Finished, collapsed controls retain the compact pill presentation.
     /// </summary>
     public static readonly StyledProperty<object?> PreviewContentProperty =
@@ -115,9 +119,28 @@ public class StrataThink : TemplatedControl
     public static readonly StyledProperty<bool> IsActiveProperty =
         AvaloniaProperty.Register<StrataThink, bool>(nameof(IsActive));
 
+    /// <summary>
+    /// How long work must run without a break before a control with <see cref="PreviewContent"/> opens into
+    /// its live activity card. Shorter work only takes the accent, so a run of quick steps never flickers
+    /// open and shut. Defaults to 500 ms; zero opens at once.
+    /// </summary>
+    public static readonly StyledProperty<TimeSpan> ActivityRevealDelayProperty =
+        AvaloniaProperty.Register<StrataThink, TimeSpan>(nameof(ActivityRevealDelay), TimeSpan.FromMilliseconds(500));
+
+    /// <summary>
+    /// How long the live activity card stays open after work stops, so a step that follows soon after keeps
+    /// it open instead of folding and reopening it. Defaults to 1 s; zero folds at once.
+    /// </summary>
+    public static readonly StyledProperty<TimeSpan> ActivitySettleDelayProperty =
+        AvaloniaProperty.Register<StrataThink, TimeSpan>(nameof(ActivitySettleDelay), TimeSpan.FromSeconds(1));
+
     static StrataThink()
     {
-        IsActiveProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdateActivityPresentation());
+        IsActiveProperty.Changed.AddClassHandler<StrataThink>((t, _) =>
+        {
+            t.SyncActivityShown();
+            t.UpdateActivityPresentation();
+        });
         PreviewContentProperty.Changed.AddClassHandler<StrataThink>((t, _) => t.UpdateActivityPresentation());
         IsExpandedProperty.Changed.AddClassHandler<StrataThink>((t, _) =>
         {
@@ -168,8 +191,12 @@ public class StrataThink : TemplatedControl
     public double ProgressValue { get => GetValue(ProgressValueProperty); set => SetValue(ProgressValueProperty, value); }
     public bool IsExpanded { get => GetValue(IsExpandedProperty); set => SetValue(IsExpandedProperty, value); }
     public bool IsActive { get => GetValue(IsActiveProperty); set => SetValue(IsActiveProperty, value); }
+    /// <summary>Gets or sets how long work runs before the activity card opens; see <see cref="ActivityRevealDelayProperty"/>.</summary>
+    public TimeSpan ActivityRevealDelay { get => GetValue(ActivityRevealDelayProperty); set => SetValue(ActivityRevealDelayProperty, value); }
+    /// <summary>Gets or sets how long the activity card stays open after work stops; see <see cref="ActivitySettleDelayProperty"/>.</summary>
+    public TimeSpan ActivitySettleDelay { get => GetValue(ActivitySettleDelayProperty); set => SetValue(ActivitySettleDelayProperty, value); }
 
-    private bool HasActivityPresentation => PreviewContent is not null && (IsActive || IsExpanded);
+    private bool HasActivityPresentation => PreviewContent is not null && (_isActivityShown || IsExpanded);
     private bool UsesCardWidth => IsExpanded || HasActivityPresentation;
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -220,6 +247,12 @@ public class StrataThink : TemplatedControl
             parent.SizeChanged += OnParentSizeChanged;
 
         LayoutUpdated += OnLayoutUpdated;
+
+        if (_isActivityShown != IsActive)
+        {
+            SyncActivityShown();
+            UpdateActivityPresentation();
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -236,6 +269,7 @@ public class StrataThink : TemplatedControl
 
         LayoutUpdated -= OnLayoutUpdated;
 
+        _activityTimer?.Stop();
         CancelExpandedReveal();
         base.OnDetachedFromVisualTree(e);
     }
@@ -303,7 +337,7 @@ public class StrataThink : TemplatedControl
 
         PseudoClasses.Set(":active", IsActive);
         PseudoClasses.Set(":activity", HasActivityPresentation);
-        PseudoClasses.Set(":preview", PreviewContent is not null && IsActive && !IsExpanded);
+        PseudoClasses.Set(":preview", PreviewContent is not null && _isActivityShown && !IsExpanded);
         PseudoClasses.Set(":expanded", IsExpanded);
         PseudoClasses.Set(":has-icon", Icon is not null);
         PseudoClasses.Set(":error", HasError);
@@ -316,7 +350,50 @@ public class StrataThink : TemplatedControl
     private void UpdateDisplayedContent()
     {
         DisplayedContent = IsExpanded ? Content : null;
-        DisplayedPreviewContent = IsActive && !IsExpanded ? PreviewContent : null;
+        DisplayedPreviewContent = _isActivityShown && !IsExpanded ? PreviewContent : null;
+    }
+
+    /// <summary>
+    /// Moves the shown activity toward <see cref="IsActive"/>: at once when its delay is zero, otherwise once
+    /// the state has held for that delay. A change back before then cancels the pending move.
+    /// </summary>
+    private void SyncActivityShown()
+    {
+        if (_isActivityShown == IsActive)
+        {
+            _activityTimer?.Stop();
+            return;
+        }
+
+        // A pending move always heads toward the current IsActive, so let it run.
+        if (_activityTimer is { IsEnabled: true })
+            return;
+
+        var delay = IsActive ? ActivityRevealDelay : ActivitySettleDelay;
+        if (delay <= TimeSpan.Zero)
+        {
+            _isActivityShown = IsActive;
+            return;
+        }
+
+        if (_activityTimer is null)
+        {
+            _activityTimer = new DispatcherTimer(DispatcherPriority.Normal);
+            _activityTimer.Tick += OnActivityTimerTick;
+        }
+
+        _activityTimer.Interval = delay;
+        _activityTimer.Start();
+    }
+
+    private void OnActivityTimerTick(object? sender, EventArgs e)
+    {
+        _activityTimer?.Stop();
+        if (_isActivityShown == IsActive)
+            return;
+
+        _isActivityShown = IsActive;
+        UpdateActivityPresentation();
     }
 
     private void UpdateActivityPresentation()
