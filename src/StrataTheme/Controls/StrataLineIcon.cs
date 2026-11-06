@@ -225,4 +225,22 @@ public static class StrataIcons
 
     /// <summary>Changes: a split view with a minus and a plus.</summary>
     public static Geometry Diff => Parse("M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5z M12 4.5v15 M6.5 12h3 M14.5 12h3 M16 10.5v3");
+
+    /// <summary>A phone: a slim screen with a home bar.</summary>
+    public static Geometry Phone => Parse("M8 2.75h8a1.75 1.75 0 0 1 1.75 1.75v15A1.75 1.75 0 0 1 16 21.25H8a1.75 1.75 0 0 1-1.75-1.75v-15A1.75 1.75 0 0 1 8 2.75z M10.75 18.25h2.5");
+
+    /// <summary>Notifications: a bell.</summary>
+    public static Geometry Bell => Parse("M6.5 16.5v-5a5.5 5.5 0 0 1 11 0v5l1.5 2h-14z M10 19.5a2 2 0 0 0 4 0");
+
+    /// <summary>Replying: an arrow turning back.</summary>
+    public static Geometry Reply => Parse("M9.5 7 4.5 12l5 5 M4.5 12H14a5.5 5.5 0 0 1 5.5 5.5v1");
+
+    /// <summary>Waiting its turn: a list with an arrow for what goes next.</summary>
+    public static Geometry Queue => Parse("M4.5 6.5h11 M4.5 11.5h7 M4.5 16.5h7 M15 13l3.75 3.5L15 20");
+
+    /// <summary>Brought together: two overlapping circles.</summary>
+    public static Geometry Overlap => Parse("M3.75 12a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0-11 0 M9.25 12a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0-11 0");
+
+    /// <summary>Settings to adjust: two sliders.</summary>
+    public static Geometry Sliders => Parse("M4.5 7.5h9 M17.5 7.5h2 M4.5 16.5h2 M10.5 16.5h9 M15.5 5.5v4 M8.5 14.5v4");
 }
