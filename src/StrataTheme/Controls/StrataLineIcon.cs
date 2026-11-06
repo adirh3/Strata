@@ -113,6 +113,9 @@ public static class StrataIcons
     /// <summary>Skills: a wand and its sparkles.</summary>
     public static Geometry Wand => Parse("M4.5 19.5 14 10 M12.5 8.5l3 3 M17.5 3.5v3 M16 5h3 M7 4.5v2 M6 5.5h2 M19 13v2 M18 14h2");
 
+    /// <summary>A picture: a frame holding a sun over hills.</summary>
+    public static Geometry Image => Parse("M6 4.5h12A1.5 1.5 0 0 1 19.5 6v12a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V6A1.5 1.5 0 0 1 6 4.5z M4.5 16l4.5-4.5 4 4 2-2 4.5 4.5 M14 9.25a1.75 1.75 0 1 0 3.5 0a1.75 1.75 0 1 0-3.5 0");
+
     /// <summary>Connectors: a plug.</summary>
     public static Geometry Plug => Parse("M9 3.5v4 M15 3.5v4 M6.5 7.5h11v3a5.5 5.5 0 0 1-11 0z M12 16v4.5");
 
