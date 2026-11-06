@@ -10,16 +10,40 @@ using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
+/// <summary>What a <see cref="StrataTranscriptMark"/> stands for, which sets how the rail draws and previews it.</summary>
+public enum StrataTranscriptMarkKind
+{
+    /// <summary>Something the user said: a tick, previewed as the user's bubble.</summary>
+    Message,
+
+    /// <summary>A card that asked the user for something (a question, a form, an approval): a dot, previewed as a card.</summary>
+    Card,
+}
+
 /// <summary>A place in a chat transcript that <see cref="StrataTranscriptRail"/> offers to jump to, such as one of the user's messages.</summary>
 public sealed class StrataTranscriptMark
 {
-    public StrataTranscriptMark(double position, string text, string? detail = null, object? tag = null)
+    public StrataTranscriptMark(
+        double position,
+        string text,
+        string? detail = null,
+        object? tag = null,
+        StrataTranscriptMarkKind kind = StrataTranscriptMarkKind.Message,
+        string? label = null)
     {
         Position = position;
         Text = text ?? string.Empty;
         Detail = detail;
         Tag = tag;
+        Kind = kind;
+        Label = label;
     }
+
+    /// <summary>Whether the place is something the user said or a card that asked them for something.</summary>
+    public StrataTranscriptMarkKind Kind { get; }
+
+    /// <summary>A short caption above the preview's text, such as "Question".</summary>
+    public string? Label { get; }
 
     /// <summary>Where the place starts, measured from the top of the transcript's scroll content.</summary>
     public double Position { get; }
@@ -149,7 +173,8 @@ internal readonly record struct TranscriptRailLayout(
 
 /// <summary>
 /// The transcript's scrollbar, made for finding your way around a conversation. At rest it is a slim thumb.
-/// Hovered, it opens into a map of the transcript's marks (the user's messages): the marks near the pointer
+/// Hovered, it opens into a map of the transcript's marks (the user's messages, and the cards that asked them
+/// for something): the marks near the pointer
 /// grow, the nearest one is previewed beside the rail, and a click lands on it. The thumb still drags, the
 /// track still jumps and the wheel still scrolls; while the thumb is dragged, the preview shows the message
 /// being passed. <see cref="StrataChatShell"/> hosts it in place of the scrollbar when
@@ -161,8 +186,10 @@ internal readonly record struct TranscriptRailLayout(
 /// (<see cref="StrataChatShell.TranscriptMarksRequested"/>) only while the rail is open or dragged.</para>
 /// <para><b>Template parts:</b> PART_Surface (<see cref="StrataTranscriptRailSurface"/> – draws the strip),
 /// PART_PreviewLayer (<see cref="StrataTranscriptRailPreviewLayer"/> – places the preview beside its mark),
-/// PART_Preview (Control – the preview card), PART_PreviewText (TextBlock), PART_PreviewDetail (TextBlock).</para>
-/// <para><b>Pseudo-classes:</b> :open, :previewing, :pressed, :dragging.</para>
+/// PART_Preview (Control – the preview card), PART_PreviewLabel (TextBlock, optional), PART_PreviewText (TextBlock),
+/// PART_PreviewDetail (TextBlock).</para>
+/// <para><b>Pseudo-classes:</b> :open, :previewing, :card (the previewed mark is a <see cref="StrataTranscriptMarkKind.Card"/>),
+/// :pressed, :dragging.</para>
 /// </remarks>
 public class StrataTranscriptRail : TemplatedControl
 {
@@ -181,6 +208,9 @@ public class StrataTranscriptRail : TemplatedControl
     private const double FocusedTickLength = 20;
     private const double TickThickness = 2;
     private const double FocusedTickThickness = 3;
+    private const double DotRadius = 1.75;
+    private const double NearDotRadius = 3;
+    private const double FocusedDotRadius = 3.5;
     private const double MagnifySigma = 15;
     private const double DragThreshold = 3;
 
@@ -221,6 +251,7 @@ public class StrataTranscriptRail : TemplatedControl
     private StrataTranscriptRailSurface? _surface;
     private StrataTranscriptRailPreviewLayer? _previewLayer;
     private Control? _preview;
+    private TextBlock? _previewLabel;
     private TextBlock? _previewText;
     private TextBlock? _previewDetail;
     private IReadOnlyList<StrataTranscriptMark> _marks = Array.Empty<StrataTranscriptMark>();
@@ -347,6 +378,7 @@ public class StrataTranscriptRail : TemplatedControl
         _surface = e.NameScope.Find<StrataTranscriptRailSurface>("PART_Surface");
         _previewLayer = e.NameScope.Find<StrataTranscriptRailPreviewLayer>("PART_PreviewLayer");
         _preview = e.NameScope.Find<Control>("PART_Preview");
+        _previewLabel = e.NameScope.Find<TextBlock>("PART_PreviewLabel");
         _previewText = e.NameScope.Find<TextBlock>("PART_PreviewText");
         _previewDetail = e.NameScope.Find<TextBlock>("PART_PreviewDetail");
         if (_surface is not null)
@@ -571,6 +603,13 @@ public class StrataTranscriptRail : TemplatedControl
         }
 
         var mark = _marks[_focusIndex];
+        PseudoClasses.Set(":card", mark.Kind == StrataTranscriptMarkKind.Card);
+        if (_previewLabel is not null)
+        {
+            _previewLabel.Text = mark.Label;
+            _previewLabel.IsVisible = !string.IsNullOrWhiteSpace(mark.Label);
+        }
+
         _previewText.Text = mark.Text;
         if (_previewDetail is not null)
         {
@@ -867,6 +906,15 @@ public class StrataTranscriptRail : TemplatedControl
                 continue;
 
             var near = hasCenter ? Math.Exp(-(y - center) * (y - center) / (2 * MagnifySigma * MagnifySigma)) : 0;
+            if (_marks[i].Kind == StrataTranscriptMarkKind.Card)
+            {
+                // A card is a dot at the ticks' outer end, so it reads apart from the user's messages.
+                var radius = (DotRadius + (NearDotRadius - DotRadius) * near) * (0.45 + 0.55 * reveal);
+                using (context.PushOpacity(reveal))
+                    context.DrawEllipse(brush, null, new Point(tickRight - NearDotRadius, y), radius, radius);
+                continue;
+            }
+
             var length = (TickLength + (NearTickLength - TickLength) * near) * (0.45 + 0.55 * reveal);
             var tick = new RoundedRect(new Rect(tickRight - length, y - TickThickness / 2, length, TickThickness), TickThickness / 2);
             if (reveal >= 0.999)
@@ -882,14 +930,25 @@ public class StrataTranscriptRail : TemplatedControl
         if (focus >= 0 && (FocusedMarkBrush ?? VisibleMarkBrush ?? MarkBrush) is { } focusedBrush)
         {
             var y = ys[focus];
-            var length = FocusedTickLength * (0.45 + 0.55 * openness);
-            var tick = new Rect(tickRight - length, y - FocusedTickThickness / 2, length, FocusedTickThickness);
             using (context.PushOpacity(openness))
             {
                 // A soft halo, then the mark.
-                using (context.PushOpacity(0.28))
-                    context.DrawRectangle(focusedBrush, null, new RoundedRect(tick.Inflate(2.5), FocusedTickThickness / 2 + 2.5));
-                context.DrawRectangle(focusedBrush, null, new RoundedRect(tick, FocusedTickThickness / 2));
+                if (_marks[focus].Kind == StrataTranscriptMarkKind.Card)
+                {
+                    var radius = FocusedDotRadius * (0.45 + 0.55 * openness);
+                    var dot = new Point(tickRight - NearDotRadius, y);
+                    using (context.PushOpacity(0.28))
+                        context.DrawEllipse(focusedBrush, null, dot, radius + 2.5, radius + 2.5);
+                    context.DrawEllipse(focusedBrush, null, dot, radius, radius);
+                }
+                else
+                {
+                    var length = FocusedTickLength * (0.45 + 0.55 * openness);
+                    var tick = new Rect(tickRight - length, y - FocusedTickThickness / 2, length, FocusedTickThickness);
+                    using (context.PushOpacity(0.28))
+                        context.DrawRectangle(focusedBrush, null, new RoundedRect(tick.Inflate(2.5), FocusedTickThickness / 2 + 2.5));
+                    context.DrawRectangle(focusedBrush, null, new RoundedRect(tick, FocusedTickThickness / 2));
+                }
             }
         }
     }

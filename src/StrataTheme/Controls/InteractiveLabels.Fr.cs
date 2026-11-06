@@ -43,6 +43,7 @@ public sealed partial class InteractiveLabels
         ["removeAttachment"] = "Retirer la pièce jointe",
         ["question"] = "Question",
         ["confirmSelection"] = "Confirmer la sélection",
+        ["showQuestion"] = "Afficher la question", ["hideQuestion"] = "Masquer la question",
         ["questionPlaceholder"] = "Saisissez votre réponse...",
         ["enterAction"] = "Enter",
         ["tapAction"] = "Toucher",

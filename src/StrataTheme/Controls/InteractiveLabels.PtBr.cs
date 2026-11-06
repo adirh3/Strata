@@ -22,6 +22,7 @@ public sealed partial class InteractiveLabels
         ["removeAgent"] = "Remover agente", ["removeProject"] = "Remover projeto",
         ["removeItem"] = "Remover {0}", ["removeAttachment"] = "Remover anexo",
         ["question"] = "Pergunta", ["confirmSelection"] = "Confirmar seleção",
+        ["showQuestion"] = "Mostrar a pergunta", ["hideQuestion"] = "Ocultar a pergunta",
         ["questionPlaceholder"] = "Digite sua resposta...",
         ["enterAction"] = "Enter", ["tapAction"] = "Toque",
         ["agentsAutocomplete"] = "Agentes · {0} para selecionar", ["skillsAutocomplete"] = "Habilidades · {0} para adicionar",

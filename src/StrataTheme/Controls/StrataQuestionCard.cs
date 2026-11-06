@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Media;
 
@@ -25,8 +26,9 @@ namespace StrataTheme.Controls;
 /// </code>
 /// <para><b>Template parts:</b> PART_Root (Border), PART_QuestionText (StrataMarkdown),
 /// PART_OptionsPanel (Panel), PART_FreeTextBox (TextBox),
-/// PART_FreeTextSubmit (Button), PART_MultiSubmit (Button).</para>
-/// <para><b>Pseudo-classes:</b> :answered, :expired, :has-free-text, :multi-select, :touch.</para>
+/// PART_FreeTextSubmit (Button), PART_MultiSubmit (Button), PART_ExpandButton (Button – the answered chip,
+/// which opens the card), PART_CollapseButton (Button – closes an opened answered card).</para>
+/// <para><b>Pseudo-classes:</b> :answered, :expanded, :expired, :has-free-text, :multi-select, :touch.</para>
 /// </remarks>
 public class StrataQuestionCard : TemplatedControl
 {
@@ -34,6 +36,8 @@ public class StrataQuestionCard : TemplatedControl
     private TextBox? _freeTextBox;
     private Button? _freeTextSubmit;
     private Button? _multiSubmit;
+    private Button? _expandButton;
+    private Button? _collapseButton;
     private readonly HashSet<string> _selectedOptions = new();
     private bool _hasInput;
 
@@ -68,6 +72,9 @@ public class StrataQuestionCard : TemplatedControl
     public static readonly StyledProperty<bool> IsExpiredProperty =
         AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(IsExpired));
 
+    public static readonly StyledProperty<bool> IsExpandedProperty =
+        AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(IsExpanded), defaultBindingMode: BindingMode.TwoWay);
+
     public static readonly StyledProperty<bool> TouchModeProperty =
         AvaloniaProperty.Register<StrataQuestionCard, bool>(nameof(TouchMode));
 
@@ -79,6 +86,8 @@ public class StrataQuestionCard : TemplatedControl
     private static readonly Regex MarkdownStrong = new(@"(\*\*|__)(.+?)\1", RegexOptions.CultureInvariant);
     private static readonly Regex MarkdownEmphasis = new(@"(?<![\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])", RegexOptions.CultureInvariant);
     private static readonly Regex MarkdownLineMarker = new(@"^(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)", RegexOptions.CultureInvariant);
+    private const string TypedAnswerClass = "typed-answer";
+
     private static readonly Regex CodePlaceholder = new("\u0001(\\d+)\u0001", RegexOptions.CultureInvariant);
 
     private string? _questionLine;
@@ -91,11 +100,15 @@ public class StrataQuestionCard : TemplatedControl
         IsAnsweredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) =>
         {
             c.UpdatePseudoClasses();
-            // The confirm button's visibility is set locally while picking, which outranks the
-            // :answered style, so an answered card hides it here.
-            c.UpdateMultiSubmitVisibility();
+            c.ApplyClosedState();
         });
-        IsExpiredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnIsExpiredChanged());
+        IsExpiredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) =>
+        {
+            c.UpdatePseudoClasses();
+            c.ApplyClosedState();
+        });
+        SelectedAnswerProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.ApplyClosedState());
+        IsExpandedProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         AllowFreeTextProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         AllowMultiSelectProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         TouchModeProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnTouchModeChanged());
@@ -127,6 +140,12 @@ public class StrataQuestionCard : TemplatedControl
 
     /// <summary>Whether the question has expired (session stopped or user moved on).</summary>
     public bool IsExpired { get => GetValue(IsExpiredProperty); set => SetValue(IsExpiredProperty, value); }
+
+    /// <summary>
+    /// Whether an answered card shows the whole question and its options, with the answer marked, rather
+    /// than its one-line chip. The reader opens it from the chip and closes it from the card.
+    /// </summary>
+    public bool IsExpanded { get => GetValue(IsExpandedProperty); set => SetValue(IsExpandedProperty, value); }
 
     /// <summary>
     /// Sizes the card for a finger rather than a pointer: every option becomes a 48px target at the body
@@ -184,6 +203,10 @@ public class StrataQuestionCard : TemplatedControl
         }
         if (_multiSubmit is not null)
             _multiSubmit.Click -= OnMultiSubmitClick;
+        if (_expandButton is not null)
+            _expandButton.Click -= OnExpandClick;
+        if (_collapseButton is not null)
+            _collapseButton.Click -= OnCollapseClick;
 
         base.OnApplyTemplate(e);
 
@@ -191,6 +214,8 @@ public class StrataQuestionCard : TemplatedControl
         _freeTextBox = e.NameScope.Find<TextBox>("PART_FreeTextBox");
         _freeTextSubmit = e.NameScope.Find<Button>("PART_FreeTextSubmit");
         _multiSubmit = e.NameScope.Find<Button>("PART_MultiSubmit");
+        _expandButton = e.NameScope.Find<Button>("PART_ExpandButton");
+        _collapseButton = e.NameScope.Find<Button>("PART_CollapseButton");
 
         if (_freeTextSubmit is not null)
             _freeTextSubmit.Click += OnFreeTextSubmitClick;
@@ -200,6 +225,12 @@ public class StrataQuestionCard : TemplatedControl
 
         if (_multiSubmit is not null)
             _multiSubmit.Click += OnMultiSubmitClick;
+
+        if (_expandButton is not null)
+            _expandButton.Click += OnExpandClick;
+
+        if (_collapseButton is not null)
+            _collapseButton.Click += OnCollapseClick;
 
         RebuildOptions();
         UpdatePseudoClasses();
@@ -253,26 +284,100 @@ public class StrataQuestionCard : TemplatedControl
         {
             if (string.IsNullOrEmpty(opt)) continue;
 
-            var btn = new Button
-            {
-                Content = new TextBlock
-                {
-                    Text = opt,
-                    TextWrapping = TextWrapping.Wrap,
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    MaxLines = 2,
-                },
-                Classes = { "question-option" },
-                Tag = opt,
-            };
-            // The options are built here rather than by the template, so they carry the card's touch sizing.
-            btn.Classes.Set("touch", TouchMode);
-            ToolTip.SetTip(btn, opt);
-            ToolTip.SetShowDelay(btn, 500);
+            var btn = CreateOptionRow(opt);
+            btn.Tag = opt;
             btn.Click += OnOptionClick;
             _optionsPanel.Children.Add(btn);
         }
+
+        ApplyClosedState();
     }
+
+    private Button CreateOptionRow(string text)
+    {
+        var row = new Button
+        {
+            Content = new TextBlock
+            {
+                Text = text,
+                TextWrapping = TextWrapping.Wrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxLines = 2,
+            },
+            Classes = { "question-option" },
+        };
+        // The options are built here rather than by the template, so they carry the card's touch sizing.
+        row.Classes.Set("touch", TouchMode);
+        ToolTip.SetTip(row, text);
+        ToolTip.SetShowDelay(row, 500);
+        return row;
+    }
+
+    /// <summary>
+    /// Settles a closed card (answered or expired): no option can be picked any more, and the ones the answer
+    /// chose are marked — an answer typed in the user's own words as a chosen row after them — so an answered
+    /// card opened again reads as it was answered, however its answer arrived.
+    /// </summary>
+    private void ApplyClosedState()
+    {
+        if (!IsAnswered && !IsExpired)
+            return;
+
+        if (_optionsPanel is not null)
+        {
+            for (var i = _optionsPanel.Children.Count - 1; i >= 0; i--)
+            {
+                if (_optionsPanel.Children[i].Classes.Contains(TypedAnswerClass))
+                    _optionsPanel.Children.RemoveAt(i);
+            }
+
+            var options = _optionsPanel.Children.OfType<Button>().Select(static row => row.Tag).OfType<string>().ToHashSet();
+            var chosen = IsAnswered ? ChosenAnswers(options) : [];
+            foreach (var row in _optionsPanel.Children.OfType<Button>())
+            {
+                row.IsEnabled = false;
+                row.Classes.Set("selected", row.Tag is string option && chosen.Contains(option));
+            }
+
+            var typed = chosen.Where(answer => !options.Contains(answer)).ToList();
+            if (typed.Count > 0)
+            {
+                var row = CreateOptionRow(string.Join(", ", typed));
+                row.Classes.Add("selected");
+                row.Classes.Add(TypedAnswerClass);
+                row.IsEnabled = false;
+                _optionsPanel.Children.Add(row);
+            }
+        }
+
+        if (_freeTextBox is not null)
+            _freeTextBox.IsEnabled = false;
+        if (_freeTextSubmit is not null)
+            _freeTextSubmit.IsEnabled = false;
+        // The confirm button's visibility is set locally while picking, which outranks the styles.
+        UpdateMultiSubmitVisibility();
+    }
+
+    /// <summary>
+    /// What the answer chose: the options picked here, or for an answer read back, the answer whole when it is
+    /// an option, otherwise its parts (a multi-select answer joins them with ", ").
+    /// </summary>
+    private List<string> ChosenAnswers(HashSet<string> options)
+    {
+        if (_selectedOptions.Count > 0)
+            return _selectedOptions.ToList();
+
+        var answer = SelectedAnswer?.Trim();
+        if (string.IsNullOrEmpty(answer))
+            return [];
+        if (options.Contains(answer))
+            return [answer];
+        return answer.Split(", ").Select(static part => part.Trim()).Where(static part => part.Length > 0).Distinct().ToList();
+    }
+
+    private void OnExpandClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => IsExpanded = true;
+
+    private void OnCollapseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => IsExpanded = false;
 
     private void OnOptionClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
@@ -319,7 +424,7 @@ public class StrataQuestionCard : TemplatedControl
         SetAndRaise(HasInputProperty, ref _hasInput,
             _selectedOptions.Count > 0 || !string.IsNullOrEmpty(_freeTextBox?.Text));
         if (_multiSubmit is not null)
-            _multiSubmit.IsVisible = AllowMultiSelect && (_selectedOptions.Count > 0 || HasPendingFreeText) && !IsAnswered;
+            _multiSubmit.IsVisible = AllowMultiSelect && (_selectedOptions.Count > 0 || HasPendingFreeText) && !IsAnswered && !IsExpired;
     }
 
     private void OnFreeTextSubmitClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -359,61 +464,13 @@ public class StrataQuestionCard : TemplatedControl
     {
         SelectedAnswer = answer;
         IsAnswered = true;
-
-        // Disable all option buttons and highlight selected ones
-        if (_optionsPanel is not null)
-        {
-            foreach (var child in _optionsPanel.Children)
-            {
-                if (child is Button btn)
-                {
-                    btn.IsEnabled = false;
-                    if (btn.Tag is string tag)
-                    {
-                        if (AllowMultiSelect ? _selectedOptions.Contains(tag) : tag == answer)
-                            btn.Classes.Add("selected");
-                    }
-                }
-            }
-        }
-
-        // Disable free text
-        if (_freeTextBox is not null)
-            _freeTextBox.IsEnabled = false;
-        if (_freeTextSubmit is not null)
-            _freeTextSubmit.IsEnabled = false;
-
         AnswerSubmitted?.Invoke(this, answer);
-    }
-
-    private void OnIsExpiredChanged()
-    {
-        if (!IsExpired) return;
-
-        // Disable all option buttons
-        if (_optionsPanel is not null)
-        {
-            foreach (var child in _optionsPanel.Children)
-            {
-                if (child is Button btn)
-                    btn.IsEnabled = false;
-            }
-        }
-
-        // Disable free text
-        if (_freeTextBox is not null)
-            _freeTextBox.IsEnabled = false;
-        if (_freeTextSubmit is not null)
-            _freeTextSubmit.IsEnabled = false;
-        if (_multiSubmit is not null)
-            _multiSubmit.IsVisible = false;
-
-        UpdatePseudoClasses();
     }
 
     private void UpdatePseudoClasses()
     {
         PseudoClasses.Set(":answered", IsAnswered);
+        PseudoClasses.Set(":expanded", IsExpanded);
         PseudoClasses.Set(":expired", IsExpired);
         PseudoClasses.Set(":has-free-text", AllowFreeText);
         PseudoClasses.Set(":multi-select", AllowMultiSelect);

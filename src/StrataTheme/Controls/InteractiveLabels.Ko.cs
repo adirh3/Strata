@@ -43,6 +43,7 @@ public sealed partial class InteractiveLabels
         ["removeAttachment"] = "첨부 파일 제거",
         ["question"] = "질문",
         ["confirmSelection"] = "선택 확인",
+        ["showQuestion"] = "질문 보기", ["hideQuestion"] = "질문 숨기기",
         ["questionPlaceholder"] = "답변을 입력하세요...",
         ["enterAction"] = "Enter",
         ["tapAction"] = "누르기",

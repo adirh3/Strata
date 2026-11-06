@@ -22,6 +22,7 @@ public sealed partial class InteractiveLabels
         ["removeAgent"] = "移除智能体", ["removeProject"] = "移除项目",
         ["removeItem"] = "移除 {0}", ["removeAttachment"] = "移除附件",
         ["question"] = "问题", ["confirmSelection"] = "确认选择",
+        ["showQuestion"] = "显示问题", ["hideQuestion"] = "隐藏问题",
         ["questionPlaceholder"] = "输入你的回答...",
         ["enterAction"] = "Enter", ["tapAction"] = "点击",
         ["agentsAutocomplete"] = "智能体 · {0} 选择", ["skillsAutocomplete"] = "技能 · {0} 添加",

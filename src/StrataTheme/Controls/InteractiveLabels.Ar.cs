@@ -43,6 +43,7 @@ public sealed partial class InteractiveLabels
         ["removeAttachment"] = "إزالة المرفق",
         ["question"] = "سؤال",
         ["confirmSelection"] = "تأكيد التحديد",
+        ["showQuestion"] = "إظهار السؤال", ["hideQuestion"] = "إخفاء السؤال",
         ["questionPlaceholder"] = "اكتب إجابتك...",
         ["enterAction"] = "Enter",
         ["tapAction"] = "اضغط",

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -110,8 +111,99 @@ public class StrataQuestionCardTooltipTests
             Dispatcher.UIThread.RunJobs();
 
             var row = card.GetVisualDescendants().OfType<DockPanel>().Single(panel => panel.Name == "PART_AnsweredRow");
-            Assert.True(row.IsVisible);
+            Assert.True(row.IsEffectivelyVisible);
             Assert.Contains("Should I use this one?", row.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text));
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task AnsweredCard_OpensToItsOptionsWithTheAnswerMarked_AndClosesAgain()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            // Read back answered, as a transcript rebuilds it: the answer arrives by binding, not by a click.
+            var card = new StrataQuestionCard
+            {
+                Question = "Which color?",
+                Options = "Blue,Green",
+                AllowFreeText = true,
+                SelectedAnswer = "Blue",
+                IsAnswered = true,
+            };
+            var window = new Window { Width = 520, Height = 400 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/Controls/StrataQuestionCard.axaml"),
+            });
+            window.Content = card;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            T Part<T>(string name) where T : Control => card.GetVisualDescendants().OfType<T>().Single(part => part.Name == name);
+            List<Button> Rows() => card.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("question-option")).ToList();
+            var body = Part<StackPanel>("PART_Body");
+            var expand = Part<Button>("PART_ExpandButton");
+            var collapse = Part<Button>("PART_CollapseButton");
+            Assert.False(body.IsEffectivelyVisible);
+            Assert.True(expand.IsEffectivelyVisible);
+
+            // The chip opens the card: the whole question and its options, settled, with the answer marked.
+            expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(card.IsExpanded);
+            Assert.True(body.IsEffectivelyVisible);
+            Assert.False(expand.IsEffectivelyVisible);
+            Assert.True(collapse.IsEffectivelyVisible);
+            Assert.False(Part<Grid>("PART_FreeTextArea").IsEffectivelyVisible);
+            Assert.All(Rows(), static row => Assert.False(row.IsEnabled));
+            Assert.Equal(new[] { "Blue" }, Rows().Where(static row => row.Classes.Contains("selected")).Select(static row => row.Tag));
+
+            // An answer in the user's own words shows as a chosen row after the options, once.
+            card.SelectedAnswer = "Teal";
+            card.SelectedAnswer = "Teal, please";
+            Dispatcher.UIThread.RunJobs();
+            var chosen = Assert.Single(Rows(), static row => row.Classes.Contains("selected"));
+            Assert.Equal("Teal, please", Assert.IsType<TextBlock>(chosen.Content).Text);
+            Assert.Equal(3, Rows().Count);
+
+            // The chevron closes it back to the chip.
+            collapse.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(card.IsExpanded);
+            Assert.False(body.IsEffectivelyVisible);
+            Assert.True(expand.IsEffectivelyVisible);
+
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public async Task AnsweringByClick_MarksTheChosenOptionForWhenTheCardIsOpened()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var card = new StrataQuestionCard { Question = "Which color?", Options = "Blue,Green", AllowFreeText = false };
+            var window = new Window { Width = 520, Height = 400 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/Controls/StrataQuestionCard.axaml"),
+            });
+            window.Content = card;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            string? submitted = null;
+            card.AnswerSubmitted += (_, answer) => submitted = answer;
+            var rows = card.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("question-option")).ToList();
+            rows[1].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("Green", submitted);
+            Assert.True(card.IsAnswered);
+            Assert.All(rows, static row => Assert.False(row.IsEnabled));
+            Assert.Equal(new[] { false, true }, rows.Select(static row => row.Classes.Contains("selected")));
 
             window.Close();
         });

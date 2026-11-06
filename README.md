@@ -487,7 +487,8 @@ and rim transitions use `PremultipliedBrushTransition`: a plain `BrushTransition
 - `StrataTurnSummary` is a quiet fold line whose content hangs from a thin rail; it shows an alert
   icon when something it folds failed.
 - `StrataQuestionCard` is a glass card with full-width option rows and an optional free-text field;
-  once answered it folds to one line with the answer. `TouchMode` makes every option, the reply
+  once answered it folds to one line with the answer, which opens back to the whole question and
+  its options with the answer marked (`IsExpanded`, `:expanded`). `TouchMode` makes every option, the reply
   field and its buttons 48px targets at the body size (`:touch`).
 - `StrataAgentRun.inline` and `StrataTypingIndicator` wear the chip glass. An inline run is one
   31px row (avatar, task, agent) that states its outcome as quiet text with a line icon, with
@@ -635,7 +636,10 @@ and lands it when clicked: through `TranscriptMarkInvoked` when the host handles
 scrolling it to the reading line, `ReadingLineGap` below a floating header (`ReadingLineInset`).
 Hosts whose header frosts the content beneath it set the gap past the frost. Dragging the thumb
 previews the place being passed, the wheel over the rail scrolls the transcript, and the rail
-stacks above the floating chrome, so a frosted header or composer never covers it.
+stacks above the floating chrome, so a frosted header or composer never covers it. A mark's `Kind`
+sets how it reads: a `Message` (something the user said) is a tick previewed as the user's bubble, a
+`Card` (something that asked the user, such as a question) a dot previewed as a card (`:card`); an
+optional `Label` captions either preview.
 
 `StrataPresence.SplitToIsland(point, followFieldHeight: false)` anchors a companion light
 to both coordinates of a floating surface, such as a translucent composer. The existing

@@ -57,6 +57,13 @@
                     </Transitions>
                   </Border.Transitions>
                   <StackPanel Spacing="3">
+                    <TextBlock Name="PART_PreviewLabel"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               IsVisible="False"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="DetectFromContent"
+                               Foreground="{DynamicResource Brush.ChatUserBubbleTextSecondary}" />
                     <TextBlock Name="PART_PreviewText"
                                FontSize="13"
                                LineHeight="18"
@@ -91,6 +98,20 @@
         </Style>
         <Style Selector="^:dragging /template/ Border#PART_Preview">
           <Setter Property="Cursor" Value="Arrow" />
+        </Style>
+
+        <!-- A card that asked the user for something previews as a card, not as the user's bubble. -->
+        <Style Selector="^:card /template/ Border#PART_Preview">
+          <Setter Property="Background" Value="{DynamicResource Brush.SurfaceOverlay}" />
+        </Style>
+        <Style Selector="^:card /template/ TextBlock#PART_PreviewLabel">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+        </Style>
+        <Style Selector="^:card /template/ TextBlock#PART_PreviewText">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:card /template/ TextBlock#PART_PreviewDetail">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
         </Style>
       </ControlTheme>
     </ResourceDictionary>

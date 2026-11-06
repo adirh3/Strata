@@ -43,6 +43,7 @@ public sealed partial class InteractiveLabels
         ["removeAttachment"] = "Anhang entfernen",
         ["question"] = "Frage",
         ["confirmSelection"] = "Auswahl bestätigen",
+        ["showQuestion"] = "Frage anzeigen", ["hideQuestion"] = "Frage ausblenden",
         ["questionPlaceholder"] = "Deine Antwort eingeben...",
         ["enterAction"] = "Enter",
         ["tapAction"] = "Tippen",

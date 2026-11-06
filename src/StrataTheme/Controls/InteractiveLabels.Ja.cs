@@ -43,6 +43,7 @@ public sealed partial class InteractiveLabels
         ["removeAttachment"] = "添付ファイルを削除",
         ["question"] = "質問",
         ["confirmSelection"] = "選択を確定",
+        ["showQuestion"] = "質問を表示", ["hideQuestion"] = "質問を隠す",
         ["questionPlaceholder"] = "回答を入力...",
         ["enterAction"] = "Enter",
         ["tapAction"] = "タップ",
