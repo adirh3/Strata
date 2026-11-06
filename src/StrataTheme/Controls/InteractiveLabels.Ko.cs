@@ -37,6 +37,7 @@ public sealed partial class InteractiveLabels
         ["sendShortcut"] = "보내기 (Enter)",
         ["steerShortcut"] = "진행 방향 전달 (Enter)",
         ["stopAndSendShortcut"] = "중지 후 보내기 (Enter)",
+        ["addToQueue"] = "대기열에 추가", ["steerOrQueueHint"] = "진행 방향 전달 (Enter) · 마우스 오른쪽 버튼으로 대기열에 추가",
         ["removeAgent"] = "에이전트 제거",
         ["removeProject"] = "프로젝트 제거",
         ["removeItem"] = "{0} 제거",

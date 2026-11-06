@@ -19,6 +19,7 @@ public sealed partial class InteractiveLabels
         ["sendToSteer"] = "发送以引导", ["stopAndSend"] = "停止并发送",
         ["sendShortcut"] = "发送 (Enter)", ["steerShortcut"] = "发送以引导 (Enter)",
         ["stopAndSendShortcut"] = "停止并发送 (Enter)",
+        ["addToQueue"] = "加入队列", ["steerOrQueueHint"] = "发送以引导 (Enter) · 右键单击加入队列",
         ["removeAgent"] = "移除智能体", ["removeProject"] = "移除项目",
         ["removeItem"] = "移除 {0}", ["removeAttachment"] = "移除附件",
         ["question"] = "问题", ["confirmSelection"] = "确认选择",

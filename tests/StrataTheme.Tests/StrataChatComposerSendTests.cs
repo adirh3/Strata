@@ -329,6 +329,148 @@ public class StrataChatComposerSendTests
         });
     }
 
+    [Theory]
+    // Enter sends: Ctrl+Enter queues while busy.
+    [InlineData(true, KeyModifiers.Control, true, 1, 0)]
+    [InlineData(true, KeyModifiers.None, true, 0, 1)]
+    // Ctrl+Enter sends: Ctrl+Shift+Enter queues while busy.
+    [InlineData(false, KeyModifiers.Control | KeyModifiers.Shift, true, 1, 0)]
+    [InlineData(false, KeyModifiers.Control, true, 0, 1)]
+    // Not busy: the queue gesture is an ordinary send.
+    [InlineData(true, KeyModifiers.Control, false, 0, 1)]
+    public async Task QueueGesture_WhileBusy_QueuesInsteadOfSteering(
+        bool sendWithEnter, KeyModifiers modifiers, bool busy, int expectedQueues, int expectedSends)
+    {
+        if (OperatingSystem.IsMacOS() && modifiers.HasFlag(KeyModifiers.Control))
+            modifiers = (modifiers & ~KeyModifiers.Control) | KeyModifiers.Meta;
+
+        await _fixture.Dispatch(() =>
+        {
+            var send = new RecordingCommand();
+            var queue = new RecordingCommand();
+            var composer = new StrataChatComposer
+            {
+                PromptText = "after this",
+                IsBusy = busy,
+                SendWithEnter = sendWithEnter,
+                SendCommand = send,
+                QueueCommand = queue
+            };
+            var queueRaised = false;
+            composer.QueueRequested += (_, _) => queueRaised = true;
+            var args = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Enter,
+                KeyModifiers = modifiers
+            };
+
+            typeof(StrataChatComposer)
+                .GetMethod("OnInputKeyDown", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(composer, [composer, args]);
+
+            Assert.True(args.Handled);
+            Assert.Equal(expectedQueues, queue.ExecuteCount);
+            Assert.Equal(expectedQueues == 1, queueRaised);
+            Assert.Equal(expectedSends, send.ExecuteCount);
+            if (expectedQueues == 1)
+                Assert.Equal("after this", queue.LastParameter);
+        });
+    }
+
+    [Fact]
+    public async Task QueueGesture_WithoutAQueueCommand_SteersAsBefore()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var send = new RecordingCommand();
+            var stop = new RecordingCommand();
+            var composer = new StrataChatComposer
+            {
+                PromptText = "steer me",
+                IsBusy = true,
+                SendCommand = send,
+                StopCommand = stop
+            };
+            var args = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Enter,
+                KeyModifiers = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control
+            };
+
+            typeof(StrataChatComposer)
+                .GetMethod("OnInputKeyDown", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(composer, [composer, args]);
+
+            Assert.Equal(1, send.ExecuteCount);
+            Assert.Equal(0, stop.ExecuteCount);
+        });
+    }
+
+    [Theory]
+    [InlineData(true, "steer me", true, true)]
+    [InlineData(false, "steer me", true, false)]
+    [InlineData(true, "  ", true, false)]
+    // Hosts that don't offer queueing keep a plain send button (no menu, no long-press menu on touch).
+    [InlineData(true, "steer me", false, false)]
+    public async Task SendButtonMenu_OffersSteerQueueAndStopAndSend_OnlyWhileBusyWithADraft(
+        bool busy, string prompt, bool canQueue, bool opens)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var send = new RecordingCommand();
+            var queue = new RecordingCommand();
+            var stopAndSend = new RecordingCommand();
+            var composer = new StrataChatComposer
+            {
+                PromptText = prompt,
+                IsBusy = busy,
+                SendCommand = send,
+                QueueCommand = canQueue ? queue : null,
+                StopAndSendCommand = stopAndSend
+            };
+            var menu = (ContextMenu)typeof(StrataChatComposer)
+                .GetMethod("BuildSendModeMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(composer, null)!;
+
+            var prepared = (bool)typeof(StrataChatComposer)
+                .GetMethod("PrepareSendModeMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(composer, [menu])!;
+
+            Assert.Equal(opens, prepared);
+            if (!opens)
+                return;
+
+            var items = menu.Items.Cast<MenuItem>().ToArray();
+            var labels = InteractiveLabels.Current;
+            Assert.Equal([labels["sendToSteer"], labels["addToQueue"], labels["stopAndSend"]],
+                items.Select(item => (string)item.Header!));
+            Assert.All(items, item => Assert.True(item.IsVisible));
+            Assert.Equal(Key.Enter, items[1].InputGesture!.Key);
+
+            items[1].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Equal(1, queue.ExecuteCount);
+            Assert.Equal("steer me", queue.LastParameter);
+            Assert.Equal(0, send.ExecuteCount);
+        });
+    }
+
+    [Fact]
+    public void ShortcutText_NamesEnterAsTheKeyboardDoes()
+    {
+        var command = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        var enter = OperatingSystem.IsMacOS() ? "↩" : "Enter";
+
+        Assert.Equal(enter, StrataKeyGestureConverter.Format(new KeyGesture(Key.Enter)));
+        Assert.EndsWith(enter, StrataKeyGestureConverter.Format(new KeyGesture(Key.Enter, command)));
+        Assert.EndsWith(enter, StrataKeyGestureConverter.Format(new KeyGesture(Key.Enter, KeyModifiers.Alt)));
+        Assert.DoesNotContain("Return", StrataKeyGestureConverter.Format(new KeyGesture(Key.Enter, command | KeyModifiers.Shift)));
+        Assert.Equal(
+            Avalonia.Controls.Converters.PlatformKeyGestureConverter.ToPlatformString(new KeyGesture(Key.X, command)),
+            StrataKeyGestureConverter.Format(new KeyGesture(Key.X, command)));
+    }
+
     private static void InvokeHandleSendAction(StrataChatComposer composer)
     {
         typeof(StrataChatComposer)

@@ -107,7 +107,10 @@ public class FileSelectedEventArgs : EventArgs
 /// and a circular accent send button. Enter sends; Shift+Enter inserts a newline.
 /// When <see cref="IsBusy"/> is true, the send button turns into a stop button. If the user types
 /// while busy and <see cref="SteerWhileBusy"/> is true (default), submitting steers the running turn
-/// (sends without stopping) instead of aborting generation.
+/// (sends without stopping) instead of aborting generation. With <see cref="QueueCommand"/> bound, the
+/// draft can instead wait for the running turn to finish: Ctrl+Enter (Cmd+Enter on macOS; with Shift
+/// added when <see cref="SendWithEnter"/> is false) queues it, and right-clicking the send button while
+/// busy offers steer, queue and stop &amp; send.
 /// </summary>
 /// <remarks>
 /// <para><b>XAML usage:</b></para>
@@ -586,6 +589,11 @@ public partial class StrataChatComposer : TemplatedControl
     public static readonly RoutedEvent<RoutedEventArgs> StopAndSendRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(StopAndSendRequested), RoutingStrategies.Bubble);
 
+    /// <summary>Raised when the user queues the draft to be sent once the running turn finishes, instead of
+    /// steering it into that turn.</summary>
+    public static readonly RoutedEvent<RoutedEventArgs> QueueRequestedEvent =
+        RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(QueueRequested), RoutingStrategies.Bubble);
+
     /// <summary>Raised when the user chooses to attach files from the + menu.</summary>
     public static readonly RoutedEvent<RoutedEventArgs> AttachRequestedEvent =
         RoutedEvent.Register<StrataChatComposer, RoutedEventArgs>(nameof(AttachRequested), RoutingStrategies.Bubble);
@@ -661,6 +669,15 @@ public partial class StrataChatComposer : TemplatedControl
     /// <summary>Optional parameter for <see cref="StopAndSendCommand"/>. Defaults to the committed prompt text.</summary>
     public static readonly StyledProperty<object?> StopAndSendCommandParameterProperty =
         AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(StopAndSendCommandParameter));
+
+    /// <summary>Command executed when the user queues the draft while busy, so it is sent after the running
+    /// turn instead of steering it. When null, queueing isn't offered.</summary>
+    public static readonly StyledProperty<ICommand?> QueueCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(QueueCommand));
+
+    /// <summary>Optional parameter for <see cref="QueueCommand"/>. Defaults to the committed prompt text.</summary>
+    public static readonly StyledProperty<object?> QueueCommandParameterProperty =
+        AvaloniaProperty.Register<StrataChatComposer, object?>(nameof(QueueCommandParameter));
 
     /// <summary>Command executed when the user clicks the attach button.</summary>
     public static readonly StyledProperty<ICommand?> AttachCommandProperty =
@@ -792,6 +809,7 @@ public partial class StrataChatComposer : TemplatedControl
             static (c, _) => c.PseudoClasses.Set(":compact", c.IsCompact));
         IsEditingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SteerWhileBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        QueueCommandProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SendWithEnterProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanAttachProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         CanVoiceProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
@@ -908,6 +926,9 @@ public partial class StrataChatComposer : TemplatedControl
     { add => AddHandler(StopRequestedEvent, value); remove => RemoveHandler(StopRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? StopAndSendRequested
     { add => AddHandler(StopAndSendRequestedEvent, value); remove => RemoveHandler(StopAndSendRequestedEvent, value); }
+
+    public event EventHandler<RoutedEventArgs>? QueueRequested
+    { add => AddHandler(QueueRequestedEvent, value); remove => RemoveHandler(QueueRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? AttachRequested
     { add => AddHandler(AttachRequestedEvent, value); remove => RemoveHandler(AttachRequestedEvent, value); }
     public event EventHandler<RoutedEventArgs>? AgentRemoved
@@ -1024,6 +1045,8 @@ public partial class StrataChatComposer : TemplatedControl
     public object? StopCommandParameter { get => GetValue(StopCommandParameterProperty); set => SetValue(StopCommandParameterProperty, value); }
     public ICommand? StopAndSendCommand { get => GetValue(StopAndSendCommandProperty); set => SetValue(StopAndSendCommandProperty, value); }
     public object? StopAndSendCommandParameter { get => GetValue(StopAndSendCommandParameterProperty); set => SetValue(StopAndSendCommandParameterProperty, value); }
+    public ICommand? QueueCommand { get => GetValue(QueueCommandProperty); set => SetValue(QueueCommandProperty, value); }
+    public object? QueueCommandParameter { get => GetValue(QueueCommandParameterProperty); set => SetValue(QueueCommandParameterProperty, value); }
     public ICommand? AttachCommand { get => GetValue(AttachCommandProperty); set => SetValue(AttachCommandProperty, value); }
     public object? AttachCommandParameter { get => GetValue(AttachCommandParameterProperty); set => SetValue(AttachCommandParameterProperty, value); }
     public ICommand? ModelPickerOpenedCommand { get => GetValue(ModelPickerOpenedCommandProperty); set => SetValue(ModelPickerOpenedCommandProperty, value); }
@@ -1125,6 +1148,8 @@ public partial class StrataChatComposer : TemplatedControl
         _input = e.NameScope.Find<TextBox>("PART_Input");
         _focusSweep = e.NameScope.Find<Border>("PART_FocusSweep");
         _sendButton = e.NameScope.Find<Button>("PART_SendButton");
+        if (_sendButton is not null)
+            _sendButton.ContextMenu = BuildSendModeMenu();
         if (_input is not null)
         {
             _input.AddHandler(KeyDownEvent, OnInputKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
@@ -1397,10 +1422,11 @@ public partial class StrataChatComposer : TemplatedControl
 
     private ContextMenu BuildInputContextMenu(TextBox textBox)
     {
-        var cut = new MenuItem { Header = InteractiveLabels.Current["cut"], InputGesture = new KeyGesture(Key.X, KeyModifiers.Control) };
-        var copy = new MenuItem { Header = InteractiveLabels.Current["copy"], InputGesture = new KeyGesture(Key.C, KeyModifiers.Control) };
-        var paste = new MenuItem { Header = InteractiveLabels.Current["paste"], InputGesture = new KeyGesture(Key.V, KeyModifiers.Control) };
-        var selectAll = new MenuItem { Header = InteractiveLabels.Current["selectAllText"], InputGesture = new KeyGesture(Key.A, KeyModifiers.Control) };
+        var command = CommandModifier;
+        var cut = new MenuItem { Header = InteractiveLabels.Current["cut"], InputGesture = new KeyGesture(Key.X, command) };
+        var copy = new MenuItem { Header = InteractiveLabels.Current["copy"], InputGesture = new KeyGesture(Key.C, command) };
+        var paste = new MenuItem { Header = InteractiveLabels.Current["paste"], InputGesture = new KeyGesture(Key.V, command) };
+        var selectAll = new MenuItem { Header = InteractiveLabels.Current["selectAllText"], InputGesture = new KeyGesture(Key.A, command) };
 
         async void DoCut()
         {
@@ -1485,10 +1511,9 @@ public partial class StrataChatComposer : TemplatedControl
     // Primary command modifier: Cmd (Meta) on macOS, Ctrl on Windows/Linux — so the composer's
     // send and paste shortcuts feel native on each platform and match Lumi's other key handlers.
     // On Windows/Linux this is exactly the previous Control check, so their behavior is unchanged.
-    private static bool HasCommandModifier(KeyModifiers modifiers)
-        => OperatingSystem.IsMacOS()
-            ? modifiers.HasFlag(KeyModifiers.Meta)
-            : modifiers.HasFlag(KeyModifiers.Control);
+    private static KeyModifiers CommandModifier => OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+
+    private static bool HasCommandModifier(KeyModifiers modifiers) => modifiers.HasFlag(CommandModifier);
 
     private void OnInputKeyDown(object? sender, KeyEventArgs e)
     {
@@ -1554,6 +1579,15 @@ public partial class StrataChatComposer : TemplatedControl
             {
                 e.Handled = true;
                 HandleStopAndSendAction();
+                return;
+            }
+
+            // The queue gesture while busy (Ctrl+Enter; Ctrl+Shift+Enter when Ctrl+Enter is the send key)
+            // queues the draft for after the running turn instead of steering it in.
+            if (CanQueue && QueueGesture.Matches(e))
+            {
+                e.Handled = true;
+                HandleQueueAction();
                 return;
             }
 
@@ -1710,6 +1744,84 @@ public partial class StrataChatComposer : TemplatedControl
         RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
         CommandHelper.Execute(StopCommand, StopCommandParameter);
     }
+
+    /// <summary>Queueing is offered while effectively busy and the host bound <see cref="QueueCommand"/>.</summary>
+    private bool CanQueue => QueueCommand is not null && IsBusy && !IsEditing;
+
+    /// <summary>
+    /// Queue the draft to be sent once the running turn finishes, instead of steering it into that turn.
+    /// Invoked via Ctrl+Enter (Ctrl+Shift+Enter when Ctrl+Enter sends) or the send button's menu.
+    /// </summary>
+    private void HandleQueueAction()
+    {
+        if (!CanQueue)
+            return;
+
+        var promptText = CommitInputText();
+        // While dictating, the words still being heard count, as they do for send.
+        if (string.IsNullOrWhiteSpace(promptText) && !IsRecording && !CanSendWithoutPrompt)
+            return;
+
+        RaiseEvent(new RoutedEventArgs(QueueRequestedEvent));
+        CommandHelper.Execute(QueueCommand, QueueCommandParameter ?? promptText);
+    }
+
+    /// <summary>
+    /// The send button's right-click menu, for hosts that offer queueing: while busy it chooses how the draft
+    /// reaches the running turn — steer it in, queue it for after, or stop and send. It doesn't open when
+    /// there is nothing to choose.
+    /// </summary>
+    private ContextMenu BuildSendModeMenu()
+    {
+        static MenuItem Item(Geometry icon) => new()
+        {
+            Icon = new StrataLineIcon { Data = icon, Width = 15, Height = 15, StrokeThickness = 1.8 }
+        };
+
+        var steer = Item(StrataIcons.ArrowUp);
+        var queue = Item(StrataIcons.Clock);
+        var stopAndSend = Item(StrataIcons.StopSend);
+        steer.Click += (_, _) => HandleSendAction();
+        queue.Click += (_, _) => HandleQueueAction();
+        stopAndSend.Click += (_, _) => HandleStopAndSendAction();
+
+        var menu = new ContextMenu
+        {
+            Placement = PlacementMode.TopEdgeAlignedRight,
+            VerticalOffset = -6,
+            Items = { steer, queue, stopAndSend }
+        };
+
+        menu.Opening += (_, e) => e.Cancel = !PrepareSendModeMenu(menu);
+        return menu;
+    }
+
+    /// <summary>Labels the send button's menu for this moment; false when there is nothing to choose.</summary>
+    private bool PrepareSendModeMenu(ContextMenu menu)
+    {
+        var promptText = CommitInputText();
+        var hasDraft = !string.IsNullOrWhiteSpace(promptText) || IsRecording || CanSendWithoutPrompt;
+        if (!CanQueue || !hasDraft || menu.Items is not [MenuItem steer, MenuItem queue, MenuItem stopAndSend])
+            return false;
+
+        var labels = InteractiveLabels.Current;
+        steer.Header = labels["sendToSteer"];
+        steer.InputGesture = SteerGesture;
+        steer.IsVisible = SteerWhileBusy;
+        queue.Header = labels["addToQueue"];
+        queue.InputGesture = QueueGesture;
+        stopAndSend.Header = labels["stopAndSend"];
+        stopAndSend.InputGesture = StopAndSendGesture;
+        return true;
+    }
+
+    /// <summary>While busy, the send key steers the draft into the running turn.</summary>
+    private KeyGesture SteerGesture => SendWithEnter ? new(Key.Enter) : new(Key.Enter, CommandModifier);
+
+    /// <summary>While busy, the send key with the command key queues the draft (with Shift too when that is the send key).</summary>
+    private KeyGesture QueueGesture => new(Key.Enter, SendWithEnter ? CommandModifier : CommandModifier | KeyModifiers.Shift);
+
+    private static KeyGesture StopAndSendGesture { get; } = new(Key.Enter, KeyModifiers.Alt);
 
     // ── Inline autocomplete ────────────────────────────────────────
 
@@ -2468,6 +2580,7 @@ public partial class StrataChatComposer : TemplatedControl
         var canSendWhileBusy = effectiveBusy && (hasPromptText || CanSendWithoutPrompt);
         PseudoClasses.Set(":steer", canSendWhileBusy && SteerWhileBusy);
         PseudoClasses.Set(":stop-send", canSendWhileBusy && !SteerWhileBusy);
+        PseudoClasses.Set(":can-queue", QueueCommand is not null);
         PseudoClasses.Set(":can-attach", CanAttach);
         PseudoClasses.Set(":can-voice", CanVoice);
         PseudoClasses.Set(":can-send-without-prompt", CanSendWithoutPrompt);

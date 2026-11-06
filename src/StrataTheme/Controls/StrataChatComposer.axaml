@@ -972,6 +972,10 @@
         <Style Selector="^:steer /template/ Button#PART_SendButton">
           <Setter Property="ToolTip.Tip" Value="{controls:InteractiveLabel steerShortcut}" />
         </Style>
+        <!-- Queueing is offered too: the tip points to the menu that names every way to send. -->
+        <Style Selector="^:steer:can-queue /template/ Button#PART_SendButton">
+          <Setter Property="ToolTip.Tip" Value="{controls:InteractiveLabel steerOrQueueHint}" />
+        </Style>
         <Style Selector="^.mobile:steer /template/ Button#PART_SendButton">
           <Setter Property="Background" Value="{DynamicResource Brush.AccentGradient}" />
         </Style>

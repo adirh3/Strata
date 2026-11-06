@@ -37,6 +37,7 @@ public sealed partial class InteractiveLabels
         ["sendShortcut"] = "إرسال (Enter)",
         ["steerShortcut"] = "إرسال للتوجيه (Enter)",
         ["stopAndSendShortcut"] = "إيقاف وإرسال (Enter)",
+        ["addToQueue"] = "إضافة إلى قائمة الانتظار", ["steerOrQueueHint"] = "إرسال للتوجيه (Enter) · انقر بزر الماوس الأيمن للإضافة إلى قائمة الانتظار",
         ["removeAgent"] = "إزالة الوكيل",
         ["removeProject"] = "إزالة المشروع",
         ["removeItem"] = "إزالة {0}",

@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:StrataTheme.Controls"
         xmlns:strata="using:StrataTheme">
 
   <!-- ═══════════════════════════════════════════════════════════
@@ -159,6 +160,8 @@
                   <!-- Input gesture (keyboard shortcut) -->
                   <TextBlock Name="PART_InputGestureText"
                              Grid.Column="2"
+                             Text="{TemplateBinding InputGesture, Converter={x:Static controls:StrataKeyGestureConverter.Instance}}"
+                             IsVisible="{TemplateBinding InputGesture, Converter={x:Static ObjectConverters.IsNotNull}}"
                              Foreground="{DynamicResource Brush.TextTertiary}"
                              FontSize="12"
                              Margin="24,0,0,0"

@@ -37,6 +37,7 @@ public sealed partial class InteractiveLabels
         ["sendShortcut"] = "Senden (Enter)",
         ["steerShortcut"] = "Zum Einsteuern senden (Enter)",
         ["stopAndSendShortcut"] = "Stoppen & senden (Enter)",
+        ["addToQueue"] = "Zur Warteschlange hinzufügen", ["steerOrQueueHint"] = "Zum Einsteuern senden (Enter) · Rechtsklick zum Einreihen",
         ["removeAgent"] = "Agenten entfernen",
         ["removeProject"] = "Projekt entfernen",
         ["removeItem"] = "{0} entfernen",

@@ -37,6 +37,7 @@ public sealed partial class InteractiveLabels
         ["sendShortcut"] = "Envoyer (Enter)",
         ["steerShortcut"] = "Envoyer pour réorienter (Enter)",
         ["stopAndSendShortcut"] = "Arrêter et envoyer (Enter)",
+        ["addToQueue"] = "Ajouter à la file", ["steerOrQueueHint"] = "Envoyer pour réorienter (Enter) · clic droit pour mettre en file",
         ["removeAgent"] = "Retirer l’agent",
         ["removeProject"] = "Retirer le projet",
         ["removeItem"] = "Retirer {0}",

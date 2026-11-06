@@ -37,6 +37,7 @@ public sealed partial class InteractiveLabels
         ["sendShortcut"] = "送信 (Enter)",
         ["steerShortcut"] = "方針を送信 (Enter)",
         ["stopAndSendShortcut"] = "停止して送信 (Enter)",
+        ["addToQueue"] = "キューに追加", ["steerOrQueueHint"] = "方針を送信 (Enter) · 右クリックでキューに追加",
         ["removeAgent"] = "エージェントを外す",
         ["removeProject"] = "プロジェクトを外す",
         ["removeItem"] = "{0} を削除",

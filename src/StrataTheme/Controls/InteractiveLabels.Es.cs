@@ -37,6 +37,7 @@ public sealed partial class InteractiveLabels
         ["sendShortcut"] = "Enviar (Enter)",
         ["steerShortcut"] = "Enviar para orientar (Enter)",
         ["stopAndSendShortcut"] = "Detener y enviar (Enter)",
+        ["addToQueue"] = "Añadir a la cola", ["steerOrQueueHint"] = "Enviar para orientar (Enter) · clic derecho para poner en cola",
         ["removeAgent"] = "Quitar agente",
         ["removeProject"] = "Quitar proyecto",
         ["removeItem"] = "Quitar {0}",

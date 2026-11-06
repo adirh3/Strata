@@ -19,6 +19,7 @@ public sealed partial class InteractiveLabels
         ["sendToSteer"] = "Enviar para redirecionar", ["stopAndSend"] = "Parar e enviar",
         ["sendShortcut"] = "Enviar (Enter)", ["steerShortcut"] = "Enviar para redirecionar (Enter)",
         ["stopAndSendShortcut"] = "Parar e enviar (Enter)",
+        ["addToQueue"] = "Adicionar à fila", ["steerOrQueueHint"] = "Enviar para redirecionar (Enter) · clique com o botão direito para enfileirar",
         ["removeAgent"] = "Remover agente", ["removeProject"] = "Remover projeto",
         ["removeItem"] = "Remover {0}", ["removeAttachment"] = "Remover anexo",
         ["question"] = "Pergunta", ["confirmSelection"] = "Confirmar seleção",
