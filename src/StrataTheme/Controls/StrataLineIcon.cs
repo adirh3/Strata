@@ -83,6 +83,20 @@ public static class StrataIcons
     public static Geometry Plus => Parse("M12 5.5v13 M5.5 12h13");
     public static Geometry ChevronDown => Parse("M7 10l5 5 5-5");
     public static Geometry ChevronRight => Parse("M10 7l5 5-5 5");
+    public static Geometry ChevronLeft => Parse("M14 7l-5 5 5 5");
+    public static Geometry Minus => Parse("M5.5 12h13");
+
+    /// <summary>Sharing: an arrow rising out of a tray.</summary>
+    public static Geometry Share => Parse("M12 14.5V4 M7.5 8.5 12 4l4.5 4.5 M8 11.5H6.5A1.5 1.5 0 0 0 5 13v5.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V13a1.5 1.5 0 0 0-1.5-1.5H16");
+
+    /// <summary>Copying: two overlapping sheets.</summary>
+    public static Geometry Copy => Parse("M9.5 8.5h8A1.5 1.5 0 0 1 19 10v8.5a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 8 18.5V10a1.5 1.5 0 0 1 1.5-1.5z M5 15.5V5.5A1.5 1.5 0 0 1 6.5 4h8");
+
+    /// <summary>Full screen: four corners opening outward.</summary>
+    public static Geometry Expand => Parse("M4.5 9V4.5H9 M15 4.5h4.5V9 M19.5 15v4.5H15 M9 19.5H4.5V15");
+
+    /// <summary>Opening elsewhere: an arrow leaving a box.</summary>
+    public static Geometry OpenExternal => Parse("M13.5 4.5h6v6 M19.5 4.5l-8 8 M17.5 14v4a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V8A1.5 1.5 0 0 1 6 6.5h4");
     public static Geometry ArrowUp => Parse("M12 18.5V6 M6.5 11.5 12 6l5.5 5.5");
 
     /// <summary>A git branch: a trunk, its tip and a branch curving off it.</summary>

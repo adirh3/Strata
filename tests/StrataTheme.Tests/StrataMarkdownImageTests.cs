@@ -385,7 +385,8 @@ public sealed class StrataMarkdownImageTests
                 var frame = Assert.IsAssignableFrom<Border>(container.Child);
                 var content = Assert.IsType<Grid>(frame.Child);
                 var image = Assert.Single(content.Children.OfType<Image>());
-                var loadingContent = Assert.Single(content.Children.OfType<StackPanel>());
+                var loadingContent = Assert.Single(content.Children.OfType<StackPanel>(),
+                    panel => !panel.Classes.Contains("strata-md-image-actions"));
                 var progress = Assert.Single(loadingContent.Children.OfType<ProgressBar>());
                 Assert.True(progress.IsIndeterminate);
 
@@ -879,6 +880,209 @@ public sealed class StrataMarkdownImageTests
             if (window is not null)
                 await _fixture.Dispatch(window.Close);
             File.Delete(path);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TappingAnImage_OpensTheViewerOnItAndArrowKeysStepThroughTheMessagesImages(bool inText)
+    {
+        var first = CreateTempPng();
+        var second = CreateTempPng();
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var window = CreateImageViewerWindow(inText
+                    ? $"See ![First picture]({first}) and then ![Second picture]({second}) here."
+                    : $"![First picture]({first})\n\nBetween.\n\n![Second picture]({second})");
+                try
+                {
+                    await WaitForImageViewerAsync(window, () =>
+                        window.GetVisualDescendants().OfType<Image>()
+                            .Count(image => image.Classes.Contains("strata-md-image-content") && image.Source is not null) == 2);
+                    var frame = window.GetVisualDescendants().OfType<Border>()
+                        .First(border => border.Classes.Contains("strata-md-image"));
+                    var center = frame.TranslatePoint(new Point(frame.Bounds.Width / 2, frame.Bounds.Height / 2 + 10), window)!.Value;
+                    window.MouseDown(center, MouseButton.Left);
+                    window.MouseUp(center, MouseButton.Left);
+                    PumpImageViewer(window);
+
+                    var title = FindImageViewerControl<TextBlock>(window, "MarkdownImageTitle");
+                    var counter = FindImageViewerControl<TextBlock>(window, "MarkdownImageCounter");
+                    var previous = FindImageViewerControl<Button>(window, "MarkdownImagePrevious");
+                    var next = FindImageViewerControl<Button>(window, "MarkdownImageNext");
+                    Assert.Equal("First picture", title.Text);
+                    Assert.Equal("1 / 2", counter.Text);
+                    Assert.False(previous.IsEnabled);
+                    Assert.True(next.IsEnabled);
+
+                    PressImageViewerKey(window, Key.Right);
+                    PumpImageViewer(window);
+                    Assert.Equal("Second picture", title.Text);
+                    Assert.Equal("2 / 2", counter.Text);
+                    Assert.True(previous.IsEnabled);
+                    Assert.False(next.IsEnabled);
+
+                    // The last picture is the end of the strip: another step stays on it.
+                    PressImageViewerKey(window, Key.Right);
+                    PumpImageViewer(window);
+                    Assert.Equal("Second picture", title.Text);
+
+                    previous.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    Assert.Equal("First picture", title.Text);
+
+                    // Clicking Next to the last picture turns Next off; the keys keep working.
+                    Assert.True(next.Focus());
+                    next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    Assert.Equal("Second picture", title.Text);
+                    Assert.False(next.IsEnabled);
+                    PressImageViewerKey(window, Key.Left);
+                    PumpImageViewer(window);
+                    Assert.Equal("First picture", title.Text);
+                    await WaitForImageViewerAsync(window, () =>
+                        FindImageViewerControl<TextBlock>(window, "MarkdownImageSubtitle").Text?.Contains("PNG") == true);
+
+                    PressImageViewerKey(window, Key.Escape);
+                    PumpImageViewer(window);
+                    Assert.Empty(window.GetVisualDescendants().OfType<Button>().Where(button => button.Name == "MarkdownImageClose"));
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(first);
+            File.Delete(second);
+        }
+    }
+
+    [Fact]
+    public async Task ViewerOffersFileActionsOnADesktopAndTheHostsShareAndSaveWhenItHasOne()
+    {
+        var path = CreateTempPng();
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var window = CreateImageViewerWindow($"![fixture image]({path})");
+                try
+                {
+                    await WaitForImageViewerAsync(window, () =>
+                        FindImageViewerControl<Button>(window, "MarkdownImageExpand").IsVisible);
+                    Assert.True(FindImageViewerControl<Button>(window, "MarkdownImageReveal").IsVisible);
+                    Assert.True(FindImageViewerControl<Button>(window, "MarkdownImageCopy").IsVisible);
+
+                    FindImageViewerControl<Button>(window, "MarkdownImageExpand").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    var overlay = FindImageViewerControl<Border>(window, "MarkdownImageFullScreen");
+                    Assert.Contains(overlay.GetVisualDescendants().OfType<Button>(), button => button.Name == "MarkdownImageReveal");
+                    Assert.Contains(overlay.GetVisualDescendants().OfType<Button>(), button => button.Name == "MarkdownImageOpenExternal");
+                    Assert.Contains(overlay.GetVisualDescendants().OfType<Button>(), button => button.Name == "MarkdownImageCopy");
+                    Assert.DoesNotContain(overlay.GetVisualDescendants().OfType<Button>(), button => button.Name == "MarkdownImageShare");
+                    Assert.Equal("Save a copy…", AutomationProperties.GetName(
+                        overlay.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "MarkdownImageSave")));
+                    PressImageViewerKey(window, Key.Escape);
+                    PumpImageViewer(window);
+
+                    // A host that shares and keeps pictures with the phone's photos.
+                    var host = new RecordingImageHost();
+                    var markdown = Assert.IsType<StrataMarkdown>(window.Content);
+                    StrataMarkdown.SetImageActionHost(window, host);
+                    markdown.Markdown = $"![Holiday photo]({path})\n\nAgain.";
+                    InvokeMarkdownRebuild(markdown);
+                    await WaitForImageViewerAsync(window, () =>
+                        FindImageViewerControl<Button>(window, "MarkdownImageExpand").IsVisible);
+                    Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), button => button.Name == "MarkdownImageReveal");
+
+                    FindImageViewerControl<Button>(window, "MarkdownImageExpand").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    overlay = FindImageViewerControl<Border>(window, "MarkdownImageFullScreen");
+                    var buttons = overlay.GetVisualDescendants().OfType<Button>().ToList();
+                    Assert.DoesNotContain(buttons, button => button.Name is "MarkdownImageReveal" or "MarkdownImageOpenExternal" or "MarkdownImageCopy");
+                    var save = buttons.Single(button => button.Name == "MarkdownImageSave");
+                    Assert.Equal("Save", AutomationProperties.GetName(save));
+
+                    buttons.Single(button => button.Name == "MarkdownImageShare").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await WaitForImageViewerAsync(window, () => host.Calls.Count == 1);
+                    save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await WaitForImageViewerAsync(window, () => host.Calls.Count == 2);
+                    Assert.Equal(["share", "save"], host.Calls.Select(call => call.Action));
+                    Assert.All(host.Calls, call =>
+                    {
+                        Assert.Equal(Path.GetFileName(path), call.File.FileName);
+                        Assert.Equal(path, call.File.LocalPath);
+                        Assert.Equal(path, call.File.Location);
+                        Assert.Equal(TinyPng, call.Bytes);
+                    });
+                    await WaitForImageViewerAsync(window, () => overlay.GetVisualDescendants().OfType<Border>()
+                        .Any(border => border.Name == "MarkdownImageToast" && AutomationProperties.GetName(border) == "Saved to Photos"));
+                    PressImageViewerKey(window, Key.Escape);
+                    PumpImageViewer(window);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ImageFileNames_ComeFromTheSourceOrElseTheAltTextAndTheImagesFormat()
+    {
+        Assert.True(StrataMarkdown.TryResolveMarkdownImageSource("https://example.com/photos/sun%20set.webp?w=200", out var web));
+        Assert.Equal("sun set.webp", MarkdownImageFiles.NameFromSource(web));
+        Assert.True(StrataMarkdown.TryResolveMarkdownImageSource("https://example.com/render?id=7", out var generated));
+        Assert.Null(MarkdownImageFiles.NameFromSource(generated));
+        Assert.Equal("Sunset_ over Eilat.png", MarkdownImageFiles.NameFromLabel("Sunset: over Eilat", TinyPng));
+        Assert.Equal("chart.jpg", MarkdownImageFiles.NameFromLabel("chart", CreateJpegHeader(10, 10)));
+        Assert.Equal("image.gif", MarkdownImageFiles.NameFromLabel("  ", CreateGifHeader(4, 4)));
+        Assert.StartsWith("example.com · PNG · ", MarkdownImageFiles.Describe(web, TinyPng));
+        Assert.EndsWith($" · {TinyPng.Length} B", MarkdownImageFiles.Describe(web, TinyPng));
+        Assert.Equal("example.com", MarkdownImageFiles.Describe(web, null));
+
+        // Pictures are read by their content, so only a picture's name lets the default app open it.
+        Assert.True(MarkdownImageFiles.CanOpenExternally(web));
+        var disguised = Path.Combine(Path.GetTempPath(), "setup.exe");
+        Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(disguised, out var executable));
+        Assert.False(MarkdownImageFiles.CanOpenExternally(executable));
+        Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(Path.ChangeExtension(disguised, ".JPG"), out var photo));
+        Assert.True(MarkdownImageFiles.CanOpenExternally(photo));
+    }
+
+    private sealed class RecordingImageHost : IStrataImageActionHost
+    {
+        public List<(string Action, StrataImageFile File, byte[] Bytes)> Calls { get; } = [];
+
+        public bool CanShare => true;
+
+        public StrataImageSaveStyle SaveStyle => StrataImageSaveStyle.SaveToPhotos;
+
+        public bool OffersFileLocation => false;
+
+        public bool CanCopyImage => false;
+
+        public async Task<bool> ShareAsync(StrataImageFile image, CancellationToken cancellationToken)
+        {
+            Calls.Add(("share", image, await image.ReadAllBytesAsync(cancellationToken)));
+            return true;
+        }
+
+        public async Task<bool> SaveAsync(StrataImageFile image, CancellationToken cancellationToken)
+        {
+            Calls.Add(("save", image, await image.ReadAllBytesAsync(cancellationToken)));
+            return true;
         }
     }
 

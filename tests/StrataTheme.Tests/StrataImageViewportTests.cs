@@ -169,6 +169,109 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
         }
     });
 
+    [Fact]
+    public Task TouchSwipesStepBetweenImagesOnlyWhenThereIsMoreThanOne() => fixture.Dispatch(() =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            var steps = new List<int>();
+            viewport.NavigateRequested += (_, step) => steps.Add(step);
+            var start = new Point(160, 240);
+
+            Swipe(new Vector(-120, 6));
+            Assert.Empty(steps);
+            viewport.CanSwipeBetweenImages = true;
+            Swipe(new Vector(-120, 6));
+            viewport.Fit();
+            Swipe(new Vector(120, -4));
+            Assert.Equal([1, -1], steps);
+
+            // A short drag is not a swipe; the image eases back.
+            Swipe(new Vector(-30, 0));
+            Assert.Equal(2, steps.Count);
+            Assert.Equal(default, viewport.Offset);
+
+            // Zoomed in, a drag pans the picture instead.
+            viewport.ZoomBy(2);
+            Swipe(new Vector(-120, 0));
+            Assert.Equal(2, steps.Count);
+
+            // Right to left, the line starts on the right: a swipe to the right brings the next picture.
+            viewport.Fit();
+            viewport.FlowDirection = FlowDirection.RightToLeft;
+            window.UpdateLayout();
+            Swipe(new Vector(120, 0));
+            viewport.Fit();
+            Swipe(new Vector(-120, 0));
+            Assert.Equal([1, -1, 1, -1], steps);
+
+            void Swipe(Vector travel)
+            {
+                var touch = window.TouchBegin(start);
+                window.TouchMove(touch, start + travel / 2);
+                window.TouchMove(touch, start + travel);
+                window.TouchEnd(touch, start + travel);
+            }
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task SwipingUpOrDownDismissesAndReportsHowFarItWent() => fixture.Dispatch(() =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            var dismissed = 0;
+            var progress = new List<double>();
+            viewport.DismissRequested += (_, _) => dismissed++;
+            viewport.DismissProgress += (_, fraction) => progress.Add(fraction);
+            var start = new Point(160, 200);
+
+            var touch = window.TouchBegin(start);
+            window.TouchMove(touch, start + new Vector(0, 60));
+            window.TouchMove(touch, start + new Vector(0, 200));
+            Assert.InRange(progress[^1], 0.5, 1);
+            window.TouchEnd(touch, start + new Vector(0, 200));
+            Assert.Equal(1, dismissed);
+
+            // A mouse drag never dismisses: on a desktop the picture stays until it is closed.
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(start + new Vector(0, 200), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(start + new Vector(0, 200), MouseButton.Left);
+            Assert.Equal(1, dismissed);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task ASidewaysSwipeDuringAPullsReturnRestoresTheBackdrop() => fixture.Dispatch(() =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            viewport.CanSwipeBetweenImages = true;
+            var progress = new List<double>();
+            viewport.DismissProgress += (_, fraction) => progress.Add(fraction);
+            var start = new Point(160, 240);
+
+            // A short pull that does not dismiss starts easing back...
+            var pull = window.TouchBegin(start);
+            window.TouchMove(pull, start + new Vector(0, 35));
+            window.TouchEnd(pull, start + new Vector(0, 35));
+            Assert.True(progress[^1] > 0);
+
+            // ...and a sideways swipe interrupts it.
+            var swipe = window.TouchBegin(start);
+            window.TouchMove(swipe, start + new Vector(-60, 0));
+            window.TouchMove(swipe, start + new Vector(-120, 0));
+            window.TouchEnd(swipe, start + new Vector(-120, 0));
+            Assert.Equal(0, progress[^1]);
+        }
+        finally { window.Close(); }
+    });
+
     private static DrawingImage Drawing(double width, double height) => new()
     {
         Drawing = new GeometryDrawing

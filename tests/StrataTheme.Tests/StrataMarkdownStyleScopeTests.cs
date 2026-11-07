@@ -59,17 +59,19 @@ public sealed class StrataMarkdownStyleScopeTests(AvaloniaFixture fixture)
         {
             var caption = new TextBlock { Text = "Image caption", Classes = { "strata-md-image-caption" } };
             var progress = new ProgressBar { Classes = { "strata-md-image-progress" } };
-            var close = new Button { Classes = { "strata-md-image-viewer-close" } };
-            var window = CreateWindow(new StackPanel { Children = { caption, progress, close } }, theme);
+            // The viewer lives in the overlay layer, outside any markdown, under its own root.
+            var close = new Button { Classes = { "strata-md-image-viewer-tool", "strata-md-image-viewer-close" } };
+            var viewer = new Grid { Name = "MarkdownImageViewer", Children = { close } };
+            var window = CreateWindow(new StackPanel { Children = { caption, progress, viewer } }, theme);
             try
             {
                 Pump(window);
                 AssertBrush(window, "Brush.TextSecondary", caption.Foreground);
                 Assert.Equal(88, progress.Width);
                 Assert.Equal(3, progress.Height);
-                Assert.True(close.Width > 0);
-                Assert.Equal(close.Width, close.Height);
-                AssertBrush(window, "Brush.Surface1", close.Background);
+                Assert.Equal(40, close.Height);
+                Assert.Equal(40, close.MinWidth);
+                AssertBrush(window, "Brush.TextPrimary", close.Foreground);
             }
             finally
             {

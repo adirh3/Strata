@@ -6,6 +6,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
@@ -47,7 +48,9 @@ public sealed class StrataFullScreenOverlay
         OverlayLayer layer,
         string name,
         Control content,
-        Action focusContent)
+        Action focusContent,
+        IBrush? background,
+        ThemeVariant? themeVariant)
     {
         _owner = owner;
         _layer = layer;
@@ -60,13 +63,14 @@ public sealed class StrataFullScreenOverlay
         {
             Name = name,
             Padding = _insets?.SafeAreaPadding ?? default,
-            Background = owner.TryFindResource("Brush.Background", owner.ActualThemeVariant, out var resource)
-                && resource is IBrush brush
-                    ? brush
-                    : new SolidColorBrush(Color.Parse("#161616")),
+            Background = background
+                ?? (owner.TryFindResource("Brush.Background", owner.ActualThemeVariant, out var resource)
+                    && resource is IBrush brush
+                        ? brush
+                        : new SolidColorBrush(Color.Parse("#161616"))),
             Child = new ThemeVariantScope
             {
-                RequestedThemeVariant = owner.ActualThemeVariant,
+                RequestedThemeVariant = themeVariant ?? owner.ActualThemeVariant,
                 Child = content
             },
             ZIndex = int.MaxValue
@@ -98,11 +102,19 @@ public sealed class StrataFullScreenOverlay
         && Presented.TryGetValue(topLevel, out var viewers) && viewers.Count > 0;
 
     /// <summary>Opens a viewer in the owner's overlay layer, or reports a missing layer through logging.</summary>
+    /// <param name="owner">The control the viewer belongs to; the viewer closes when it leaves the tree.</param>
+    /// <param name="name">The overlay's name, for automation.</param>
+    /// <param name="content">What the viewer shows.</param>
+    /// <param name="focusContent">Moves focus into the viewer once it is shown.</param>
+    /// <param name="background">The backdrop; the theme's background when null.</param>
+    /// <param name="themeVariant">The theme the content is drawn in; the owner's when null.</param>
     public static StrataFullScreenOverlay? Open(
         Control owner,
         string name,
         Control content,
-        Action focusContent)
+        Action focusContent,
+        IBrush? background = null,
+        ThemeVariant? themeVariant = null)
     {
         var layer = OverlayLayer.GetOverlayLayer(owner);
         if (layer is null)
@@ -112,7 +124,7 @@ public sealed class StrataFullScreenOverlay
             return null;
         }
 
-        return new StrataFullScreenOverlay(owner, layer, name, content, focusContent);
+        return new StrataFullScreenOverlay(owner, layer, name, content, focusContent, background, themeVariant);
     }
 
     /// <summary>Closes the viewer and optionally returns focus to the control that opened it.</summary>
