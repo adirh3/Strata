@@ -679,6 +679,9 @@
                                  HorizontalAlignment="Center" VerticalAlignment="Center">
                             <controls:StrataLineIcon Name="PART_OrbSendIcon" StrokeThickness="2.2"
                                                      Data="{x:Static controls:StrataIcons.ArrowUp}" />
+                            <controls:StrataLineIcon Name="PART_OrbEditIcon" StrokeThickness="2.4" IsVisible="False"
+                                                     FlowDirection="LeftToRight"
+                                                     Data="{x:Static controls:StrataIcons.Check}" />
                             <controls:StrataLineIcon Name="PART_OrbStopSendIcon" StrokeThickness="2.1" IsVisible="False"
                                                      Data="{x:Static controls:StrataIcons.StopSend}" />
                             <Border Name="PART_OrbStopIcon" Width="10" Height="10" CornerRadius="2.5" IsVisible="False"
@@ -1098,8 +1101,9 @@
           </Setter>
         </Style>
 
-        <!-- Host-owned edit mode: the integrated StatusContent provides explicit Update/Cancel
-             actions, while editing semantics take precedence over busy/steering. -->
+        <!-- Host-owned edit mode: the host shows what editing does around the composer, and editing semantics
+             take precedence over busy/steering. On desktop the send button becomes a check that updates the
+             message (Enter); touch hosts provide their own Update action. Escape leaves the edit. -->
         <Style Selector="^:editing /template/ Border#PART_Root">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
           <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerFocus}" />
@@ -1108,8 +1112,14 @@
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.ComposerFocusBorder}" />
           <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ComposerGlassFocus}" />
         </Style>
-        <Style Selector="^:editing /template/ Button#PART_SendButton">
+        <Style Selector="^.mobile:editing /template/ Button#PART_SendButton">
           <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile):editing /template/ controls|StrataLineIcon#PART_OrbSendIcon">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:not(.mobile):editing /template/ controls|StrataLineIcon#PART_OrbEditIcon">
+          <Setter Property="IsVisible" Value="True" />
         </Style>
 
         <!-- Empty: dim send (touch) -->
