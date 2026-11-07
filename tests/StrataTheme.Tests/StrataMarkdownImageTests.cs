@@ -163,6 +163,36 @@ public sealed class StrataMarkdownImageTests
     }
 
     [Fact]
+    public void EncodedAbsoluteImagePathsResolveToTheSameSourceAsFileUris()
+    {
+        var path = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "wallpapers with spaces", "real expressions", "portrait.png"));
+        var encodedPath = path.Replace(" ", "%20");
+
+        Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(encodedPath, out var source));
+        Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(new Uri(path).AbsoluteUri, out var uriSource));
+        Assert.Equal(path, source.LocalPath);
+        Assert.Equal(uriSource, source);
+    }
+
+    [Fact]
+    public void ExistingImagePathsWithLiteralPercentEscapesRemainUnchanged()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"strata-literal%20image-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(path, TinyPng);
+        try
+        {
+            Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(path, out var source));
+            Assert.Equal(path, source.LocalPath);
+            Assert.True(StrataMarkdown.TryResolveMarkdownImageSource(new Uri(path).AbsoluteUri, out var uriSource));
+            Assert.Equal(source, uriSource);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void TryResolveMarkdownImageSource_RejectsNetworkFilePaths()
     {
         Assert.False(StrataMarkdown.TryResolveMarkdownImageSource("file://attacker/share/image.png", out _));
@@ -411,6 +441,97 @@ public sealed class StrataMarkdownImageTests
 
                     Assert.True(loaded, "The inline markdown image did not finish loading.");
                     Assert.False(loadingContent.IsVisible);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Theory]
+    [InlineData("block", true)]
+    [InlineData("inline", true)]
+    [InlineData("table", true)]
+    [InlineData("table", false)]
+    public async Task ImagesWithSpacesLoadAndRemainVisibleThroughRebuilds(string placement, bool encoded)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"strata wallpaper {Guid.NewGuid():N}.png");
+        try
+        {
+            File.WriteAllBytes(path, TinyPng);
+            await _fixture.Dispatch(async () =>
+            {
+                var target = encoded ? path.Replace(" ", "%20") : path;
+                var imageMarkdown = $"![Wallpaper]({target})";
+                var text = placement switch
+                {
+                    "inline" => $"Before {imageMarkdown} after",
+                    "table" => $"| First | Second | Third | Fourth |\n|---|---|---|---|\n| {imageMarkdown} | Before {imageMarkdown} after | {imageMarkdown} | {imageMarkdown} |",
+                    _ => imageMarkdown
+                };
+                var imageCount = placement == "table" ? 4 : 1;
+                var window = CreateImageViewerWindow(text);
+                try
+                {
+                    var markdown = Assert.IsType<StrataMarkdown>(window.Content);
+                    for (var rebuild = 0; rebuild < 2; rebuild++)
+                    {
+                        var cacheEntry = GetCachedImageEntry(markdown, target);
+                        Assert.NotNull(cacheEntry);
+                        await GetBitmapTask(cacheEntry);
+                        await WaitForImageViewerAsync(window, () =>
+                            markdown.GetVisualDescendants().OfType<Image>()
+                                .Count(image => image.Classes.Contains("strata-md-image-content")
+                                    && image.Source is not null && image.IsVisible) == imageCount);
+
+                        var images = markdown.GetVisualDescendants().OfType<Image>()
+                            .Where(image => image.Classes.Contains("strata-md-image-content")).ToArray();
+                        Assert.Equal(imageCount, images.Length);
+                        foreach (var image in images)
+                        {
+                            Assert.True(image.Bounds.Width > 0);
+                            Assert.True(image.Bounds.Height > 0);
+                            Assert.InRange(image.Bounds.Width / image.Bounds.Height, 0.99, 1.01);
+                            var frame = image.GetVisualAncestors().OfType<Border>()
+                                .Single(border => border.Classes.Contains("strata-md-image"));
+                            var textBlock = frame.FindAncestorOfType<SelectableTextBlock>();
+                            if (textBlock is not null)
+                                Assert.True(textBlock.Bounds.Height >= frame.Bounds.Height,
+                                    $"The image is {frame.Bounds.Height}px tall but its text line occupies only {textBlock.Bounds.Height}px.");
+                            if (placement == "table")
+                                Assert.Contains(image.GetVisualAncestors().OfType<Border>(),
+                                    border => border.Classes.Contains("strata-md-table-cell"));
+                        }
+
+                        if (placement == "table")
+                            Assert.Contains(markdown.GetVisualDescendants().OfType<SelectableTextBlock>(),
+                                block => block.Inlines?.OfType<Run>().Any(run => run.Text?.Contains("Before") == true) == true);
+
+                        var expand = markdown.GetVisualDescendants().OfType<Button>()
+                            .First(button => button.Name == "MarkdownImageExpand");
+                        Assert.True(expand.IsVisible);
+                        expand.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        PumpImageViewer(window);
+                        Assert.NotNull(FindImageViewerControl<Image>(window, "ExpandedMarkdownImage").Source);
+                        FindImageViewerControl<Button>(window, "MarkdownImageClose")
+                            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        PumpImageViewer(window);
+                        markdown.Markdown = text + $"\n\nRebuild {rebuild}.";
+                        InvokeMarkdownRebuild(markdown);
+                    }
+
+                    markdown.Markdown = "Only text remains.";
+                    InvokeMarkdownRebuild(markdown);
+                    var remainingText = Assert.Single(markdown.GetVisualDescendants().OfType<SelectableTextBlock>());
+                    Assert.Equal(remainingText.FontSize * StrataMarkdown.TextLineHeightRatio, remainingText.LineHeight);
+                    Assert.DoesNotContain(markdown.GetVisualDescendants().OfType<Image>(),
+                        image => image.Classes.Contains("strata-md-image-content"));
                 }
                 finally
                 {

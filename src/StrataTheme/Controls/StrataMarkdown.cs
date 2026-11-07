@@ -1514,8 +1514,7 @@ public partial class StrataMarkdown : ContentControl
         ApplyDirectionalTextLayout(textBlock, FlowDirection, text);
         var inlines = new InlineCollection();
         var hadLinks = AppendFormattedInlines(textBlock, inlines, text, prefix, forceInlines: false);
-        if (inlines.Count > 0)
-            textBlock.Inlines = inlines;
+        ApplyFormattedInlines(textBlock, inlines, lineHeight);
 
         if (hadLinks)
         {
@@ -1523,6 +1522,14 @@ public partial class StrataMarkdown : ContentControl
         }
 
         return textBlock;
+    }
+
+    private static void ApplyFormattedInlines(SelectableTextBlock textBlock, InlineCollection inlines, double lineHeight)
+    {
+        // A fixed text line height clips inline images instead of measuring their full height.
+        textBlock.LineHeight = inlines.Any(inline => inline is InlineUIContainer) ? double.NaN : lineHeight;
+        if (inlines.Count > 0)
+            textBlock.Inlines = inlines;
     }
 
     /// <summary>
@@ -2211,8 +2218,7 @@ public partial class StrataMarkdown : ContentControl
         ApplyDirectionalTextLayout(tb, FlowDirection, newContent);
         var inlines = new InlineCollection();
         AppendFormattedInlines(tb, inlines, newContent, null, forceInlines: false);
-        if (inlines.Count > 0)
-            tb.Inlines = inlines;
+        ApplyFormattedInlines(tb, inlines, tb.FontSize * TextLineHeightRatio);
 
         // Re-wire link handlers if needed
         if (tb.Inlines != null)
@@ -3592,7 +3598,7 @@ public partial class StrataMarkdown : ContentControl
             }
         }
 
-        tb.Inlines = inlines;
+        ApplyFormattedInlines(tb, inlines, tb.FontSize * TextLineHeightRatio);
         return hasLinks;
     }
 

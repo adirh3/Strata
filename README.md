@@ -48,6 +48,11 @@ saved language is loaded.
 nested markdown content. Localization changes captions only: category values, model/provider IDs,
 interaction status tokens and authored content keep their original values.
 
+Markdown images also render inside table cells, using the same loader and viewer as paragraph
+images. Absolute local image paths accept URI escapes such as `%20` for spaces; an existing
+literal filename takes precedence. File URIs are decoded only once, and remote image URLs
+keep their URI escaping.
+
 ---
 
 ## Entrance motion

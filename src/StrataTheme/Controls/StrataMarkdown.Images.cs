@@ -499,6 +499,10 @@ public partial class StrataMarkdown
 
         if (Path.IsPathFullyQualified(normalizedTarget))
         {
+            // Markdown may URI-escape a local path; preserve an existing literal filename.
+            if (normalizedTarget.Contains('%') && !File.Exists(normalizedTarget))
+                normalizedTarget = Uri.UnescapeDataString(normalizedTarget);
+
             var fullPath = Path.GetFullPath(normalizedTarget);
             if (!IsSafeLocalMarkdownImagePath(fullPath))
             {
