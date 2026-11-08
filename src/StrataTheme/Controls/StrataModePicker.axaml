@@ -5,7 +5,124 @@
         xmlns:strata="using:StrataTheme">
   <Styles.Resources>
     <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="Brush.ModePickerSwitchTrack" Color="#1F000000" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Brush.ModePickerSwitchTrack" Color="#2EFFFFFF" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
 
+  <!-- Quiet text action in the host's content, such as a link to settings. Strata gives every
+       TextBlock the body size and colour, so the panel's mode-picker-link styles hand a text the
+       button's own, and one state change recolours it. -->
+  <ControlTheme x:Key="ModePickerLinkTheme" TargetType="Button">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Font.Family}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Name="PART_ContentPresenter"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="Transparent"
+                          BorderThickness="1"
+                          CornerRadius="{TemplateBinding CornerRadius}"
+                          Content="{TemplateBinding Content}"
+                          Foreground="{TemplateBinding Foreground}"
+                          Padding="{TemplateBinding Padding}"
+                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}">
+          <ContentPresenter.Transitions>
+            <Transitions>
+              <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.1" />
+            </Transitions>
+          </ContentPresenter.Transitions>
+        </ContentPresenter>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    </Style>
+    <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+    </Style>
+    <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+    </Style>
+    <Style Selector="^:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+    </Style>
+  </ControlTheme>
+
+  <!-- Compact switch for an option under the modes, the size the connector picker's rows use: the
+       track takes the accent gradient when on, like Strata's ToggleSwitch. -->
+  <ControlTheme x:Key="ModePickerSwitchTheme" TargetType="ToggleButton">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Width" Value="30" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border Name="PART_Track"
+                  CornerRadius="9"
+                  Background="{DynamicResource Brush.ModePickerSwitchTrack}"
+                  BorderBrush="Transparent"
+                  BorderThickness="1" />
+          <Border Name="PART_OnTrack"
+                  CornerRadius="9"
+                  Background="{DynamicResource Brush.AccentGradient}"
+                  Opacity="0">
+            <Border.Transitions>
+              <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut" />
+              </Transitions>
+            </Border.Transitions>
+          </Border>
+          <Ellipse Name="PART_Knob"
+                   Width="12" Height="12"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Margin="3,0,0,0"
+                   Fill="{DynamicResource Brush.TextSecondary}"
+                   RenderTransform="translateX(0px)">
+            <Ellipse.Transitions>
+              <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+              </Transitions>
+            </Ellipse.Transitions>
+          </Ellipse>
+          <Border Name="PART_FocusRing"
+                  Margin="-3"
+                  CornerRadius="12"
+                  BorderBrush="Transparent"
+                  BorderThickness="1.5"
+                  IsHitTestVisible="False" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover /template/ Border#PART_Track">
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+    </Style>
+    <Style Selector="^:checked /template/ Border#PART_OnTrack">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:checked /template/ Ellipse#PART_Knob">
+      <Setter Property="Fill" Value="White" />
+      <Setter Property="RenderTransform" Value="translateX(12px)" />
+    </Style>
+    <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+    </Style>
+  </ControlTheme>
   <!-- One row per mode, its check drawn by the row itself. -->
   <ControlTheme x:Key="ModePickerItemTheme" TargetType="ListBoxItem">
     <Setter Property="Padding" Value="10,9" />
@@ -77,6 +194,41 @@
                  strata:PopupAnimationHelper.EnableOverlayAnimation="True"
                  strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
             <Panel Width="340" Margin="10">
+              <!-- What the host's footer is built from, scoped here so nothing else pays for these
+                   rules: a quiet text action, a compact switch, and the icon tile the modes wear
+                   (`on` lights its icon). -->
+              <Panel.Styles>
+                <Style Selector="Button.mode-picker-link">
+                  <Setter Property="Theme" Value="{StaticResource ModePickerLinkTheme}" />
+                </Style>
+                <Style Selector="Button.mode-picker-link TextBlock">
+                  <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  <Setter Property="FontSize" Value="{Binding FontSize, RelativeSource={RelativeSource AncestorType=Button}}" />
+                </Style>
+                <Style Selector="ToggleButton.mode-picker-switch">
+                  <Setter Property="Theme" Value="{StaticResource ModePickerSwitchTheme}" />
+                </Style>
+                <Style Selector="Border.mode-picker-tile">
+                  <Setter Property="Width" Value="30" />
+                  <Setter Property="Height" Value="30" />
+                  <Setter Property="CornerRadius" Value="10" />
+                  <Setter Property="VerticalAlignment" Value="Top" />
+                  <Setter Property="Background" Value="{DynamicResource Brush.GlassWell}" />
+                  <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassDivider}" />
+                  <Setter Property="BorderThickness" Value="1" />
+                </Style>
+                <Style Selector="Border.mode-picker-tile > controls|StrataLineIcon">
+                  <Setter Property="Width" Value="15" />
+                  <Setter Property="Height" Value="15" />
+                  <Setter Property="StrokeThickness" Value="1.8" />
+                  <Setter Property="HorizontalAlignment" Value="Center" />
+                  <Setter Property="VerticalAlignment" Value="Center" />
+                  <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+                </Style>
+                <Style Selector="Border.mode-picker-tile.on > controls|StrataLineIcon">
+                  <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+                </Style>
+              </Panel.Styles>
               <Border CornerRadius="16" ClipToBounds="True" IsHitTestVisible="False">
                 <controls:StrataBackdropBlur CornerRadius="16" BlurRadius="24" Saturation="1.5" />
               </Border>
@@ -100,7 +252,7 @@
                   <Border DockPanel.Dock="Bottom"
                           BorderBrush="{DynamicResource Brush.BorderSubtle}"
                           BorderThickness="0,1,0,0"
-                          Padding="14,10,14,12"
+                          Padding="16,10,16,12"
                           IsVisible="{TemplateBinding FooterContent, Converter={x:Static ObjectConverters.IsNotNull}}">
                     <ContentPresenter Name="PART_Footer" Content="{TemplateBinding FooterContent}" />
                   </Border>

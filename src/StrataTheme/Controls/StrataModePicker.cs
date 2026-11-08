@@ -30,6 +30,9 @@ public enum StrataModeTone
 /// <remarks>
 /// <para><b>Template parts:</b> PART_Button (Button), PART_Popup (Popup), PART_List (ListBox).</para>
 /// <para><b>Pseudo-classes:</b> :open, :labelled, :accent, :caution.</para>
+/// <para><b>Host classes</b>, styled inside the popover only: <c>Button.mode-picker-link</c> (a quiet
+/// text action), <c>ToggleButton.mode-picker-switch</c> (a compact switch) and
+/// <c>Border.mode-picker-tile</c> (the 30px icon tile; <c>.on</c> lights its icon).</para>
 /// </remarks>
 public class StrataModePicker : TemplatedControl
 {
@@ -114,7 +117,10 @@ public class StrataModePicker : TemplatedControl
     /// <summary>Runs with the mode the user picked.</summary>
     public ICommand? SelectCommand { get => GetValue(SelectCommandProperty); set => SetValue(SelectCommandProperty, value); }
 
-    /// <summary>Host content under the modes, such as where the mode comes from and a link to settings.</summary>
+    /// <summary>
+    /// Host content under the modes, such as where the mode comes from and a link to settings. A button in
+    /// it closes the popover behind it; a switch (any <see cref="ToggleButton"/>) keeps it open.
+    /// </summary>
     public object? FooterContent { get => GetValue(FooterContentProperty); set => SetValue(FooterContentProperty, value); }
 
     public bool IsOpen { get => GetValue(IsOpenProperty); set => SetValue(IsOpenProperty, value); }
@@ -132,9 +138,14 @@ public class StrataModePicker : TemplatedControl
         _button = e.NameScope.Find<Button>("PART_Button");
         _popup = e.NameScope.Find<Popup>("PART_Popup");
         _list = e.NameScope.Find<ListBox>("PART_List");
-        // A footer action, such as opening settings, takes the user elsewhere: close behind it.
+        // A footer action, such as opening settings, takes the user elsewhere: close behind it. A switch
+        // changes something in place, so the popover stays to show its new state.
         e.NameScope.Find<ContentPresenter>("PART_Footer")?.AddHandler(
-            Button.ClickEvent, (_, _) => IsOpen = false, RoutingStrategies.Bubble, handledEventsToo: true);
+            Button.ClickEvent, (_, args) =>
+            {
+                if (args.Source is not ToggleButton)
+                    IsOpen = false;
+            }, RoutingStrategies.Bubble, handledEventsToo: true);
 
         if (_button is not null)
             _button.Click += OnButtonClick;
