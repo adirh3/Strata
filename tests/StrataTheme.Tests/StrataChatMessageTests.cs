@@ -29,6 +29,43 @@ public class StrataChatMessageTests
     {
     }
 
+    [Fact]
+    public async Task HostedThemeKeepsTheUserBubbleWithoutBuildingDesktopActionsOrEditor()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var message = new StrataChatMessage
+            {
+                Role = StrataChatRole.User, Author = "You", Timestamp = "11:08",
+                Content = new SelectableTextBlock { Text = "A message with the host's own actions." }
+            };
+            var window = new Window { Width = 400, Height = 300 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+            });
+            try
+            {
+                window.Show();
+                message.Theme = Assert.IsType<Avalonia.Styling.ControlTheme>(
+                    window.FindResource("StrataChatMessage.Hosted"));
+                window.Content = message;
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                var controls = message.GetVisualDescendants().OfType<Control>().ToArray();
+                Assert.DoesNotContain(controls, control => control is Button or TextBox);
+                Assert.Contains(controls, control => control is Border { Name: "PART_Bubble", IsVisible: true });
+                Assert.Contains(controls, control => control is TextBlock { Name: "PART_Author", Text: "You" });
+                Assert.Contains(controls, control => control is TextBlock { Name: "PART_Timestamp", Text: "11:08" });
+                Assert.Equal("A message with the host's own actions.", ChatContentExtractor.ExtractText(message.Content));
+                Assert.InRange(controls.Length, 5, 15);
+                Assert.NotNull(message.ContextMenu);
+                Assert.False(message.IsEditable);
+            }
+            finally { window.Close(); }
+        });
+    }
+
     [Theory]
     [InlineData("הרץ dotnet run --project SomeVeryLongProjectName", FlowDirection.RightToLeft)]
     [InlineData("Run שלום עולם בדיקה ארוכה בעברית", FlowDirection.LeftToRight)]

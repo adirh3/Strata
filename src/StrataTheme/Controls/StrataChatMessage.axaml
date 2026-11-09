@@ -518,6 +518,52 @@
           <Setter Property="CornerRadius" Value="6" />
         </Style>
       </ControlTheme>
+
+      <!-- Hosts with their own message actions/editor do not build the desktop toolbar and editor
+           just to hide them. The same parts keep the role, metadata and bubble styling above. -->
+      <ControlTheme x:Key="StrataChatMessage.Hosted" TargetType="controls:StrataChatMessage"
+                    BasedOn="{StaticResource {x:Type controls:StrataChatMessage}}">
+        <Setter Property="IsEditable" Value="False" />
+        <Setter Property="CanRegenerate" Value="False" />
+        <Setter Property="Template">
+          <ControlTemplate>
+            <StackPanel Name="PART_Root" Spacing="0" Background="Transparent">
+              <WrapPanel Name="PART_HeaderRow" Orientation="Horizontal" Margin="0,0,0,2">
+                <WrapPanel.Transitions>
+                  <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                  </Transitions>
+                </WrapPanel.Transitions>
+                <Grid Name="PART_MetaRow" IsVisible="False" ColumnDefinitions="Auto,Auto,*"
+                      VerticalAlignment="Center">
+                  <TextBlock Name="PART_Author" Grid.Column="0" Text="{TemplateBinding Author}"
+                             MaxWidth="240" TextTrimming="CharacterEllipsis" ToolTip.Tip="{TemplateBinding Author}"
+                             FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextTertiary}" />
+                  <TextBlock Name="PART_MetaSeparator" Grid.Column="1" Text="·" Margin="6,0" IsVisible="False"
+                             FontSize="11" Foreground="{DynamicResource Brush.TextTertiary}" />
+                  <TextBlock Name="PART_Timestamp" Grid.Column="2" Text="{TemplateBinding Timestamp}"
+                             ToolTip.Tip="{TemplateBinding TimestampToolTip}" ToolTip.ShowDelay="350"
+                             FontSize="11" Foreground="{DynamicResource Brush.TextTertiary}" />
+                </Grid>
+              </WrapPanel>
+              <Grid Name="PART_BubbleRow" ColumnDefinitions="Auto,*,Auto">
+                <Border Name="PART_Bubble" Grid.Column="1" Background="Transparent" Padding="0,6,0,4"
+                        RenderTransformOrigin="0.5,0.5" RenderTransform="scale(1)">
+                  <Border.Transitions>
+                    <Transitions>
+                      <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.14" />
+                      <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+                      <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="CubicEaseOut" />
+                      <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                    </Transitions>
+                  </Border.Transitions>
+                  <ContentPresenter Content="{TemplateBinding Content}" TextBlock.TextWrapping="Wrap" />
+                </Border>
+              </Grid>
+            </StackPanel>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
 

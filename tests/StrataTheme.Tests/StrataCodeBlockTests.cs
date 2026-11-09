@@ -243,6 +243,61 @@ public class StrataCodeBlockTests
         Assert.Equal(lines * StrataCodeBlock.CodeLineHeight, block.DesiredSize.Height, 1);
     });
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("csharp")]
+    public Task UnwrappedCodeKeepsItsMeasuredLayoutWhenArrangedOrResized(string? language) => _fixture.Dispatch(() =>
+    {
+        var source = string.Join("\n", Enumerable.Range(0, 120).Select(i => $"var value{i} = {i};"));
+        var block = Present(source, language);
+        var presenter = Presenter(block);
+        var measured = presenter.TextLayout;
+        var measuredGlyphs = DrawGlyphs(presenter);
+        var drawnText = string.Concat(measuredGlyphs.Select(glyph => glyph.GlyphRun?.Characters.ToString()));
+        block.Arrange(new Rect(0, 0, 400, block.DesiredSize.Height));
+        Assert.Same(measured, presenter.TextLayout);
+        block.Arrange(new Rect(0, 0, 600, block.DesiredSize.Height + 100));
+        Assert.Same(measured, presenter.TextLayout);
+        Assert.Equal(120, presenter.TextLayout.TextLines.Count);
+        Assert.Equal(0, presenter.TextLayout.TextLines[0].Start, precision: 2);
+        var arrangedGlyphs = DrawGlyphs(presenter);
+        Assert.Equal(measuredGlyphs.Length, arrangedGlyphs.Length);
+        Assert.Equal(drawnText, string.Concat(arrangedGlyphs.Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+
+        presenter.SelectionStart = 0;
+        presenter.SelectionEnd = source.Length;
+        Assert.Equal(source, presenter.SelectedText);
+        Assert.Equal(drawnText, string.Concat(DrawGlyphs(presenter).Select(glyph => glyph.GlyphRun?.Characters.ToString())));
+        presenter.SelectionEnd = 0;
+        block.Text += "\nadded line";
+        block.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        block.Arrange(new Rect(block.DesiredSize));
+        Assert.NotSame(measured, presenter.TextLayout);
+        Assert.Equal(121, presenter.TextLayout.TextLines.Count);
+    });
+
+    [Fact]
+    public Task BoundedOrAlignedCodeStillUsesTheArrangedConstraint() => _fixture.Dispatch(() =>
+    {
+        var block = new StrataCodeBlock
+        {
+            Text = "A long line that wraps at the width of its containing control.",
+            TextWrapping = TextWrapping.Wrap
+        };
+        block.Measure(new Size(80, double.PositiveInfinity));
+        block.Arrange(new Rect(0, 0, 80, block.DesiredSize.Height));
+        Assert.True(Presenter(block).TextLayout.TextLines.Count > 1);
+
+        var aligned = Present("right-aligned code");
+        var presenter = Presenter(aligned);
+        presenter.TextAlignment = TextAlignment.Right;
+        aligned.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var measured = presenter.TextLayout;
+        aligned.Arrange(new Rect(0, 0, 600, aligned.DesiredSize.Height));
+        Assert.NotSame(measured, presenter.TextLayout);
+        Assert.True(presenter.TextLayout.TextLines[0].Start > 0);
+    });
+
     [Fact]
     public Task LongCodeDrawsOnlyNearbyLinesAndUpdatesAfterScrollJumps() => _fixture.Dispatch(() =>
     {

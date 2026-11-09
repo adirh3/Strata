@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.77" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.78" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -325,6 +325,12 @@ Set `TimestampToolTip` to the full date/time while keeping `Timestamp` short. Ho
 localize `CopyLabel`, `CopyAsLabel`, `CopyPlainTextLabel`, `CopyMarkdownLabel`, `CopyRichTextLabel`,
 `SelectAllLabel`, `CopiedLabel`, and `MoreActionsLabel`, alongside the existing reply/fork labels.
 Disable Edit and Retry when the host does not implement those actions.
+
+For user bubbles whose host supplies its own actions and edit surface, use
+`Theme="{StaticResource StrataChatMessage.Hosted}"`. It keeps the standard bubble,
+author and timestamp parts and their role styling without constructing a hidden
+desktop action strip or inline editor. Edit and Retry are disabled in this theme;
+the host remains responsible for those actions. The default theme is unchanged.
 
 Set `IsProgressUpdate="True"` on an assistant message that is narration written while the
 assistant works (`:progress-update`). An update never carries the answer's footer. Folded into a

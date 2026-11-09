@@ -457,6 +457,7 @@ public class StrataCodeBlock : Control
     {
         private IReadOnlyList<CodeSpan>? _spans;
         private Rect? _renderViewport;
+        private bool _hasNaturalLayout;
 
         // TextBlock rebuilds its layout on every arrange; like its own cache, this keeps the shaped runs
         // so only line layout is redone when the width alone changes.
@@ -493,6 +494,28 @@ public class StrataCodeBlock : Control
         protected override Type StyleKeyOverride => typeof(SelectableTextBlock);
 
         internal IReadOnlyList<CodeSpan>? Spans => _spans;
+
+        private bool CanUseNaturalLayout =>
+            TextWrapping == TextWrapping.NoWrap && TextAlignment is TextAlignment.Left or TextAlignment.Start
+            && TextTrimming == TextTrimming.None && FlowDirection == FlowDirection.LeftToRight
+            && Inlines is not { Count: > 0 };
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            _hasNaturalLayout = CanUseNaturalLayout
+                && double.IsPositiveInfinity(availableSize.Width)
+                && double.IsPositiveInfinity(availableSize.Height);
+            return base.MeasureOverride(availableSize);
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            // Unwrapped, left-aligned code has the same lines at every arranged size.
+            // TextBlock otherwise disposes and lays all of them out again after measuring.
+            return _hasNaturalLayout && CanUseNaturalLayout
+                ? finalSize
+                : base.ArrangeOverride(finalSize);
+        }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
