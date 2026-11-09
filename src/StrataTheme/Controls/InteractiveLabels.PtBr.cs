@@ -246,5 +246,26 @@ public sealed partial class InteractiveLabels
         ["viewDraft"] = "Ver rascunho", ["hideDraft"] = "Ocultar rascunho", ["showOriginal"] = "Mostrar original",
         ["submitted"] = "Enviado", ["working"] = "Trabalhando…", ["replyReady"] = "Resposta pronta",
         ["failed"] = "Precisa de atenção", ["stopped"] = "Interrompido",
+
+        // Option explorer
+        ["explorer"] = "Explorador de opções", ["optionCount"] = "{0} opções", ["matchCount"] = "{0} de {1}",
+        ["searchOptions"] = "Buscar opções", ["filters"] = "Filtros", ["filtersActive"] = "Filtros, {0} ativos",
+        ["sortBy"] = "Ordenar por", ["sortedBy"] = "Ordenado por {0}", ["sortRecommended"] = "Recomendado",
+        ["sortLowHigh"] = "{0}: menor para maior", ["sortHighLow"] = "{0}: maior para menor",
+        ["sortAz"] = "{0}: de A a Z", ["sortZa"] = "{0}: de Z a A", ["sortByColumn"] = "Ordenar por {0}",
+        ["viewCards"] = "Cartões", ["viewTable"] = "Tabela", ["option"] = "Opção", ["mustHave"] = "Obrigatório",
+        ["upTo"] = "Até {0}", ["andUp"] = "A partir de {0}", ["boundUpTo"] = "{0} até {1}", ["boundAndUp"] = "{0} a partir de {1}",
+        ["anyValue"] = "Qualquer", ["clearFilters"] = "Limpar filtros", ["removeFilter"] = "Remover o filtro {0}",
+        ["searchChip"] = "\u201c{0}\u201d", ["noMatches"] = "Nenhuma opção corresponde aos seus filtros.",
+        ["fewMatches"] = "{0} de {1} opções correspondem aos seus filtros.", ["findMore"] = "Encontrar mais parecidas",
+        ["explorerUse"] = "Continuar com a seleção", ["decide"] = "Me ajude a decidir", ["compareCount"] = "Comparar {0}",
+        ["compareHint"] = "Selecione até {0} para comparar", ["compareLimit"] = "Você pode comparar até {0} por vez.",
+        ["compareItem"] = "Comparar {0}", ["addToCompare"] = "Adicionar à comparação", ["inComparison"] = "Na comparação",
+        ["removeFromCompare"] = "Remover {0} da comparação", ["comparingCount"] = "Comparando {0}",
+        ["onlyDifferences"] = "Só diferenças", ["noDifferences"] = "Estas opções são iguais em todos os detalhes.",
+        ["allOptions"] = "Todas as opções", ["openOption"] = "Abrir detalhes", ["itemPosition"] = "{0} de {1}",
+        ["previousOption"] = "Opção anterior", ["nextOption"] = "Próxima opção", ["openSite"] = "Ver em {0}",
+        ["pros"] = "Prós", ["cons"] = "Contras", ["details"] = "Detalhes", ["best"] = "Melhor",
+        ["receiptMore"] = "Encontrar mais opções", ["receiptDecide"] = "Me ajude a escolher entre {0}",
     });
 }

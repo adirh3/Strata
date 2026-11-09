@@ -33,12 +33,24 @@ internal static class InteractiveIcons
     public const string Removed = "M7 11v2h10v-2H7zm5-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z";
     public const string Clock = "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z";
     public const string Action = "M4 5h9v2H4zm0 4h9v2H4zm0 4h6v2H4zm12-3 5 5-5 5v-4h-4v-2h4z";
+    public const string Explorer = "M7 9H2V7h5v2zm0 3H2v2h5v-2zm13.59 7-3.83-3.83c-.8.52-1.74.83-2.76.83-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5c0 1.02-.31 1.96-.83 2.75L22 17.59 20.59 19zM17 11c0-1.65-1.35-3-3-3s-3 1.35-3 3 1.35 3 3 3 3-1.35 3-3zM2 19h10v-2H2v2z";
+    public const string Tune = "M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z";
+    public const string Sort = "M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z";
+    public const string Cards = "M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z";
+    public const string Table = "M21 8H3V4h18v4zm0 2H3v4h18v-4zm0 6H3v4h18v-4z";
+    public const string Star = "M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z";
+    public const string Add = "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
+    public const string Minus = "M19 13H5v-2h14v2z";
+    public const string OpenExternal = "M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z";
+    public const string ChevronBack = "M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z";
+    public const string ChevronForward = "M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z";
+    public const string ArrowDown = "M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z";
 
     /// <summary>Creates an icon. Only directional arrows mirror in right-to-left layouts.</summary>
     public static PathIcon Create(string data, double size = 12)
     {
         var icon = new PathIcon { Data = Geometry.Parse(data), Width = size, Height = size, VerticalAlignment = VerticalAlignment.Center };
-        if (data is not (ArrowForward or ArrowBack))
+        if (data is not (ArrowForward or ArrowBack or ChevronBack or ChevronForward))
             icon.FlowDirection = FlowDirection.LeftToRight;
         return icon;
     }
@@ -69,6 +81,7 @@ internal static class InteractiveIcons
         "remaining" => Checklist,
         "assumptions" => Calculator,
         "discuss" => Quiz,
+        "more" => Search,
         _ => Action
     };
 }

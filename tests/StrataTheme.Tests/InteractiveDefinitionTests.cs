@@ -15,6 +15,7 @@ public class InteractiveDefinitionTests
         yield return ["quiz", """{"id":"practice","title":"Practice","questions":[{"id":"q1","prompt":"2 + 2?","options":["3","4"],"correctIndex":1,"explanation":"Two pairs make four.","hint":"Count two pairs."}]}"""];
         yield return ["checklist", """{"id":"setup","title":"Set up","numbered":true,"items":[{"id":"one","label":"Plug in"},{"id":"two","label":"Power on","detail":"Wait for the light."},{"id":"three","label":"Pair","meta":"2 min"}]}"""];
         yield return ["calculator", """{"id":"mortgage","title":"Mortgage","template":"loan","currency":"USD","inputs":{"loanAmount":100000,"interestRate":6,"years":30}}"""];
+        yield return ["explorer", InteractiveExplorerTests.Json];
     }
 
     [Theory]
@@ -52,8 +53,34 @@ public class InteractiveDefinitionTests
     [InlineData("diagram", """{"id":"x","title":"Diagram","source":"flowchart LR\nA --> B","topics":[{"id":"A","label":"A","detail":"A"}]}""")]
     [InlineData("calculator", """{"id":"x","title":"Calculator","template":"javascript","inputs":{}}""")]
     [InlineData("calculator", """{"id":"x","title":"Loan","template":"loan","inputs":{"loanAmount":1000,"interestRate":5}}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","attributes":[{"id":"a","type":"color"}],"items":[{"id":"i","label":"I"}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","attributes":[{"id":"a","type":"number","better":"more"}],"items":[{"id":"i","label":"I"}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[{"id":"i","label":"I","url":"javascript:alert(1)"}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[{"id":"i","label":"I","image":"relative/photo.png"}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[{"id":"i","label":"I","image":"C:photo.png"}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[{"id":"i","label":"I","image":"\\\\host\\share\\photo%20one.png"}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[{"id":"i","label":"I","image":"//host/share/photo.png"}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[{"id":"i","label":"I","image":"/\\host\\share\\photo.png"}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[{"id":"i","label":"I","values":{"spec":{"nested":1}}}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[{"id":"i","label":"I"},{"id":"i","label":"J"}]}""")]
+    [InlineData("explorer", """{"id":"x","title":"X","items":[{"id":"i","label":" "}]}""")]
     public void InvalidSupportedDefinitionsFailExplicitly(string language, string json) =>
         Assert.Throws<FormatException>(() => InteractiveDefinition.Parse(language, json));
+
+    [Fact]
+    public void ExplorerImagePathsReadTheSameOnEveryPlatform()
+    {
+        // A phone shows its PC's answers, so a Windows path must parse on Android and a Unix path on Windows.
+        var explorer = (InteractiveExplorer)InteractiveDefinition.Parse("explorer", """
+            {"id":"x","title":"X","items":[
+              {"id":"windows","label":"Windows","image":"C:\\Users\\me\\tv.png"},
+              {"id":"forward","label":"Forward","image":"D:/pictures/tv.png"},
+              {"id":"unix","label":"Unix","image":"/home/me/tv.png"}]}
+            """);
+        Assert.Equal(["C:\\Users\\me\\tv.png", "D:/pictures/tv.png", "/home/me/tv.png"],
+            explorer.Items.Select(item => item.Image));
+    }
 
     [Fact]
     public void RemovedDiagramExplorerFencesRenderAsOrdinaryCode()

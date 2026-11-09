@@ -123,6 +123,31 @@ public static class InteractiveSubmission
                     text.AppendLine($"  My answer: {question.Options[answer]} ({(answer == question.CorrectIndex ? "correct" : "incorrect")})");
                 }
                 break;
+            case InteractiveExplorer explorer when action is "use" or "compare" or "more":
+                var model = InteractiveExplorerModel.For(explorer);
+                var filters = model.DescribeFiltersForModel(state).ToList();
+                if (action == "more")
+                {
+                    text.AppendLine(filters.Count > 0
+                        ? $"Find more options for \"{explorer.Title}\" that match my filters:"
+                        : $"Find more options for \"{explorer.Title}\".");
+                    foreach (var filter in filters)
+                        text.AppendLine("- " + filter);
+                    text.AppendLine($"Skip the {explorer.Items.Count} options already listed.");
+                    break;
+                }
+                var picked = state.SelectedIds.Select(id => explorer.Items.First(item => item.Id == id)).ToArray();
+                InteractiveDefinition.Require(picked.Length >= (action == "compare" ? 2 : 1),
+                    action == "compare" ? "Select at least two options to compare." : "Select at least one option.");
+                text.AppendLine(action == "compare"
+                    ? $"Help me decide between these options from \"{explorer.Title}\":"
+                    : $"Continue with my selection from \"{explorer.Title}\":");
+                foreach (var item in picked)
+                    foreach (var line in model.DescribeItemForModel(item))
+                        text.AppendLine(line);
+                if (action == "compare" && filters.Count > 0)
+                    text.AppendLine("While comparing, I filtered for: " + string.Join("; ", filters));
+                break;
             default:
                 throw new FormatException($"Action '{action}' is not supported by '{definition.Kind}'.");
         }

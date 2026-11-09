@@ -300,6 +300,27 @@ public sealed partial class InteractiveLabels
         ["viewDraft"] = "View draft", ["hideDraft"] = "Hide draft", ["showOriginal"] = "Show original",
         ["submitted"] = "Sent", ["working"] = "Working\u2026", ["replyReady"] = "Reply ready",
         ["failed"] = "Needs attention", ["stopped"] = "Stopped",
+
+        // Option explorer
+        ["explorer"] = "Option explorer", ["optionCount"] = "{0} options", ["matchCount"] = "{0} of {1}",
+        ["searchOptions"] = "Search options", ["filters"] = "Filters", ["filtersActive"] = "Filters, {0} active",
+        ["sortBy"] = "Sort by", ["sortedBy"] = "Sorted by {0}", ["sortRecommended"] = "Recommended",
+        ["sortLowHigh"] = "{0}: low to high", ["sortHighLow"] = "{0}: high to low",
+        ["sortAz"] = "{0}: A to Z", ["sortZa"] = "{0}: Z to A", ["sortByColumn"] = "Sort by {0}",
+        ["viewCards"] = "Cards", ["viewTable"] = "Table", ["option"] = "Option", ["mustHave"] = "Must have",
+        ["upTo"] = "Up to {0}", ["andUp"] = "{0} and up", ["boundUpTo"] = "{0} up to {1}", ["boundAndUp"] = "{0} {1} and up",
+        ["anyValue"] = "Any", ["clearFilters"] = "Clear filters", ["removeFilter"] = "Remove filter {0}",
+        ["searchChip"] = "\u201c{0}\u201d", ["noMatches"] = "No options match your filters.",
+        ["fewMatches"] = "{0} of {1} options match your filters.", ["findMore"] = "Find more like these",
+        ["explorerUse"] = "Continue with selected", ["decide"] = "Help me decide", ["compareCount"] = "Compare {0}",
+        ["compareHint"] = "Select up to {0} to compare", ["compareLimit"] = "You can compare up to {0} at a time.",
+        ["compareItem"] = "Compare {0}", ["addToCompare"] = "Add to compare", ["inComparison"] = "In comparison",
+        ["removeFromCompare"] = "Remove {0} from the comparison", ["comparingCount"] = "Comparing {0}",
+        ["onlyDifferences"] = "Only differences", ["noDifferences"] = "These options match on every detail.",
+        ["allOptions"] = "All options", ["openOption"] = "Open for details", ["itemPosition"] = "{0} of {1}",
+        ["previousOption"] = "Previous option", ["nextOption"] = "Next option", ["openSite"] = "View on {0}",
+        ["pros"] = "Pros", ["cons"] = "Cons", ["details"] = "Details", ["best"] = "Best",
+        ["receiptMore"] = "Find more options", ["receiptDecide"] = "Help me choose from {0}",
     });
 
     public static InteractiveLabels Hebrew { get; } = new(new Dictionary<string, string>
@@ -544,6 +565,27 @@ public sealed partial class InteractiveLabels
         ["viewDraft"] = "הצגת הטיוטה", ["hideDraft"] = "הסתרת הטיוטה", ["showOriginal"] = "הצגת המקור",
         ["submitted"] = "נשלח", ["working"] = "בעבודה\u2026", ["replyReady"] = "התשובה מוכנה",
         ["failed"] = "דורש תשומת לב", ["stopped"] = "נעצר",
+
+        // Option explorer
+        ["explorer"] = "סייר אפשרויות", ["optionCount"] = "{0} אפשרויות", ["matchCount"] = "{0} מתוך {1}",
+        ["searchOptions"] = "חיפוש אפשרויות", ["filters"] = "מסננים", ["filtersActive"] = "מסננים, {0} פעילים",
+        ["sortBy"] = "מיון לפי", ["sortedBy"] = "ממוין לפי {0}", ["sortRecommended"] = "מומלץ",
+        ["sortLowHigh"] = "{0}: מהנמוך לגבוה", ["sortHighLow"] = "{0}: מהגבוה לנמוך",
+        ["sortAz"] = "{0}: מא׳ עד ת׳", ["sortZa"] = "{0}: מת׳ עד א׳", ["sortByColumn"] = "מיון לפי {0}",
+        ["viewCards"] = "כרטיסים", ["viewTable"] = "טבלה", ["option"] = "אפשרות", ["mustHave"] = "חובה",
+        ["upTo"] = "עד {0}", ["andUp"] = "{0} ומעלה", ["boundUpTo"] = "{0} עד {1}", ["boundAndUp"] = "{0} {1} ומעלה",
+        ["anyValue"] = "הכול", ["clearFilters"] = "ניקוי מסננים", ["removeFilter"] = "הסרת המסנן {0}",
+        ["searchChip"] = "\"{0}\"", ["noMatches"] = "אין אפשרויות שתואמות למסננים שלך.",
+        ["fewMatches"] = "{0} מתוך {1} אפשרויות תואמות למסננים שלך.", ["findMore"] = "חיפוש עוד אפשרויות כאלה",
+        ["explorerUse"] = "המשך עם הנבחרים", ["decide"] = "עזרה בהחלטה", ["compareCount"] = "השוואת {0}",
+        ["compareHint"] = "אפשר לבחור עד {0} להשוואה", ["compareLimit"] = "אפשר להשוות עד {0} בכל פעם.",
+        ["compareItem"] = "השוואת {0}", ["addToCompare"] = "הוספה להשוואה", ["inComparison"] = "בהשוואה",
+        ["removeFromCompare"] = "הסרת {0} מההשוואה", ["comparingCount"] = "משווים {0}",
+        ["onlyDifferences"] = "רק הבדלים", ["noDifferences"] = "האפשרויות האלה זהות בכל פרט.",
+        ["allOptions"] = "כל האפשרויות", ["openOption"] = "פתיחה לפרטים", ["itemPosition"] = "{0} מתוך {1}",
+        ["previousOption"] = "האפשרות הקודמת", ["nextOption"] = "האפשרות הבאה", ["openSite"] = "צפייה ב-{0}",
+        ["pros"] = "יתרונות", ["cons"] = "חסרונות", ["details"] = "פרטים", ["best"] = "הכי טוב",
+        ["receiptMore"] = "חיפוש אפשרויות נוספות", ["receiptDecide"] = "עזרה לבחור מתוך {0}",
     });
 }
 

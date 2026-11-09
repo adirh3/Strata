@@ -240,5 +240,26 @@ public sealed partial class InteractiveLabels
         ["viewDraft"] = "查看草稿", ["hideDraft"] = "隐藏草稿", ["showOriginal"] = "显示原始内容",
         ["submitted"] = "已发送", ["working"] = "正在工作…", ["replyReady"] = "回复已就绪",
         ["failed"] = "需要处理", ["stopped"] = "已停止",
+
+        // Option explorer
+        ["explorer"] = "选项浏览器", ["optionCount"] = "{0} 个选项", ["matchCount"] = "{0}/{1}",
+        ["searchOptions"] = "搜索选项", ["filters"] = "筛选", ["filtersActive"] = "筛选，已启用 {0} 项",
+        ["sortBy"] = "排序方式", ["sortedBy"] = "按{0}排序", ["sortRecommended"] = "推荐",
+        ["sortLowHigh"] = "{0}：从低到高", ["sortHighLow"] = "{0}：从高到低",
+        ["sortAz"] = "{0}：A 到 Z", ["sortZa"] = "{0}：Z 到 A", ["sortByColumn"] = "按{0}排序",
+        ["viewCards"] = "卡片", ["viewTable"] = "表格", ["option"] = "选项", ["mustHave"] = "必须具备",
+        ["upTo"] = "最多 {0}", ["andUp"] = "{0} 及以上", ["boundUpTo"] = "{0}最多 {1}", ["boundAndUp"] = "{0} {1} 及以上",
+        ["anyValue"] = "不限", ["clearFilters"] = "清除筛选", ["removeFilter"] = "移除筛选条件 {0}",
+        ["searchChip"] = "\u201c{0}\u201d", ["noMatches"] = "没有符合筛选条件的选项。",
+        ["fewMatches"] = "{1} 个选项中有 {0} 个符合筛选条件。", ["findMore"] = "查找更多类似选项",
+        ["explorerUse"] = "使用所选继续", ["decide"] = "帮我做决定", ["compareCount"] = "比较 {0} 项",
+        ["compareHint"] = "最多选择 {0} 项进行比较", ["compareLimit"] = "一次最多可比较 {0} 项。",
+        ["compareItem"] = "比较 {0}", ["addToCompare"] = "加入比较", ["inComparison"] = "已加入比较",
+        ["removeFromCompare"] = "将 {0} 移出比较", ["comparingCount"] = "正在比较 {0} 项",
+        ["onlyDifferences"] = "仅显示差异", ["noDifferences"] = "这些选项在所有细节上都相同。",
+        ["allOptions"] = "全部选项", ["openOption"] = "打开详情", ["itemPosition"] = "{0}/{1}",
+        ["previousOption"] = "上一个选项", ["nextOption"] = "下一个选项", ["openSite"] = "在 {0} 上查看",
+        ["pros"] = "优点", ["cons"] = "缺点", ["details"] = "详情", ["best"] = "最佳",
+        ["receiptMore"] = "查找更多选项", ["receiptDecide"] = "帮我从 {0} 项中选择",
     });
 }

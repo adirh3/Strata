@@ -55,6 +55,19 @@ public partial class MainWindow
         var definitions = new (string Name, InteractiveDefinition Definition, string? State)[]
         {
             ("DemoForm", form with { Id = "demo_form_answer", Title = he ? "רוצה לדייק את ההמלצות?" : "Want sharper recommendations?", Description = null }, null),
+            ("DemoExplorer", InteractiveDefinition.Parse("explorer", $$$"""
+                {"id":"demo_explorer","title":"{{{strings["Interactive.Explorer"]}}}","description":"{{{(he ? "דוגמאות להדגמה, לא מחירים אמיתיים." : "Sample options for the demo, not live prices.")}}}",
+                 "attributes":[{"id":"price","label":"{{{(he ? "ללילה" : "Per night")}}}","type":"money","unit":"USD","better":"lower"},
+                   {"id":"rating","label":"{{{(he ? "דירוג" : "Rating")}}}","type":"rating"},
+                   {"id":"area","label":"{{{(he ? "אזור" : "Area")}}}","type":"text"},
+                   {"id":"walk","label":"{{{(he ? "הליכה למרכז" : "Walk to center")}}}","type":"number","unit":"min","better":"lower"},
+                   {"id":"breakfast","label":"{{{(he ? "ארוחת בוקר" : "Breakfast")}}}","type":"boolean"}],
+                 "items":[
+                   {"id":"garden","label":"{{{(he ? "מלון גן שקט" : "A quiet garden stay")}}}","badge":"{{{(he ? "הכי משתלם" : "Best value")}}}","summary":"{{{(he ? "בסיס שליו עם הרבה ירוק." : "A peaceful base with green space.")}}}","pros":["{{{(he ? "שקט" : "Quiet")}}}"],"cons":["{{{(he ? "רחוק יותר" : "Further out")}}}"],"values":{"price":180,"rating":4.6,"area":"{{{(he ? "פרברים" : "Suburbs")}}}","walk":25,"breakfast":true}},
+                   {"id":"city","label":"{{{(he ? "דירה במרכז העיר" : "A walkable city hideaway")}}}","summary":"{{{(he ? "קרוב לכל מה שרוצים לראות." : "Close to everything you want to see.")}}}","values":{"price":220,"rating":4.4,"area":"{{{(he ? "מרכז" : "Center")}}}","walk":5,"breakfast":false}},
+                   {"id":"retreat","label":"{{{(he ? "ריטריט מעוצב" : "A design-led retreat")}}}","summary":"{{{(he ? "יותר מקום וקצב איטי." : "More room and a slower pace.")}}}","values":{"price":260,"rating":4.8,"area":"{{{(he ? "חוף" : "Beach")}}}","walk":15,"breakfast":true}},
+                   {"id":"loft","label":"{{{(he ? "לופט ליד השוק" : "A loft by the market")}}}","values":{"price":199,"rating":4.3,"area":"{{{(he ? "מרכז" : "Center")}}}","walk":8,"breakfast":false}}]}
+                """), new InteractiveState { SelectedIds = ["garden", "retreat"] }.ToJson()),
             ("DemoChecklist", new InteractiveChecklist
             {
                 Id = "demo_list", Title = strings["Interactive.Checklist"],

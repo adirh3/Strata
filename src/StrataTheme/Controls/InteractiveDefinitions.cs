@@ -20,7 +20,7 @@ public abstract record InteractiveDefinition
     [JsonIgnore] public abstract string Kind { get; }
 
     public static bool IsSupported(string language) =>
-        language.ToLowerInvariant() is "form" or "checklist" or "results" or "calculator" or "quiz";
+        language.ToLowerInvariant() is "form" or "checklist" or "results" or "calculator" or "quiz" or "explorer";
 
     /// <summary>Parses the documented response schema. Invalid definitions fail explicitly.</summary>
     public static InteractiveDefinition Parse(string language, string json)
@@ -33,6 +33,7 @@ public abstract record InteractiveDefinition
             "results" => JsonSerializer.Deserialize(json, InteractiveJsonContext.Default.InteractiveResults),
             "calculator" => JsonSerializer.Deserialize(json, InteractiveJsonContext.Default.InteractiveCalculatorDefinition),
             "quiz" => JsonSerializer.Deserialize(json, InteractiveJsonContext.Default.InteractiveQuiz),
+            "explorer" => JsonSerializer.Deserialize(json, InteractiveJsonContext.Default.InteractiveExplorer),
             _ => throw new FormatException($"Unsupported interaction '{language}'.")
         };
         if (definition is null)
@@ -92,9 +93,52 @@ public abstract record InteractiveDefinition
                     Require(!string.IsNullOrWhiteSpace(question.Explanation), "Each question needs an explanation.");
                 }
                 break;
+            case InteractiveExplorer explorer:
+                ValidateExplorer(explorer);
+                break;
         }
         return definition;
     }
+
+    private static void ValidateExplorer(InteractiveExplorer explorer)
+    {
+        Require(explorer.Items is { Count: > 0 and <= InteractiveExplorerModel.MaxItems }
+            && explorer.Items.All(item => item is not null), "An explorer needs 1-40 items.");
+        Require(explorer.Attributes is not null && explorer.Attributes.All(attribute => attribute is not null),
+            "Explorer attributes cannot be null.");
+        RequireUnique(explorer.Items.Select(item => item.Id), "Item ids");
+        if (explorer.Attributes.Count > 0)
+            RequireUnique(explorer.Attributes.Select(attribute => attribute.Id), "Attribute ids");
+        foreach (var attribute in explorer.Attributes)
+        {
+            Require(attribute.Type is "text" or "number" or "money" or "rating" or "boolean",
+                $"Unsupported attribute type '{attribute.Type}'.");
+            Require(attribute.Better is null or "higher" or "lower", "better must be \"higher\" or \"lower\".");
+        }
+        foreach (var item in explorer.Items)
+        {
+            Require(!string.IsNullOrWhiteSpace(item.Label), "Each item needs a label.");
+            Require(item.Pros is not null && item.Cons is not null && item.Pros.Concat(item.Cons).All(text => text is not null),
+                "Pros and cons must be lists of text.");
+            Require(item.Values is not null && item.Values.Keys.All(key => !string.IsNullOrWhiteSpace(key)),
+                "Item values need attribute ids.");
+            Require(item.Values.Values.All(value => value.ValueKind is not JsonValueKind.Object),
+                "Item values must be numbers, text, true/false, or lists of text.");
+            Require(item.Url is null || IsWebAddress(item.Url), "Item URLs must be absolute HTTP(S) URLs.");
+            Require(item.Image is null || IsWebAddress(item.Image) || IsLocalPath(item.Image),
+                "Item images must be absolute HTTP(S) URLs or absolute local file paths.");
+        }
+    }
+
+    private static bool IsWebAddress(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "https" or "http";
+
+    // A phone checks its PC's answers too, so a path reads the same on every platform: a drive's root (C:\ or
+    // C:/) or the file system's root (/). A network or device path (\\host\share, //host/share) would make the
+    // computer contact another host just to show a picture.
+    private static bool IsLocalPath(string value) =>
+        value.Length >= 3 && char.IsAsciiLetter(value[0]) && value[1] == ':' && value[2] is '\\' or '/'
+        || value.Length >= 2 && value[0] == '/' && value[1] is not ('\\' or '/');
 
     internal static void Require([DoesNotReturnIf(false)] bool condition, string error)
     {
@@ -193,6 +237,44 @@ public sealed record InteractiveQuizQuestion
     public string? Hint { get; init; }
 }
 
+/// <summary>
+/// Researched options that share attributes: browsed as cards or a table, filtered, sorted,
+/// opened for detail and compared side by side.
+/// </summary>
+public sealed record InteractiveExplorer : InteractiveDefinition
+{
+    public override string Kind => "explorer";
+    /// <summary>Declared attributes in order of importance. Undeclared value keys are inferred.</summary>
+    public List<InteractiveExplorerAttribute> Attributes { get; set; } = [];
+    public List<InteractiveExplorerItem> Items { get; set; } = [];
+}
+
+public sealed record InteractiveExplorerAttribute
+{
+    public required string Id { get; init; }
+    public string? Label { get; init; }
+    /// <summary>text, number, money, rating, or boolean.</summary>
+    public string Type { get; set; } = "text";
+    /// <summary>A unit such as "Hz", or the ISO currency code of a money attribute.</summary>
+    public string? Unit { get; init; }
+    /// <summary>"higher" or "lower": which values are better, so the best one can stand out.</summary>
+    public string? Better { get; init; }
+}
+
+public sealed record InteractiveExplorerItem
+{
+    public required string Id { get; init; }
+    public required string Label { get; init; }
+    public string? Subtitle { get; init; }
+    public string? Badge { get; init; }
+    public string? Summary { get; init; }
+    public string? Image { get; init; }
+    public string? Url { get; init; }
+    public List<string> Pros { get; set; } = [];
+    public List<string> Cons { get; set; } = [];
+    public Dictionary<string, JsonElement> Values { get; set; } = [];
+}
+
 /// <summary>User-owned state, separate from the assistant's immutable response definition.</summary>
 public sealed record InteractiveState
 {
@@ -243,6 +325,26 @@ public sealed record InteractiveState
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
     }
 
+    /// <summary>
+    /// Identifies <paramref name="action"/> as sent from these choices, as <see cref="SubmittedFingerprint"/> records
+    /// it. An explorer's is what the action sends, so looking at its options another way (another view, order or
+    /// search) keeps the action sent. Null when the action cannot be sent from these choices.
+    /// </summary>
+    public string? SentFingerprint(InteractiveDefinition definition, string action)
+    {
+        if (definition is not InteractiveExplorer)
+            return action + ":" + Fingerprint();
+        try
+        {
+            var request = InteractiveSubmission.Build(definition, this, action);
+            return action + ":" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request)));
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
     public void Validate(InteractiveDefinition definition)
     {
         InteractiveDefinition.Require(Values.Count <= 16 && Choices.Count <= 16
@@ -252,29 +354,35 @@ public sealed record InteractiveState
             && SelectedIds.Distinct().Count() == SelectedIds.Count
             && CheckedAnswers.Distinct().Count() == CheckedAnswers.Count
             && RevealedHints.Distinct().Count() == RevealedHints.Count, "Saved selections cannot contain duplicates.");
-        IEnumerable<string> values = definition switch
-        {
-            InteractiveForm form => form.Fields.Select(field => field.Id),
-            InteractiveCalculatorDefinition calculator => calculator.Inputs.Keys,
-            _ => []
-        };
-        InteractiveDefinition.Require(Values.Keys.All(values.Contains), "Saved values reference unknown inputs.");
-        if (definition is InteractiveForm inputForm)
-        {
-            foreach (var choice in Choices)
-            {
-                var field = inputForm.Fields.FirstOrDefault(field => field.Id == choice.Key && field.Type == "multiselect");
-                InteractiveDefinition.Require(field is not null && choice.Value.All(field.Options.Contains),
-                    "Saved choices reference unknown options.");
-            }
-        }
+        if (definition is InteractiveExplorer explorer)
+            InteractiveExplorerModel.For(explorer).ValidateState(this);
         else
-            InteractiveDefinition.Require(Choices.Count == 0, "This interaction has no multi-select fields.");
+        {
+            IEnumerable<string> values = definition switch
+            {
+                InteractiveForm form => form.Fields.Select(field => field.Id),
+                InteractiveCalculatorDefinition calculator => calculator.Inputs.Keys,
+                _ => []
+            };
+            InteractiveDefinition.Require(Values.Keys.All(values.Contains), "Saved values reference unknown inputs.");
+            if (definition is InteractiveForm inputForm)
+            {
+                foreach (var choice in Choices)
+                {
+                    var field = inputForm.Fields.FirstOrDefault(field => field.Id == choice.Key && field.Type == "multiselect");
+                    InteractiveDefinition.Require(field is not null && choice.Value.All(field.Options.Contains),
+                        "Saved choices reference unknown options.");
+                }
+            }
+            else
+                InteractiveDefinition.Require(Choices.Count == 0, "This interaction has no multi-select fields.");
+        }
 
         var itemIds = definition switch
         {
             InteractiveChecklist checklist => checklist.Items.Select(item => item.Id).ToArray(),
             InteractiveResults results => results.Items.Select(item => item.Id).ToArray(),
+            InteractiveExplorer options => options.Items.Select(item => item.Id).ToArray(),
             _ => []
         };
         InteractiveDefinition.Require(CheckedIds.All(itemIds.Contains) && SelectedIds.All(itemIds.Contains),
@@ -306,5 +414,6 @@ public sealed record InteractiveState
 [JsonSerializable(typeof(InteractiveResults))]
 [JsonSerializable(typeof(InteractiveCalculatorDefinition))]
 [JsonSerializable(typeof(InteractiveQuiz))]
+[JsonSerializable(typeof(InteractiveExplorer))]
 [JsonSerializable(typeof(InteractiveState))]
 internal partial class InteractiveJsonContext : JsonSerializerContext;

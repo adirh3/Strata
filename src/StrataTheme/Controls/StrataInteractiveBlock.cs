@@ -199,6 +199,7 @@ public partial class StrataInteractiveBlock : TemplatedControl
             case InteractiveResults results: BuildResults(results); break;
             case InteractiveCalculatorDefinition calculator: BuildCalculator(calculator); break;
             case InteractiveQuiz quiz: BuildQuiz(quiz); break;
+            case InteractiveExplorer explorer: BuildExplorer(explorer); break;
         }
         if (InputStatus == "Waiting")
             AddLocalAction(_labels["cancelInput"], () => _ = SubmitAsync("cancel"), "subtle", "CancelInputRequest");
@@ -251,6 +252,7 @@ public partial class StrataInteractiveBlock : TemplatedControl
         InteractiveChecklist => InteractiveIcons.Checklist,
         InteractiveResults => InteractiveIcons.Results,
         InteractiveCalculatorDefinition => InteractiveIcons.Calculator,
+        InteractiveExplorer => InteractiveIcons.Explorer,
         _ => InteractiveIcons.Quiz
     };
 
@@ -423,8 +425,8 @@ public partial class StrataInteractiveBlock : TemplatedControl
             return new(false, message);
         }
 
-        var fingerprint = _state.Fingerprint();
-        if (_state.SubmittedFingerprint == action + ":" + fingerprint)
+        var sent = _state.SentFingerprint(definition, action);
+        if (sent is not null && _state.SubmittedFingerprint == sent)
             return new(false, _labels["sent"]);
 
         _submittingAction = action;
@@ -441,9 +443,9 @@ public partial class StrataInteractiveBlock : TemplatedControl
                 SetError(null);
                 return result;
             }
-            if (result.Accepted && _state.Fingerprint() == fingerprint)
+            if (result.Accepted && sent is not null && _state.SentFingerprint(definition, action) == sent)
             {
-                _state.SubmittedFingerprint = action + ":" + fingerprint;
+                _state.SubmittedFingerprint = sent;
                 var json = _state.ToJson();
                 _loadedJson = json;
                 _writingState = true;
@@ -478,7 +480,9 @@ public partial class StrataInteractiveBlock : TemplatedControl
     {
         foreach (var entry in _submitButtons)
         {
-            var sent = _state.SubmittedFingerprint == entry.Action + ":" + _state.Fingerprint();
+            var sent = Definition is { } definition && _state.SubmittedFingerprint is { } submitted
+                && submitted.StartsWith(entry.Action + ":", StringComparison.Ordinal)
+                && submitted == _state.SentFingerprint(definition, entry.Action);
             var ready = entry.Action switch
             {
                 "use" => _state.SelectedIds.Count > 0,

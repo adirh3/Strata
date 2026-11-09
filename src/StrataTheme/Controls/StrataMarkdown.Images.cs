@@ -848,7 +848,8 @@ public partial class StrataMarkdown
 
     private static async Task<MarkdownImageResponseLease> GetRemoteMarkdownImageResponseAsync(
         Uri initialUri,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? accept = null)
     {
         var currentUri = initialUri;
         for (var redirect = 0; redirect <= MaxMarkdownImageRedirects; redirect++)
@@ -864,6 +865,8 @@ public partial class StrataMarkdown
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, currentUri);
+                if (accept is not null)
+                    request.Headers.TryAddWithoutValidation("Accept", accept);
                 response = await MarkdownImageHttpClient.SendAsync(
                     request,
                     HttpCompletionOption.ResponseHeadersRead,
@@ -1154,6 +1157,18 @@ public partial class StrataMarkdown
             if (!completed)
                 destination.Dispose();
         }
+    }
+
+    /// <summary>
+    /// A picture's bytes, decoded as an image read from a file or server is: only the picture formats
+    /// markdown shows, no larger than <see cref="MaxMarkdownImageBytes"/>, scaled to fit the bounds.
+    /// </summary>
+    internal static Bitmap DecodeMarkdownImage(byte[] bytes, PixelSize? decodeBounds = null)
+    {
+        if (bytes.LongLength > MaxMarkdownImageBytes)
+            throw new InvalidDataException(InteractiveLabels.Current.Format("imageTooLarge", MaxMarkdownImageBytes / (1024 * 1024)));
+        using var imageData = new MemoryStream(bytes, 0, bytes.Length, writable: false, publiclyVisible: true);
+        return DecodeMarkdownImage(imageData, decodeBounds);
     }
 
     private static Bitmap DecodeMarkdownImage(MemoryStream imageData, PixelSize? decodeBounds = null)

@@ -698,6 +698,589 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
   </Style>
 
+  <!-- ── Option explorer ── -->
+  <!-- Toolbar -->
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-tool">
+    <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
+    <!-- A narrow row's sort is only its icon; it stays a square target. -->
+    <Setter Property="MinWidth" Value="{DynamicResource Size.ControlHeightM}" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-tool:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-tool.active">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGlowSoft}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-tool-count">
+    <Setter Property="MinWidth" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="Padding" Value="5,0" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-tool-count TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-segmented">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="2" />
+  </Style>
+  <!-- Segments fill the toolbar row, so the switch stands as tall as the buttons beside it. -->
+  <Style Selector="controls|StrataInteractiveBlock RadioButton.explorer-segment">
+    <Setter Property="Width" Value="34" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="Template">
+      <ControlTemplate TargetType="RadioButton">
+        <Panel>
+          <Border Name="PART_FocusRing" Margin="-2" CornerRadius="8" BorderThickness="{DynamicResource Stroke.FocusRing}"
+                  BorderBrush="Transparent" IsHitTestVisible="False" />
+          <Border Name="PART_Segment" CornerRadius="6" Background="Transparent">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.15" />
+              </Transitions>
+            </Border.Transitions>
+            <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock RadioButton.explorer-segment:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock RadioButton.explorer-segment:checked">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock RadioButton.explorer-segment:checked /template/ Border#PART_Segment">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface0}" />
+    <Setter Property="BoxShadow" Value="0 1 3 0 #24000000" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock RadioButton.explorer-segment:focus-visible /template/ Border#PART_FocusRing">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+  </Style>
+
+  <!-- Filters -->
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-filters">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
+    <Setter Property="Padding" Value="16,14" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-filter-label">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-slider-value">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-link">
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-link PathIcon">
+    <Setter Property="Width" Value="11" />
+    <Setter Property="Height" Value="11" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-active-chip">
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate TargetType="Button">
+        <Panel>
+          <Border Name="PART_FocusRing" Margin="-2" CornerRadius="{DynamicResource Radius.Full}"
+                  BorderThickness="{DynamicResource Stroke.FocusRing}" BorderBrush="Transparent" IsHitTestVisible="False" />
+          <Border Name="PART_Chip" CornerRadius="{DynamicResource Radius.Full}" Padding="10,0"
+                  Background="{DynamicResource Brush.AccentGlowSoft}" MinHeight="{TemplateBinding MinHeight}">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.12" />
+              </Transitions>
+            </Border.Transitions>
+            <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center"
+                              Foreground="{DynamicResource Brush.AccentDefault}"
+                              TextElement.Foreground="{DynamicResource Brush.AccentDefault}" />
+          </Border>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-active-chip TextBlock">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-active-chip PathIcon">
+    <Setter Property="Width" Value="9" />
+    <Setter Property="Height" Value="9" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-active-chip:pointerover /template/ Border#PART_Chip">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-active-chip:focus-visible /template/ Border#PART_FocusRing">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-callout > Grid > PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+
+  <!-- Cards -->
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-card">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate TargetType="Button">
+        <Panel>
+          <Border Name="PART_FocusRing" Margin="-2" CornerRadius="12" BorderThickness="{DynamicResource Stroke.FocusRing}"
+                  BorderBrush="Transparent" IsHitTestVisible="False" />
+          <Border Name="PART_Card" Background="{DynamicResource Brush.Surface1}"
+                  BorderBrush="{DynamicResource Brush.BorderSubtle}" BorderThickness="{DynamicResource Stroke.Thin}"
+                  CornerRadius="{DynamicResource Radius.Interactive}" ClipToBounds="True">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+              </Transitions>
+            </Border.Transitions>
+            <ContentPresenter Content="{TemplateBinding Content}" HorizontalContentAlignment="Stretch"
+                              VerticalContentAlignment="Stretch" />
+          </Border>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-card:pointerover /template/ Border#PART_Card">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+    <Setter Property="BoxShadow" Value="0 10 24 -14 #55000000" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-card.selected /template/ Border#PART_Card">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGlowSoft}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-card:focus-visible /template/ Border#PART_FocusRing">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-media">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-tint">
+    <Setter Property="Opacity" Value="0.16" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-monogram">
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Opacity" Value="0.85" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-tint.tone1"><Setter Property="Background" Value="{DynamicResource Brush.Chart1}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-tint.tone2"><Setter Property="Background" Value="{DynamicResource Brush.Chart2}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-tint.tone3"><Setter Property="Background" Value="{DynamicResource Brush.Chart3}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-tint.tone4"><Setter Property="Background" Value="{DynamicResource Brush.Chart4}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-tint.tone5"><Setter Property="Background" Value="{DynamicResource Brush.Chart5}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-tint.tone6"><Setter Property="Background" Value="{DynamicResource Brush.Chart6}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-monogram.tone1"><Setter Property="Foreground" Value="{DynamicResource Brush.Chart1}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-monogram.tone2"><Setter Property="Foreground" Value="{DynamicResource Brush.Chart2}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-monogram.tone3"><Setter Property="Foreground" Value="{DynamicResource Brush.Chart3}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-monogram.tone4"><Setter Property="Foreground" Value="{DynamicResource Brush.Chart4}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-monogram.tone5"><Setter Property="Foreground" Value="{DynamicResource Brush.Chart5}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-monogram.tone6"><Setter Property="Foreground" Value="{DynamicResource Brush.Chart6}" /></Style>
+  <Style Selector="controls|StrataInteractiveBlock Image.explorer-image">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.35" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-badge">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Full}" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="BoxShadow" Value="0 1 4 0 #26000000" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-badge TextBlock">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-badge.compact">
+    <Setter Property="Padding" Value="6,1" />
+    <Setter Property="BoxShadow" Value="none" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-badge.compact TextBlock">
+    <Setter Property="FontSize" Value="11" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-card-title">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-subtitle">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-figure">
+    <Setter Property="FontSize" Value="17" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-hero">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeHeadline}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock :is(Control).explorer-rating TextBlock.explorer-value">
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock PathIcon.explorer-star">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-scale">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-spec">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="7,2" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-spec TextBlock">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-spec PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+  </Style>
+
+  <!-- Compare pips: "+" over each option, filled with a check once it is picked. -->
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <!-- The theme's control height would stretch the pip into an oval. -->
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate TargetType="ToggleButton">
+        <Panel>
+          <Border Name="PART_FocusRing" Margin="-2" CornerRadius="16" BorderThickness="{DynamicResource Stroke.FocusRing}"
+                  BorderBrush="Transparent" IsHitTestVisible="False" />
+          <Border Name="PART_Pip" CornerRadius="{TemplateBinding CornerRadius}" Background="{DynamicResource Brush.Surface0}"
+                  BorderBrush="{DynamicResource Brush.BorderDefault}" BorderThickness="{DynamicResource Stroke.Thin}"
+                  BoxShadow="0 1 3 0 #22000000">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+              </Transitions>
+            </Border.Transitions>
+            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare PathIcon.explorer-compare-add">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare PathIcon.explorer-compare-check">
+    <Setter Property="IsVisible" Value="False" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare:pointerover /template/ Border#PART_Pip">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare:pointerover PathIcon.explorer-compare-add">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare:checked /template/ Border#PART_Pip">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare:checked PathIcon.explorer-compare-add">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare:checked PathIcon.explorer-compare-check">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare:focus-visible /template/ Border#PART_FocusRing">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare-wide">
+    <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
+    <Setter Property="Padding" Value="14,0" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare-wide PathIcon">
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Height" Value="12" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock ToggleButton.explorer-compare-wide:checked">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+
+  <!-- Table -->
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-table">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-table-head">
+    <Setter Property="Padding" Value="12,6" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-header">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="Template">
+      <ControlTemplate TargetType="Button">
+        <Panel>
+          <Border Name="PART_FocusRing" Margin="-2" CornerRadius="6" BorderThickness="{DynamicResource Stroke.FocusRing}"
+                  BorderBrush="Transparent" IsHitTestVisible="False" />
+          <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                            TextElement.Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center"
+                            Background="Transparent" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-header TextBlock">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-header:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-header.sorted">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-header:focus-visible /template/ Border#PART_FocusRing">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-row">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate TargetType="Button">
+        <Panel>
+          <Border Name="PART_Row" Background="Transparent" BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                  BorderThickness="0,1,0,0" Padding="12,8" MinHeight="52">
+            <Border.Transitions>
+              <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.12" />
+              </Transitions>
+            </Border.Transitions>
+            <ContentPresenter Content="{TemplateBinding Content}" HorizontalContentAlignment="Stretch"
+                              VerticalAlignment="Center" />
+          </Border>
+          <Border Name="PART_FocusRing" BorderThickness="{DynamicResource Stroke.FocusRing}" BorderBrush="Transparent"
+                  IsHitTestVisible="False" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-row:pointerover /template/ Border#PART_Row">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-row.selected /template/ Border#PART_Row">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGlowSoft}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-row:focus-visible /template/ Border#PART_FocusRing">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentGradient}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-row-title">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-cell">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-value">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock :is(TextBlock).best">
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-muted">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock PathIcon.explorer-yes">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock PathIcon.explorer-no">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock PathIcon.explorer-con">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
+  </Style>
+
+  <!-- Detail -->
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-back">
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="Margin" Value="-8,0,0,0" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-back PathIcon">
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-icon-button">
+    <Setter Property="Width" Value="32" />
+    <Setter Property="Height" Value="32" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-icon-button.small">
+    <Setter Property="Width" Value="26" />
+    <Setter Property="Height" Value="26" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-icon-button.small PathIcon">
+    <Setter Property="Width" Value="11" />
+    <Setter Property="Height" Value="11" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-position">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="Margin" Value="4,0" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-detail-title">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeTitle}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-summary">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="LineHeight" Value="21" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-source">
+    <Setter Property="MinHeight" Value="{DynamicResource Size.ControlHeightM}" />
+    <Setter Property="Padding" Value="14,0" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Button.explorer-source PathIcon">
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Height" Value="12" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-points, controls|StrataInteractiveBlock Border.explorer-specs">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Interactive}" />
+    <Setter Property="Padding" Value="14,12" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-points-title">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-dot">
+    <Setter Property="Width" Value="5" />
+    <Setter Property="Height" Value="5" />
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-dot.pro">
+    <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-dot.con">
+    <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-point">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-section">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-spec-key">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+  </Style>
+
+  <!-- Comparison -->
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-compare-title, controls|StrataInteractiveBlock TextBlock.explorer-compare-name">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBody}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock TextBlock.explorer-compare-label">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-rule">
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-best">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentGlowSoft}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Full}" />
+    <Setter Property="Padding" Value="7,1" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-best TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-meter">
+    <Setter Property="Height" Value="4" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Full}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-meter-fill">
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Full}" />
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
+    <Setter Property="Opacity" Value="0.38" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock Border.explorer-meter-fill.best">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- The sort menu opens in a flyout, outside the block, so its root class owns these rules. -->
+  <Style Selector="StackPanel.explorer-menu > Button.explorer-menu-item">
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="StackPanel.explorer-menu > Button.explorer-menu-item.selected">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector="StackPanel.explorer-menu PathIcon.sheet-check">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+
   <!-- ── Touch ── -->
   <Style Selector="controls|StrataInteractiveBlock.touch Button, controls|StrataInteractiveBlock.touch :is(ToggleButton).interactive-chip, controls|StrataInteractiveBlock.touch TextBox.interactive-input, controls|StrataInteractiveBlock.touch NumericUpDown.interactive-input">
     <Setter Property="MinHeight" Value="48" />
@@ -713,6 +1296,37 @@
     <Setter Property="MinHeight" Value="48" />
   </Style>
   <Style Selector="controls|StrataInteractiveBlock.touch Button.interactive-disclosure">
+    <Setter Property="MinHeight" Value="48" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock.touch ToggleButton.explorer-compare">
+    <Setter Property="Width" Value="40" />
+    <Setter Property="Height" Value="40" />
+    <Setter Property="CornerRadius" Value="20" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock.touch RadioButton.explorer-segment">
+    <Setter Property="Width" Value="46" />
+    <Setter Property="MinHeight" Value="44" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock.touch Button.explorer-tool">
+    <Setter Property="MinWidth" Value="48" />
+  </Style>
+  <!-- A phone draws no words below its caption size, so the explorer's smallest labels rise to it. -->
+  <Style Selector="controls|StrataInteractiveBlock.touch Border.explorer-badge.compact TextBlock, controls|StrataInteractiveBlock.touch TextBlock.explorer-scale, controls|StrataInteractiveBlock.touch Border.explorer-best TextBlock, controls|StrataInteractiveBlock.touch Border.explorer-tool-count TextBlock">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock.touch Border.explorer-tool-count">
+    <Setter Property="MinWidth" Value="20" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock.touch Button.explorer-icon-button">
+    <Setter Property="Width" Value="44" />
+    <Setter Property="Height" Value="44" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock.touch Button.explorer-row /template/ Border#PART_Row">
+    <Setter Property="MinHeight" Value="60" />
+  </Style>
+  <Style Selector="controls|StrataInteractiveBlock.touch ToggleButton.explorer-compare-wide">
     <Setter Property="MinHeight" Value="48" />
   </Style>
 </Styles>

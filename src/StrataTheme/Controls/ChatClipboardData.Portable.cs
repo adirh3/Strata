@@ -172,6 +172,29 @@ internal static partial class MarkdownClipboardFormatter
                     AppendItem(result, item);
                 }
                 break;
+            case InteractiveExplorer explorer:
+                var model = InteractiveExplorerModel.For(explorer);
+                AppendRow(result, new[] { labels["option"] }.Concat(model.Attributes.Select(attribute => attribute.Label)));
+                AppendRow(result, Enumerable.Repeat("---", model.Attributes.Count + 1));
+                foreach (var item in explorer.Items)
+                {
+                    var name = (state.SelectedIds.Contains(item.Id) ? "\u2713 " : "") + item.Label
+                        + (string.IsNullOrWhiteSpace(item.Badge) ? "" : $" ({item.Badge})");
+                    AppendRow(result, new[] { name }.Concat(model.Attributes.Select(attribute =>
+                    {
+                        var value = model.Value(item, attribute);
+                        return value.IsEmpty ? "\u2014" : model.FormatWithScale(value, attribute, labels);
+                    })));
+                }
+                result.Append('\n');
+                foreach (var item in explorer.Items.Where(item => !string.IsNullOrWhiteSpace(item.Summary) || !string.IsNullOrWhiteSpace(item.Url)))
+                {
+                    result.Append("- ").Append(Link(item.Label, item.Url));
+                    if (!string.IsNullOrWhiteSpace(item.Summary))
+                        result.Append(": ").Append(item.Summary!.Trim().Replace("\n", " "));
+                    result.Append('\n');
+                }
+                break;
             case InteractiveForm form:
                 AppendRow(result, ["Field", "Value"]);
                 AppendRow(result, ["---", "---"]);

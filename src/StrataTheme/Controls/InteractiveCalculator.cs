@@ -204,10 +204,17 @@ public static class InteractiveFormat
     public static string? Symbol(string? currency) =>
         currency is { Length: > 0 } && Symbols.TryGetValue(currency, out var symbol) ? symbol : null;
 
-    public static string Money(double value, string? currency)
+    /// <summary>
+    /// An amount in its currency. A summary rounds large amounts to whole units; <paramref name="exact"/> keeps an
+    /// amount as listed, with its cents at any size ($1,599.99) and a sub-cent digit ($3.459).
+    /// </summary>
+    public static string Money(double value, string? currency, bool exact = false)
     {
-        var rounded = Math.Round(value, 2);
-        var decimals = Math.Abs(rounded) >= 1000 || rounded == Math.Truncate(rounded) ? 0 : 2;
+        var rounded = Math.Round(value, exact ? 3 : 2);
+        var whole = rounded == Math.Truncate(rounded);
+        var decimals = exact
+            ? whole ? 0 : rounded == Math.Round(rounded, 2) ? 2 : 3
+            : Math.Abs(rounded) >= 1000 || whole ? 0 : 2;
         var amount = Math.Abs(rounded).ToString("N" + decimals, CultureInfo.CurrentCulture);
         var sign = rounded < 0 ? "-" : "";
         if (Symbol(currency) is { } symbol)

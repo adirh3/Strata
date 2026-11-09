@@ -361,8 +361,8 @@ image cannot be loaded, the viewer keeps the inline preview and displays an erro
 ## Native interactive responses
 
 `StrataActionReceipt` presents the user's action as a compact, right-aligned bubble in the user
-message color: an action icon (`Action`: use, compare, submit, remaining, assumptions, discuss),
-title, and summary. Inputs are a frozen `Detail` string, realized only when the disclosure opens;
+message color: an action icon (`Action`: use, compare, submit, remaining, assumptions, discuss,
+more), title, and summary. Inputs are a frozen `Detail` string, realized only when the disclosure opens;
 "Key: value" paragraphs render as an aligned table and other paragraphs as titled prose. A quiet
 meta row beneath the bubble shows lifecycle status (hidden once `Status` is `ReplyReady`) and a
 **Show original** link. `SourceRequested` is a navigation event, never an agent/tool invocation.
@@ -376,7 +376,7 @@ summary with a **Sent** pill and an inputs disclosure; expired input keeps a sum
 without dispatching new work. Ordinary answer widgets leave `InputStatus` null.
 
 `StrataMarkdown` recognizes closed JSON fences named `form`, `checklist`, `results`, `calculator`,
-and `quiz`. It creates `StrataInteractiveBlock` controls using validated native
+`quiz`, and `explorer`. It creates `StrataInteractiveBlock` controls using validated native
 definitions. Partial streaming fences stay inactive; invalid completed definitions report an
 error with their original source. Definitions never execute scripts, arbitrary formulas, or tool
 commands. Stable `id` values must be unique within an answer.
@@ -420,6 +420,37 @@ presents money from the definition's currency code without converting it. They u
 and use the same numeric contract on every platform. Forms, checklists, result selection, quiz
 feedback, and calculator edits retain their state during streaming append and history
 reattachment. Hosts own persisted state and action errors.
+
+An `explorer` holds researched options that share attributes: `items` (1-40, each with optional
+`subtitle`, `badge`, `summary`, `pros`, `cons`, `url`, `image`, and `values` keyed by attribute)
+and `attributes` (`text`, `number`, `money`, `rating`, or `boolean`, with an optional `unit` and
+`better` of `lower` or `higher`; value keys that are not declared are inferred).
+`InteractiveExplorerModel` derives everything else, so the control, submissions, receipts and copy
+agree: filters (chips for short text values, "must have" chips for features, "up to" or "and up"
+sliders for numbers, in the direction that is better), sort orders, the card's headline figure,
+and the best value per attribute. The control shows picture cards or a sortable table (cards when
+options have pictures; a table for seven or more plain options with two or more attributes), opens
+an option as an inline detail page with previous/next (arrow keys) and Escape back, and compares up
+to four picked options side by side with the best value marked and a meter per ranked attribute. On
+narrow widths such as a phone, each attribute's label heads its row so the options share the whole
+width (the labels stay in view when there are too many to fit and they scroll sideways), and the sort shows only its icon,
+or the sorted attribute and its direction. Pictures load
+through the markdown image pipeline (public web hosts or absolute local paths) with a tinted
+monogram until they arrive. A host that sets `StrataInteractiveBlock.ShowsLinkPreviews` also gives
+an option without its own `image` its `url`'s preview picture (the page's Open Graph or Twitter
+image, as messaging apps preview a link): each page is read once per run, only up to the end of its
+head, through the same guarded client as images. An option's own `image` wins, and its preview
+stands in when that fails to load; cards keep their compact layout until a first picture arrives,
+so links without previews never leave a row of placeholder tiles. A host whose views should not reach
+the web themselves (a phone showing a computer's answers) also sets
+`StrataInteractiveBlock.ExplorerPictureLoader`: the control then asks it for each option's picture
+bytes instead of loading them (the host finds the option's own image, else its link's preview while
+`ShowsLinkPreviews` is on) and decodes them as it decodes any picture, reading no pages or pictures
+itself. View, sort, search, filters, and
+picks are saved state; the open
+detail page or comparison is not. Actions are `use` (the picked options), `compare` (from the
+comparison), and `more` (offered when filters leave two or fewer options; it sends the filters).
+Model-facing text keeps invariant numbers with their units; receipts and copy use the culture.
 
 ## Question input state
 

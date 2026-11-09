@@ -79,6 +79,29 @@ public static class InteractiveReceiptFormatter
                     lines.Add("");
                 }
                 break;
+            case InteractiveExplorer explorer when action == "more":
+                var filtersModel = InteractiveExplorerModel.For(explorer);
+                title = labels["receiptMore"];
+                foreach (var filter in filtersModel.ActiveFilters(state))
+                {
+                    var description = filtersModel.FormatFilter(filter, labels);
+                    summary.Add(description);
+                    lines.Add(description);
+                }
+                if (summary.Count == 0)
+                    summary.Add(explorer.Title);
+                break;
+            case InteractiveExplorer explorer:
+                var model = InteractiveExplorerModel.For(explorer);
+                var picked = state.SelectedIds.Select(id => explorer.Items.First(item => item.Id == id)).ToArray();
+                title = labels.Format(action == "compare" ? "receiptDecide" : "receiptUse", picked.Length);
+                foreach (var item in picked)
+                {
+                    summary.Add(item.Label);
+                    lines.AddRange(model.DescribeItem(item, labels));
+                    lines.Add("");
+                }
+                break;
             default:
                 throw new FormatException("This interaction does not support a receipt.");
         }
