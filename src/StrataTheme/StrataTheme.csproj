@@ -25,7 +25,7 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
-    <PackageReference Include="Avalonia.Controls.DataGrid" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="[$(AvaloniaDataGridVersion)]" />
     <!-- StrataBackdropBlur samples and frosts the Skia drawing surface. -->
     <PackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
     <PackageReference Include="TextMateSharp.Grammars" Version="1.0.65" />

@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
-    <!-- Keep the Avalonia package family aligned; update this value for future upgrades. -->
-    <AvaloniaVersion>12.1.4</AvaloniaVersion>
+    <!-- DataGrid is released independently of the rest of the Avalonia package family. -->
+    <AvaloniaVersion>12.1.6</AvaloniaVersion>
+    <AvaloniaDataGridVersion>12.1.2</AvaloniaDataGridVersion>
   </PropertyGroup>
 </Project>
