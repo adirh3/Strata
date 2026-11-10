@@ -91,6 +91,7 @@ public sealed partial class InteractiveLabels
         ["openLink"] = "{0} を開く",
         ["blockedLink"] = "ブロックしたリンク: {0}",
         ["openFile"] = "ファイルを開く: {0}",
+        ["linkOpen"] = "リンクを開く", ["linkCopy"] = "リンクをコピー",
         ["reference"] = "参照: {0}",
         ["copyTableTip"] = "この表をコピーします。",
         ["copyTable"] = "表をコピー",

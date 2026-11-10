@@ -339,6 +339,7 @@ public partial class StrataMarkdown : ContentControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _isAttachedToVisualTree = false;
+        ReleaseLinkCard();
 
         _rebuildDelayCts?.Cancel();
         _rebuildDelayCts?.Dispose();
@@ -448,14 +449,22 @@ public partial class StrataMarkdown : ContentControl
     private void AttachLinkHandlers(SelectableTextBlock textBlock)
     {
         DetachLinkHandlers(textBlock);
+        // Without a background only the glyphs take the pointer, leaving the space between lines and
+        // around short labels dead; a transparent one lets the whole block, and the links' slop, be hit.
+        if (textBlock.Background is null)
+            textBlock.Background = Brushes.Transparent;
         textBlock.AddHandler(InputElement.TappedEvent, OnLinkTapped, RoutingStrategies.Bubble, handledEventsToo: true);
+        textBlock.AddHandler(InputElement.PointerPressedEvent, OnTextBlockPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         textBlock.PointerMoved += OnTextBlockPointerMoved;
+        textBlock.PointerExited += OnTextBlockPointerExited;
     }
 
     private void DetachLinkHandlers(SelectableTextBlock textBlock)
     {
         textBlock.RemoveHandler(InputElement.TappedEvent, OnLinkTapped);
+        textBlock.RemoveHandler(InputElement.PointerPressedEvent, OnTextBlockPointerPressed);
         textBlock.PointerMoved -= OnTextBlockPointerMoved;
+        textBlock.PointerExited -= OnTextBlockPointerExited;
     }
 
     /// <summary>
@@ -664,6 +673,7 @@ public partial class StrataMarkdown : ContentControl
         _lastThemeVariant = currentVariant;
         _inlineCodeBrush = null;
         _linkBrush = null;
+        _linkHoverBrush = null;
         // Force full rebuild (not incremental) since brushes changed
         _previousBlocks.Clear();
         _previousGroups.Clear();
@@ -1567,7 +1577,8 @@ public partial class StrataMarkdown : ContentControl
         // Fast path: no special characters — set Text directly (no Inlines list)
         // Skip when forceInlines is set (merged groups need Run objects to preserve
         // previously added LineBreak/Run inlines from earlier items in the group).
-        if (!forceInlines && span.IndexOfAny('`', '*', '[') < 0 && span.IndexOfAny('~', '_', '!') < 0)
+        if (!forceInlines && span.IndexOfAny('`', '*', '[') < 0 && span.IndexOfAny('~', '_', '!') < 0
+            && span.IndexOf("://", StringComparison.Ordinal) < 0)
         {
             target.Text = PrepareDirectionalText(
                 target,
@@ -1780,6 +1791,18 @@ public partial class StrataMarkdown : ContentControl
                 }
             }
 
+            // Autolink: https://… or <https://…>
+            if (c is '<' or 'h' or 'H' && TryMatchAutolink(span, pos, out var autolinkEnd, out var autolinkUrl))
+            {
+                if (pos > textStart)
+                    inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
+                inlines?.Add(CreateLinkRun(autolinkUrl, autolinkUrl));
+                hasLinks = true;
+                pos = autolinkEnd;
+                textStart = pos;
+                continue;
+            }
+
             pos++;
         }
 
@@ -1906,6 +1929,23 @@ public partial class StrataMarkdown : ContentControl
                 }
             }
 
+            // Autolink: https://… or <https://…>
+            if (span[pos] is '<' or 'h' or 'H' && TryMatchAutolink(span, pos, out var autolinkEnd, out var autolinkUrl))
+            {
+                foundSpecial = true;
+                hasLinks = true;
+                if (pos > textStart)
+                    inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos]))
+                    {
+                        FontWeight = weight,
+                        FontStyle = style
+                    });
+                inlines?.Add(CreateLinkRun(autolinkUrl, autolinkUrl, weight, style));
+                pos = autolinkEnd;
+                textStart = pos;
+                continue;
+            }
+
             pos++;
         }
 
@@ -1935,6 +1975,80 @@ public partial class StrataMarkdown : ContentControl
                             ?? StrataTextDirectionDetector.Detect(text)
                             ?? target.FlowDirection;
         return StrataTextDirectionDetector.OrientFlowArrows(text, flowDirection);
+    }
+
+    /// <summary>
+    /// A web address written without link syntax at <paramref name="pos"/>: bare (https://example.com)
+    /// or in angle brackets (&lt;https://example.com&gt;), as GitHub-flavored markdown links them. A bare
+    /// address leaves out the punctuation that ends its sentence and a closing parenthesis it didn't open.
+    /// </summary>
+    internal static bool TryMatchAutolink(ReadOnlySpan<char> span, int pos, out int end, out string url)
+    {
+        end = pos;
+        url = "";
+        if (span[pos] == '<')
+        {
+            var close = span[(pos + 1)..].IndexOfAny('>', '<');
+            if (close <= 0 || span[pos + 1 + close] != '>')
+                return false;
+            var inner = span.Slice(pos + 1, close);
+            if (WebSchemeLength(inner) is not (> 0 and var scheme) || inner.ContainsAny(' ', '\t', '\n')
+                || !HasAddressAfterScheme(inner[scheme..]))
+                return false;
+            url = inner.ToString();
+            end = pos + close + 2;
+            return true;
+        }
+
+        if (pos > 0 && (char.IsLetterOrDigit(span[pos - 1]) || "/.:-_@=&#%+~".Contains(span[pos - 1])))
+            return false;
+        var schemeLength = WebSchemeLength(span[pos..]);
+        if (schemeLength == 0)
+            return false;
+
+        var stop = pos + schemeLength;
+        // CJK and other scripts put their own punctuation (。，」) right after an address, with no space.
+        while (stop < span.Length && !char.IsWhiteSpace(span[stop]) && span[stop] is not ('<' or '>' or '"' or '`')
+               && !(span[stop] > '\u007f' && char.IsPunctuation(span[stop])))
+            stop++;
+        while (stop > pos + schemeLength)
+        {
+            var last = span[stop - 1];
+            if (".,:;!?*_~'".Contains(last)
+                || last == ')' && span[pos..stop].Count(')') > span[pos..stop].Count('(')
+                || last == ']' && span[pos..stop].Count(']') > span[pos..stop].Count('['))
+            {
+                stop--;
+                continue;
+            }
+            break;
+        }
+        if (!HasAddressAfterScheme(span[(pos + schemeLength)..stop]))
+            return false;
+        url = span[pos..stop].ToString();
+        end = stop;
+        return true;
+
+        static int WebSchemeLength(ReadOnlySpan<char> text) =>
+            text.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? 8
+            : text.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ? 7 : 0;
+
+        static bool HasAddressAfterScheme(ReadOnlySpan<char> rest) => rest.Length > 0 && char.IsLetterOrDigit(rest[0]);
+    }
+
+    private Run CreateLinkRun(string label, string target, FontWeight weight = default, FontStyle style = default)
+    {
+        var linkRun = new Run(label)
+        {
+            Foreground = _linkBrush ??= ResolveLinkBrush(),
+            TextDecorations = TextDecorations.Underline,
+        };
+        if (weight != default)
+            linkRun.FontWeight = weight;
+        if (style != default)
+            linkRun.FontStyle = style;
+        _linkRuns[linkRun] = NormalizeLinkTarget(target);
+        return linkRun;
     }
 
     /// <summary>
@@ -3256,51 +3370,6 @@ public partial class StrataMarkdown : ContentControl
         }
     }
 
-    private string? GetLinkAtCharIndex(SelectableTextBlock tb, int charIndex)
-    {
-        if (tb.Inlines == null) return null;
-
-        var pos = 0;
-        foreach (var inline in tb.Inlines)
-        {
-            if (inline is Run run)
-            {
-                var len = GetInlineTextLength(inline);
-                if (charIndex >= pos && charIndex < pos + len && _linkRuns.TryGetValue(run, out var url))
-                    return url;
-            }
-
-            pos += GetInlineTextLength(inline);
-        }
-        return null;
-    }
-
-    internal string? GetLinkTarget(Run run) => _linkRuns.GetValueOrDefault(run);
-
-    private string? GetLinkAtRenderedPoint(SelectableTextBlock tb, Point point)
-    {
-        if (tb.Inlines == null || _linkRuns.Count == 0)
-            return null;
-
-        var pos = 0;
-        foreach (var inline in tb.Inlines)
-        {
-            var len = GetInlineTextLength(inline);
-            if (inline is Run run && len > 0 && _linkRuns.TryGetValue(run, out var url))
-            {
-                foreach (var rect in tb.TextLayout.HitTestTextRange(pos, len))
-                {
-                    if (rect.Contains(point))
-                        return url;
-                }
-            }
-
-            pos += len;
-        }
-
-        return null;
-    }
-
     private static int GetInlineTextLength(Inline inline) => inline switch
     {
         Run run => run.Text?.Length ?? 0,
@@ -3308,20 +3377,9 @@ public partial class StrataMarkdown : ContentControl
         _ => 1,
     };
 
-    internal string? GetLinkAtPoint(SelectableTextBlock tb, Point point)
-    {
-        point -= new Vector(tb.Padding.Left, tb.Padding.Top);
-        // Bidi/RTL text can map a click to an adjacent logical character, so
-        // prefer the rendered link rectangles over TextLayout.HitTestPoint.
-        var renderedLink = GetLinkAtRenderedPoint(tb, point);
-        if (renderedLink != null)
-            return renderedLink;
+    internal string? GetLinkTarget(Run run) => _linkRuns.GetValueOrDefault(run);
 
-        var hit = tb.TextLayout.HitTestPoint(point);
-        return hit.IsInside
-            ? GetLinkAtCharIndex(tb, hit.CharacterHit.FirstCharacterIndex)
-            : null;
-    }
+    internal string? GetLinkAtPoint(SelectableTextBlock tb, Point point) => HitTestLink(tb, point)?.Target;
 
     private void OnLinkTapped(object? sender, TappedEventArgs e)
     {
@@ -3332,15 +3390,8 @@ public partial class StrataMarkdown : ContentControl
             return;
 
         e.Handled = true;
+        HideLinkCard();
         OpenLink(url);
-    }
-
-    private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (sender is not SelectableTextBlock tb) return;
-
-        var isLink = GetLinkAtPoint(tb, e.GetPosition(tb)) != null;
-        tb.Cursor = isLink ? HandCursorLazy.Value : Cursor.Default;
     }
 
     private static IBrush ResolveLinkBrush()
@@ -4201,6 +4252,20 @@ public partial class StrataMarkdown : ContentControl
     internal sealed class InlineCodeLayer : Decorator
     {
         private const double CodeCornerRadius = 4d;
+        private Run? _hoveredLink;
+        private IBrush? _hoveredLinkBrush;
+
+        /// <summary>The link the pointer is over, drawn with a soft rounded highlight behind its text.</summary>
+        internal Run? HoveredLink => _hoveredLink;
+
+        internal void SetHoveredLink(Run? link, IBrush? brush)
+        {
+            if (ReferenceEquals(_hoveredLink, link) && ReferenceEquals(_hoveredLinkBrush, brush))
+                return;
+            _hoveredLink = link;
+            _hoveredLinkBrush = brush;
+            InvalidateVisual();
+        }
 
         public override void Render(DrawingContext context)
         {
@@ -4226,6 +4291,11 @@ public partial class StrataMarkdown : ContentControl
                                 rect,
                                 CodeCornerRadius, CodeCornerRadius);
                         }
+                    }
+                    else if (ReferenceEquals(inline, _hoveredLink) && _hoveredLinkBrush is { } hover)
+                    {
+                        foreach (var rect in GetCodeRangeRects(layout, charOffset, _hoveredLink.Text?.Length ?? 0))
+                            context.DrawRectangle(hover, null, rect.Inflate(new Thickness(3, 0)), CodeCornerRadius, CodeCornerRadius);
                     }
 
                     charOffset += GetInlineTextLength(inline);

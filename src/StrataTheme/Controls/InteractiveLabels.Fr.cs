@@ -91,6 +91,7 @@ public sealed partial class InteractiveLabels
         ["openLink"] = "Ouvrir {0}",
         ["blockedLink"] = "Lien bloqué : {0}",
         ["openFile"] = "Ouvrir le fichier : {0}",
+        ["linkOpen"] = "Ouvrir le lien", ["linkCopy"] = "Copier le lien",
         ["reference"] = "Référence : {0}",
         ["copyTableTip"] = "Copier ce tableau.",
         ["copyTable"] = "Copier le tableau",

@@ -227,6 +227,107 @@
   <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-code-text">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
+
+  <!-- A link's card: where it leads, rising under a link the pointer rests on. -->
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-link-card">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="BoxShadow" Value="0 12 32 0 #24000000, 0 2 8 0 #14000000" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-link-card-media">
+    <Setter Property="Height" Value="150" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) Image.strata-md-link-card-picture">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) StackPanel.strata-md-link-card-body">
+    <Setter Property="Margin" Value="14,12,14,12" />
+    <Setter Property="Spacing" Value="6" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-link-card-icon">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="Margin" Value="0,0,8,0" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-link-card-monogram">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-link-card-site">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-link-card-title">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeBodyStrong}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-link-card-description">
+    <Setter Property="FontSize" Value="{DynamicResource Font.SizeCaption}" />
+    <Setter Property="LineHeight" Value="18" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-link-card-footer">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+    <Setter Property="Padding" Value="14,4,6,4" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) TextBlock.strata-md-link-card-address">
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-link-card-action">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Radius.Base}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-link-card-action:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
+  </Style>
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-link-card-action:pointerover /template/ Border#PART_Surface">
+    <Setter Property="Background" Value="{DynamicResource Brush.AccentSubtle}" />
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-link-card-action:pointerover /template/ Border#PART_Aurora">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
   <Style Selector=":is(controls|StrataMarkdown) SelectableTextBlock.strata-md-code-text">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>

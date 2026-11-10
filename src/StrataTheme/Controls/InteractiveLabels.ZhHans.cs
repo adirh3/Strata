@@ -46,6 +46,7 @@ public sealed partial class InteractiveLabels
         ["noDiff"] = "没有可用的差异。", ["change"] = "更改", ["changesCount"] = "{0} 项更改",
         ["openLink"] = "打开 {0}", ["blockedLink"] = "已阻止的链接：{0}",
         ["openFile"] = "打开文件：{0}", ["reference"] = "引用：{0}",
+        ["linkOpen"] = "打开链接", ["linkCopy"] = "复制链接",
         ["copyTableTip"] = "复制此表格。", ["copyTable"] = "复制表格",
         ["copyTableHelp"] = "保留格式复制此表格。右键点击可选择其他格式。",
         ["imageUnavailable"] = "图片不可用", ["imageFallback"] = "图片：{0}",

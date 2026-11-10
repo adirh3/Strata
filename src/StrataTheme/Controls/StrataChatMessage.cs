@@ -183,6 +183,9 @@ public class StrataChatMessage : TemplatedControl
     private int _contextMenuSelectionEnd;
     private string? _contextMenuSelectionText;
     private bool _lastMenuCanReply;
+    private string? _lastMenuLink;
+    private StrataMarkdown? _contextMenuLinkOwner;
+    private string? _contextMenuLink;
 
     // ── Reply affordances ──
     private Button? _replyButton;
@@ -900,9 +903,23 @@ public class StrataChatMessage : TemplatedControl
         if (!e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
             return;
 
+        CaptureContextMenuLink(e);
         CaptureContextMenuSelection();
         if (!TargetHasOwnContextMenu(e.Source))
             e.Handled = true;
+    }
+
+    /// <summary>Remembers the link a right-click landed on, so the menu can offer to open or copy it.</summary>
+    private void CaptureContextMenuLink(PointerEventArgs e)
+    {
+        _contextMenuLinkOwner = null;
+        _contextMenuLink = null;
+        if (e.Source is not SelectableTextBlock textBlock
+            || textBlock.FindAncestorOfType<StrataMarkdown>() is not { } markdown
+            || markdown.GetLinkAtPoint(textBlock, e.GetPosition(textBlock)) is not { } link)
+            return;
+        _contextMenuLinkOwner = markdown;
+        _contextMenuLink = link;
     }
 
     private void InterceptRightClickRelease(object? sender, PointerReleasedEventArgs e)
@@ -977,6 +994,8 @@ public class StrataChatMessage : TemplatedControl
         PseudoClasses.Set(":menu-open", false);
         if (_contextMenu is not null)
             _contextMenu.Placement = PlacementMode.Pointer;
+        _contextMenuLinkOwner = null;
+        _contextMenuLink = null;
         ResetContextMenuSelection();
     }
 
@@ -1087,7 +1106,8 @@ public class StrataChatMessage : TemplatedControl
             _lastMenuIsEditable == IsEditable &&
             _lastMenuIsStreaming == IsStreaming &&
             _lastMenuHasSelection == hasSelection &&
-            _lastMenuCanReply == CanReply)
+            _lastMenuCanReply == CanReply &&
+            string.Equals(_lastMenuLink, _contextMenuLink, StringComparison.Ordinal))
             return;
 
         _lastMenuRole = Role;
@@ -1096,9 +1116,34 @@ public class StrataChatMessage : TemplatedControl
         _lastMenuIsStreaming = IsStreaming;
         _lastMenuHasSelection = hasSelection;
         _lastMenuCanReply = CanReply;
+        _lastMenuLink = _contextMenuLink;
         _contextMenuBuilt = true;
 
         var items = new List<object>();
+
+        if (_contextMenuLinkOwner is { } linkOwner && _contextMenuLink is { } link)
+        {
+            if (linkOwner.CanOpenLink(link))
+            {
+                var openLink = new MenuItem
+                {
+                    Name = "OpenLinkMenuItem",
+                    Header = InteractiveLabels.Current["linkOpen"],
+                    Icon = new StrataLineIcon { Data = StrataIcons.OpenExternal, Width = 16, Height = 16 }
+                };
+                openLink.Click += (_, _) => linkOwner.OpenLinkTarget(link);
+                items.Add(openLink);
+            }
+            var copyLink = new MenuItem
+            {
+                Name = "CopyLinkMenuItem",
+                Header = InteractiveLabels.Current["linkCopy"],
+                Icon = new StrataLineIcon { Data = StrataIcons.Copy, Width = 16, Height = 16 }
+            };
+            copyLink.Click += async (_, _) => await linkOwner.CopyLinkAsync(link);
+            items.Add(copyLink);
+            items.Add(new Separator());
+        }
 
         var copyAs = new MenuItem { Name = "CopyAsMenuItem", Header = CopyAsLabel };
         foreach (var (label, format) in new[]

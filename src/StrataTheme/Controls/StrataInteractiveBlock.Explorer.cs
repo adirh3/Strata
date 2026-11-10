@@ -24,6 +24,8 @@ public partial class StrataInteractiveBlock
     /// <summary>
     /// Whether an option without its own picture shows its link's preview: the picture its page
     /// shows when shared (its Open Graph or Twitter image), read from the page as messaging apps do.
+    /// The card a markdown link shows under a resting pointer then also carries the page's title,
+    /// summary and picture; without it, the card only says where the link leads.
     /// Off by default, so each host decides whether showing an answer may visit the pages it links.
     /// </summary>
     public static bool ShowsLinkPreviews { get; set; }

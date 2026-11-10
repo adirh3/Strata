@@ -46,6 +46,7 @@ public sealed partial class InteractiveLabels
         ["noDiff"] = "Nenhuma diferença disponível.", ["change"] = "Alteração", ["changesCount"] = "{0} alterações",
         ["openLink"] = "Abrir {0}", ["blockedLink"] = "Link bloqueado: {0}",
         ["openFile"] = "Abrir arquivo: {0}", ["reference"] = "Referência: {0}",
+        ["linkOpen"] = "Abrir link", ["linkCopy"] = "Copiar link",
         ["copyTableTip"] = "Copiar esta tabela.", ["copyTable"] = "Copiar tabela",
         ["copyTableHelp"] = "Copie esta tabela com formatação. Clique com o botão direito para outros formatos.",
         ["imageUnavailable"] = "Imagem indisponível", ["imageFallback"] = "Imagem: {0}",
