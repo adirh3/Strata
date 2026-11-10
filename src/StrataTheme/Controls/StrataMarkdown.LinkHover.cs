@@ -79,7 +79,7 @@ public partial class StrataMarkdown
         foreach (var inline in inlines)
         {
             var length = GetInlineTextLength(inline);
-            if (inline is Run run && length > 0 && _linkRuns.TryGetValue(run, out var target))
+            if (inline is Run run && length > 0 && TryResolveLink(run, out var target))
             {
                 foreach (var rect in textBlock.TextLayout.HitTestTextRange(position, length))
                 {
@@ -137,7 +137,7 @@ public partial class StrataMarkdown
         {
             var length = GetInlineTextLength(inline);
             if (inline is Run run && charIndex >= position && charIndex < position + length
-                && _linkRuns.TryGetValue(run, out var target))
+                && TryResolveLink(run, out var target))
             {
                 var bounds = textBlock.TextLayout.HitTestTextRange(position, length).FirstOrDefault();
                 return new MarkdownLinkHit(run, target,
@@ -467,7 +467,7 @@ public partial class StrataMarkdown
         var icon = new Border { Child = new Panel { Children = { monogram, iconImage } }, ClipToBounds = true };
         icon.Classes.Add("strata-md-link-card-icon");
 
-        var site = new TextBlock { Text = LinkSiteLabel(uri, target), TextTrimming = TextTrimming.CharacterEllipsis };
+        var site = new TextBlock { Text = LinkSiteLabel(uri, target), TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis };
         site.Classes.Add("strata-md-link-card-site");
         Grid.SetColumn(site, 1);
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Children = { icon, site } };
@@ -495,6 +495,7 @@ public partial class StrataMarkdown
         var address = new TextBlock
         {
             Text = target,
+            TextWrapping = TextWrapping.NoWrap,
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
             FlowDirection = FlowDirection.LeftToRight,

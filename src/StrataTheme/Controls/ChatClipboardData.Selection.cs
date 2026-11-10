@@ -95,8 +95,15 @@ internal static partial class ChatClipboardData
             var selected = StrataTextSelection.CleanSelectionText(text[from..to]);
             if (selected.Length == 0)
                 continue;
+            if (inline is StrataMarkdown.CitationRun { FootnoteId: { } footnote } footnoteChip)
+            {
+                result.Append(footnoteChip.IsFootnoteLabel ? $"[^{footnote}]:" : $"[^{footnote}]");
+                continue;
+            }
             if (inline is StrataMarkdown.InlineCodeRun)
                 selected = "`" + selected + "`";
+            else if (inline is StrataMarkdown.CitationRun citation)
+                selected = citation.Label;
             else
             {
                 selected = EscapeSelection(selected);

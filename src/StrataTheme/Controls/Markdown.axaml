@@ -228,6 +228,18 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 
+  <!-- Footnote definitions: a compact list of notes under a hairline, quieter than the answer. -->
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-footnotes-section">
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderSubtle}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+    <Setter Property="Padding" Value="0,8,0,0" />
+    <Setter Property="Margin" Value="0,2,0,0" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) SelectableTextBlock.strata-md-footnotes">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+  </Style>
+
   <!-- A link's card: where it leads, rising under a link the pointer rests on. -->
   <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-link-card">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />

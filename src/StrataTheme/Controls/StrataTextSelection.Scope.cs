@@ -85,7 +85,7 @@ public sealed partial class StrataTextSelection
     }
 
     internal static string CleanSelectionText(string text) => text
-        .Replace("\u2005", "").Replace("\uFFFC", "").Replace("\r", "")
+        .Replace("\u2005", "").Replace("\u2060", "").Replace("\uFFFC", "").Replace("\r", "")
         .Replace("\u2066", "").Replace("\u2067", "").Replace("\u2068", "").Replace("\u2069", "");
 
     internal static IReadOnlyList<TextRange> GetSelection(Control owner)

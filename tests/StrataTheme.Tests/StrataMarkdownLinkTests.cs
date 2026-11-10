@@ -166,7 +166,7 @@ public class StrataMarkdownLinkTests
         {
             var markdown = new StrataMarkdown();
             var textBlock = new SelectableTextBlock { FontSize = 14, TextWrapping = TextWrapping.NoWrap };
-            markdown.AppendFormattedInlines(textBlock, "See source [1](https://example.com/one)tail and more");
+            markdown.AppendFormattedInlines(textBlock, "See source [a](https://example.com/one)tail and more");
             var window = new Window { Width = 500, Height = 100, Content = textBlock };
             try
             {

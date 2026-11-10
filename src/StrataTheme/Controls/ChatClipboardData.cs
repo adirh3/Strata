@@ -179,6 +179,13 @@ internal static partial class MarkdownClipboardFormatter
                     builder.Append("</blockquote>");
                     break;
 
+                case MdBlockKind.Footnote:
+                    builder.Append("<p style=\"margin:0 0 4px 0;font-size:12px;\"><sup>")
+                        .Append(WebUtility.HtmlEncode(block.Language)).Append("</sup> ");
+                    AppendInlineHtml(builder, block.Content);
+                    builder.Append("</p>");
+                    break;
+
                 case MdBlockKind.HorizontalRule:
                     builder.Append("<hr style=\"border:0;border-top:1px solid #d1d5db;margin:12px 0;\" />");
                     break;

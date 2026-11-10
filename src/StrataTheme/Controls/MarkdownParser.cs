@@ -24,6 +24,8 @@ public enum MdBlockKind
     Blockquote,
     TaskItem,
     Interactive,
+    /// <summary>A footnote definition (<c>[^id]: text</c>): its id in <see cref="MdBlock.Language"/>, its text in <see cref="MdBlock.Content"/>.</summary>
+    Footnote,
 }
 
 /// <summary>
@@ -312,6 +314,20 @@ public sealed class MarkdownParser
             FlushBlockquoteBlock(blockquoteBuffer, blocks, blockquoteStart);
             blockquoteStart = -1;
 
+            if (TryParseFootnoteDefinition(lineSpan, out var footnoteId, out var footnoteText))
+            {
+                FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
+                paragraphStart = -1;
+                blocks.Add(new MdBlock
+                {
+                    Kind = MdBlockKind.Footnote,
+                    Content = footnoteText,
+                    Language = footnoteId,
+                    SourceStart = absoluteLineStart,
+                });
+                continue;
+            }
+
             if (TryParseStandaloneImage(lineSpan, out var imageAltText, out var imageTarget))
             {
                 FlushParagraphBlock(paragraphBuffer, blocks, paragraphStart, absoluteLineStart);
@@ -439,6 +455,38 @@ public sealed class MarkdownParser
     }
 
     // ── Block detection helpers ─────────────────────────────────
+
+    /// <summary>A footnote definition line, <c>[^id]: text</c>, indented at most three spaces as GitHub writes them.</summary>
+    internal static bool TryParseFootnoteDefinition(ReadOnlySpan<char> line, out string id, out string text)
+    {
+        id = string.Empty;
+        text = string.Empty;
+        var indent = 0;
+        while (indent < line.Length && indent < 4 && line[indent] == ' ')
+            indent++;
+        var rest = line[indent..];
+        if (indent > 3 || rest.Length < 5 || rest[0] != '[' || rest[1] != '^')
+            return false;
+        var close = rest.IndexOf(']');
+        if (close < 3 || close + 1 >= rest.Length || rest[close + 1] != ':' || !IsFootnoteId(rest[2..close]))
+            return false;
+        id = rest[2..close].ToString();
+        text = rest[(close + 2)..].Trim().ToString();
+        return true;
+    }
+
+    /// <summary>A footnote's id: a short name without spaces or brackets, such as <c>1</c> or <c>note</c>.</summary>
+    internal static bool IsFootnoteId(ReadOnlySpan<char> id)
+    {
+        if (id.Length is 0 or > 32)
+            return false;
+        foreach (var c in id)
+        {
+            if (char.IsWhiteSpace(c) || c is '[' or ']' or '^')
+                return false;
+        }
+        return true;
+    }
 
     internal static MdBlockKind MapCodeLanguageToBlockKind(string language)
     {

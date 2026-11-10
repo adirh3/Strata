@@ -63,6 +63,7 @@ internal static partial class MarkdownClipboardFormatter
                 MdBlockKind.NumberedItem => $"{block.Level}. " + InlineToPlainText(block.Content),
                 MdBlockKind.TaskItem => (block.Level == 1 ? "[x] " : "[ ] ") + InlineToPlainText(block.Content),
                 MdBlockKind.Image => $"{block.Content} ({block.Language})",
+                MdBlockKind.Footnote => $"[^{block.Language}]: " + InlineToPlainText(block.Content),
                 MdBlockKind.Table => string.Join("\n", block.Content.Split('\n')
                     .Where(line => !MarkdownParser.IsTableSeparator(line) && !string.IsNullOrWhiteSpace(line))
                     .Select(line => string.Join("\t", MarkdownParser.TrimCells(MarkdownParser.SplitTableCells(line))

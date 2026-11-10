@@ -441,7 +441,8 @@ public partial class StrataMarkdown
         or MdBlockKind.NumberedItem
         or MdBlockKind.TaskItem
         or MdBlockKind.Blockquote
-        or MdBlockKind.Table;
+        or MdBlockKind.Table
+        or MdBlockKind.Footnote;
 
     private void TrackImageCacheKeys(string text)
     {

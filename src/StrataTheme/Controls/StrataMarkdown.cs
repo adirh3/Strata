@@ -176,7 +176,7 @@ public partial class StrataMarkdown : ContentControl
     private readonly List<string> _evictBuffer = new();
     private readonly MarkdownParser _parser = new();
     private static readonly Regex PlainTextMarkdownBlockPattern = new(
-        @"(^|\n)\s{0,3}(#{1,6}\s+|[-*+]\s+|\d+\.\s+|>\s+|```|~~~|[-*]\s+\[([ xX])\]\s+)",
+        @"(^|\n)\s{0,3}(#{1,6}\s+|[-*+]\s+|\d+\.\s+|>\s+|```|~~~|[-*]\s+\[([ xX])\]\s+|\[\^[^\]\s]+\]:)",
         RegexOptions.Compiled | RegexOptions.Multiline);
     private static readonly Regex PlainTextMarkdownInlinePattern = new(
         @"(\[[^\]\r\n]+\]\([^)\r\n]+\)|!\[[^\]\r\n]*\]\([^)\r\n]+\)|`[^`\r\n]+`|\*\*[^*\r\n]+\*\*|__[^_\r\n]+__|~~[^~\r\n]+~~|(?<!\w)_[^_\r\n]+_(?!\w))",
@@ -674,6 +674,7 @@ public partial class StrataMarkdown : ContentControl
         _inlineCodeBrush = null;
         _linkBrush = null;
         _linkHoverBrush = null;
+        _citationBrush = null;
         // Force full rebuild (not incremental) since brushes changed
         _previousBlocks.Clear();
         _previousGroups.Clear();
@@ -1045,6 +1046,14 @@ public partial class StrataMarkdown : ContentControl
                 }
             }
 
+            // Notes stream last, so their list is updated in place token by token.
+            if (newGroup.Kind == MdBlockKind.Footnote && oldGroup.Kind == MdBlockKind.Footnote &&
+                g < _contentHost.Children.Count &&
+                TryUpdateFootnotesInPlace(_contentHost.Children[g], newBlocks, newGroup))
+            {
+                continue;
+            }
+
             // Merged list-group update: reuse the existing wrapped SelectableTextBlock
             // when both sides are list/text mergeable and only the grouped content changed.
             if (newGroup.Count >= 1 && IsMergeableKind(newGroup.Kind) &&
@@ -1209,6 +1218,7 @@ public partial class StrataMarkdown : ContentControl
             MdBlockKind.Card => CreateCardControl(block.Content, block.IsClosed),
             MdBlockKind.Sources => CreateSourcesControl(block.Content, block.IsClosed),
             MdBlockKind.Interactive => CreateInteractiveControl(block),
+            MdBlockKind.Footnote => CreateFootnotesControl([block], 0, 1),
             _ => new MarkdownBorder(),
         };
     }
@@ -1676,6 +1686,19 @@ public partial class StrataMarkdown : ContentControl
                 }
             }
 
+            // Citation: [1](url), [^id] or ([Site](url))
+            if (c is '[' or '(' && TryMatchCitation(span, pos, out var citationEnd, out var citationLabel,
+                    out var citationTarget, out var footnoteId))
+            {
+                if (pos > textStart)
+                    inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos])));
+                inlines?.Add(CreateCitationRun(citationLabel, citationTarget, footnoteId, target.FontSize));
+                hasLinks = true;
+                pos = citationEnd;
+                textStart = pos;
+                continue;
+            }
+
             // Link: [text](url)
             if (c == '[')
             {
@@ -1861,6 +1884,24 @@ public partial class StrataMarkdown : ContentControl
                     textStart = pos;
                     continue;
                 }
+            }
+
+            // Citation: [1](url), [^id] or ([Site](url))
+            if (span[pos] is '[' or '(' && TryMatchCitation(span, pos, out var citationEnd, out var citationLabel,
+                    out var citationTarget, out var footnoteId))
+            {
+                foundSpecial = true;
+                hasLinks = true;
+                if (pos > textStart)
+                    inlines?.Add(new Run(PrepareDirectionalText(target, text[textStart..pos]))
+                    {
+                        FontWeight = weight,
+                        FontStyle = style
+                    });
+                inlines?.Add(CreateCitationRun(citationLabel, citationTarget, footnoteId, target.FontSize));
+                pos = citationEnd;
+                textStart = pos;
+                continue;
             }
 
             // Link: [text](url)
@@ -2283,6 +2324,16 @@ public partial class StrataMarkdown : ContentControl
         while (i < blocks.Count)
         {
             var block = blocks[i];
+            if (block.Kind == MdBlockKind.Footnote)
+            {
+                // Definitions that follow one another make one list of notes.
+                var footnotesStart = i;
+                while (i < blocks.Count && blocks[i].Kind == MdBlockKind.Footnote)
+                    i++;
+                groups.Add(new MdBlockGroup(footnotesStart, i - footnotesStart, MdBlockKind.Footnote, 0));
+                continue;
+            }
+
             if (!IsMergeableKind(block.Kind))
             {
                 groups.Add(new MdBlockGroup(i, 1, block.Kind, block.Level));
@@ -3377,7 +3428,7 @@ public partial class StrataMarkdown : ContentControl
         _ => 1,
     };
 
-    internal string? GetLinkTarget(Run run) => _linkRuns.GetValueOrDefault(run);
+    internal string? GetLinkTarget(Run run) => TryResolveLink(run, out var target) ? target : null;
 
     internal string? GetLinkAtPoint(SelectableTextBlock tb, Point point) => HitTestLink(tb, point)?.Target;
 
@@ -3532,6 +3583,8 @@ public partial class StrataMarkdown : ContentControl
     /// </summary>
     private Control CreateMergedTextControl(IReadOnlyList<MdBlock> blocks, MdBlockGroup group)
     {
+        if (group.Kind == MdBlockKind.Footnote)
+            return CreateFootnotesControl(blocks, group.StartIndex, group.Count);
         if (group.Count == 1)
             return CreateControlForBlock(blocks[group.StartIndex]);
 
@@ -3630,7 +3683,7 @@ public partial class StrataMarkdown : ContentControl
                 };
                 for (int j = inlinesBefore; j < inlines.Count; j++)
                 {
-                    if (inlines[j] is Run run and not InlineCodeRun)
+                    if (inlines[j] is Run run and not InlineCodeRun and not CitationRun)
                     {
                         run.FontSize = fontSize;
                         run.FontWeight = FontWeight.SemiBold;
@@ -4292,6 +4345,17 @@ public partial class StrataMarkdown : ContentControl
                                 CodeCornerRadius, CodeCornerRadius);
                         }
                     }
+                    else if (inline is CitationRun { ChipBackground: { } chipBackground } chip)
+                    {
+                        var hovered = ReferenceEquals(inline, _hoveredLink) ? _hoveredLinkBrush : null;
+                        foreach (var (rect, baseline) in GetRangeBoxes(layout, charOffset, chip.Text?.Length ?? 0))
+                        {
+                            var pill = CitationPill(rect, baseline, chip.FontSize);
+                            context.DrawRectangle(chipBackground, null, pill, pill.Height / 2, pill.Height / 2);
+                            if (hovered is not null)
+                                context.DrawRectangle(hovered, null, pill, pill.Height / 2, pill.Height / 2);
+                        }
+                    }
                     else if (ReferenceEquals(inline, _hoveredLink) && _hoveredLinkBrush is { } hover)
                     {
                         foreach (var rect in GetCodeRangeRects(layout, charOffset, _hoveredLink.Text?.Length ?? 0))
@@ -4303,7 +4367,25 @@ public partial class StrataMarkdown : ContentControl
             }
         }
 
+        /// <summary>
+        /// A chip's pill: around its small text where it sits on the line's baseline, narrowed a
+        /// little so chips side by side stay apart.
+        /// </summary>
+        internal static Rect CitationPill(Rect textBounds, double baseline, double fontSize)
+        {
+            var height = Math.Round(fontSize * 1.5);
+            var center = baseline - fontSize * 0.36;
+            return new Rect(textBounds.X + 1, center - height / 2, Math.Max(0, textBounds.Width - 2), height);
+        }
+
         private static IEnumerable<Rect> GetCodeRangeRects(TextLayout layout, int start, int length)
+        {
+            foreach (var (rect, _) in GetRangeBoxes(layout, start, length))
+                yield return rect;
+        }
+
+        /// <summary>The boxes a range of text occupies, line by line, each with its line's baseline.</summary>
+        private static IEnumerable<(Rect Bounds, double Baseline)> GetRangeBoxes(TextLayout layout, int start, int length)
         {
             if (length <= 0)
                 yield break;
@@ -4325,7 +4407,7 @@ public partial class StrataMarkdown : ContentControl
                     {
                         var rect = bounds.Rectangle;
                         if (rect.Width > 0 && rect.Height > 0)
-                            yield return rect.Translate(new Vector(0, lineY));
+                            yield return (rect.Translate(new Vector(0, lineY)), lineY + line.Baseline);
                     }
                 }
 
