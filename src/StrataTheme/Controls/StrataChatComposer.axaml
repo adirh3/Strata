@@ -652,8 +652,15 @@
                                     Stretch="Uniform"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
+                                    RenderTransform="rotate(0deg)"
                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                    Data="M8,1.5 L13,6.5 H10.2 V14.5 H5.8 V6.5 H3 Z" />
+                                    Data="M8,1.5 L13,6.5 H10.2 V14.5 H5.8 V6.5 H3 Z">
+                                <Path.Transitions>
+                                  <Transitions>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                                  </Transitions>
+                                </Path.Transitions>
+                              </Path>
                               <Path Name="PART_StopIcon"
                                     IsVisible="False"
                                     Stretch="Uniform"
@@ -678,7 +685,14 @@
                           <Panel Name="PART_OrbGlyphs" Width="18" Height="18" IsVisible="False"
                                  HorizontalAlignment="Center" VerticalAlignment="Center">
                             <controls:StrataLineIcon Name="PART_OrbSendIcon" StrokeThickness="2.2"
-                                                     Data="{x:Static controls:StrataIcons.ArrowUp}" />
+                                                     RenderTransform="rotate(0deg)"
+                                                     Data="{x:Static controls:StrataIcons.ArrowUp}">
+                              <controls:StrataLineIcon.Transitions>
+                                <Transitions>
+                                  <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                                </Transitions>
+                              </controls:StrataLineIcon.Transitions>
+                            </controls:StrataLineIcon>
                             <controls:StrataLineIcon Name="PART_OrbEditIcon" StrokeThickness="2.4" IsVisible="False"
                                                      FlowDirection="LeftToRight"
                                                      Data="{x:Static controls:StrataIcons.Check}" />
@@ -1128,6 +1142,14 @@
         </Style>
         <Style Selector="^.mobile:can-send-without-prompt:not(:busy) /template/ Button#PART_SendButton">
           <Setter Property="Opacity" Value="1" />
+        </Style>
+
+        <!-- A fill-in prompt with a blank still ahead (AdvancesFillInOnSend): the arrow turns toward it. -->
+        <Style Selector="^:fill-in-next /template/ Path#PART_SendIcon">
+          <Setter Property="RenderTransform" Value="rotate(90deg)" />
+        </Style>
+        <Style Selector="^:fill-in-next /template/ controls|StrataLineIcon#PART_OrbSendIcon">
+          <Setter Property="RenderTransform" Value="rotate(90deg)" />
         </Style>
 
         <!-- Suggestion loading state -->

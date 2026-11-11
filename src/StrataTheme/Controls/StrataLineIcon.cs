@@ -257,4 +257,28 @@ public static class StrataIcons
 
     /// <summary>Settings to adjust: two sliders.</summary>
     public static Geometry Sliders => Parse("M4.5 7.5h9 M17.5 7.5h2 M4.5 16.5h2 M10.5 16.5h9 M15.5 5.5v4 M8.5 14.5v4");
+
+    /// <summary>A date or a plan over days: a calendar page.</summary>
+    public static Geometry Calendar => Parse("M6 6h12a1.5 1.5 0 0 1 1.5 1.5v10.5a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5V7.5A1.5 1.5 0 0 1 6 6z M4.5 10.5h15 M8.5 4v3.5 M15.5 4v3.5");
+
+    /// <summary>A goal: a target with its center.</summary>
+    public static Geometry Target => Parse("M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17z M12 7.75a4.25 4.25 0 1 1 0 8.5 4.25 4.25 0 0 1 0-8.5z M12 12h.01");
+
+    /// <summary>Shopping and prices: a price tag.</summary>
+    public static Geometry Tag => Parse("M4.5 5.5v6a1 1 0 0 0 .3.7l7.5 7.5a1 1 0 0 0 1.4 0l6-6a1 1 0 0 0 0-1.4l-7.5-7.5a1 1 0 0 0-.7-.3h-6a1 1 0 0 0-1 1z M8.5 8.5h.01");
+
+    /// <summary>A present: a wrapped box with its bow.</summary>
+    public static Geometry Gift => Parse("M4.5 8.5h15v3.5h-15z M5.75 12v6.5a1 1 0 0 0 1 1h10.5a1 1 0 0 0 1-1V12 M12 8.5v11 M12 8.5C11 5.75 8 5 8 7s3 1.5 4 1.5 M12 8.5c1-2.75 4-3.5 4-1.5s-3 1.5-4 1.5");
+
+    /// <summary>Email: an envelope.</summary>
+    public static Geometry Mail => Parse("M5 6h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 18H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 6z M4 7l8 6 8-6");
+
+    /// <summary>Money: a wallet with its clasp.</summary>
+    public static Geometry Wallet => Parse("M4.5 8.5A1.5 1.5 0 0 1 6 7h12.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5z M4.5 8.5V7A2 2 0 0 1 6.5 5h9 M20 11.25h-3.25a1.75 1.75 0 0 0 0 3.5H20");
+
+    /// <summary>A bug to find and fix: a beetle with its legs.</summary>
+    public static Geometry Bug => Parse("M9.5 8a2.5 2.5 0 0 1 5 0 M8 9.5h8v4a4 4 0 0 1-8 0z M12 10v7.5 M4.75 10.5 8 11.25 M19.25 10.5 16 11.25 M4.5 14h3.5 M16 14h3.5 M5 18.25l3.25-1.75 M19 18.25l-3.25-1.75");
+
+    /// <summary>Kept in place: a pushpin.</summary>
+    public static Geometry Pin => Parse("M8.5 4h7 M10 4v5l-3 4h10l-3-4V4 M12 13v7");
 }

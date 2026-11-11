@@ -34,6 +34,7 @@ public sealed partial class InteractiveLabels
         ["stopGeneration"] = "생성 중지",
         ["sendToSteer"] = "진행 방향 전달",
         ["stopAndSend"] = "중지 후 보내기",
+        ["nextBlank"] = "다음 빈칸",
         ["sendShortcut"] = "보내기 (Enter)",
         ["steerShortcut"] = "진행 방향 전달 (Enter)",
         ["stopAndSendShortcut"] = "중지 후 보내기 (Enter)",

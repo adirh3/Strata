@@ -17,6 +17,7 @@ public sealed partial class InteractiveLabels
         ["plainText"] = "纯文本", ["markdown"] = "Markdown", ["richText"] = "富文本",
         ["forkFromHere"] = "从此处分支", ["send"] = "发送", ["stopGeneration"] = "停止生成",
         ["sendToSteer"] = "发送以引导", ["stopAndSend"] = "停止并发送",
+        ["nextBlank"] = "下一处空白",
         ["sendShortcut"] = "发送 (Enter)", ["steerShortcut"] = "发送以引导 (Enter)",
         ["stopAndSendShortcut"] = "停止并发送 (Enter)",
         ["addToQueue"] = "加入队列", ["steerOrQueueHint"] = "发送以引导 (Enter) · 右键单击加入队列",

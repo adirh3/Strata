@@ -17,6 +17,7 @@ public sealed partial class InteractiveLabels
         ["plainText"] = "Texto simples", ["markdown"] = "Markdown", ["richText"] = "Texto formatado",
         ["forkFromHere"] = "Criar ramificação daqui", ["send"] = "Enviar", ["stopGeneration"] = "Parar geração",
         ["sendToSteer"] = "Enviar para redirecionar", ["stopAndSend"] = "Parar e enviar",
+        ["nextBlank"] = "Próximo campo",
         ["sendShortcut"] = "Enviar (Enter)", ["steerShortcut"] = "Enviar para redirecionar (Enter)",
         ["stopAndSendShortcut"] = "Parar e enviar (Enter)",
         ["addToQueue"] = "Adicionar à fila", ["steerOrQueueHint"] = "Enviar para redirecionar (Enter) · clique com o botão direito para enfileirar",

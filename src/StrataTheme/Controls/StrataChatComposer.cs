@@ -70,6 +70,12 @@ public interface IStrataComposerEditor
 
     /// <summary>Focuses the editor and places its caret at the end of the prompt.</summary>
     void FocusAtEnd();
+
+    /// <summary>
+    /// Focuses the editor and selects <paramref name="length"/> characters from <paramref name="start"/>, so typing
+    /// replaces them (a fill-in prompt's blank). An editor that can't select places its caret after them.
+    /// </summary>
+    void FocusSelect(int start, int length) => FocusAt(start + length);
 }
 
 /// <summary>Event arguments carrying a removed skill chip item.</summary>
@@ -799,12 +805,15 @@ public partial class StrataChatComposer : TemplatedControl
                 if (c._input.SelectionEnd > len)
                     c._input.SelectionEnd = len;
             }
+            // A cleared prompt ends the fill-in guide first, so the send button below stops offering the next blank.
+            c.EndFillInWhenCleared(e.NewValue as string);
             c.Sync();
             c.UpdateInputDirection(e.NewValue as string);
             // Defer so the TextBox has updated its CaretIndex
             Dispatcher.UIThread.Post(() => c.CheckAutoComplete(), DispatcherPriority.Input);
         });
         IsBusyProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
+        AdvancesFillInOnSendProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         IsCompactProperty.Changed.AddClassHandler<StrataChatComposer>(
             static (c, _) => c.PseudoClasses.Set(":compact", c.IsCompact));
         IsEditingProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
@@ -1567,6 +1576,12 @@ public partial class StrataChatComposer : TemplatedControl
             return;
         }
 
+        if (TryHandleFillInKey(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Enter)
         {
             var isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
@@ -1690,6 +1705,9 @@ public partial class StrataChatComposer : TemplatedControl
 
     private void HandleSendAction()
     {
+        if (TryAdvanceFillInOnSend())
+            return;
+
         var promptText = CommitInputText();
         // While dictating, the words still being heard count: the host finishes dictation, then sends them.
         var hasPromptText = !string.IsNullOrWhiteSpace(promptText) || IsRecording;
@@ -2605,10 +2623,14 @@ public partial class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":suggestions-generating", IsSuggestionsGenerating);
         PseudoClasses.Set(":has-mcp-options", HasAnyAvailableMcps() || McpBrowseCommand is not null);
         PseudoClasses.Set(":has-add-options", HasAddOptions());
+        var advancesToBlank = AdvancesToBlank();
+        PseudoClasses.Set(":fill-in-next", advancesToBlank);
 
         if (_sendButton is not null)
         {
-            var actionLabel = IsEditing
+            var actionLabel = advancesToBlank
+                ? InteractiveLabels.Current["nextBlank"]
+                : IsEditing
                 ? EditingSubmitLabel
                 : effectiveBusy
                     ? canSendWhileBusy

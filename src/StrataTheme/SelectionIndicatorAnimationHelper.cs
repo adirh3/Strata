@@ -12,8 +12,8 @@ namespace StrataTheme;
 /// <summary>
 /// Attached property that slides the selection indicator (PART_SelectedPipe) from
 /// the previous item to the newly selected item using a Composition Offset animation.
-/// Opacity is left entirely to XAML styles — only Offset is animated.
-/// The animation ends at the natural layout offset so there's no residual drift.
+/// Opacity is left entirely to XAML styles — only Offset (and, with <see cref="MatchSizeProperty"/>,
+/// Scale) is animated. The animation ends at the natural layout offset so there's no residual drift.
 /// </summary>
 public static class SelectionIndicatorAnimationHelper
 {
@@ -22,6 +22,15 @@ public static class SelectionIndicatorAnimationHelper
     public static readonly AttachedProperty<bool> EnableProperty =
         AvaloniaProperty.RegisterAttached<SelectingItemsControl, bool>(
             "Enable", typeof(SelectionIndicatorAnimationHelper));
+
+    /// <summary>
+    /// The indicator leaves at the old item's size and grows or shrinks into the new one's as it slides, for indicators
+    /// as large as their items (a pill behind each tab of a row). Without it the indicator travels at its new size,
+    /// which suits a fixed mark such as a list's pipe.
+    /// </summary>
+    public static readonly AttachedProperty<bool> MatchSizeProperty =
+        AvaloniaProperty.RegisterAttached<SelectingItemsControl, bool>(
+            "MatchSize", typeof(SelectionIndicatorAnimationHelper));
 
     static SelectionIndicatorAnimationHelper()
     {
@@ -33,6 +42,12 @@ public static class SelectionIndicatorAnimationHelper
 
     public static void SetEnable(SelectingItemsControl control, bool value) =>
         control.SetValue(EnableProperty, value);
+
+    public static bool GetMatchSize(SelectingItemsControl control) =>
+        control.GetValue(MatchSizeProperty);
+
+    public static void SetMatchSize(SelectingItemsControl control, bool value) =>
+        control.SetValue(MatchSizeProperty, value);
 
     private static void OnEnableChanged(SelectingItemsControl control, AvaloniaPropertyChangedEventArgs e)
     {
@@ -80,7 +95,11 @@ public static class SelectionIndicatorAnimationHelper
                             // Delta: how far the new indicator needs to shift to appear at the old position
                             var dx = (float)(prevPos.Value.X - nextPos.Value.X);
                             var dy = (float)(prevPos.Value.Y - nextPos.Value.Y);
-                            PlaySlideAnimation(nextInd, dx, dy);
+                            // And how much it must stretch to start at the old one's size
+                            var startScale = GetMatchSize(control) && nextInd.Bounds is { Width: > 0, Height: > 0 } next
+                                ? new Vector3((float)(prevInd.Bounds.Width / next.Width), (float)(prevInd.Bounds.Height / next.Height), 1f)
+                                : Vector3.One;
+                            PlaySlideAnimation(nextInd, dx, dy, startScale);
                             return;
                         }
                     }
@@ -92,7 +111,7 @@ public static class SelectionIndicatorAnimationHelper
         PlayScaleIn(nextInd);
     }
 
-    private static void PlaySlideAnimation(Visual indicator, float dx, float dy)
+    private static void PlaySlideAnimation(Visual indicator, float dx, float dy, Vector3 startScale)
     {
         var visual = ElementComposition.GetElementVisual(indicator);
         if (visual is null)
@@ -122,6 +141,22 @@ public static class SelectionIndicatorAnimationHelper
         offsetAnim.Duration = TimeSpan.FromMilliseconds(250);
 
         visual.StartAnimation("Offset", offsetAnim);
+
+        // Matching sizes: scaled from its top-left corner, which the offset carries from the old item's to the new
+        // one's, the indicator's edges travel from the old item's to the new one's, so it reshapes as it moves.
+        if (startScale != Vector3.One)
+        {
+            visual.CenterPoint = new Avalonia.Vector3D(0, 0, 0);
+
+            var sizeAnim = comp.CreateStableVector3KeyFrameAnimation();
+            sizeAnim.Target = "Scale";
+            sizeAnim.InsertKeyFrame(0f, startScale);
+            sizeAnim.InsertKeyFrame(1f, Vector3.One);
+            sizeAnim.Duration = offsetAnim.Duration;
+
+            visual.StartAnimation("Scale", sizeAnim);
+            return;
+        }
 
         // For vertical lists (ListBox): add a subtle elongation during travel
         // that settles with a soft overshoot — refined, not cartoony.
