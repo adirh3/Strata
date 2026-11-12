@@ -126,6 +126,7 @@ public class StrataQuestionCardTooltipTests
             // Read back answered, as a transcript rebuilds it: the answer arrives by binding, not by a click.
             var card = new StrataQuestionCard
             {
+                Classes = { "motion-disabled" },
                 Question = "Which color?",
                 Options = "Blue,Green",
                 AllowFreeText = true,

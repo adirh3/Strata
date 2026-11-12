@@ -9,6 +9,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
@@ -27,8 +28,10 @@ namespace StrataTheme.Controls;
 /// <para><b>Template parts:</b> PART_Root (Border), PART_QuestionText (StrataMarkdown),
 /// PART_OptionsPanel (Panel), PART_FreeTextBox (TextBox),
 /// PART_FreeTextSubmit (Button), PART_MultiSubmit (Button), PART_ExpandButton (Button – the answered chip,
-/// which opens the card), PART_CollapseButton (Button – closes an opened answered card).</para>
+/// which opens the card), PART_CollapseButton (Button – closes an opened answered card),
+/// PART_Layout (QuestionCardPanel).</para>
 /// <para><b>Pseudo-classes:</b> :answered, :expanded, :expired, :has-free-text, :multi-select, :touch.</para>
+/// <para><b>Classes:</b> <c>motion-disabled</c> opens and closes at once.</para>
 /// </remarks>
 public class StrataQuestionCard : TemplatedControl
 {
@@ -38,6 +41,8 @@ public class StrataQuestionCard : TemplatedControl
     private Button? _multiSubmit;
     private Button? _expandButton;
     private Button? _collapseButton;
+    private QuestionCardPanel? _layout;
+    private bool _isReaderToggle;
     private readonly HashSet<string> _selectedOptions = new();
     private bool _hasInput;
 
@@ -101,6 +106,7 @@ public class StrataQuestionCard : TemplatedControl
         {
             c.UpdatePseudoClasses();
             c.ApplyClosedState();
+            c.ApplyExpandedState();
         });
         IsExpiredProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) =>
         {
@@ -108,7 +114,11 @@ public class StrataQuestionCard : TemplatedControl
             c.ApplyClosedState();
         });
         SelectedAnswerProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.ApplyClosedState());
-        IsExpandedProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
+        IsExpandedProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) =>
+        {
+            c.UpdatePseudoClasses();
+            c.ApplyExpandedState();
+        });
         AllowFreeTextProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         AllowMultiSelectProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.UpdatePseudoClasses());
         TouchModeProperty.Changed.AddClassHandler<StrataQuestionCard>((c, _) => c.OnTouchModeChanged());
@@ -216,6 +226,7 @@ public class StrataQuestionCard : TemplatedControl
         _multiSubmit = e.NameScope.Find<Button>("PART_MultiSubmit");
         _expandButton = e.NameScope.Find<Button>("PART_ExpandButton");
         _collapseButton = e.NameScope.Find<Button>("PART_CollapseButton");
+        _layout = e.NameScope.Find<QuestionCardPanel>("PART_Layout");
 
         if (_freeTextSubmit is not null)
             _freeTextSubmit.Click += OnFreeTextSubmitClick;
@@ -235,6 +246,7 @@ public class StrataQuestionCard : TemplatedControl
         RebuildOptions();
         UpdatePseudoClasses();
         SyncFreeTextListener();
+        ApplyExpandedState();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -375,9 +387,26 @@ public class StrataQuestionCard : TemplatedControl
         return answer.Split(", ").Select(static part => part.Trim()).Where(static part => part.Length > 0).Distinct().ToList();
     }
 
-    private void OnExpandClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => IsExpanded = true;
+    private void ApplyExpandedState() =>
+        _layout?.SetOpen(!IsAnswered || IsExpanded, _isReaderToggle && !Classes.Contains("motion-disabled"));
 
-    private void OnCollapseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => IsExpanded = false;
+    private void SetExpandedByReader(bool expanded)
+    {
+        this.FindAncestorOfType<StrataChatShell>()?.PreserveViewport();
+        _isReaderToggle = true;
+        try
+        {
+            SetCurrentValue(IsExpandedProperty, expanded);
+        }
+        finally
+        {
+            _isReaderToggle = false;
+        }
+    }
+
+    private void OnExpandClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SetExpandedByReader(true);
+
+    private void OnCollapseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SetExpandedByReader(false);
 
     private void OnOptionClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {

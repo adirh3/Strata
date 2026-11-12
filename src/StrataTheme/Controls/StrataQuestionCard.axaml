@@ -23,7 +23,7 @@
             </Transitions>
           </Border.Transitions>
 
-          <Panel>
+          <controls:QuestionCardPanel Name="PART_Layout">
             <Panel.Styles>
               <!-- The chip that opens an answered card, and the chevron that closes it again. -->
               <Style Selector="Button.question-toggle">
@@ -195,7 +195,6 @@
                  opens the card to the whole question and the options, with the answer marked. -->
             <Button Name="PART_ExpandButton"
                     Classes="subtle question-toggle"
-                    IsVisible="False"
                     CornerRadius="15"
                     AutomationProperties.Name="{controls:InteractiveLabel showQuestion}">
             <DockPanel Name="PART_AnsweredRow" Margin="10,4,4,5">
@@ -243,7 +242,7 @@
                          ToolTip.Tip="{TemplateBinding Question}" />
             </DockPanel>
             </Button>
-          </Panel>
+          </controls:QuestionCardPanel>
         </Border>
       </ControlTemplate>
     </Setter>
@@ -259,12 +258,6 @@
     </Style>
 
     <!-- ─── Answered: the card settles into a chip, which opens back to the whole card ─── -->
-    <Style Selector="^:answered:not(:expanded) /template/ StackPanel#PART_Body">
-      <Setter Property="IsVisible" Value="False" />
-    </Style>
-    <Style Selector="^:answered:not(:expanded) /template/ Button#PART_ExpandButton">
-      <Setter Property="IsVisible" Value="True" />
-    </Style>
     <Style Selector="^:answered /template/ Button#PART_CollapseButton">
       <Setter Property="IsVisible" Value="True" />
     </Style>

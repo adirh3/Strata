@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.78" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.79" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -453,6 +453,11 @@ comparison), and `more` (offered when filters leave two or fewer options; it sen
 Model-facing text keeps invariant numbers with their units; receipts and copy use the culture.
 
 ## Question input state
+
+An answered `StrataQuestionCard` opens from its chip in 220 ms and folds back in 170 ms,
+with eased size and opacity changes that keep the question and options at their natural
+layout. A reader's toggle preserves the chat viewport; reversing mid-motion continues
+from the current size. Programmatic changes and `motion-disabled` apply immediately.
 
 `StrataQuestionCard.HasInput` is a read-only property indicating that the card contains
 free text or selected options. Hosts can bind it `OneWayToSource` to protect unsubmitted
