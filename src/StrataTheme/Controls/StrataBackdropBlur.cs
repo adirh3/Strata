@@ -196,7 +196,13 @@ public class StrataBackdropBlur : Control
                     return;
 
                 foreach (var glass in attached)
-                    glass.InvalidateVisual();
+                {
+                    if (glass.IsEffectivelyVisible && glass.BlurRadius > 0
+                        && glass.Bounds.Width > 0 && glass.Bounds.Height > 0)
+                    {
+                        glass.InvalidateVisual();
+                    }
+                }
             }, HealDelay);
         }, DispatcherPriority.Background);
     }

@@ -60,13 +60,24 @@
                         Height="20"
                         RenderTransformOrigin="0.5,0.5"
                         RenderTransform="scaleX(1) scaleY(1)">
+                    <!-- Bounce the pixels, not layout, so a list of switches never remeasures on every frame. -->
                     <Ellipse x:Name="SwitchKnobOff"
                              Fill="{DynamicResource Brush.TextSecondary}"
-                             Width="12" Height="12" />
+                             RenderTransformOrigin="50%,50%"
+                             Width="12" Height="12">
+                      <Ellipse.RenderTransform>
+                        <ScaleTransform />
+                      </Ellipse.RenderTransform>
+                    </Ellipse>
                     <Ellipse x:Name="SwitchKnobOn"
                              Fill="White"
+                             RenderTransformOrigin="50%,50%"
                              Width="12" Height="12"
-                             Opacity="0" />
+                             Opacity="0">
+                      <Ellipse.RenderTransform>
+                        <ScaleTransform />
+                      </Ellipse.RenderTransform>
+                    </Ellipse>
                   </Grid>
                 </Canvas>
               </Grid>
@@ -182,23 +193,25 @@
           </Style>
           <Style Selector="^ /template/ Ellipse#SwitchKnobOn">
             <Setter Property="Opacity" Value="1" />
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
             <Style.Animations>
               <Animation Duration="0:0:0.4" FillMode="Forward">
                 <KeyFrame Cue="0%">
-                  <Setter Property="Width" Value="10" />
-                  <Setter Property="Height" Value="10" />
+                  <Setter Property="ScaleTransform.ScaleX" Value="0.8333333333333333" />
+                  <Setter Property="ScaleTransform.ScaleY" Value="0.8333333333333333" />
                 </KeyFrame>
                 <KeyFrame Cue="45%">
-                  <Setter Property="Width" Value="15" />
-                  <Setter Property="Height" Value="15" />
+                  <Setter Property="ScaleTransform.ScaleX" Value="1.25" />
+                  <Setter Property="ScaleTransform.ScaleY" Value="1.25" />
                 </KeyFrame>
                 <KeyFrame Cue="75%">
-                  <Setter Property="Width" Value="11" />
-                  <Setter Property="Height" Value="11" />
+                  <Setter Property="ScaleTransform.ScaleX" Value="0.9166666666666666" />
+                  <Setter Property="ScaleTransform.ScaleY" Value="0.9166666666666666" />
                 </KeyFrame>
                 <KeyFrame Cue="100%">
-                  <Setter Property="Width" Value="12" />
-                  <Setter Property="Height" Value="12" />
+                  <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                  <Setter Property="ScaleTransform.ScaleY" Value="1" />
                 </KeyFrame>
               </Animation>
             </Style.Animations>
@@ -236,19 +249,21 @@
           </Style>
           <Style Selector="^ /template/ Ellipse#SwitchKnobOff">
             <Setter Property="Opacity" Value="1" />
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
             <Style.Animations>
               <Animation Duration="0:0:0.35" FillMode="Forward">
                 <KeyFrame Cue="0%">
-                  <Setter Property="Width" Value="14" />
-                  <Setter Property="Height" Value="14" />
+                  <Setter Property="ScaleTransform.ScaleX" Value="1.1666666666666667" />
+                  <Setter Property="ScaleTransform.ScaleY" Value="1.1666666666666667" />
                 </KeyFrame>
                 <KeyFrame Cue="50%">
-                  <Setter Property="Width" Value="10" />
-                  <Setter Property="Height" Value="10" />
+                  <Setter Property="ScaleTransform.ScaleX" Value="0.8333333333333333" />
+                  <Setter Property="ScaleTransform.ScaleY" Value="0.8333333333333333" />
                 </KeyFrame>
                 <KeyFrame Cue="100%">
-                  <Setter Property="Width" Value="12" />
-                  <Setter Property="Height" Value="12" />
+                  <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                  <Setter Property="ScaleTransform.ScaleY" Value="1" />
                 </KeyFrame>
               </Animation>
             </Style.Animations>

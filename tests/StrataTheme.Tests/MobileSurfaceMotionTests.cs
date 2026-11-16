@@ -17,6 +17,40 @@ namespace StrataTheme.Tests;
 public sealed class MobileSurfaceMotionTests(AvaloniaFixture fixture)
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task SwitchKnobBounceChangesPixelsWithoutRemeasuringItsRow(bool enabled) =>
+        fixture.Dispatch(async () =>
+        {
+            var toggle = new ToggleSwitch { IsChecked = enabled };
+            var host = new MeasuredBorder { Child = toggle };
+            var window = CreateWindow(host);
+            try
+            {
+                var name = enabled ? "SwitchKnobOn" : "SwitchKnobOff";
+                var knob = toggle.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Ellipse>()
+                    .Single(control => control.Name == name);
+                window.UpdateLayout();
+                var measures = host.Measures;
+                var scales = new List<double>();
+                for (var frame = 0; frame < 14; frame++)
+                {
+                    await Task.Delay(30);
+                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                    Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
+                    Assert.Equal(12, knob.Width);
+                    Assert.Equal(12, knob.Height);
+                    scales.Add(knob.RenderTransform!.Value.M11);
+                }
+                Assert.Equal(measures, host.Measures);
+                Assert.Contains(scales, scale => Math.Abs(scale - 1) > 0.03);
+                Assert.Equal(1, scales[^1], precision: 2);
+            }
+            finally { window.Close(); }
+        });
+
+    [Theory]
     [InlineData(FlowDirection.LeftToRight)]
     [InlineData(FlowDirection.RightToLeft)]
     public Task MobileComposerArrangesOneRowThenRevealsASeparateToolbar(FlowDirection direction) =>
