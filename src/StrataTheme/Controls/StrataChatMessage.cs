@@ -1464,6 +1464,7 @@ public class StrataChatMessage : TemplatedControl
 
         var button = new Button
         {
+            Name = "PART_SelectionReplyButton",
             // Never takes focus from the text, and acts on press: a focus change on press could
             // otherwise clear the very selection being replied to before a release-click lands.
             Focusable = false,

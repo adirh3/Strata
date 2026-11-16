@@ -76,7 +76,7 @@
     </Setter>
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-image:pointerover StackPanel.strata-md-image-actions, :is(controls|StrataMarkdown) Border.strata-md-image:focus-within StackPanel.strata-md-image-actions">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-image:pointerover StackPanel.strata-md-image-actions, :is(controls|StrataMarkdown) :is(Border).strata-md-image:focus-within StackPanel.strata-md-image-actions">
     <Setter Property="Opacity" Value="1" />
   </Style>
 
@@ -397,7 +397,7 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-table:pointerover Button.strata-md-table-copy-button">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table:pointerover Button.strata-md-table-copy-button">
     <Setter Property="Opacity" Value="1" />
   </Style>
 
@@ -405,7 +405,7 @@
     <Setter Property="Opacity" Value="1" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) Border.strata-md-table:pointerover Button.strata-md-table-copy-button TextBlock">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table:pointerover Button.strata-md-table-copy-button TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
   </Style>
 

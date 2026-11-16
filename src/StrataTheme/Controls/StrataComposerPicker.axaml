@@ -602,11 +602,11 @@
     <Setter Property="Background" Value="{DynamicResource Brush.ComposerToolCatchPressed}" />
   </Style>
 
-  <Style Selector="Button.picker-link TextBlock">
+  <Style Selector="Button#PART_ManageButton.picker-link TextBlock">
     <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
     <Setter Property="FontSize" Value="{Binding FontSize, RelativeSource={RelativeSource AncestorType=Button}}" />
   </Style>
-  <Style Selector="Button.picker-link PathIcon">
+  <Style Selector="Button#PART_ManageButton.picker-link PathIcon">
     <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
   </Style>
 </Styles>

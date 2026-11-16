@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.79" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.80" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -112,6 +112,8 @@ Markdown's renderer-only helper styles are scoped to its content tree, including
 Markdown controls, avoiding inactive style subscriptions on unrelated application controls.
 Full-screen image-viewer helpers remain available in their separate overlay; colors, themes
 and text rendering are unchanged.
+Image quick actions appear while the image is hovered or contains keyboard focus; a table's
+copy button brightens while its table is hovered.
 
 Markdown paragraphs, lists and quotes follow their visible prose, independently of the interface
 language; inline code and hidden link destinations do not override that direction. Table column

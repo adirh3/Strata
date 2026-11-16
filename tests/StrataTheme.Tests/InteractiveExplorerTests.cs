@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -277,6 +278,59 @@ public class InteractiveExplorerTests(AvaloniaFixture fixture)
     }
 
     // ── Rendered ──
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SortPopupAndTouchSheetKeepTheirStylesAndApplyTheChosenOrder(bool touch)
+    {
+        await fixture.Dispatch(async () =>
+        {
+            var control = new StrataInteractiveBlock { Definition = Definition(), IsHosted = true, TouchMode = touch };
+            var window = StrataInteractiveBlockTests.Show(control);
+            try
+            {
+                SetEnablePopupOverlayLayer(window.GetVisualDescendants().OfType<VisualLayerManager>().Single(), true);
+                Settle(window);
+                Click(Find<Button>(control, "ExplorerSort"));
+                var options = Find<StackPanel>(window, "ExplorerSortOptions");
+                var sheet = touch ? Find<StrataBottomSheet>(window, "InteractionPicker") : null;
+                var buttons = options.Children.OfType<Button>().ToArray();
+                Assert.True(buttons.Length > 1);
+                Assert.Contains(touch ? "explorer-sheet" : "explorer-menu", options.Classes);
+                if (touch)
+                    Assert.True(buttons[0].MinHeight >= 48);
+                else
+                {
+                    Assert.Equal(34, buttons[0].MinHeight);
+                    Assert.Equal(new Thickness(10, 6), buttons[0].Padding);
+                    Assert.True(buttons[0].TryFindResource("Brush.AccentDefault", buttons[0].ActualThemeVariant, out var accent));
+                    Assert.Same(accent, buttons[0].Foreground);
+                }
+
+                Click(buttons[1]);
+                Assert.Equal(InteractiveExplorerModel.For(Definition()).Sorts.First().Key,
+                    InteractiveState.Parse(control.StateJson!).Values["sort"]);
+                if (sheet is not null)
+                    Assert.False(sheet.IsOpen);
+                else
+                {
+                    var deadline = DateTime.UtcNow.AddSeconds(2);
+                    while (options.IsAttachedToVisualTree() && DateTime.UtcNow < deadline)
+                    {
+                        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                        await Task.Delay(16);
+                        Settle(window);
+                    }
+                    Assert.False(options.IsAttachedToVisualTree());
+                }
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_EnablePopupOverlayLayer")]
+    private static extern void SetEnablePopupOverlayLayer(VisualLayerManager layers, bool value);
 
     private static T Find<T>(Control root, string name) where T : Control =>
         root.GetVisualDescendants().OfType<T>().First(control => control.Name == name);

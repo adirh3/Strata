@@ -17,6 +17,67 @@ namespace StrataTheme.Tests;
 public sealed class StrataMarkdownStyleScopeTests(AvaloniaFixture fixture)
 {
     [Theory]
+    [InlineData("Light")]
+    [InlineData("Dark")]
+    public async Task GeneratedImageAndTableRespondToHoverAndKeyboardFocus(string theme)
+    {
+        var image = Path.Combine(Path.GetTempPath(), $"strata-style-image-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(image, Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQMcAAAAASUVORK5CYII="));
+        try
+        {
+            await fixture.Dispatch(async () =>
+            {
+                var markdown = new StrataMarkdown
+                {
+                    StreamingRebuildThrottleMs = 0,
+                    Markdown = $"![Fixture]({image})\n\n| Header |\n| --- |\n| Value |",
+                };
+                var window = CreateWindow(markdown, theme);
+                try
+                {
+                    Pump(window);
+                    var frame = FindBorder(markdown, "strata-md-image");
+                    var actions = frame.GetVisualDescendants().OfType<StackPanel>()
+                        .Single(control => control.Name == "MarkdownImageActions");
+                    var table = FindBorder(markdown, "strata-md-table");
+                    var copy = table.GetVisualDescendants().OfType<Button>()
+                        .Single(control => control.Classes.Contains("strata-md-table-copy-button"));
+                    Assert.Equal(0, actions.Opacity);
+                    Assert.Equal(0.68, copy.Opacity);
+
+                    ((IPseudoClasses)frame.Classes).Set(":pointerover", true);
+                    ((IPseudoClasses)table.Classes).Set(":pointerover", true);
+                    await SettleOpacity(actions, 1, window);
+                    Assert.Equal(1, copy.Opacity);
+                    AssertBrush(window, "Brush.TextPrimary", copy.GetVisualDescendants().OfType<TextBlock>().Single().Foreground);
+
+                    ((IPseudoClasses)frame.Classes).Set(":pointerover", false);
+                    ((IPseudoClasses)table.Classes).Set(":pointerover", false);
+                    await SettleOpacity(actions, 0, window);
+                    Assert.Equal(0.68, copy.Opacity);
+                    ((IPseudoClasses)frame.Classes).Set(":focus-within", true);
+                    await SettleOpacity(actions, 1, window);
+                }
+                finally { window.Close(); }
+            });
+        }
+        finally { File.Delete(image); }
+    }
+
+    private static async Task SettleOpacity(Control control, double expected, Window window)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (Math.Abs(control.Opacity - expected) > 0.000001 && DateTime.UtcNow < deadline)
+        {
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Pump(window);
+            await Task.Delay(16);
+        }
+        Assert.Equal(expected, control.Opacity, 3);
+    }
+
+    [Theory]
     [InlineData("Light", false)]
     [InlineData("Dark", false)]
     [InlineData("Light", true)]

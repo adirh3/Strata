@@ -36,6 +36,37 @@ public class StrataComposerPickerTests
     }
 
     [Fact]
+    public async Task ManageFooterKeepsItsLabelAndIconInSyncAndExecutesItsCommand()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var host = Host.Create();
+            try
+            {
+                var command = new RecordingCommand();
+                var picker = host.SkillPicker;
+                picker.ManageCommand = command;
+                Open(picker);
+                var manage = Part<Button>(picker, "_manageButton");
+                manage.Foreground = Brushes.Magenta;
+                manage.FontSize = 17;
+                host.Window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+
+                var label = manage.GetVisualDescendants().OfType<TextBlock>().Single();
+                var icon = manage.GetVisualDescendants().OfType<PathIcon>().Single();
+                Assert.Same(manage.Foreground, label.Foreground);
+                Assert.Same(manage.Foreground, icon.Foreground);
+                Assert.Equal(manage.FontSize, label.FontSize);
+                Click(manage);
+                Assert.Equal(1, command.ExecuteCount);
+                Assert.False(PopupOf(picker).IsOpen);
+            }
+            finally { host.Window.Close(); }
+        });
+    }
+
+    [Fact]
     public async Task SkillPicker_ChoosesASkill_StaysOpen_AndRemovesItThroughTheHostCommand()
     {
         await _fixture.Dispatch(() =>

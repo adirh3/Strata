@@ -1267,17 +1267,17 @@
     <Setter Property="Opacity" Value="1" />
   </Style>
 
-  <!-- The sort menu opens in a flyout, outside the block, so its root class owns these rules. -->
-  <Style Selector="StackPanel.explorer-menu > Button.explorer-menu-item">
+  <!-- The sort menu opens outside the block, so its named popup root owns these rules. -->
+  <Style Selector="StackPanel#ExplorerSortOptions.explorer-menu > Button.explorer-menu-item">
     <Setter Property="MinHeight" Value="34" />
     <Setter Property="Padding" Value="10,6" />
     <Setter Property="FontWeight" Value="Normal" />
     <Setter Property="CornerRadius" Value="6" />
   </Style>
-  <Style Selector="StackPanel.explorer-menu > Button.explorer-menu-item.selected">
+  <Style Selector="StackPanel#ExplorerSortOptions.explorer-menu > Button.explorer-menu-item.selected">
     <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
   </Style>
-  <Style Selector="StackPanel.explorer-menu PathIcon.sheet-check">
+  <Style Selector="StackPanel#ExplorerSortOptions.explorer-menu PathIcon.sheet-check">
     <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
   </Style>
 

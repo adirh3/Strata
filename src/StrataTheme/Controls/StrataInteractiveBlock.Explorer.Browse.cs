@@ -271,6 +271,7 @@ public partial class StrataInteractiveBlock
             options.Add(custom);
         var menu = new StackPanel
         {
+            Name = "ExplorerSortOptions",
             Spacing = 2, FlowDirection = FlowDirection, MinWidth = TouchMode ? 0 : 220,
             Classes = { TouchMode ? "explorer-sheet" : "explorer-menu" }
         };
