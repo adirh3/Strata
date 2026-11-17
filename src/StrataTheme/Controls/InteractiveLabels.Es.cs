@@ -12,6 +12,7 @@ public sealed partial class InteractiveLabels
         ["clipboardUnavailable"] = "Portapapeles no disponible",
         ["cut"] = "Cortar",
         ["paste"] = "Pegar",
+        ["pasteAsPlainText"] = "Pegar como texto sin formato",
         ["selectAllText"] = "Seleccionar todo",
         ["selectAllOptions"] = "Seleccionar todo",
         ["save"] = "Guardar",

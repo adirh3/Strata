@@ -54,6 +54,7 @@ public sealed partial class InteractiveLabels
         // Shared control chrome. Hosts may still override the controls' label properties.
         ["copy"] = "Copy", ["copied"] = "Copied!", ["copyFailed"] = "Copy failed",
         ["clipboardUnavailable"] = "Clipboard unavailable", ["cut"] = "Cut", ["paste"] = "Paste",
+        ["pasteAsPlainText"] = "Paste as plain text",
         ["selectAllText"] = "Select All", ["selectAllOptions"] = "Select all",
         ["save"] = "Save", ["edit"] = "Edit", ["retry"] = "Retry",
         ["saveShortcut"] = "Save (Enter)", ["cancelShortcut"] = "Cancel (Esc)",
@@ -329,6 +330,7 @@ public sealed partial class InteractiveLabels
     {
         ["copy"] = "העתקה", ["copied"] = "הועתק!", ["copyFailed"] = "ההעתקה נכשלה",
         ["clipboardUnavailable"] = "לוח ההעתקה אינו זמין", ["cut"] = "גזירה", ["paste"] = "הדבקה",
+        ["pasteAsPlainText"] = "הדבקה כטקסט רגיל",
         ["selectAllText"] = "בחירת הכול", ["selectAllOptions"] = "בחירת הכול",
         ["save"] = "שמירה", ["edit"] = "עריכה", ["retry"] = "ניסיון חוזר",
         ["saveShortcut"] = "שמירה (Enter)", ["cancelShortcut"] = "ביטול (Esc)",

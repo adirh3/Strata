@@ -8,6 +8,7 @@ public sealed partial class InteractiveLabels
     {
         ["copy"] = "复制", ["copied"] = "已复制！", ["copyFailed"] = "复制失败",
         ["clipboardUnavailable"] = "剪贴板不可用", ["cut"] = "剪切", ["paste"] = "粘贴",
+        ["pasteAsPlainText"] = "粘贴为纯文本",
         ["selectAllText"] = "全选", ["selectAllOptions"] = "全选",
         ["save"] = "保存", ["edit"] = "编辑", ["retry"] = "重试",
         ["saveShortcut"] = "保存 (Enter)", ["cancelShortcut"] = "取消 (Esc)",

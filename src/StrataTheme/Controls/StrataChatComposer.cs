@@ -577,7 +577,7 @@ public partial class StrataChatComposer : TemplatedControl
 
     /// <summary>
     /// Additional clipboard data formats the host wants to handle itself before
-    /// the composer falls back to inserting plain text.
+    /// the composer falls back to inserting Markdown or converted rich text.
     /// </summary>
     public static readonly StyledProperty<IEnumerable?> ClipboardPasteInterceptFormatsProperty =
         AvaloniaProperty.Register<StrataChatComposer, IEnumerable?>(nameof(ClipboardPasteInterceptFormats));
@@ -1435,6 +1435,7 @@ public partial class StrataChatComposer : TemplatedControl
         var cut = new MenuItem { Header = InteractiveLabels.Current["cut"], InputGesture = new KeyGesture(Key.X, command) };
         var copy = new MenuItem { Header = InteractiveLabels.Current["copy"], InputGesture = new KeyGesture(Key.C, command) };
         var paste = new MenuItem { Header = InteractiveLabels.Current["paste"], InputGesture = new KeyGesture(Key.V, command) };
+        var pastePlain = new MenuItem { Header = InteractiveLabels.Current["pasteAsPlainText"], InputGesture = new KeyGesture(Key.V, command | KeyModifiers.Shift) };
         var selectAll = new MenuItem { Header = InteractiveLabels.Current["selectAllText"], InputGesture = new KeyGesture(Key.A, command) };
 
         async void DoCut()
@@ -1466,11 +1467,12 @@ public partial class StrataChatComposer : TemplatedControl
         cut.Click += (_, _) => DoCut();
         copy.Click += (_, _) => DoCopy();
         paste.Click += async (_, _) => await HandlePasteFromKeyboardAsync();
+        pastePlain.Click += async (_, _) => await HandlePasteFromKeyboardAsync(plainTextOnly: true);
         selectAll.Click += (_, _) => DoSelectAll();
 
         var menu = new ContextMenu
         {
-            Items = { cut, copy, paste, new Separator(), selectAll }
+            Items = { cut, copy, paste, pastePlain, new Separator(), selectAll }
         };
 
         menu.Opening += (_, _) =>
@@ -1529,7 +1531,7 @@ public partial class StrataChatComposer : TemplatedControl
         if (e.Key == Key.V && HasCommandModifier(e.KeyModifiers))
         {
             e.Handled = true;
-            _ = HandlePasteFromKeyboardAsync();
+            _ = HandlePasteFromKeyboardAsync(plainTextOnly: e.KeyModifiers.HasFlag(KeyModifiers.Shift));
             return;
         }
 
@@ -1622,7 +1624,7 @@ public partial class StrataChatComposer : TemplatedControl
         }
     }
 
-    private async Task HandlePasteFromKeyboardAsync()
+    private async Task HandlePasteFromKeyboardAsync(bool plainTextOnly = false)
     {
         var input = _input;
         var clipboard = input is not null ? TopLevel.GetTopLevel(input)?.Clipboard : null;
@@ -1631,14 +1633,16 @@ public partial class StrataChatComposer : TemplatedControl
 
         try
         {
-            var dataTransfer = await clipboard.TryGetDataAsync().ConfigureAwait(true);
-            if (dataTransfer is not null)
+            using var dataTransfer = await clipboard.TryGetDataAsync().ConfigureAwait(true);
+            if (!plainTextOnly && dataTransfer is not null)
             {
                 if (await TryRaiseClipboardPasteRequestedAsync(dataTransfer).ConfigureAwait(true))
                     return;
             }
 
             var text = await ClipboardExtensions.TryGetTextAsync(clipboard).ConfigureAwait(true);
+            if (!plainTextOnly && dataTransfer is not null)
+                text = await ChatClipboardText.ReadAsync(dataTransfer, text).ConfigureAwait(true);
             if (string.IsNullOrEmpty(text))
                 return;
 

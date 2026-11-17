@@ -8,6 +8,7 @@ public sealed partial class InteractiveLabels
     {
         ["copy"] = "Copiar", ["copied"] = "Copiado!", ["copyFailed"] = "Falha ao copiar",
         ["clipboardUnavailable"] = "Área de transferência indisponível", ["cut"] = "Recortar", ["paste"] = "Colar",
+        ["pasteAsPlainText"] = "Colar como texto simples",
         ["selectAllText"] = "Selecionar tudo", ["selectAllOptions"] = "Selecionar tudo",
         ["save"] = "Salvar", ["edit"] = "Editar", ["retry"] = "Tentar novamente",
         ["saveShortcut"] = "Salvar (Enter)", ["cancelShortcut"] = "Cancelar (Esc)",

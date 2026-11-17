@@ -12,6 +12,7 @@ public sealed partial class InteractiveLabels
         ["clipboardUnavailable"] = "Zwischenablage nicht verfügbar",
         ["cut"] = "Ausschneiden",
         ["paste"] = "Einfügen",
+        ["pasteAsPlainText"] = "Als Klartext einfügen",
         ["selectAllText"] = "Alles auswählen",
         ["selectAllOptions"] = "Alle auswählen",
         ["save"] = "Speichern",

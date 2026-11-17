@@ -12,6 +12,7 @@ public sealed partial class InteractiveLabels
         ["clipboardUnavailable"] = "클립보드를 사용할 수 없음",
         ["cut"] = "잘라내기",
         ["paste"] = "붙여넣기",
+        ["pasteAsPlainText"] = "일반 텍스트로 붙여넣기",
         ["selectAllText"] = "모두 선택",
         ["selectAllOptions"] = "모두 선택",
         ["save"] = "저장",

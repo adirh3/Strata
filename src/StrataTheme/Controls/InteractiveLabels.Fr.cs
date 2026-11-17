@@ -12,6 +12,7 @@ public sealed partial class InteractiveLabels
         ["clipboardUnavailable"] = "Presse-papiers indisponible",
         ["cut"] = "Couper",
         ["paste"] = "Coller",
+        ["pasteAsPlainText"] = "Coller en texte brut",
         ["selectAllText"] = "Tout sélectionner",
         ["selectAllOptions"] = "Tout sélectionner",
         ["save"] = "Enregistrer",

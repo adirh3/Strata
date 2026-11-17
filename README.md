@@ -16,7 +16,7 @@ Strata UI prioritizes readability, consistency, and accessible contrast across L
 Or, if published as a NuGet package:
 
 ```xml
-<PackageReference Include="StrataUI.Theme" Version="0.3.80" />
+<PackageReference Include="StrataUI.Theme" Version="0.3.81" />
 ```
 
 ### 2. Apply the theme in `App.axaml`
@@ -646,8 +646,19 @@ show it. The chips row breaks its rows by the chips' resting widths and keeps th
 end of each, so a chip widens in place instead of jumping to the next row. Touch chips
 (`Classes="mobile"`) always show their remove button.
 
-## Mobile composer
+## Composer paste
 
+The desktop composer's Paste command preserves explicit Markdown clipboard data as-is and
+converts HTML/RTF rich text to editable Markdown, including links, emphasis, headings, lists,
+code and tables. Native Windows CF_HTML, macOS HTML/RTF and Linux MIME formats are supported.
+Source copied from code editors keeps its original whitespace and Markdown rather than converting
+syntax-highlighted HTML. Normal-weight Google Docs wrappers do not make the pasted document bold.
+Ctrl+Shift+V (Cmd+Shift+V on macOS), or **Paste as plain text** in the input's context menu,
+inserts only the clipboard's plain-text representation, bypassing host attachment/context imports.
+Lumi's host paste handler shares the `ChatClipboardText` reader after its own formats.
+Fonts, colours and other presentation without a Markdown equivalent are not retained.
+
+## Mobile composer
 `StrataChatComposer` with `Classes="mobile"` supports an optional `IsCompact` presentation.
 Set it only for an unfocused, empty draft, then clear it on input focus or when draft content
 is present. The layout smoothly unfolds from one row into an editor above the secondary tools;

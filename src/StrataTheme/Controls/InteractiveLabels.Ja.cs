@@ -12,6 +12,7 @@ public sealed partial class InteractiveLabels
         ["clipboardUnavailable"] = "クリップボードを利用できません",
         ["cut"] = "切り取り",
         ["paste"] = "貼り付け",
+        ["pasteAsPlainText"] = "プレーンテキストとして貼り付け",
         ["selectAllText"] = "すべて選択",
         ["selectAllOptions"] = "すべて選択",
         ["save"] = "保存",

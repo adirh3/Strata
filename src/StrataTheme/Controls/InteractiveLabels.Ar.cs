@@ -12,6 +12,7 @@ public sealed partial class InteractiveLabels
         ["clipboardUnavailable"] = "الحافظة غير متاحة",
         ["cut"] = "قص",
         ["paste"] = "لصق",
+        ["pasteAsPlainText"] = "لصق كنص عادي",
         ["selectAllText"] = "تحديد الكل",
         ["selectAllOptions"] = "تحديد الكل",
         ["save"] = "حفظ",
