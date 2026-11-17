@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Styling;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using TextMateSharp.Grammars;
 using TextMateSharp.Registry;
 using TextMateSharp.Themes;
@@ -37,14 +39,15 @@ public class StrataCodeBlock : Control
     public static readonly StyledProperty<TextWrapping> TextWrappingProperty =
         AvaloniaProperty.Register<StrataCodeBlock, TextWrapping>(nameof(TextWrapping), TextWrapping.NoWrap);
 
-    // ── Shared TextMate state (expensive to create) ──────────────────────────
-    private static RegistryOptions? s_darkOptions;
-    private static Registry? s_darkRegistry;
-    private static RegistryOptions? s_lightOptions;
-    private static Registry? s_lightRegistry;
-
-    // ── Grammar cache (scope → grammar) ──────────────────────────────────────
-    private static readonly Dictionary<string, IGrammar> s_grammarCache = new();
+    // Type initialization precedes the fallback guard; defer TextMate state until highlighting.
+    private static class HighlightingState
+    {
+        internal static RegistryOptions? DarkOptions;
+        internal static Registry? DarkRegistry;
+        internal static RegistryOptions? LightOptions;
+        internal static Registry? LightRegistry;
+        internal static readonly Dictionary<string, IGrammar> GrammarCache = new();
+    }
 
     // ── Per-theme brush lookup (color ID → immutable brush) ──────────────────
     private static Dictionary<int, IBrush>? s_darkBrushMap;
@@ -162,9 +165,9 @@ public class StrataCodeBlock : Control
         {
             spans = Highlight(code, language, isDark);
         }
-        catch
+        catch (Exception error)
         {
-            // Graceful fallback: render plain text.
+            Trace.TraceWarning($"[StrataCodeBlock] Syntax highlighting failed; rendering plain text: {error}");
             spans = null;
         }
 
@@ -205,6 +208,8 @@ public class StrataCodeBlock : Control
     /// Tokenizes <paramref name="code"/> and returns its styled ranges, merging neighbours that share
     /// a style. Returns null when the language has no grammar, so the code renders as plain text.
     /// </summary>
+    // JIT dependency resolution must happen inside the caller's exception guard.
+    [MethodImpl(MethodImplOptions.NoInlining)]
     private static List<CodeSpan>? Highlight(string code, string? language, bool isDark)
     {
         if (string.IsNullOrWhiteSpace(language))
@@ -333,22 +338,22 @@ public class StrataCodeBlock : Control
     {
         if (isDark)
         {
-            s_darkOptions ??= new RegistryOptions(ThemeName.DarkPlus);
-            s_darkRegistry ??= new Registry(s_darkOptions);
-            return (s_darkOptions, s_darkRegistry);
+            HighlightingState.DarkOptions ??= new RegistryOptions(ThemeName.DarkPlus);
+            HighlightingState.DarkRegistry ??= new Registry(HighlightingState.DarkOptions);
+            return (HighlightingState.DarkOptions, HighlightingState.DarkRegistry);
         }
         else
         {
-            s_lightOptions ??= new RegistryOptions(ThemeName.LightPlus);
-            s_lightRegistry ??= new Registry(s_lightOptions);
-            return (s_lightOptions, s_lightRegistry);
+            HighlightingState.LightOptions ??= new RegistryOptions(ThemeName.LightPlus);
+            HighlightingState.LightRegistry ??= new Registry(HighlightingState.LightOptions);
+            return (HighlightingState.LightOptions, HighlightingState.LightRegistry);
         }
     }
 
     public static IGrammar? ResolveGrammar(RegistryOptions options, Registry registry, string language)
     {
         // Check cache first — avoids repeated extension/scope lookups.
-        if (s_grammarCache.TryGetValue(language, out var cached))
+        if (HighlightingState.GrammarCache.TryGetValue(language, out var cached))
             return cached;
 
         var lang = options.GetLanguageByExtension("." + language);
@@ -369,7 +374,7 @@ public class StrataCodeBlock : Control
 
         var grammar = registry.LoadGrammar(scope);
         if (grammar is not null)
-            s_grammarCache[language] = grammar;
+            HighlightingState.GrammarCache[language] = grammar;
         return grammar;
     }
 
