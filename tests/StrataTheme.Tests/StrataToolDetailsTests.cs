@@ -1,6 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using StrataTheme.Controls;
@@ -40,6 +42,54 @@ public sealed class StrataToolDetailsTests
     [InlineData(null)]
     public void AnythingButFieldLines_StaysMarkdown(string? text)
         => Assert.Null(StrataToolDetails.ParseFields(text));
+
+    [Fact]
+    public Task ToolDetailsHonorHostTemplateStylesAcrossExpansion() =>
+        _fixture.Dispatch(() =>
+        {
+            var call = new StrataAiToolCall { ToolName = "Search" };
+            var window = new Window { Width = 480, Height = 300 };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+            });
+            window.Styles.Add(new Style(selector => selector.OfType<StrataAiToolCall>()
+                .Template().OfType<StrataToolDetails>().Name("PART_Details"))
+            {
+                Setters = { new Setter(Visual.OpacityProperty, 0.6d) }
+            });
+            try
+            {
+                INameScope? scope = null;
+                call.TemplateApplied += (_, args) =>
+                {
+                    if (ReferenceEquals(args.Source, call))
+                        scope = args.NameScope;
+                };
+                window.Content = call;
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var well = call.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "PART_Detail");
+                call.InputParameters = "**Query:** First";
+
+                call.IsExpanded = true;
+                window.UpdateLayout();
+                var scroll = Assert.IsType<ScrollViewer>(well.Child);
+                var details = Assert.IsType<StrataToolDetails>(scroll.Content);
+                Assert.Same(details, scope?.Find<StrataToolDetails>("PART_Details"));
+                Assert.Equal(0.6, details.Opacity);
+                Assert.Equal("**Query:** First", details.Parameters);
+                Assert.True(well.IsVisible);
+
+                call.IsExpanded = false;
+                call.MoreInfo = "New result";
+                Assert.False(well.IsVisible);
+                call.IsExpanded = true;
+                Assert.Same(scroll, well.Child);
+                Assert.Equal("New result", details.Result);
+            }
+            finally { window.Close(); }
+        });
 
     [Fact]
     public async Task OpenedDetails_ShowFieldsThenTheError_AndBuildOnlyWhileShown()

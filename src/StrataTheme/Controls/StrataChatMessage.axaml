@@ -588,18 +588,18 @@
     <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Brush.ChatUserBubbleText}" />
   </Style>
 
-  <Style Selector="TextBox.message-edit-embed /template/ Border#PART_Border">
+  <Style Selector=":is(controls|StrataChatMessage) /template/ TextBox#PART_EditBox.message-edit-embed /template/ Border#PART_Border">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
     <Setter Property="MinHeight" Value="0" />
   </Style>
-  <Style Selector="TextBox.message-edit-embed:focus /template/ Border#PART_Border">
+  <Style Selector=":is(controls|StrataChatMessage) /template/ TextBox#PART_EditBox.message-edit-embed:focus /template/ Border#PART_Border">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />
   </Style>
-  <Style Selector="TextBox.message-edit-embed:pointerover /template/ Border#PART_Border">
+  <Style Selector=":is(controls|StrataChatMessage) /template/ TextBox#PART_EditBox.message-edit-embed:pointerover /template/ Border#PART_Border">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="BoxShadow" Value="0 0 0 0 Transparent" />

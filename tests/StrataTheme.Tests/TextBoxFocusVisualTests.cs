@@ -60,6 +60,7 @@ public sealed class TextBoxFocusVisualTests
                 EditText = "Editable message",
                 IsEditing = true
             };
+            var otherEditor = new TextBox { Classes = { "message-edit-embed" } };
             var window = new Window
             {
                 Width = 420,
@@ -74,7 +75,8 @@ public sealed class TextBoxFocusVisualTests
                 Children =
                 {
                     composer,
-                    message
+                    message,
+                    otherEditor
                 }
             };
             window.Show();
@@ -101,12 +103,22 @@ public sealed class TextBoxFocusVisualTests
 
             var messageEditor = window.GetVisualDescendants()
                 .OfType<TextBox>()
-                .Single(textBox => textBox.Classes.Contains("message-edit-embed"));
+                .Single(textBox => textBox.Name == "PART_EditBox");
             messageEditor.ApplyTemplate();
             var messageAccent = messageEditor.GetVisualDescendants()
                 .OfType<Border>()
                 .Single(border => border.Name == "FocusAccentBar");
             Assert.False(messageAccent.IsVisible);
+            var messageBorder = FindPart<Border>(messageEditor, "PART_Border");
+            Assert.Equal(default, messageBorder.BorderThickness);
+
+            otherEditor.ApplyTemplate();
+            Assert.True(otherEditor.Focus());
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(FindPart<Border>(otherEditor, "PART_Border").BorderThickness.Top > 0);
+            Assert.True(messageEditor.Focus());
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(default, messageBorder.BorderThickness);
 
             window.Close();
         });

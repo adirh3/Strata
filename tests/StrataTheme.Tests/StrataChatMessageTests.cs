@@ -4,10 +4,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using StrataTheme.Controls;
@@ -28,6 +30,120 @@ public class StrataChatMessageTests
     private sealed class PlainPayload
     {
     }
+
+    [Fact]
+    public Task MessagePartsHonorHostStylesAndKeepTheHostDataContext() =>
+        _fixture.Dispatch(() =>
+        {
+            var hostData = new PlainPayload();
+            var edit = new StrataChatMessage { Role = StrataChatRole.Assistant, Content = "Original", IsEditable = true };
+            var hostedEdit = new RecordingCommand();
+            var other = new StrataChatMessage
+            {
+                Role = StrataChatRole.User, Content = "Other message", IsEditable = true,
+                UseInlineEdit = false, EditCommand = hostedEdit
+            };
+            var window = new Window { Width = 480, Height = 420, DataContext = hostData };
+            window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme/"))
+            {
+                Source = new Uri("avares://StrataTheme/StrataTheme.axaml")
+            });
+            window.Styles.Add(new Style(selector => selector.OfType<StrataChatMessage>().Class(":assistant")
+                .Template().OfType<Button>().Name("PART_EditButton"))
+            {
+                Setters = { new Setter(Button.MinWidthProperty, 57d) }
+            });
+            window.Styles.Add(new Style(selector => selector.OfType<StrataChatMessage>()
+                .Template().OfType<TextBox>().Name("PART_EditBox"))
+            {
+                Setters = { new Setter(Visual.OpacityProperty, 0.6d) }
+            });
+            try
+            {
+                INameScope? editScope = null;
+                INameScope? otherScope = null;
+                edit.TemplateApplied += (_, e) =>
+                {
+                    if (ReferenceEquals(e.Source, edit))
+                        editScope = e.NameScope;
+                };
+                other.TemplateApplied += (_, e) =>
+                {
+                    if (ReferenceEquals(e.Source, other))
+                        otherScope = e.NameScope;
+                };
+                window.Content = new StackPanel { Children = { edit, other } };
+                window.Show();
+                edit.ApplyTemplate();
+                other.ApplyTemplate();
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                Assert.NotNull(editScope);
+                Assert.NotNull(otherScope);
+                Assert.Equal(57, Assert.IsType<Button>(editScope.Find<Button>("PART_EditButton")).MinWidth);
+                Assert.True(Assert.IsType<Button>(editScope.Find<Button>("PART_RegenerateButton")).IsVisible);
+                var area = Assert.IsType<Border>(editScope.Find<Border>("PART_EditArea"));
+                var otherArea = Assert.IsType<Border>(otherScope.Find<Border>("PART_EditArea"));
+                Assert.Null(area.Child);
+                Click(FindButton(other, "PART_EditButton"));
+                Assert.Equal(1, hostedEdit.ExecuteCount);
+                Assert.False(other.IsEditing);
+                Assert.Null(otherArea.Child);
+
+                Click(FindButton(edit, "PART_EditButton"));
+                Dispatcher.UIThread.RunJobs();
+                var editor = area.GetVisualDescendants().OfType<TextBox>().Single();
+                Assert.Same(editor, editScope.Find<TextBox>("PART_EditBox"));
+                Assert.Same(hostData, editor.DataContext);
+                Assert.Equal(0.6, editor.Opacity);
+                Assert.Equal("Original", editor.Text);
+                Assert.True(editor.IsFocused);
+                Assert.Null(otherArea.Child);
+
+                editor.Text = "Updated";
+                Click(FindButton(edit, "PART_SaveButton"));
+                Assert.False(edit.IsEditing);
+                Assert.Null(area.Child);
+                Assert.Equal("Updated", ChatContentExtractor.ExtractText(edit.Content));
+
+                Click(FindButton(edit, "PART_EditButton"));
+                var reopened = area.GetVisualDescendants().OfType<TextBox>().Single();
+                Assert.Same(editor, reopened);
+                Assert.Equal("Updated", reopened.Text);
+                Click(FindButton(edit, "PART_CancelButton"));
+                Assert.Null(area.Child);
+            }
+            finally { window.Close(); }
+
+        });
+
+    [Fact]
+    public Task CopyConfirmationKeepsItsSuccessColorUnderThePointer() =>
+        _fixture.Dispatch(() =>
+        {
+            var (window, message, _) = ShowSelectableMessage("Answer", canReply: true);
+            try
+            {
+                message.CopyRequested += (_, args) => args.Handled = true;
+                var button = FindButton(message, "PART_CopyButton");
+                var position = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+                window.MouseMove(position);
+                Assert.True(button.IsPointerOver);
+                Click(button);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Contains(":copied", message.Classes);
+                Assert.True(button.IsPointerOver);
+                var checkmark = button.GetVisualDescendants().OfType<Path>()
+                    .Single(path => path.Name == "PART_CopiedIcon");
+                Assert.True(checkmark.IsVisible);
+                Assert.True(button.TryFindResource("Brush.SuccessDefault", button.ActualThemeVariant, out var resource));
+                var success = Assert.IsAssignableFrom<ISolidColorBrush>(resource);
+                Assert.Equal(success.Color, Assert.IsAssignableFrom<ISolidColorBrush>(checkmark.Stroke).Color);
+            }
+            finally { window.Close(); }
+        });
 
     [Fact]
     public async Task HostedThemeKeepsTheUserBubbleWithoutBuildingDesktopActionsOrEditor()
