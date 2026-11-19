@@ -291,10 +291,25 @@ public sealed class LifecycleOpacityPulse
         {
             _scheduledUpdateVersion++;
 
-            if (_compositionVisual is not null)
+            if (_compositionVisual is { } visual)
             {
-                _compositionVisual.StopAnimation("Opacity");
-                _compositionVisual.Opacity = (float)_target.Opacity;
+                var opacity = (float)_target.Opacity;
+                var implicitAnimations = visual.ImplicitAnimations;
+                visual.ImplicitAnimations = null;
+                try
+                {
+                    // Avalonia 12 StopAnimation only removes the render-side animation; a queued start
+                    // can still arrive afterward. A direct opacity write replaces the queued start and
+                    // cancels any running pulse in the render batch. Force the write even at the same
+                    // base opacity: only the final value is sent to the renderer.
+                    if (visual.Opacity == opacity)
+                        visual.Opacity = opacity == 0 ? 1f : 0f;
+                    visual.Opacity = opacity;
+                }
+                finally
+                {
+                    visual.ImplicitAnimations = implicitAnimations;
+                }
             }
 
             _compositionVisual = null;

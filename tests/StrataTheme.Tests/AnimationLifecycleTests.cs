@@ -323,6 +323,54 @@ public sealed class AnimationLifecycleTests
     }
 
     [Fact]
+    public async Task LifecycleOpacityPulse_StoppingBeforeCommitClearsTheRenderClock()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var target = new Border { Background = Avalonia.Media.Brushes.Blue };
+            var window = new Window { Width = 320, Height = 200, Content = target };
+            try
+            {
+                window.Show();
+                using var initial = window.CaptureRenderedFrame();
+                var visual = ElementComposition.GetElementVisual(target)!;
+
+                LifecycleOpacityPulse.SetIsActive(target, true);
+                LifecycleOpacityPulse.SetIsActive(target, false);
+
+                using var settled = window.CaptureRenderedFrame();
+                Assert.False(LifecycleOpacityPulse.IsRunning(target));
+                Assert.False(HasLiveAnimation(visual));
+                Assert.Equal(1f, GetRenderedVisualValue<float>(visual, "Opacity"));
+
+                LifecycleOpacityPulse.SetIsActive(target, true);
+                using var restarted = window.CaptureRenderedFrame();
+                Assert.True(HasLiveAnimation(visual));
+
+                LifecycleOpacityPulse.SetIsActive(target, false);
+                using var stopped = window.CaptureRenderedFrame();
+                Assert.False(HasLiveAnimation(visual));
+            }
+            finally
+            {
+                window.Close();
+            }
+            return true;
+        });
+
+        static bool HasLiveAnimation(CompositionVisual visual)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var server = typeof(CompositionObject).GetProperty("Server", flags)!.GetValue(visual)!;
+            var compositor = server.GetType().GetProperty("Compositor", flags)!.GetValue(server)!;
+            var clock = compositor.GetType().GetProperty("Animations", flags)!.GetValue(compositor)!;
+            var items = (System.Collections.IEnumerable)clock.GetType().GetField("_clockItems", flags)!.GetValue(clock)!;
+            return items.Cast<object>().Any(item =>
+                ReferenceEquals(item.GetType().GetProperty("TargetObject", flags)?.GetValue(item), server));
+        }
+    }
+
+    [Fact]
     public async Task LifecycleOpacityPulse_DetachedStressLeavesNoRetainedVisuals()
     {
         const int visualCount = 256;

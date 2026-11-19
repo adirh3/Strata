@@ -715,6 +715,8 @@ without replaying its split or moving its anchor.
 backgrounding. Activity pulses, progress sweeps, typing dots, streaming rails, and opt-in
 working presence stop while paused and resume from their existing activity state. Hiding or
 detaching an activity indicator also stops its loop; hosts do not need to clear its busy state.
+Opacity-pulse cancellation goes through the compositor batch so a status that starts and stops in
+one UI update cannot leave an invisible animation driving frames after the status clears.
 
 ## Backdrop blur
 
