@@ -121,6 +121,7 @@ public sealed class LumiSurfaceLocalizationTests(AvaloniaFixture fixture)
     [InlineData("ja")]
     [InlineData("ko")]
     [InlineData("ar")]
+    [InlineData("ru")]
     public void LibraryTranslationKeysAndCompositePlaceholdersMatch(string language)
     {
         var labels = InteractiveLabels.ForLanguage(language);
@@ -145,6 +146,7 @@ public sealed class LumiSurfaceLocalizationTests(AvaloniaFixture fixture)
     [InlineData("ja-JP", "ja")]
     [InlineData("ko-KR", "ko")]
     [InlineData("ar-SA", "ar")]
+    [InlineData("ru-RU", "ru")]
     public void RegionalCulturesSelectTheSupportedLabels(string requested, string expected)
         => Assert.Same(InteractiveLabels.ForLanguage(expected), InteractiveLabels.ForLanguage(requested));
 
@@ -157,6 +159,7 @@ public sealed class LumiSurfaceLocalizationTests(AvaloniaFixture fixture)
     [InlineData("ja")]
     [InlineData("ko")]
     [InlineData("ar")]
+    [InlineData("ru")]
     public async Task AddedLanguagesReachNativeControlsWithoutChangingAuthoredContent(string language) =>
         await fixture.Dispatch(() =>
     {
@@ -274,6 +277,23 @@ public sealed class LumiSurfaceLocalizationTests(AvaloniaFixture fixture)
             Assert.Contains(EmojiCatalog.GetByCategory("Smileys"), item => item.Keyword == "grinning");
             Assert.Equal("פרצופים", EmojiCategoryNameConverter.Instance.Convert(
                 "Smileys", typeof(string), null, CultureInfo.CurrentCulture));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = original;
+        }
+    }
+
+    [Fact]
+    public void RussianEmojiSearchFindsTranslatedGesturesAndKeepsCanonicalKeywords()
+    {
+        var original = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ru-RU");
+            Assert.Contains(EmojiCatalog.Search("палец вверх"), item => item.Emoji == "👍" && item.Keyword == "thumbs up");
+            Assert.Contains(EmojiCatalog.Search("рукопожатие"), item => item.Emoji == "🤝" && item.Keyword == "handshake");
+            Assert.Contains(EmojiCatalog.Search("thumbs up"), item => item.Emoji == "👍");
         }
         finally
         {

@@ -460,6 +460,33 @@ public class StrataInteractiveBlockTests(AvaloniaFixture fixture)
     }
 
     [Fact]
+    public async Task RussianBillSplitNamesTheBillAndTipInputs()
+    {
+        await fixture.Dispatch(() =>
+        {
+            var json = (string)InteractiveDefinitionTests.Definitions().First(item => (string)item[0] == "calculator")[1];
+            var definition = InteractiveDefinition.Parse("calculator", json);
+            var state = InteractiveState.Create(definition);
+            state.Values["tipPercent"] = "";
+            var control = new StrataInteractiveBlock
+            {
+                Language = "ru", Definition = definition, StateJson = state.ToJson(), IsHosted = true, CanSubmit = true
+            };
+            var window = Show(control);
+            try
+            {
+                var bill = control.GetVisualDescendants().OfType<NumericUpDown>().Single(editor => editor.Name == "Input_bill");
+                var tip = control.GetVisualDescendants().OfType<NumericUpDown>().Single(editor => editor.Name == "Input_tipPercent");
+                Assert.Equal("Счёт", Avalonia.Automation.AutomationProperties.GetName(bill));
+                Assert.Equal("Чаевые", Avalonia.Automation.AutomationProperties.GetName(tip));
+                Assert.Contains("Чаевые", control.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(text => text.Name == "PART_Error").Text);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
     public async Task OutOfRangeNumbersAreKeptAndReportedInsteadOfReplaced()
     {
         await fixture.Dispatch(async () =>

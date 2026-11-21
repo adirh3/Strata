@@ -37,6 +37,8 @@ public sealed partial class InteractiveLabels
         { } code when code.StartsWith("ko-", StringComparison.Ordinal) => Korean,
         "ar" => Arabic,
         { } code when code.StartsWith("ar-", StringComparison.Ordinal) => Arabic,
+        "ru" => Russian,
+        { } code when code.StartsWith("ru-", StringComparison.Ordinal) => Russian,
         "es" => Spanish,
         { } code when code.StartsWith("es-", StringComparison.Ordinal) => Spanish,
         "pt" => Portuguese,
