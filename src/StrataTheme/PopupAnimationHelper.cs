@@ -165,8 +165,7 @@ public static class PopupAnimationHelper
                 _restingOpacity = (float)child.Opacity;
                 child.DetachedFromVisualTree += OnDetached;
                 _opacityHold = child.SetValue(Visual.OpacityProperty, 0d, BindingPriority.Animation);
-                _target = _popup.PlacementTarget ?? _popup.TemplatedParent as Control ??
-                    _popup.Parent as Control;
+                _target = GetPlacementTarget();
                 if (_target is { } target)
                 {
                     target.DetachedFromVisualTree += OnTargetDetached;
@@ -203,14 +202,20 @@ public static class PopupAnimationHelper
             if (e.Property == Popup.IsOpenProperty && _popup.IsOpen && _closing)
                 EnsureOpen();
             else if (e.Property == Popup.PlacementTargetProperty && _closing &&
-                _popup.PlacementTarget is { } target && !ReferenceEquals(target, _target))
+                !ReferenceEquals(GetPlacementTarget(), _target))
+            {
+                // Flyouts clear the explicit target while their logical parent still anchors the host.
                 CloseImmediately();
+            }
             else if (e.Property == Popup.ChildProperty && !ReferenceEquals(_child, _popup.Child))
             {
                 Reset();
                 Dispatcher.UIThread.Post(EnsureOpen, DispatcherPriority.Loaded);
             }
         }
+
+        private Control? GetPlacementTarget() =>
+            _popup.PlacementTarget ?? _popup.FindLogicalAncestorOfType<Control>();
 
         private void QueueOpen(int version)
         {
@@ -302,7 +307,11 @@ public static class PopupAnimationHelper
             _hitTestHold = _child.SetValue(Control.IsHitTestVisibleProperty, false, BindingPriority.Animation);
             _enabledHold = _child.SetValue(Control.IsEnabledProperty, false, BindingPriority.Animation);
             _popup.SetCurrentValue(Popup.IsOpenProperty, false);
-            _visual.Compositor.RequestCompositionUpdate(() =>
+            // An IsOpen observer may release the anchor and close the host synchronously.
+            if (version != _version || _visual is not { } visual)
+                return;
+
+            visual.Compositor.RequestCompositionUpdate(() =>
             {
                 if (_disposed || version != _version || !_closing)
                     return;

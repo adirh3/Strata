@@ -359,6 +359,51 @@ public sealed class PopupAnimationTests
             }
         });
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task ClearingPlacementTargetDuringExitClosesInsteadOfRepositioningTheHost(bool clearFromIsOpenChange) =>
+        _fixture.Dispatch(() =>
+        {
+            var (window, popup, _, child) = CreatePopup(true);
+            try
+            {
+                popup.Open();
+                RenderFrame(window);
+                RenderFrame(window);
+                Assert.True(popup.IsUsingOverlayLayer);
+
+                if (clearFromIsOpenChange)
+                {
+                    popup.PropertyChanged += (_, change) =>
+                    {
+                        if (change.Property == Popup.IsOpenProperty && !popup.IsOpen)
+                            popup.PlacementTarget = null;
+                    };
+                    popup.Close();
+                }
+                else
+                {
+                    popup.IsOpen = false;
+                    Assert.True(child.IsAttachedToVisualTree(), "The exit animation is active.");
+                    popup.PlacementTarget = null;
+                }
+                child.Width += 20;
+                window.UpdateLayout();
+                RenderFrame(window);
+
+                Assert.False(child.IsAttachedToVisualTree());
+                Assert.True(child.IsHitTestVisible);
+                Assert.True(child.IsEnabled);
+            }
+            finally
+            {
+                PopupAnimationHelper.SetEnableOpenAnimation(popup, false);
+                popup.Close();
+                window.Close();
+            }
+        });
+
     [Fact]
     public Task ReopeningAtAnotherPlacementTargetObservesOnlyTheCurrentAnchor() =>
         _fixture.Dispatch(() =>
