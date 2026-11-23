@@ -216,7 +216,7 @@ internal static partial class MarkdownClipboardFormatter
                             new Vector(96 * scale, 96 * scale));
                         bitmap.Render(diagram);
                         using var image = new System.IO.MemoryStream();
-                        bitmap.Save(image);
+                        bitmap.Save(image, PngBitmapEncoderOptions.Default);
                         builder.Append("<p><img alt=\"Diagram\" style=\"max-width:100%;height:auto;\" src=\"data:image/png;base64,")
                             .Append(Convert.ToBase64String(image.ToArray())).Append("\" /></p>");
                     }

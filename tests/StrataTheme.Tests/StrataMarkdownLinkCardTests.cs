@@ -99,7 +99,7 @@ public sealed class StrataMarkdownLinkCardTests(AvaloniaFixture fixture)
                 GradientStops = { new GradientStop(Color.Parse("#7C5CFF"), 0), new GradientStop(Color.Parse("#1FB6FF"), 1) },
             }, new Rect(0, 0, 680, 340));
         }
-        bitmap.Save(path);
+        bitmap.Save(path, PngBitmapEncoderOptions.Default);
     }
 
     private static async Task SettleAsync(int milliseconds)

@@ -473,6 +473,7 @@ answers when navigating or applying an update. It reports input independently of
 `StrataDiffView` renders unified Git patches, snapshots, or captured edits with change colors,
 old/new line numbers and hunk navigation. Desktop uses TextMate grammars; Android and WebAssembly
 use native-free lexical highlighting for keywords, strings, numbers, comments and type names.
+Tab to the diff viewport to scroll it with the arrow keys.
 Set `TouchMode="True"` and `CodeFontSize="14"` for touch-sized navigation and scroll-safe code.
 Touch panning clamps each axis independently, so minor finger drift at the top or bottom
 does not block horizontal scrolling through long lines.

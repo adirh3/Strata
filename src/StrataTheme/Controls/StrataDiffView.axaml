@@ -31,7 +31,7 @@
       </Border>
 
       <!-- Diff content -->
-      <ScrollViewer x:Name="DiffScroller" FlowDirection="LeftToRight"
+      <ScrollViewer x:Name="DiffScroller" FlowDirection="LeftToRight" Focusable="True"
                     HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
         <StackPanel x:Name="DiffContent" Margin="0,4">
           <!-- Let the viewport clamp each axis independently. The presenter's default recognizer

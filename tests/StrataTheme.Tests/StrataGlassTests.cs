@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -132,8 +133,14 @@ public sealed class StrataGlassTests
                     $"The frost must cover the sheet ({frost.Bounds}), not the window ({sheet.Bounds}).");
 
                 sheet.Close();
-                await Task.Delay(StrataBottomSheet.CloseDuration + TimeSpan.FromMilliseconds(60));
-                Pump(window);
+                // The close timer starts after the compositor commits the animation.
+                var elapsed = Stopwatch.StartNew();
+                while (sheet.IsPresented && elapsed.Elapsed < TimeSpan.FromSeconds(2))
+                {
+                    await Task.Delay(16);
+                    Pump(window);
+                }
+                Assert.False(sheet.IsPresented);
                 Assert.False(frost.IsEffectivelyVisible);
             }
             finally
