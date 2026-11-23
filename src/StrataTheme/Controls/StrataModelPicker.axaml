@@ -168,6 +168,13 @@
                           Classes="scroll-fade model-picker-scroll"
                           HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
                           VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
+              <!-- The faded scrollbar overlays the row edge instead of reserving a column, so rows, their pin
+                   buttons and the header's pinned filter share one right edge. -->
+              <ScrollViewer.Styles>
+                <Style Selector="ScrollViewer#PART_ScrollViewer.model-picker-scroll /template/ ScrollContentPresenter#PART_ContentPresenter">
+                  <Setter Property="Grid.ColumnSpan" Value="2" />
+                </Style>
+              </ScrollViewer.Styles>
               <ItemsPresenter Name="PART_ItemsPresenter"
                               Margin="{TemplateBinding Padding}"
                               ItemsPanel="{TemplateBinding ItemsPanel}" />
@@ -613,8 +620,8 @@
     </ResourceDictionary>
   </Styles.Resources>
 
-  <!-- App-wide styles are limited to the collapsed button and the list's scroll viewer; row and
-       footer styles are scoped to their own containers in the template above. -->
+  <!-- App-wide styles are limited to the collapsed button; list, scroll and footer styles live
+       on their own containers in the template above. -->
   <Style Selector="controls|StrataModelPicker /template/ Button#PART_ModelPickerButton:pointerover /template/ Border#PART_Surface">
     <Setter Property="Background" Value="{DynamicResource Brush.ControlHover}" />
   </Style>
@@ -622,12 +629,6 @@
   <Style Selector="controls|StrataModelPicker /template/ Button#PART_ModelPickerButton TextBlock">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="Medium" />
-  </Style>
-
-  <!-- The faded scrollbar overlays the row edge instead of reserving a column, so rows, their pin
-       buttons and the header's pinned filter share one right edge. -->
-  <Style Selector="ScrollViewer.model-picker-scroll /template/ ScrollContentPresenter#PART_ContentPresenter">
-    <Setter Property="Grid.ColumnSpan" Value="2" />
   </Style>
 
   <!-- Quiet picker: the composer toolbar's tool states (outside the theme to reach the button's surface). -->

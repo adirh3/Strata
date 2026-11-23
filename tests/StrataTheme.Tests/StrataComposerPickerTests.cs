@@ -781,6 +781,84 @@ public class StrataComposerPickerTests
         });
     }
 
+    [Fact]
+    public async Task ScopedControlStyles_StayWithTheirOwningControls()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var attachment = new StrataFileAttachment { FileName = "report.pdf", CanPreview = true };
+            var foreignPreview = new Button { Content = "Other preview", Classes = { "file-preview-action" } };
+            var receipt = new StrataActionReceipt { Title = "Submitted", Summary = "Ready", CanOpenSource = true };
+            var foreignReceipt = new Button { Content = "Other receipt", Classes = { "receipt-link" } };
+            var scrollTemplate = new Avalonia.Controls.Templates.FuncControlTemplate<ScrollViewer>((owner, scope) =>
+                new Grid
+                {
+                    Children =
+                    {
+                        new Avalonia.Controls.Presenters.ScrollContentPresenter
+                        {
+                            Name = "PART_ContentPresenter",
+                            [!Avalonia.Controls.Presenters.ScrollContentPresenter.ContentProperty] =
+                                new Avalonia.Data.Binding(nameof(ScrollViewer.Content)) { Source = owner }
+                        }.RegisterInNameScope(scope)
+                    }
+                });
+            var foreignScroll = new ScrollViewer
+            {
+                Classes = { "model-picker-scroll" },
+                Template = scrollTemplate,
+                Content = new TextBlock { Text = "Other" }
+            };
+            var picker = new StrataModelPicker { Models = new[] { "gpt-6-luna" }, SelectedModel = "gpt-6-luna" };
+
+            var host = Host.Create();
+            try
+            {
+                host.Window.Styles.Insert(0, new Style(s => s.OfType<ScrollViewer>())
+                {
+                    Setters = { new Setter(TemplatedControl.TemplateProperty, scrollTemplate) }
+                });
+                var panel = new StackPanel { Children = { attachment, foreignPreview, receipt, foreignReceipt, foreignScroll, picker } };
+                host.Window.Content = panel;
+                Dispatcher.UIThread.RunJobs();
+                host.Window.UpdateLayout();
+
+                // StrataFileAttachment preview button keeps file-preview-action; unrelated button keeps default Button aurora.
+                var previewBtn = attachment.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_PreviewButton");
+                Assert.Equal(11.5, previewBtn.FontSize);
+                Assert.False(previewBtn.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Aurora").IsVisible);
+                Assert.NotEqual(11.5, foreignPreview.FontSize);
+                Assert.True(foreignPreview.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Aurora").IsVisible);
+
+                // StrataActionReceipt keeps its template-scoped button styling; unrelated button keeps default padding/height.
+                var disclosure = receipt.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Disclosure");
+                Assert.Equal(26, disclosure.MinHeight);
+                Assert.NotEqual(26, foreignReceipt.MinHeight);
+
+                // Unrelated ScrollViewer.model-picker-scroll does not get ColumnSpan=2.
+                var foreignPresenter = foreignScroll.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ScrollContentPresenter>()
+                    .Single(p => p.Name == "PART_ContentPresenter");
+                Assert.Equal(1, Grid.GetColumnSpan(foreignPresenter));
+
+                // Model picker list's own ScrollViewer keeps ColumnSpan=2 when opened.
+                var pickerButton = picker.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_ModelPickerButton");
+                Click(pickerButton);
+                Dispatcher.UIThread.RunJobs();
+                host.Window.UpdateLayout();
+                var popup = picker.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "PART_ModelPickerPopup");
+                Assert.True(popup.IsOpen);
+                var list = popup.Child!.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "PART_ModelPickerList");
+                var listPresenter = list.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ScrollContentPresenter>()
+                    .Single(p => p.Name == "PART_ContentPresenter");
+                Assert.Equal(2, Grid.GetColumnSpan(listPresenter));
+            }
+            finally
+            {
+                host.Window.Close();
+            }
+        });
+    }
+
     // ── Fixtures ──────────────────────────────────────────────────────
 
     private const string TripId = "1f0d0c1e-0000-4000-8000-000000000001";
