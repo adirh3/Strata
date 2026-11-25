@@ -24,7 +24,7 @@ using System.Threading.Tasks;
 
 namespace StrataTheme.Controls;
 
-internal sealed record MarkdownImageFrameInfo(MarkdownImageSource Source, string Label, Image Image);
+internal sealed record MarkdownImageFrameInfo(MarkdownImageSource Source, string Label, Image? Image);
 
 internal enum MarkdownImageAction
 {
@@ -74,6 +74,25 @@ public partial class StrataMarkdown
         return DecodeMarkdownImage(imageData, decodeBounds);
     }
 
+    /// <summary>Opens a full-screen gallery of the given local image files, in order.</summary>
+    /// <returns>Whether the gallery could be presented over <paramref name="owner"/>.</returns>
+    public static bool TryOpenImageFileGallery(Control owner, IReadOnlyList<string> paths, int index, string? language = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, paths.Count);
+        var items = new List<MarkdownImageFrameInfo>(paths.Count);
+        foreach (var path in paths)
+        {
+            if (!TryResolveMarkdownImageSource(path, out var source) || source.LocalPath is null)
+                return false;
+            items.Add(new MarkdownImageFrameInfo(source, Path.GetFileName(path), null));
+        }
+
+        var gate = new SemaphoreSlim(MaxConcurrentMarkdownImagesPerComponent);
+        return MarkdownImageViewer.Open(owner, items, index, InteractiveLabels.ForLanguage(language),
+            GetImageActionHost(owner), (source, token) => ReadMarkdownImageBytesAsync(source, gate, token)) is not null;
+    }
+
     /// <summary>
     /// Opens the viewer on this frame's picture. The other pictures of the same message come along, in
     /// reading order, so the viewer can step through them.
@@ -102,7 +121,6 @@ public partial class StrataMarkdown
 
         var viewer = MarkdownImageViewer.Open(
             this,
-            frame,
             items,
             index,
             UiLabels,
@@ -259,8 +277,7 @@ internal sealed class MarkdownImageViewer
     private PointerType _lastPointerType = PointerType.Mouse;
 
     private MarkdownImageViewer(
-        StrataMarkdown owner,
-        Border frame,
+        Control owner,
         IReadOnlyList<MarkdownImageFrameInfo> items,
         int index,
         InteractiveLabels labels,
@@ -272,12 +289,13 @@ internal sealed class MarkdownImageViewer
         _host = host;
         _readBytes = readBytes;
         _showsFileLocation = StrataMarkdown.OffersImageFileLocation(host);
-        var topLevel = TopLevel.GetTopLevel(frame);
+        var topLevel = TopLevel.GetTopLevel(owner);
         _decodeBounds = topLevel is Window window && window.Screens.ScreenFromWindow(window) is { } screen
             ? screen.Bounds.Size
-            : PixelSize.FromSize(topLevel?.ClientSize ?? frame.Bounds.Size, topLevel?.RenderScaling ?? 1);
+            : PixelSize.FromSize(topLevel?.ClientSize ?? owner.Bounds.Size, topLevel?.RenderScaling ?? 1);
         var hasGallery = _items.Length > 1;
-        var touchFirst = StrataMarkdown.IsTouchFirstPlatform;
+        var touchFirst = StrataMarkdown.IsTouchFirstPlatform
+            || owner is StrataMarkdown { InteractionTouchMode: true };
 
         _image = new Image { Name = "ExpandedMarkdownImage", Stretch = Stretch.Uniform };
         _viewport = new StrataImageViewport(_image) { CanSwipeBetweenImages = hasGallery };
@@ -405,15 +423,14 @@ internal sealed class MarkdownImageViewer
     public event EventHandler? Closed;
 
     public static MarkdownImageViewer? Open(
-        StrataMarkdown owner,
-        Border frame,
+        Control owner,
         IReadOnlyList<MarkdownImageFrameInfo> items,
         int index,
         InteractiveLabels labels,
         IStrataImageActionHost? host,
         Func<MarkdownImageSource, CancellationToken, Task<byte[]>> readBytes)
     {
-        var viewer = new MarkdownImageViewer(owner, frame, items, index, labels, host, readBytes);
+        var viewer = new MarkdownImageViewer(owner, items, index, labels, host, readBytes);
         if (viewer._overlay is not null)
             return viewer;
         viewer.OnClosed();
@@ -435,7 +452,7 @@ internal sealed class MarkdownImageViewer
         _bytes = null;
         var previous = _fullBitmap;
         _fullBitmap = null;
-        _image.Source = item.Image.Source;
+        _image.Source = item.Image?.Source;
         previous?.Dispose();
         _viewport.Fit();
         _viewport.SlideIn(direction);
@@ -502,7 +519,7 @@ internal sealed class MarkdownImageViewer
             {
                 if (cancellationToken.IsCancellationRequested)
                     return;
-                _image.Source ??= item.Image.Source;
+                _image.Source ??= item.Image?.Source;
                 UpdateFileActions();
                 _progress.IsVisible = false;
                 _status.Text = _labels[_image.Source is null ? "imageUnavailable" : "imageFullUnavailable"];

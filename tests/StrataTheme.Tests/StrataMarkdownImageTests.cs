@@ -1095,6 +1095,7 @@ public sealed class StrataMarkdownImageTests
                 var message = new StrataMarkdown
                 {
                     IsInline = true,
+                    InteractionTouchMode = true,
                     Markdown = $"![First picture]({path})\n\nThen ![Repeated picture]({path}) inline.",
                 };
                 var window = CreateImageViewerWindow(new StackPanel
@@ -1124,6 +1125,8 @@ public sealed class StrataMarkdownImageTests
                     var counter = FindImageViewerControl<TextBlock>(window, "MarkdownImageCounter");
                     Assert.Equal("Repeated picture", title.Text);
                     Assert.Equal("2 / 2", counter.Text);
+                    Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), button =>
+                        button.Name is "MarkdownImagePrevious" or "MarkdownImageNext");
 
                     var viewport = FindImageViewerControl<StrataImageViewport>(window, "MarkdownImageViewport");
                     var start = viewport.TranslatePoint(new Point(viewport.Bounds.Width / 2, viewport.Bounds.Height / 2), window)!.Value;
@@ -1244,6 +1247,42 @@ public sealed class StrataMarkdownImageTests
                     await WaitForImageViewerAsync(window, () =>
                         FindImageViewerControl<Image>(window, "ExpandedMarkdownImage").Source is not null);
                     Assert.True(save.IsEnabled);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(first);
+            File.Delete(second);
+        }
+    }
+
+    [Fact]
+    public async Task LocalFileGalleryOpensTheSelectedAttachmentAndNavigatesWithoutInlinePreviews()
+    {
+        var first = CreateTempPng();
+        var second = CreateTempPng();
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var window = CreateImageViewerWindow("");
+                try
+                {
+                    var owner = Assert.IsType<StrataMarkdown>(window.Content);
+                    Assert.True(StrataMarkdown.TryOpenImageFileGallery(owner, [first, second], 1, "en"));
+                    PumpImageViewer(window);
+                    var title = FindImageViewerControl<TextBlock>(window, "MarkdownImageTitle");
+                    Assert.Equal(Path.GetFileName(second), title.Text);
+                    PressImageViewerKey(window, Key.Left);
+                    Assert.Equal(Path.GetFileName(first), title.Text);
+                    Assert.Equal("1 / 2", FindImageViewerControl<TextBlock>(window, "MarkdownImageCounter").Text);
+                    await WaitForImageViewerAsync(window, () =>
+                        FindImageViewerControl<Image>(window, "ExpandedMarkdownImage").Source is not null);
                 }
                 finally
                 {

@@ -112,10 +112,10 @@ public sealed class StrataImageViewport : Border
     private event EventHandler? ZoomChanged;
 
     /// <summary>Sideways swipes go to another image; the host turns this on when there is more than one.</summary>
-    internal bool CanSwipeBetweenImages { get; set; }
+    public bool CanSwipeBetweenImages { get; set; }
 
     /// <summary>A sideways swipe finished: -1 for the previous image, +1 for the next, in reading order.</summary>
-    internal event EventHandler<int>? NavigateRequested;
+    public event EventHandler<int>? NavigateRequested;
 
     /// <summary>An up or down swipe finished far or fast enough to put the viewer away.</summary>
     internal event EventHandler? DismissRequested;
@@ -462,6 +462,8 @@ public sealed class StrataImageViewport : Border
             // Swiping toward the start of the line brings the next image, as turning a page does. Positions
             // here are already in the line's direction, so this holds for right-to-left text as it is.
             NavigateRequested?.Invoke(this, _swipe.X < 0 ? 1 : -1);
+            if (_settleTimer is null)
+                Settle();
             return;
         }
         if (axis == SwipeAxis.Vertical
