@@ -5,91 +5,157 @@
     <ResourceDictionary>
       <ControlTheme x:Key="{x:Type controls:StrataFork}" TargetType="controls:StrataFork">
         <Setter Property="Focusable" Value="True" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="Template">
           <ControlTemplate>
-            <Border Background="{DynamicResource Brush.Surface1}"
-                    BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                    BorderThickness="{DynamicResource Stroke.Thin}"
-                    CornerRadius="{DynamicResource Radius.Base}"
-                    ClipToBounds="True">
-              <Border.Transitions>
-                <Transitions>
-                  <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
-                </Transitions>
-              </Border.Transitions>
-              <DockPanel>
-                <!-- Tab bar -->
-                <Border Name="PART_TabHost"
-                        DockPanel.Dock="Top"
-                        Background="{DynamicResource Brush.Surface2}"
-                        Padding="3">
-                  <Grid ColumnDefinitions="*,4,*">
-                    <Button Name="PART_OptionA"
-                            Grid.Column="0"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            Classes="subtle"
-                            Padding="10,6"
-                            FontSize="13"
-                            CornerRadius="{DynamicResource Radius.Small}"
-                            Content="{TemplateBinding OptionATitle}" />
+            <Panel>
+              <Border Name="PART_FocusRing"
+                      Margin="-2"
+                      CornerRadius="12"
+                      BorderThickness="{DynamicResource Stroke.FocusRing}"
+                      BorderBrush="Transparent"
+                      IsHitTestVisible="False" />
 
-                    <Button Name="PART_OptionB"
-                            Grid.Column="2"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            Classes="subtle"
-                            Padding="10,6"
-                            FontSize="13"
-                            CornerRadius="{DynamicResource Radius.Small}"
-                            Content="{TemplateBinding OptionBTitle}" />
-                  </Grid>
-                </Border>
+              <Border Name="PART_Root"
+                      Background="{DynamicResource Brush.Surface0}"
+                      BorderBrush="{DynamicResource Brush.BorderSubtle}"
+                      BorderThickness="{DynamicResource Stroke.Thin}"
+                      CornerRadius="{DynamicResource Radius.Interactive}"
+                      ClipToBounds="True">
+                <DockPanel>
+                  <!-- Narrow: a segmented switch whose thumb slides between the options.
+                       Wide: the same row turns into the two columns' headings. -->
+                  <Border Name="PART_Header" DockPanel.Dock="Top" Padding="6,6,6,0">
+                    <Border Name="PART_TabHost"
+                            Background="{DynamicResource Brush.GlassWell}"
+                            BorderBrush="{DynamicResource Brush.GlassDivider}"
+                            CornerRadius="8"
+                            Padding="3">
+                      <Panel>
+                        <Border Name="PART_Indicator"
+                                HorizontalAlignment="Left"
+                                CornerRadius="6"
+                                Background="{DynamicResource Brush.Surface2}"
+                                BorderBrush="{DynamicResource Brush.GlassRim}"
+                                BorderThickness="{DynamicResource Stroke.Thin}"
+                                BoxShadow="0 1 3 0 #29000000" />
+                        <Grid ColumnDefinitions="*,Auto,*">
+                          <Button Name="PART_OptionA" Classes="fork-tab">
+                            <TextBlock Classes="fork-title" Text="{TemplateBinding OptionATitle}" />
+                          </Button>
+                          <Border Name="PART_HeaderGap" Grid.Column="1" Width="0" />
+                          <Button Name="PART_OptionB" Grid.Column="2" Classes="fork-tab">
+                            <TextBlock Classes="fork-title" Text="{TemplateBinding OptionBTitle}" />
+                          </Button>
+                        </Grid>
+                      </Panel>
+                    </Border>
+                  </Border>
 
-                <!-- Accent indicator rail -->
-                <Border DockPanel.Dock="Top" Height="2" Background="{DynamicResource Brush.Surface2}">
-                  <Border Name="PART_Indicator"
-                          HorizontalAlignment="Left"
-                          Height="2"
-                          Background="{DynamicResource Brush.AccentDefault}" />
-                </Border>
-
-                <!-- Content area -->
-                <Border Padding="14,12">
-                  <Grid>
+                  <Grid Name="PART_Body" ColumnDefinitions="*,Auto,*" Margin="16,12,16,14">
                     <ContentPresenter Name="PART_OptionAContent"
+                                      Grid.ColumnSpan="3"
                                       Content="{TemplateBinding OptionAContent}" />
+                    <Border Name="PART_Divider"
+                            Grid.Column="1"
+                            Width="1"
+                            Margin="12,-12,12,-14"
+                            Background="{DynamicResource Brush.GlassDivider}"
+                            IsVisible="False" />
                     <ContentPresenter Name="PART_OptionBContent"
+                                      Grid.ColumnSpan="3"
                                       Content="{TemplateBinding OptionBContent}"
                                       IsVisible="False" />
                   </Grid>
-                </Border>
-              </DockPanel>
-            </Border>
+                </DockPanel>
+              </Border>
+            </Panel>
           </ControlTemplate>
         </Setter>
 
-        <!-- Active tab A -->
+        <!-- ─── Tabs ─── -->
+        <Style Selector="^ /template/ Button.fork-tab">
+          <Setter Property="HorizontalAlignment" Value="Stretch" />
+          <Setter Property="HorizontalContentAlignment" Value="Center" />
+          <Setter Property="VerticalContentAlignment" Value="Center" />
+          <Setter Property="MinHeight" Value="30" />
+          <Setter Property="Padding" Value="12,5" />
+          <Setter Property="Cursor" Value="Hand" />
+          <Setter Property="Focusable" Value="False" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+          <Setter Property="Template">
+            <ControlTemplate TargetType="Button">
+              <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                <ContentPresenter Content="{TemplateBinding Content}"
+                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              </Border>
+            </ControlTemplate>
+          </Setter>
+          <Setter Property="Transitions">
+            <Transitions>
+              <BrushTransition Property="Foreground" Duration="0:0:0.16" />
+            </Transitions>
+          </Setter>
+        </Style>
+        <Style Selector="^ /template/ TextBlock.fork-title">
+          <Setter Property="FontSize" Value="13" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+          <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+          <Setter Property="MaxLines" Value="1" />
+        </Style>
+        <Style Selector="^ /template/ Button.fork-tab:pointerover">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        </Style>
         <Style Selector="^:a /template/ Button#PART_OptionA">
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
-          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
-          <Setter Property="FontWeight" Value="SemiBold" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         </Style>
-        <Style Selector="^:a /template/ Button#PART_OptionB">
-          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
-        </Style>
-
-        <!-- Active tab B -->
         <Style Selector="^:b /template/ Button#PART_OptionB">
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
-          <Setter Property="Foreground" Value="{DynamicResource Brush.AccentDefault}" />
-          <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-        <Style Selector="^:b /template/ Button#PART_OptionA">
-          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
         </Style>
 
-        <Style Selector="^:focus-visible">
+        <!-- ─── Side by side: both options at once, under their own headings ─── -->
+        <Style Selector="^:split /template/ Border#PART_Header">
+          <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="^:split /template/ Border#PART_TabHost">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="BorderThickness" Value="0,0,0,1" />
+          <Setter Property="CornerRadius" Value="0" />
+          <Setter Property="Padding" Value="16,11,16,10" />
+        </Style>
+        <Style Selector="^:split /template/ Border#PART_Indicator">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:split /template/ Border#PART_HeaderGap">
+          <Setter Property="Width" Value="25" />
+        </Style>
+        <Style Selector="^:split /template/ Button.fork-tab">
+          <Setter Property="HorizontalContentAlignment" Value="Left" />
+          <Setter Property="Padding" Value="0" />
+          <Setter Property="MinHeight" Value="0" />
+          <Setter Property="Cursor" Value="Arrow" />
+          <Setter Property="IsHitTestVisible" Value="False" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:split /template/ TextBlock.fork-title">
+          <Setter Property="FontSize" Value="13.5" />
+          <Setter Property="TextWrapping" Value="Wrap" />
+          <Setter Property="MaxLines" Value="2" />
+        </Style>
+        <Style Selector="^:split /template/ Border#PART_Divider">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:split /template/ ContentPresenter#PART_OptionAContent">
+          <Setter Property="Grid.ColumnSpan" Value="1" />
+        </Style>
+        <Style Selector="^:split /template/ ContentPresenter#PART_OptionBContent">
+          <Setter Property="Grid.Column" Value="2" />
+          <Setter Property="Grid.ColumnSpan" Value="1" />
+        </Style>
+
+        <!-- ─── Focus ─── -->
+        <Style Selector="^:focus-visible /template/ Border#PART_FocusRing">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
         </Style>
       </ControlTheme>

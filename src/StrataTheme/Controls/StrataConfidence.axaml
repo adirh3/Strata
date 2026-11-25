@@ -8,24 +8,30 @@
         <Setter Property="Focusable" Value="True" />
         <Setter Property="Template">
           <ControlTemplate>
-            <StackPanel Spacing="10">
-              <DockPanel>
+            <StackPanel Spacing="8">
+              <!-- What is being rated on the left; how sure, in a number and a word, on the right. -->
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <TextBlock Text="{TemplateBinding Label}"
-                           Classes="caption"
+                           FontSize="12.5"
                            FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource Brush.TextSecondary}" />
 
-                <StackPanel DockPanel.Dock="Right"
+                <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
+                            VerticalAlignment="Center"
                             Spacing="8">
                   <TextBlock Name="PART_PercentText"
-                             Classes="caption"
+                             FontSize="15"
                              FontWeight="SemiBold"
+                             VerticalAlignment="Center"
                              Foreground="{DynamicResource Brush.TextPrimary}"
                              Text="72%" />
                   <Border Name="PART_BandBadge"
                           CornerRadius="999"
                           Padding="8,2"
+                          VerticalAlignment="Center"
                           Background="{DynamicResource Brush.AccentSubtle}">
                     <Border.Transitions>
                       <Transitions>
@@ -33,9 +39,9 @@
                       </Transitions>
                     </Border.Transitions>
                     <TextBlock Name="PART_BandText"
-                               Classes="caption"
-                               Foreground="{DynamicResource Brush.AccentDefault}"
+                               FontSize="11"
                                FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brush.AccentDefault}"
                                Text="{controls:InteractiveLabel confidenceMedium}">
                       <TextBlock.Transitions>
                         <Transitions>
@@ -45,10 +51,10 @@
                     </TextBlock>
                   </Border>
                 </StackPanel>
-              </DockPanel>
+              </Grid>
 
               <Border Name="PART_Track"
-                      Height="8"
+                      Height="6"
                       CornerRadius="999"
                       Background="{DynamicResource Brush.SubtleHover}"
                       ClipToBounds="True"
@@ -60,20 +66,21 @@
                   </Transitions>
                 </Border.Transitions>
                 <Border Name="PART_Fill"
-                        Height="8"
                         Width="0"
                         HorizontalAlignment="Left"
                         CornerRadius="999"
-                        Background="{DynamicResource Brush.SelectionGradient}">
+                        Background="{DynamicResource Brush.AccentGradient}">
                   <Border.Transitions>
                     <Transitions>
-                      <DoubleTransition Property="Width" Duration="0:0:0.4" Easing="CubicEaseOut" />
+                      <DoubleTransition Property="Width" Duration="0:0:0.5" Easing="CubicEaseOut" />
                     </Transitions>
                   </Border.Transitions>
                 </Border>
               </Border>
 
-              <ContentPresenter Content="{TemplateBinding Explanation}" />
+              <ContentPresenter Content="{TemplateBinding Explanation}"
+                                IsVisible="{Binding Explanation, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                TextElement.Foreground="{DynamicResource Brush.TextSecondary}" />
             </StackPanel>
           </ControlTemplate>
         </Setter>
@@ -91,6 +98,9 @@
         <Style Selector="^:medium /template/ TextBlock#PART_BandText">
           <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
         </Style>
+        <Style Selector="^:medium /template/ Border#PART_Fill">
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
+        </Style>
 
         <Style Selector="^:low /template/ Border#PART_BandBadge">
           <Setter Property="Background" Value="{DynamicResource Brush.DangerSubtle}" />
@@ -98,13 +108,16 @@
         <Style Selector="^:low /template/ TextBlock#PART_BandText">
           <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
         </Style>
+        <Style Selector="^:low /template/ Border#PART_Fill">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
+        </Style>
 
         <Style Selector="^:editable /template/ Border#PART_Track">
           <Setter Property="Cursor" Value="Hand" />
         </Style>
 
         <Style Selector="^:editable /template/ Border#PART_Track:pointerover">
-          <Setter Property="RenderTransform" Value="scaleY(1.3)" />
+          <Setter Property="RenderTransform" Value="scaleY(1.4)" />
         </Style>
 
         <Style Selector="^:focus-visible /template/ Border#PART_Track">

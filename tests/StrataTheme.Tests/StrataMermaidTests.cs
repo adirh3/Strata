@@ -110,6 +110,148 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
     });
 
     [Fact]
+    public Task HoveringAStep_LightsIt_AndMovingOffClearsIt() => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram("flowchart LR\nA[Start] --> B[Next]\nB --> C[Done]", 494);
+        try
+        {
+            var node = Field<IDictionary>(canvas, "_fNodes")["B"]!;
+            var scale = Scale(canvas);
+            var origin = (Point)canvas.GetType().GetMethod("ViewOrigin", PrivateInstance)!.Invoke(canvas, [scale])!;
+            var center = new Point(
+                origin.X + (PublicField<double>(node, "X") + PublicField<double>(node, "W") / 2) * scale,
+                origin.Y + (PublicField<double>(node, "Y") + PublicField<double>(node, "H") / 2) * scale);
+
+            window.MouseMove(CanvasPoint(window, canvas, center), RawInputModifiers.None);
+            Assert.Equal("B", Field<string?>(canvas, "_hoverNode"));
+
+            window.MouseMove(CanvasPoint(window, canvas, new Point(2, 2)), RawInputModifiers.None);
+            Assert.Null(Field<string?>(canvas, "_hoverNode"));
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task PanningFromTheKeyboard_LightsTheStepNowUnderTheMouse() => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram("flowchart LR\nA[Start] --> B[Next]", 494);
+        try
+        {
+            var scale = Scale(canvas);
+            var origin = (Point)canvas.GetType().GetMethod("ViewOrigin", PrivateInstance)!.Invoke(canvas, [scale])!;
+            Point Center(string id)
+            {
+                var node = Field<IDictionary>(canvas, "_fNodes")[id]!;
+                return new Point(
+                    origin.X + (PublicField<double>(node, "X") + PublicField<double>(node, "W") / 2) * scale,
+                    origin.Y + (PublicField<double>(node, "Y") + PublicField<double>(node, "H") / 2) * scale);
+            }
+
+            var start = Center("A");
+            window.MouseMove(CanvasPoint(window, canvas, start), RawInputModifiers.None);
+            Assert.Equal("A", Field<string?>(canvas, "_hoverNode"));
+
+            // Each Right arrow moves the drawing 40 px left, bringing B under the resting mouse.
+            canvas.Focus();
+            for (var i = 0; i < Math.Round((Center("B").X - start.X) / 40); i++)
+            {
+                window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+                window.KeyReleaseQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            }
+            Assert.Equal("B", Field<string?>(canvas, "_hoverNode"));
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task NarrowToolbar_WrapsItsPillsRatherThanCuttingOffFullScreen() => fixture.Dispatch(() =>
+    {
+        var (window, diagram, _) = CreateDiagram("flowchart LR\nA[Start] --> B[Next]", 260);
+        try
+        {
+            var expand = Find<Button>(diagram, "PART_Expand");
+            var right = expand.TranslatePoint(new Point(expand.Bounds.Width, 0), diagram)!.Value.X;
+            Assert.True(expand.IsEffectivelyVisible);
+            Assert.True(right <= diagram.Bounds.Width + 0.5,
+                $"Full screen ends at {right:0.#} in a diagram {diagram.Bounds.Width:0.#} wide.");
+
+            var tag = Find<StackPanel>(diagram, "PART_KindTag");
+            Assert.True(tag.Bounds.Width == 0 || tag.Bounds.Width + tag.Margin.Left + tag.Margin.Right + 0.5 >= tag.DesiredSize.Width,
+                "The kind tag shows whole or gives way, never squeezed under the pills.");
+        }
+        finally { window.Close(); }
+    });
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task ViewSwitch_ShowsKeyboardFocusOnTheChosenView(bool highContrast) => fixture.Dispatch(() =>
+    {
+        var (window, diagram, _) = CreateDiagram("flowchart LR\nA[Start] --> B[Next]", 494);
+        try
+        {
+            if (highContrast)
+                window.RequestedThemeVariant = StrataThemeVariants.HighContrast;
+            var chosen = Find<Button>(diagram, "PART_DiagramView");
+            chosen.Focus(NavigationMethod.Tab);
+            Pump(window);
+            var ring = chosen.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "PART_SegmentFocus");
+            var ringColor = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(ring.BorderBrush).Color;
+            Assert.NotEqual(0, ringColor.A);
+            Assert.NotEqual(Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(chosen.Background).Color, ringColor);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task ZoomingAfterADrag_KeepsLightingTheStepUnderTheMouse() => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram("flowchart LR\nA[Start] --> B[Next]", 494);
+        try
+        {
+            var scale = Scale(canvas);
+            var origin = (Point)canvas.GetType().GetMethod("ViewOrigin", PrivateInstance)!.Invoke(canvas, [scale])!;
+            var node = Field<IDictionary>(canvas, "_fNodes")["A"]!;
+            var start = new Point(
+                origin.X + (PublicField<double>(node, "X") + PublicField<double>(node, "W") / 2) * scale,
+                origin.Y + (PublicField<double>(node, "Y") + PublicField<double>(node, "H") / 2) * scale);
+            var end = start + new Point(80, 0);
+
+            window.MouseMove(CanvasPoint(window, canvas, start), RawInputModifiers.None);
+            window.MouseDown(CanvasPoint(window, canvas, start), MouseButton.Left);
+            window.MouseMove(CanvasPoint(window, canvas, end), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(CanvasPoint(window, canvas, end), MouseButton.Left);
+            window.MouseWheel(CanvasPoint(window, canvas, end), new Vector(0, 1), RawInputModifiers.Control);
+            Assert.Equal("A", Field<string?>(canvas, "_hoverNode"));
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task CodeView_ShowsTheSourceInPlaceOfTheDrawing_AndNamesTheKind() => fixture.Dispatch(() =>
+    {
+        var (window, diagram, _) = CreateDiagram("sequenceDiagram\nA->>B: Request", 494);
+        try
+        {
+            Assert.Equal("Sequence diagram", Find<TextBlock>(diagram, "PART_KindLabel").Text);
+            Assert.NotEqual(LabelColor(diagram, "PART_DiagramView"), LabelColor(diagram, "PART_SourceView"));
+
+            Click(diagram, "PART_SourceView");
+            Pump(window);
+            Assert.False(Find<Panel>(diagram, "PART_DiagramHost").IsVisible);
+            Assert.True(Find<Border>(diagram, "PART_CodeHost").IsVisible);
+            Assert.False(Find<Border>(diagram, "PART_ZoomGroup").IsVisible);
+            Assert.Equal(diagram.Source, Find<SelectableTextBlock>(diagram, "PART_CodeText").Text);
+
+            Click(diagram, "PART_DiagramView");
+            Pump(window);
+            Assert.True(Find<Panel>(diagram, "PART_DiagramHost").IsVisible);
+            Assert.False(Find<Border>(diagram, "PART_CodeHost").IsVisible);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
     public Task Diagram_IsBorderlessWithTransparentToolbarOutsideCanvas() => fixture.Dispatch(() =>
     {
         var (window, diagram, canvas) = CreateDiagram("sequenceDiagram\nA->>B: Request\nB-->>A: Response", 494);
@@ -849,4 +991,9 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
 
     private static void Click(Visual root, string name) =>
         Find<Button>(root, name).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+    // The shown view's label is lit and the other is quiet, even under the theme's TextBlock style.
+    private static Avalonia.Media.Color LabelColor(Visual root, string segment) =>
+        Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(
+            Find<Button>(root, segment).GetVisualDescendants().OfType<TextBlock>().Single().Foreground).Color;
 }

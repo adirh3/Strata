@@ -95,6 +95,15 @@ public static class StrataIcons
     /// <summary>Full screen: four corners opening outward.</summary>
     public static Geometry Expand => Parse("M4.5 9V4.5H9 M15 4.5h4.5V9 M19.5 15v4.5H15 M9 19.5H4.5V15");
 
+    /// <summary>Fitting to view: a frame's corners around what it holds.</summary>
+    public static Geometry FitView => Parse("M4.5 8.5v-4h4 M15.5 4.5h4v4 M19.5 15.5v4h-4 M8.5 19.5h-4v-4 M9.5 9h5A.5.5 0 0 1 15 9.5v5a.5.5 0 0 1-.5.5h-5A.5.5 0 0 1 9 14.5v-5A.5.5 0 0 1 9.5 9z");
+
+    /// <summary>A flowchart: two steps joined by an elbow.</summary>
+    public static Geometry Flowchart => Parse("M5 4h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z M14 15h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z M7.5 9v5a3 3 0 0 0 3 3H13");
+
+    /// <summary>A sequence: two lifelines passing messages.</summary>
+    public static Geometry Sequence => Parse("M6 4v16 M18 4v16 M6 9h11.5 M15 6.5 17.5 9 15 11.5 M18 15H6.5 M9 12.5 6.5 15 9 17.5");
+
     /// <summary>Opening elsewhere: an arrow leaving a box.</summary>
     public static Geometry OpenExternal => Parse("M13.5 4.5h6v6 M19.5 4.5l-8 8 M17.5 14v4a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V8A1.5 1.5 0 0 1 6 6.5h4");
     public static Geometry ArrowUp => Parse("M12 18.5V6 M6.5 11.5 12 6l5.5 5.5");

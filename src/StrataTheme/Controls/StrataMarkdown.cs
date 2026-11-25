@@ -2808,7 +2808,6 @@ public partial class StrataMarkdown : ContentControl
         var diagram = new StrataMermaid
         {
             Source = mermaidText,
-            MinHeight = 180,
         };
         _diagramCache[cacheKey] = diagram;
         _diagramKeysUsed.Add(cacheKey);

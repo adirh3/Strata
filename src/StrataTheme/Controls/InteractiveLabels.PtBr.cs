@@ -82,6 +82,8 @@ public sealed partial class InteractiveLabels
         ["confidence"] = "Confiança", ["source"] = "Fonte",
         ["confidenceHigh"] = "Alta", ["confidenceMedium"] = "Média", ["confidenceLow"] = "Baixa",
         ["optionA"] = "Opção A", ["optionB"] = "Opção B", ["loadingDiff"] = "Carregando diferenças…",
+        ["cardReadMore"] = "Ler mais", ["cardShowLess"] = "Mostrar menos",
+        ["diagram"] = "Diagrama", ["diagramCode"] = "Código", ["diagramFlowchart"] = "Fluxograma", ["diagramSequence"] = "Diagrama de sequência", ["diagramState"] = "Diagrama de estados", ["diagramEr"] = "Relações entre entidades", ["diagramClass"] = "Diagrama de classes", ["diagramTimeline"] = "Linha do tempo", ["diagramQuadrant"] = "Gráfico de quadrantes",
         ["imageViewer"] = "Visualizador de imagens", ["imageViewerHelp"] = "Faça pinça para ampliar. Arraste para mover. Toque duas vezes para ampliar ou ajustar.",
         ["fitImage"] = "Ajustar imagem",
         ["imageShowInFolder"] = "Mostrar na pasta",

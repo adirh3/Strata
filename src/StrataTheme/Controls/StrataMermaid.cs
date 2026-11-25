@@ -35,7 +35,11 @@ namespace StrataTheme.Controls;
 /// </list>
 /// <para><b>Template parts:</b> PART_DiagramHost (Panel), PART_ZoomBar (Border),
 /// PART_ZoomIn, PART_ZoomOut, PART_ZoomReset, PART_ActualSize, PART_Expand (Button),
-/// PART_ZoomLabel (TextBlock).</para>
+/// PART_ZoomLabel (TextBlock), PART_KindTag (StackPanel), PART_KindLabel (TextBlock),
+/// PART_ViewSwitch, PART_ZoomGroup, PART_ToolPill (Border; the toolbar's pills, which wrap onto
+/// another row where the diagram is narrow), PART_DiagramView, PART_SourceView, PART_CopySource
+/// (Button), PART_CodeHost (Border), PART_CodeText (SelectableTextBlock).</para>
+/// <para><b>Pseudo-classes:</b> :code (the source in place of the drawing), :fullscreen.</para>
 /// <para>Drag anywhere to pan. Use the toolbar or Ctrl/Cmd+wheel to zoom,
 /// pinch to zoom on touch screens, Home or double-tap to fit, and Escape or system Back
 /// to close the full-window viewer.</para>
@@ -44,10 +48,13 @@ public partial class StrataMermaid : TemplatedControl
 {
     private Panel? _host;
     private MermaidCanvas? _canvas;
-    private Button? _zoomIn, _zoomOut, _zoomReset, _actualSize, _expand;
-    private TextBlock? _zoomLabel;
+    private Button? _zoomIn, _zoomOut, _zoomReset, _actualSize, _expand, _diagramView, _sourceView, _copySource;
+    private TextBlock? _zoomLabel, _kindLabel;
+    private StrataLineIcon? _kindIcon, _copyIcon, _expandIcon;
     private StrataFullScreenOverlay? _expandedView;
     private StrataMermaid? _expandedDiagram, _expandedOwner;
+    private bool _showSource;
+    private int _copyFeedbackVersion;
 
     /// <summary>Identifies the <see cref="Source"/> styled property.</summary>
     public static readonly StyledProperty<string?> SourceProperty =
@@ -74,6 +81,9 @@ public partial class StrataMermaid : TemplatedControl
         if (_zoomReset is not null) _zoomReset.Click -= OnZoomReset;
         if (_actualSize is not null) _actualSize.Click -= OnActualSize;
         if (_expand is not null) _expand.Click -= OnExpand;
+        if (_diagramView is not null) _diagramView.Click -= OnDiagramView;
+        if (_sourceView is not null) _sourceView.Click -= OnSourceView;
+        if (_copySource is not null) _copySource.Click -= OnCopySource;
         if (_canvas is not null) _host?.Children.Remove(_canvas);
 
         _host = e.NameScope.Find<Panel>("PART_DiagramHost");
@@ -83,21 +93,31 @@ public partial class StrataMermaid : TemplatedControl
         _zoomLabel = e.NameScope.Find<TextBlock>("PART_ZoomLabel");
         _actualSize = e.NameScope.Find<Button>("PART_ActualSize");
         _expand = e.NameScope.Find<Button>("PART_Expand");
+        _diagramView = e.NameScope.Find<Button>("PART_DiagramView");
+        _sourceView = e.NameScope.Find<Button>("PART_SourceView");
+        _copySource = e.NameScope.Find<Button>("PART_CopySource");
+        _copyIcon = e.NameScope.Find<StrataLineIcon>("PART_CopyIcon");
+        _expandIcon = e.NameScope.Find<StrataLineIcon>("PART_ExpandIcon");
+        _kindIcon = e.NameScope.Find<StrataLineIcon>("PART_KindIcon");
+        _kindLabel = e.NameScope.Find<TextBlock>("PART_KindLabel");
 
         if (_zoomIn is not null) _zoomIn.Click += OnZoomIn;
         if (_zoomOut is not null) _zoomOut.Click += OnZoomOut;
         if (_zoomReset is not null) _zoomReset.Click += OnZoomReset;
         if (_actualSize is not null) _actualSize.Click += OnActualSize;
+        if (_diagramView is not null) _diagramView.Click += OnDiagramView;
+        if (_sourceView is not null) _sourceView.Click += OnSourceView;
+        if (_copySource is not null) _copySource.Click += OnCopySource;
         if (_expand is not null)
         {
             _expand.Click += OnExpand;
             if (_expandedOwner is not null)
             {
-                _expand.Content = new PathIcon
-                {
-                    Width = 14, Height = 14,
-                    Data = Geometry.Parse("M1,0 L7,6 L13,0 L14,1 L8,7 L14,13 L13,14 L7,8 L1,14 L0,13 L6,7 L0,1 Z")
-                };
+                PseudoClasses.Set(":fullscreen", true);
+                if (_expandIcon is not null)
+                    _expandIcon.Data = StrataIcons.Cross;
+                else
+                    _expand.Content = new StrataLineIcon { Width = 14, Height = 14, Data = StrataIcons.Cross };
                 ToolTip.SetTip(_expand, InteractiveLabels.Current["closeFullScreenShortcut"]);
                 AutomationProperties.SetName(_expand, InteractiveLabels.Current["closeFullScreen"]);
             }
@@ -112,6 +132,83 @@ public partial class StrataMermaid : TemplatedControl
             };
             _host.Children.Add(_canvas);
         }
+
+        UpdateKindTag();
+        PseudoClasses.Set(":code", _showSource);
+    }
+
+    private void OnDiagramView(object? sender, RoutedEventArgs e) => SetSourceView(false);
+
+    private void OnSourceView(object? sender, RoutedEventArgs e) => SetSourceView(true);
+
+    private void SetSourceView(bool show)
+    {
+        if (_showSource == show) return;
+        _showSource = show;
+        PseudoClasses.Set(":code", show);
+        if (!show)
+            _canvas?.InvalidateMeasure();
+    }
+
+    private async void OnCopySource(object? sender, RoutedEventArgs e)
+    {
+        if (_copySource is null || string.IsNullOrWhiteSpace(Source)) return;
+        try
+        {
+            if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard) return;
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.CreateText(Source.Trim()));
+            await clipboard.SetDataAsync(data);
+        }
+        catch
+        {
+            return;
+        }
+
+        var version = ++_copyFeedbackVersion;
+        _copySource.Classes.Add("copied");
+        if (_copyIcon is not null) _copyIcon.Data = StrataIcons.Check;
+        ToolTip.SetTip(_copySource, InteractiveLabels.Current["copied"]);
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (version != _copyFeedbackVersion || _copySource is null) return;
+            _copySource.Classes.Remove("copied");
+            if (_copyIcon is not null) _copyIcon.Data = StrataIcons.Copy;
+            ToolTip.SetTip(_copySource, InteractiveLabels.Current["copy"]);
+        }, TimeSpan.FromMilliseconds(1400));
+    }
+
+    // The toolbar names what kind of diagram this is, read from the source's first line.
+    private void UpdateKindTag()
+    {
+        if (_kindLabel is null && _kindIcon is null) return;
+        var (key, icon) = DetectKind(Source) switch
+        {
+            DiagramKind.Sequence => ("diagramSequence", StrataIcons.Sequence),
+            DiagramKind.State => ("diagramState", StrataIcons.Branch),
+            DiagramKind.Er => ("diagramEr", StrataIcons.Database),
+            DiagramKind.Class => ("diagramClass", StrataIcons.Cube),
+            DiagramKind.Timeline => ("diagramTimeline", StrataIcons.Clock),
+            DiagramKind.Quadrant => ("diagramQuadrant", StrataIcons.Target),
+            _ => ("diagramFlowchart", StrataIcons.Flowchart),
+        };
+        if (_kindLabel is not null) _kindLabel.Text = InteractiveLabels.Current[key];
+        if (_kindIcon is not null) _kindIcon.Data = icon;
+    }
+
+    private static DiagramKind DetectKind(string? source)
+    {
+        var text = source.AsSpan().TrimStart();
+        var newline = text.IndexOf('\n');
+        var first = (newline >= 0 ? text[..newline] : text).Trim();
+        static bool Starts(ReadOnlySpan<char> line, string prefix) => line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        if (Starts(first, "sequencediagram")) return DiagramKind.Sequence;
+        if (Starts(first, "statediagram")) return DiagramKind.State;
+        if (Starts(first, "erdiagram")) return DiagramKind.Er;
+        if (Starts(first, "classdiagram")) return DiagramKind.Class;
+        if (Starts(first, "timeline")) return DiagramKind.Timeline;
+        if (Starts(first, "quadrantchart") || Starts(first, "quadrant-chart")) return DiagramKind.Quadrant;
+        return DiagramKind.Flowchart;
     }
 
     private void OnActualSize(object? sender, RoutedEventArgs e) => _canvas?.ActualSize();
@@ -187,6 +284,7 @@ public partial class StrataMermaid : TemplatedControl
     private void Invalidate()
     {
         if (_expandedDiagram is not null) _expandedDiagram.Source = Source;
+        UpdateKindTag();
         if (_canvas is null) return;
         _canvas.Reparse();
         _canvas.InvalidateMeasure();
@@ -376,6 +474,8 @@ public partial class StrataMermaid : TemplatedControl
         private double _panStartX, _panStartY;
         private IPointer? _panPointer;
         private double _lastPinchScale = 1;
+        private string? _hoverNode;
+        private Point? _hoverPoint;
 
         // Entrance animation
         private double _animProgress = 1.0;
@@ -387,6 +487,8 @@ public partial class StrataMermaid : TemplatedControl
         // Constants
         private const double Pad = 24;
         private const double InlineMaxHeight = 480;
+        private const double InlineMinHeight = 96;
+        private static readonly BoxShadows NodeShadow = new(new BoxShadow { OffsetY = 1.5, Blur = 6, Color = Color.FromArgb(0x24, 0, 0, 0) });
         private const double NPadH = 16, NPadV = 10;
         private const double NMinW = 80, NH = 36;
         private const double NGapH = 50, NGapV = 56;
@@ -470,6 +572,7 @@ public partial class StrataMermaid : TemplatedControl
         internal void Reparse()
         {
             _parsed = false;
+            _hoverNode = null;
             _viewMode = _owner._expandedOwner is null ? ViewMode.Readable : ViewMode.Fit;
             _panX = _panY = 0;
             StartEntranceAnimation();
@@ -536,11 +639,53 @@ public partial class StrataMermaid : TemplatedControl
             if (_isPanning && e.Pointer == _panPointer)
             {
                 var pos = e.GetPosition(this);
+                if (_hoverPoint is not null)
+                    _hoverPoint = pos;
                 _panX = _panStartX + (pos.X - _panStart.X);
                 _panY = _panStartY + (pos.Y - _panStart.Y);
                 InvalidateVisual();
                 e.Handled = true;
+                return;
             }
+
+            if (_kind == DiagramKind.Flowchart && e.Pointer.Type == PointerType.Mouse)
+            {
+                _hoverPoint = e.GetPosition(this);
+                SetHoverNode(NodeAt(_hoverPoint.Value));
+            }
+        }
+
+        protected override void OnPointerExited(PointerEventArgs e)
+        {
+            base.OnPointerExited(e);
+            _hoverPoint = null;
+            SetHoverNode(null);
+        }
+
+        // Panning or zooming from the keyboard or wheel brings another step under a resting mouse.
+        private void RefreshHover()
+        {
+            if (_hoverPoint is { } point)
+                SetHoverNode(NodeAt(point));
+        }
+
+        // Hovering a step lights it and what it connects to, so its paths can be followed.
+        private void SetHoverNode(string? id)
+        {
+            if (string.Equals(id, _hoverNode, StringComparison.Ordinal)) return;
+            _hoverNode = id;
+            InvalidateVisual();
+        }
+
+        private string? NodeAt(Point point)
+        {
+            if (_userZoom <= 0) return null;
+            var origin = ViewOrigin(_userZoom);
+            var content = new Point((point.X - origin.X) / _userZoom, (point.Y - origin.Y) / _userZoom);
+            foreach (var node in _fNodes.Values)
+                if (new Rect(node.X, node.Y, node.W, node.H).Contains(content))
+                    return node.Id;
+            return null;
         }
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -563,16 +708,20 @@ public partial class StrataMermaid : TemplatedControl
 
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
         {
+            if (_hoverPoint is not null)
+                _hoverPoint = e.GetPosition(this);
             var command = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
             if ((e.KeyModifiers & command) != 0)
             {
                 ZoomBy(Math.Pow(1.15, e.Delta.Y), e.GetPosition(this));
+                RefreshHover();
                 e.Handled = true;
             }
             else if ((e.KeyModifiers & KeyModifiers.Shift) != 0 || Math.Abs(e.Delta.X) > 0)
             {
                 _panX += (e.Delta.X != 0 ? e.Delta.X : e.Delta.Y) * 40;
                 InvalidateVisual();
+                RefreshHover();
                 e.Handled = true;
             }
             else
@@ -598,6 +747,7 @@ public partial class StrataMermaid : TemplatedControl
             }
             e.Handled = true;
             InvalidateVisual();
+            RefreshHover();
         }
 
         // ── MEASURE ────────────────────────────────────────────
@@ -613,7 +763,7 @@ public partial class StrataMermaid : TemplatedControl
 
             var height = _owner._expandedOwner is not null && double.IsFinite(available.Height)
                 ? available.Height
-                : Math.Clamp(_contentBounds.Height * ReadableScale(w) + Pad * 2, 180, InlineMaxHeight);
+                : Math.Clamp(_contentBounds.Height * ReadableScale(w) + Pad * 2, InlineMinHeight, InlineMaxHeight);
             return new Size(w, height);
         }
 
@@ -1868,58 +2018,75 @@ public partial class StrataMermaid : TemplatedControl
                 }
             }
 
-            // Draw edges first (behind nodes)
+            // Draw edges first (behind nodes). While a step is hovered, its own paths light up
+            // in the accent and the rest step back.
+            var hover = _hoverNode is not null && _fNodes.ContainsKey(_hoverNode) ? _hoverNode : null;
+            HashSet<string>? lit = null;
+            if (hover is not null)
+            {
+                lit = new HashSet<string>(StringComparer.Ordinal) { hover };
+                foreach (var e in _fEdges)
+                {
+                    if (e.From == hover) lit.Add(e.To);
+                    if (e.To == hover) lit.Add(e.From);
+                }
+            }
+            var accentLinePen = new Pen(accent, 1.8) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+            var accentDottedPen = new Pen(accent, 1.8) { DashStyle = new DashStyle(new[] { 5.0, 4.0 }, 0), LineCap = PenLineCap.Round };
+            var accentThickPen = new Pen(accent, 2.6) { LineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+
             foreach (var e in _fEdges)
             {
                 if (e.Route.Count < 2) continue;
 
+                var connected = hover is not null && (e.From == hover || e.To == hover);
                 var pen = e.Style switch
                 {
-                    EStyle.Dotted => dottedPen,
-                    EStyle.Thick => thickPen,
-                    _ => linePen
+                    EStyle.Dotted => connected ? accentDottedPen : dottedPen,
+                    EStyle.Thick => connected ? accentThickPen : thickPen,
+                    _ => connected ? accentLinePen : linePen
                 };
                 var hasArrow = e.Style != EStyle.Line;
 
                 // No casing: the diagram sits on whatever backdrop its host has, which a casing colour can't match.
-                DrawOrthEdge(ctx, e.Route, pen, hasArrow, hasArrow && e.Bidirectional, lineBr);
+                using (hover is not null && !connected ? ctx.PushOpacity(0.22) : default(DrawingContext.PushedState?))
+                    DrawOrthEdge(ctx, e.Route, pen, hasArrow, hasArrow && e.Bidirectional, connected ? accent : lineBr);
             }
 
             // Accent only TRUE source roots (have outgoing edges but no incoming). Edgeless/orphan
             // nodes are NOT highlighted — they were rendering as misleading purple "entry points".
             var hasIncoming = new HashSet<string>(_fEdges.SelectMany(e => e.Bidirectional ? new[] { e.To, e.From } : new[] { e.To }));
             var hasOutgoing = new HashSet<string>(_fEdges.Select(e => e.From));
+            var tint = _owner.ResolveBrush("Brush.GlassAccentTint", Color.Parse("#24818CF8"));
+            var hoverPen = new Pen(accent, 1.8);
 
-            // Draw nodes
+            // Draw nodes: raised cards with a soft shadow; where the flow starts wears the accent.
             foreach (var n in _fNodes.Values)
             {
                 var rect = new Rect(n.X, n.Y, n.W, n.H);
                 var isRoot = !hasIncoming.Contains(n.Id) && hasOutgoing.Contains(n.Id);
-                var nodePen = isRoot ? accentPen : borderPen;
+                var isHover = n.Id == hover;
+                var nodePen = isHover ? hoverPen : isRoot ? accentPen : borderPen;
+                var tinted = isRoot || isHover;
 
+                using var dim = lit is not null && !lit.Contains(n.Id) ? ctx.PushOpacity(0.35) : default(DrawingContext.PushedState?);
                 switch (n.Shape)
                 {
                     case NShape.Diamond:
                         DrawDiamond(ctx, rect, fill, nodePen);
+                        if (tinted) DrawDiamond(ctx, rect, tint, null);
                         break;
                     case NShape.Circle:
                         var r = Math.Min(n.W, n.H) / 2;
                         ctx.DrawEllipse(fill, nodePen, rect.Center, r, r);
+                        if (tinted) ctx.DrawEllipse(tint, null, rect.Center, r, r);
                         break;
-                    case NShape.Rounded:
-                    case NShape.Stadium:
-                        ctx.DrawRectangle(fill, nodePen, rect, n.H / 2, n.H / 2);
+                    default:
+                        var radius = n.Shape is NShape.Rounded or NShape.Stadium ? n.H / 2 : 8;
+                        var rounded = new RoundedRect(rect, radius);
+                        ctx.DrawRectangle(fill, nodePen, rounded, NodeShadow);
+                        if (tinted) ctx.DrawRectangle(tint, null, rounded);
                         break;
-                    default: // Rect
-                        ctx.DrawRectangle(fill, nodePen, rect, 6, 6);
-                        break;
-                }
-
-                // Accent left bar on root nodes
-                if (isRoot && n.Shape == NShape.Rect)
-                {
-                    var barRect = new Rect(n.X + 1, n.Y + 6, 2.5, n.H - 12);
-                    ctx.DrawRectangle(accent, null, barRect, 1, 1);
                 }
 
                 var ft = Txt(n.DisplayText, Fs, text);
@@ -1927,11 +2094,14 @@ public partial class StrataMermaid : TemplatedControl
             }
 
             // Edge labels sit in their own slot between ranks; drawn over the lines they name.
+            var pillPen = new Pen(_owner.ResolveBrush("Brush.GlassDivider", Color.Parse("#14FFFFFF")), 1);
             foreach (var e in _fEdges)
             {
                 if (e.Route.Count < 2 || string.IsNullOrWhiteSpace(e.DisplayLabel)) continue;
-                var ft = Txt(e.DisplayLabel, FsSmall, labelBr);
-                ctx.DrawRectangle(pillBg, null, LabelPill(e.LabelAt, ft), 8, 8);
+                var connected = hover is not null && (e.From == hover || e.To == hover);
+                using var dim = hover is not null && !connected ? ctx.PushOpacity(0.3) : default(DrawingContext.PushedState?);
+                var ft = Txt(e.DisplayLabel, FsSmall, connected ? text : labelBr);
+                ctx.DrawRectangle(pillBg, pillPen, LabelPill(e.LabelAt, ft), 8, 8);
                 ctx.DrawText(ft, new Point(e.LabelAt.X - ft.Width / 2, e.LabelAt.Y - ft.Height / 2));
             }
 
@@ -3004,7 +3174,7 @@ public partial class StrataMermaid : TemplatedControl
             ctx.DrawGeometry(brush, null, geo);
         }
 
-        private static void DrawDiamond(DrawingContext ctx, Rect bounds, IBrush fill, Pen pen)
+        private static void DrawDiamond(DrawingContext ctx, Rect bounds, IBrush fill, Pen? pen)
         {
             var cx = bounds.Center.X;
             var cy = bounds.Center.Y;

@@ -82,6 +82,8 @@ public sealed partial class InteractiveLabels
         ["confidence"] = "置信度", ["source"] = "来源",
         ["confidenceHigh"] = "高", ["confidenceMedium"] = "中", ["confidenceLow"] = "低",
         ["optionA"] = "选项 A", ["optionB"] = "选项 B", ["loadingDiff"] = "正在加载差异…",
+        ["cardReadMore"] = "阅读更多", ["cardShowLess"] = "收起",
+        ["diagram"] = "图表", ["diagramCode"] = "代码", ["diagramFlowchart"] = "流程图", ["diagramSequence"] = "时序图", ["diagramState"] = "状态图", ["diagramEr"] = "实体关系", ["diagramClass"] = "类图", ["diagramTimeline"] = "时间线", ["diagramQuadrant"] = "象限图",
         ["imageViewer"] = "图片查看器", ["imageViewerHelp"] = "双指缩放，拖动平移。双击可放大或适合窗口。",
         ["fitImage"] = "适合图片",
         ["imageShowInFolder"] = "在文件夹中显示",

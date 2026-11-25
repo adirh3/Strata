@@ -1,5 +1,4 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:sa="using:StrataTheme.Animation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:StrataTheme.Controls">
   <Styles.Resources>
@@ -11,10 +10,9 @@
         <Setter Property="Template">
           <ControlTemplate>
             <Panel>
-              <!-- Focus ring (outer, Strata pattern) -->
               <Border Name="PART_FocusRing"
-                      CornerRadius="10"
-                      BorderThickness="2"
+                      CornerRadius="12"
+                      BorderThickness="{DynamicResource Stroke.FocusRing}"
                       BorderBrush="Transparent"
                       Margin="-2"
                       IsHitTestVisible="False" />
@@ -22,150 +20,276 @@
               <Border Name="PART_Root"
                       Background="{DynamicResource Brush.Surface0}"
                       BorderBrush="{DynamicResource Brush.BorderSubtle}"
-                      BorderThickness="1"
-                      CornerRadius="8"
-                      ClipToBounds="True"
-                      Cursor="Hand"
-                      RenderTransformOrigin="0.5,0.5"
-                      RenderTransform="scale(1)">
+                      BorderThickness="{DynamicResource Stroke.Thin}"
+                      CornerRadius="{DynamicResource Radius.Interactive}"
+                      ClipToBounds="True">
                 <Border.Transitions>
                   <Transitions>
-                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
-                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
                   </Transitions>
                 </Border.Transitions>
 
-                <StackPanel Spacing="0">
-                  <!-- Stratum accent line — Strata signature gradient -->
-                  <Border Name="PART_Stratum"
-                          Height="2"
-                          Background="{DynamicResource Brush.AccentGradient}"
-                          Opacity="0.6">
-                    <Border.Transitions>
-                      <Transitions>
-                        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
-                      </Transitions>
-                    </Border.Transitions>
+                <StackPanel>
+                  <!-- What the card is about and its gist, read on their own. -->
+                  <Border Name="PART_Header"
+                          Padding="16,13,14,14"
+                          Background="Transparent">
+                    <StackPanel Spacing="7">
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                          <ContentPresenter Name="PART_HeaderPresenter"
+                                            Content="{TemplateBinding Header}"
+                                            TextElement.FontSize="{DynamicResource Font.SizeSubtitle}"
+                                            TextElement.FontWeight="SemiBold"
+                                            TextElement.Foreground="{DynamicResource Brush.TextPrimary}" />
+                          <TextBlock Name="PART_Subtitle"
+                                     Text="{TemplateBinding Subtitle}"
+                                     IsVisible="False"
+                                     FontSize="{DynamicResource Font.SizeCaption}"
+                                     Foreground="{DynamicResource Brush.TextTertiary}"
+                                     TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <Border Name="PART_StatusPill"
+                                Grid.Column="1"
+                                Padding="8,2"
+                                CornerRadius="999"
+                                Background="{DynamicResource Brush.AccentSubtle}"
+                                VerticalAlignment="Top"
+                                IsVisible="False">
+                          <StackPanel Orientation="Horizontal" Spacing="5">
+                            <Border Name="PART_StatusDot"
+                                    Width="6" Height="6"
+                                    CornerRadius="3"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource Brush.AccentDefault}" />
+                            <TextBlock Name="PART_StatusLabel"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brush.AccentDefault}" />
+                          </StackPanel>
+                        </Border>
+                      </Grid>
+
+                      <ContentPresenter Name="PART_SummaryPresenter"
+                                        Content="{TemplateBinding Summary}"
+                                        IsVisible="{Binding Summary, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                        TextElement.Foreground="{DynamicResource Brush.TextSecondary}" />
+                    </StackPanel>
                   </Border>
 
-                  <!-- Clickable header row -->
-                  <Border Name="PART_Header"
-                          Padding="12,8,10,8"
-                          Background="Transparent">
-                    <Grid ColumnDefinitions="Auto,8,*,8,Auto">
-                      <!-- Status dot -->
-                      <Border Name="PART_StatusDot"
-                              Width="6" Height="6"
-                              CornerRadius="3"
-                              VerticalAlignment="Center"
-                              Background="{DynamicResource Brush.BorderSubtle}"
-                              IsVisible="False">
+                  <!-- The rest of the card, under a hairline below the summary; it rises into place as it opens. -->
+                  <controls:TurnSummaryRevealHost Name="PART_Detail" IsVisible="False" Reveal="0">
+                    <StackPanel Name="PART_DetailContent"
+                                Classes="card-motion"
+                                Margin="16,0,14,14"
+                                Spacing="12"
+                                Opacity="0"
+                                RenderTransform="translateY(-8px)">
+                      <StackPanel.Transitions>
+                        <Transitions>
+                          <DoubleTransition Property="Opacity" Duration="0:0:0.24" Delay="0:0:0.04" />
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.34" Easing="0.2,0 0,1" />
+                        </Transitions>
+                      </StackPanel.Transitions>
+                      <Border Height="1" Background="{DynamicResource Brush.GlassDivider}" />
+                      <ContentPresenter Content="{TemplateBinding Detail}" />
+                      <Border Name="PART_FooterHost"
+                              IsVisible="False"
+                              Padding="0,8,0,0"
+                              BorderThickness="0,1,0,0"
+                              BorderBrush="{DynamicResource Brush.GlassDivider}">
+                        <ContentPresenter Content="{TemplateBinding Footer}"
+                                          TextElement.FontSize="11.5"
+                                          TextElement.Foreground="{DynamicResource Brush.TextTertiary}" />
+                      </Border>
+                    </StackPanel>
+                  </controls:TurnSummaryRevealHost>
+
+                  <!-- Read more, which turns into Show less: it invites while the card is closed and quiets
+                       to glass once it is open. The pill is the button's content, so the card styles it. -->
+                  <Button Name="PART_MoreButton" IsVisible="False">
+                    <Panel Name="PART_MorePill"
+                           Classes="card-motion"
+                           RenderTransformOrigin="50%,50%"
+                           RenderTransform="scale(1)">
+                      <Panel.Transitions>
+                        <Transitions>
+                          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="0.2,0 0,1" />
+                        </Transitions>
+                      </Panel.Transitions>
+                      <!-- A soft accent glow, blurred beyond the pill's edges. -->
+                      <Border Name="PART_MoreGlow"
+                              Classes="card-motion"
+                              Margin="-18"
+                              Padding="20"
+                              Opacity="0"
+                              IsHitTestVisible="False">
+                        <Border.Effect>
+                          <BlurEffect Radius="12" />
+                        </Border.Effect>
                         <Border.Transitions>
                           <Transitions>
-                            <sa:PremultipliedBrushTransition Property="Background" Duration="0:0:0.2" />
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.24" />
+                          </Transitions>
+                        </Border.Transitions>
+                        <Border CornerRadius="999" Background="{DynamicResource Brush.AccentDefault}" Opacity="0.5" />
+                      </Border>
+                      <!-- The card's own colour under the translucent pill, so the glow shows only around it. -->
+                      <Border CornerRadius="999" Background="{DynamicResource Brush.Surface0}" />
+                      <!-- Pointing at the card deepens the tint from underneath, so the label keeps its contrast
+                           even where the pill's own tint is opaque, as in high contrast. -->
+                      <Border Name="PART_MoreTint"
+                              Classes="card-motion"
+                              CornerRadius="999"
+                              Opacity="0">
+                        <Border.Background>
+                          <SolidColorBrush Color="{DynamicResource Color.AccentDefault}" Opacity="0.16" />
+                        </Border.Background>
+                        <Border.Transitions>
+                          <Transitions>
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
                           </Transitions>
                         </Border.Transitions>
                       </Border>
-
-                      <!-- Header text stack -->
-                      <StackPanel Grid.Column="2" Spacing="1" VerticalAlignment="Center">
-                        <ContentPresenter Name="PART_HeaderPresenter"
-                                          Content="{TemplateBinding Header}"
-                                          TextElement.FontSize="12.5"
-                                          TextElement.FontWeight="SemiBold" />
-                        <TextBlock Name="PART_Subtitle"
-                                   Text="{TemplateBinding Subtitle}"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource Brush.TextTertiary}"
-                                   TextTrimming="CharacterEllipsis" />
-                      </StackPanel>
-
-                      <!-- Status pill -->
-                      <Border Name="PART_StatusPill"
-                              Grid.Column="4"
-                              Padding="7,2"
+                      <Border Name="PART_MoreSurface"
+                              Classes="card-motion"
+                              Height="30"
+                              Padding="14,0"
                               CornerRadius="999"
-                              Background="{DynamicResource Brush.AccentSubtle}"
-                              VerticalAlignment="Center"
-                              IsVisible="False">
-                        <TextBlock Name="PART_StatusLabel"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brush.AccentDefault}" />
+                              BorderThickness="1"
+                              Background="{DynamicResource Brush.GlassAccentTint}"
+                              BorderBrush="{DynamicResource Brush.AccentGlowStrong}">
+                        <Border.Transitions>
+                          <Transitions>
+                            <BrushTransition Property="Background" Duration="0:0:0.22" />
+                            <BrushTransition Property="BorderBrush" Duration="0:0:0.22" />
+                          </Transitions>
+                        </Border.Transitions>
+                        <!-- Text set here, not by a style: the theme's TextBlock style would outrank it. -->
+                        <controls:RollingLabelPanel Name="PART_MoreLabel" VerticalAlignment="Center">
+                          <TextBlock Name="PART_ReadMoreLabel"
+                                     Classes="card-more-label card-motion"
+                                     Text="{controls:InteractiveLabel cardReadMore}"
+                                     FontSize="12.5"
+                                     FontWeight="SemiBold"
+                                     Foreground="{DynamicResource Brush.AccentDefault}">
+                            <TextBlock.Transitions>
+                              <Transitions>
+                                <BrushTransition Property="Foreground" Duration="0:0:0.22" />
+                              </Transitions>
+                            </TextBlock.Transitions>
+                          </TextBlock>
+                          <TextBlock Name="PART_ShowLessLabel"
+                                     Classes="card-more-label card-motion"
+                                     Text="{controls:InteractiveLabel cardShowLess}"
+                                     FontSize="12.5"
+                                     FontWeight="SemiBold"
+                                     Foreground="{DynamicResource Brush.AccentDefault}">
+                            <TextBlock.Transitions>
+                              <Transitions>
+                                <BrushTransition Property="Foreground" Duration="0:0:0.22" />
+                              </Transitions>
+                            </TextBlock.Transitions>
+                          </TextBlock>
+                        </controls:RollingLabelPanel>
                       </Border>
-                    </Grid>
-                  </Border>
-
-                  <!-- Summary — compact preview, hidden when expanded -->
-                  <Border Name="PART_SummaryHost"
-                          Padding="12,0,12,8">
-                    <Border.Transitions>
-                      <Transitions>
-                        <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
-                      </Transitions>
-                    </Border.Transitions>
-                    <ContentPresenter Content="{TemplateBinding Summary}"
-                                      TextElement.FontSize="12"
-                                      TextElement.Foreground="{DynamicResource Brush.TextSecondary}" />
-                  </Border>
-
-                  <!-- Detail — animated reveal -->
-                  <Border Name="PART_Detail"
-                          ClipToBounds="True"
-                      IsVisible="False"
-                          MaxHeight="0"
-                          Opacity="0"
-                          Padding="12,0,12,10"
-                          RenderTransformOrigin="0.5,0"
-                          RenderTransform="translateY(-4px) scaleY(0.96)">
-                    <Border.Transitions>
-                      <Transitions>
-                        <DoubleTransition Property="MaxHeight" Duration="0:0:0.26" Easing="CubicEaseOut" />
-                        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
-                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
-                      </Transitions>
-                    </Border.Transitions>
-                    <StackPanel Spacing="8">
-                      <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
-                      <ContentPresenter Content="{TemplateBinding Detail}" />
-                      <!-- Footer inside detail area -->
-                      <Border Name="PART_FooterHost" IsVisible="False">
-                        <StackPanel Spacing="6">
-                          <Border Height="1" Background="{DynamicResource Brush.BorderSubtle}" />
-                          <ContentPresenter Content="{TemplateBinding Footer}"
-                                            TextElement.FontSize="11"
-                                            TextElement.Foreground="{DynamicResource Brush.TextTertiary}" />
-                        </StackPanel>
+                      <!-- The Strata line rims the pill while the card is inviting a click. -->
+                      <Border Name="PART_MoreRim"
+                              Classes="card-motion"
+                              CornerRadius="999"
+                              BorderThickness="1"
+                              BorderBrush="{DynamicResource Brush.StratumLine}"
+                              Opacity="0"
+                              IsHitTestVisible="False">
+                        <Border.Transitions>
+                          <Transitions>
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.24" />
+                          </Transitions>
+                        </Border.Transitions>
                       </Border>
-                    </StackPanel>
-                  </Border>
+                    </Panel>
+                  </Button>
                 </StackPanel>
               </Border>
             </Panel>
           </ControlTemplate>
         </Setter>
 
-        <!-- ─── Expanded ─── -->
-        <Style Selector="^:expanded /template/ Border#PART_Detail">
-          <Setter Property="IsVisible" Value="True" />
-          <Setter Property="MaxHeight" Value="2000" />
-          <Setter Property="Opacity" Value="1" />
-          <Setter Property="RenderTransform" Value="translateY(0) scaleY(1)" />
+        <!-- ─── Read more: a bare button whose pill is its content ─── -->
+        <Style Selector="^ /template/ Button#PART_MoreButton">
+          <Setter Property="Margin" Value="16,0,0,14" />
+          <!-- A button clips its content, which would cut the glow off at the pill's edge. -->
+          <Setter Property="ClipToBounds" Value="False" />
+          <Setter Property="MinHeight" Value="0" />
+          <Setter Property="MinWidth" Value="0" />
+          <Setter Property="Padding" Value="0" />
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="BorderThickness" Value="0" />
+          <Setter Property="HorizontalAlignment" Value="Left" />
+          <Setter Property="Focusable" Value="False" />
+          <Setter Property="Cursor" Value="Hand" />
+          <Setter Property="Template">
+            <ControlTemplate TargetType="Button">
+              <ContentPresenter Content="{TemplateBinding Content}"
+                                Padding="{TemplateBinding Padding}"
+                                Background="Transparent"
+                                VerticalContentAlignment="Center" />
+            </ControlTemplate>
+          </Setter>
         </Style>
-        <Style Selector="^:expanded /template/ Border#PART_Stratum">
-          <Setter Property="Opacity" Value="1" />
-        </Style>
-        <Style Selector="^:expanded /template/ Border#PART_SummaryHost">
-          <Setter Property="Opacity" Value="0" />
-          <Setter Property="IsVisible" Value="False" />
+        <Style Selector="^ /template/ Button#PART_MoreButton:pressed Panel#PART_MorePill">
+          <Setter Property="RenderTransform" Value="scale(0.96)" />
         </Style>
 
-        <!-- ─── Hover ─── -->
-        <Style Selector="^:pointerover /template/ Border#PART_Root">
+        <!-- Pointing at a closed card lights its pill: the tint deepens, a soft glow rises and the Strata line rims it. -->
+        <Style Selector="^:has-detail:not(:expanded):pointerover /template/ Border#PART_MoreSurface">
+          <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="^:has-detail:not(:expanded):pointerover /template/ Border#PART_MoreTint, ^:has-detail:not(:expanded):pointerover /template/ Border#PART_MoreGlow, ^:has-detail:not(:expanded):pointerover /template/ Border#PART_MoreRim">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+
+        <!-- Open, the pill has done its work: it quiets to glass while its label rolls to Show less. -->
+        <Style Selector="^:expanded /template/ Border#PART_MoreSurface">
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassFill}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRim}" />
+        </Style>
+        <Style Selector="^:expanded /template/ TextBlock.card-more-label">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        </Style>
+        <Style Selector="^:expanded /template/ Button#PART_MoreButton:pointerover Border#PART_MoreSurface">
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassFillHover}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRimHover}" />
+        </Style>
+        <Style Selector="^:expanded /template/ Button#PART_MoreButton:pointerover TextBlock.card-more-label">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+        <Style Selector="^:expanded /template/ StackPanel#PART_DetailContent">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RenderTransform" Value="translateY(0px)" />
+        </Style>
+
+        <Style Selector="^.motion-disabled /template/ :is(Control).card-motion">
+          <Setter Property="Transitions" Value="{x:Null}" />
+        </Style>
+
+        <!-- ─── With details: the pill shows, and the card's title and summary open it too ─── -->
+        <Style Selector="^:has-detail /template/ Button#PART_MoreButton">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-detail /template/ Border#PART_Header">
+          <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="^:has-detail:not(:expanded):pointerover /template/ Border#PART_Root">
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderDefault}" />
-          <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
-          <Setter Property="BoxShadow" Value="0 2 8 0 #0D000000" />
+        </Style>
+
+        <Style Selector="^:has-subtitle /template/ TextBlock#PART_Subtitle">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:has-footer /template/ Border#PART_FooterHost">
+          <Setter Property="IsVisible" Value="True" />
         </Style>
 
         <!-- ─── Focus ─── -->
@@ -173,66 +297,39 @@
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.AccentDefault}" />
         </Style>
 
-        <!-- ─── Footer visible ─── -->
-        <Style Selector="^:has-footer /template/ Border#PART_FooterHost">
+        <!-- ─── Status pill ─── -->
+        <Style Selector="^:info /template/ Border#PART_StatusPill, ^:success /template/ Border#PART_StatusPill, ^:warning /template/ Border#PART_StatusPill, ^:error /template/ Border#PART_StatusPill">
           <Setter Property="IsVisible" Value="True" />
         </Style>
 
-        <!-- ─── Status dot + pill visible when status set ─── -->
-        <Style Selector="^:info /template/ Border#PART_StatusDot">
-          <Setter Property="IsVisible" Value="True" />
-          <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
-        </Style>
-        <Style Selector="^:info /template/ Border#PART_StatusPill">
-          <Setter Property="IsVisible" Value="True" />
-        </Style>
-        <Style Selector="^:info /template/ Border#PART_Stratum">
-          <Setter Property="Background" Value="{DynamicResource Brush.AccentDefault}" />
-        </Style>
-
-        <Style Selector="^:success /template/ Border#PART_StatusDot">
-          <Setter Property="IsVisible" Value="True" />
-          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
-        </Style>
         <Style Selector="^:success /template/ Border#PART_StatusPill">
-          <Setter Property="IsVisible" Value="True" />
           <Setter Property="Background" Value="{DynamicResource Brush.SuccessSubtle}" />
+        </Style>
+        <Style Selector="^:success /template/ Border#PART_StatusDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
         </Style>
         <Style Selector="^:success /template/ TextBlock#PART_StatusLabel">
           <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
         </Style>
-        <Style Selector="^:success /template/ Border#PART_Stratum">
-          <Setter Property="Background" Value="{DynamicResource Brush.SuccessDefault}" />
-        </Style>
 
-        <Style Selector="^:warning /template/ Border#PART_StatusDot">
-          <Setter Property="IsVisible" Value="True" />
-          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
-        </Style>
         <Style Selector="^:warning /template/ Border#PART_StatusPill">
-          <Setter Property="IsVisible" Value="True" />
           <Setter Property="Background" Value="{DynamicResource Brush.WarningSubtle}" />
+        </Style>
+        <Style Selector="^:warning /template/ Border#PART_StatusDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
         </Style>
         <Style Selector="^:warning /template/ TextBlock#PART_StatusLabel">
           <Setter Property="Foreground" Value="{DynamicResource Brush.WarningDefault}" />
         </Style>
-        <Style Selector="^:warning /template/ Border#PART_Stratum">
-          <Setter Property="Background" Value="{DynamicResource Brush.WarningDefault}" />
-        </Style>
 
-        <Style Selector="^:error /template/ Border#PART_StatusDot">
-          <Setter Property="IsVisible" Value="True" />
-          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
-        </Style>
         <Style Selector="^:error /template/ Border#PART_StatusPill">
-          <Setter Property="IsVisible" Value="True" />
           <Setter Property="Background" Value="{DynamicResource Brush.DangerSubtle}" />
+        </Style>
+        <Style Selector="^:error /template/ Border#PART_StatusDot">
+          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
         </Style>
         <Style Selector="^:error /template/ TextBlock#PART_StatusLabel">
           <Setter Property="Foreground" Value="{DynamicResource Brush.DangerDefault}" />
-        </Style>
-        <Style Selector="^:error /template/ Border#PART_Stratum">
-          <Setter Property="Background" Value="{DynamicResource Brush.DangerDefault}" />
         </Style>
 
       </ControlTheme>
