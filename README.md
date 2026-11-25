@@ -87,8 +87,10 @@ second animation. To opt out, set both popup properties and the presenter's
 `AnimateOpen` property to `False`.
 
 `PopupAnimationHelper.OpenAnimationDuration` optionally changes one popup's
-opening time, without changing its 150 ms exit or other popups. The model picker
-uses a 120 ms near-full-size scale/fade instead of expanding from its button's height.
+opening time, without changing its 150 ms exit or other popups. Composer popups
+use the standard 220 ms opening. Model and mode pickers with the `composer` class
+use that same timing; standalone pickers keep their 120 ms opening. Pickers still
+scale and fade from nearly full size rather than expanding from their button's height.
 
 Composer autocomplete uses the model picker's soft elevation, with space around its shadow
 and an inset rounded clip for the frost, tint and scrollable suggestions.

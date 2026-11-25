@@ -257,8 +257,7 @@
                      PlacementTarget="{Binding #PART_ModelPickerButton}"
                      WindowManagerAddShadowHint="False"
                      strata:PopupAnimationHelper.EnableOpenAnimation="False"
-                     strata:PopupAnimationHelper.EnableOverlayAnimation="True"
-                     strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
+                     strata:PopupAnimationHelper.EnableOverlayAnimation="True">
                 <Border Name="PART_ModelPickerPanel"
                         TextOptions.TextRenderingMode="Antialias"
                         Width="328"
@@ -555,6 +554,9 @@
           </ControlTemplate>
         </Setter>
 
+        <Style Selector="^:not(.composer) /template/ Popup#PART_ModelPickerPopup">
+          <Setter Property="(strata:PopupAnimationHelper.OpenAnimationDuration)" Value="0:0:0.12" />
+        </Style>
         <Style Selector="^:not(:has-models) /template/ Panel#PART_ModelPickerWrap">
           <Setter Property="IsVisible" Value="False" />
         </Style>

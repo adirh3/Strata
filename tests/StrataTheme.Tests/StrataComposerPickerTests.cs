@@ -36,6 +36,37 @@ public class StrataComposerPickerTests
     }
 
     [Fact]
+    public Task ComposerPopupsUseTheStandardOpeningDuration() => _fixture.Dispatch(() =>
+    {
+        var host = Host.Create();
+        try
+        {
+            host.Composer.Models = new[] { "Test model" };
+            OfferEverything(host.Composer);
+            host.Window.UpdateLayout();
+            var modelPicker = host.Composer.GetVisualDescendants().OfType<StrataModelPicker>().Single();
+            TemplatedControl[] pickers = [modelPicker, host.ChatPicker, host.AgentPicker, host.SkillPicker, host.ConnectorPicker];
+            foreach (var picker in pickers)
+                picker.ApplyTemplate();
+
+            Popup[] popups =
+            [
+                Part<Popup>(host.Composer, "_autoCompletePopup"),
+                AddPopup(host),
+                Part<Popup>(modelPicker, "_modelPickerPopup"),
+                PopupOf(host.ChatPicker), PopupOf(host.AgentPicker), PopupOf(host.SkillPicker),
+                Part<Popup>(host.ConnectorPicker, "_popup")
+            ];
+            Assert.All(popups, popup =>
+            {
+                Assert.True(PopupAnimationHelper.GetEnableOverlayAnimation(popup));
+                Assert.Equal(TimeSpan.FromMilliseconds(220), PopupAnimationHelper.GetOpenAnimationDuration(popup));
+            });
+        }
+        finally { host.Window.Close(); }
+    });
+
+    [Fact]
     public async Task ManageFooterKeepsItsLabelAndIconInSyncAndExecutesItsCommand()
     {
         await _fixture.Dispatch(() =>

@@ -263,8 +263,7 @@
                      PlacementTarget="{Binding #PART_Button}"
                      WindowManagerAddShadowHint="False"
                      strata:PopupAnimationHelper.EnableOpenAnimation="False"
-                     strata:PopupAnimationHelper.EnableOverlayAnimation="True"
-                     strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
+                     strata:PopupAnimationHelper.EnableOverlayAnimation="True">
                 <Border Name="PART_Panel"
                         TextOptions.TextRenderingMode="Antialias"
                         Width="344"

@@ -338,8 +338,7 @@
                          PlacementGravity="BottomRight"
                          WindowManagerAddShadowHint="False"
                          strata:PopupAnimationHelper.EnableOpenAnimation="False"
-                         strata:PopupAnimationHelper.EnableOverlayAnimation="True"
-                         strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
+                         strata:PopupAnimationHelper.EnableOverlayAnimation="True">
                     <Border Name="PART_AutoCompleteSurface"
                             MinWidth="280" MaxWidth="560" Margin="10"
                             TextOptions.TextRenderingMode="Antialias"
@@ -526,8 +525,7 @@
                              PlacementTarget="{Binding #PART_AddButton}"
                              WindowManagerAddShadowHint="False"
                              strata:PopupAnimationHelper.EnableOpenAnimation="False"
-                             strata:PopupAnimationHelper.EnableOverlayAnimation="True"
-                             strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
+                             strata:PopupAnimationHelper.EnableOverlayAnimation="True">
                         <Panel Width="300" Margin="10" TextOptions.TextRenderingMode="Antialias">
                           <Border CornerRadius="16" ClipToBounds="True" IsHitTestVisible="False">
                             <controls:StrataBackdropBlur CornerRadius="16" BlurRadius="24" Saturation="1.5" />
@@ -734,7 +732,7 @@
                                       VerticalAlignment="Center" />
                     <Panel Name="PART_ModelPickerWrap" VerticalAlignment="Center">
                       <controls:StrataModelPicker Name="PART_ModelPicker"
-                                                  Classes="quiet"
+                                                  Classes="quiet composer"
                                                   Width="NaN"
                                                   MaxWidth="280"
                                                   VerticalAlignment="Center"

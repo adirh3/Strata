@@ -191,8 +191,7 @@
                  PlacementTarget="{Binding #PART_Button}"
                  WindowManagerAddShadowHint="False"
                  strata:PopupAnimationHelper.EnableOpenAnimation="False"
-                 strata:PopupAnimationHelper.EnableOverlayAnimation="True"
-                 strata:PopupAnimationHelper.OpenAnimationDuration="0:0:0.12">
+                 strata:PopupAnimationHelper.EnableOverlayAnimation="True">
             <Panel Width="340" Margin="10">
               <!-- What the host's footer is built from, scoped here so nothing else pays for these
                    rules: a quiet text action, a compact switch, and the icon tile the modes wear
@@ -275,6 +274,9 @@
       </ControlTemplate>
     </Setter>
 
+    <Style Selector="^:not(.composer) /template/ Popup#PART_Popup">
+      <Setter Property="(strata:PopupAnimationHelper.OpenAnimationDuration)" Value="0:0:0.12" />
+    </Style>
     <Style Selector="^ /template/ controls|StrataLineIcon#PART_Icon">
       <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
     </Style>
