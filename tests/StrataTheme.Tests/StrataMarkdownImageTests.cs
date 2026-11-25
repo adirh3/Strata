@@ -1130,13 +1130,14 @@ public sealed class StrataMarkdownImageTests
 
                     var viewport = FindImageViewerControl<StrataImageViewport>(window, "MarkdownImageViewport");
                     var start = viewport.TranslatePoint(new Point(viewport.Bounds.Width / 2, viewport.Bounds.Height / 2), window)!.Value;
-                    Swipe(-300);
+                    Swipe(-60);
                     Assert.Equal("Repeated picture", title.Text);
-                    Swipe(300);
+                    Swipe(60);
+                    await WaitForImageViewerAsync(window, () => title.Text == "First picture");
                     Assert.Equal("First picture", title.Text);
                     Assert.Equal("1 / 2", counter.Text);
-                    Swipe(-300);
-                    Assert.Equal("Repeated picture", title.Text);
+                    Swipe(-60);
+                    await WaitForImageViewerAsync(window, () => title.Text == "Repeated picture");
 
                     void Swipe(double horizontal)
                     {

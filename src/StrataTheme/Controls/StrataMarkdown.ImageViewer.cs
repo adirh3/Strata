@@ -298,8 +298,8 @@ internal sealed class MarkdownImageViewer
             || owner is StrataMarkdown { InteractionTouchMode: true };
 
         _image = new Image { Name = "ExpandedMarkdownImage", Stretch = Stretch.Uniform };
-        _viewport = new StrataImageViewport(_image) { CanSwipeBetweenImages = hasGallery };
-        _viewport.NavigateRequested += (_, step) => Navigate(step);
+        _viewport = new StrataImageViewport(_image);
+        _viewport.NavigateRequested += (_, step) => Navigate(step, animate: false);
         _viewport.DismissRequested += (_, _) => Close();
         _viewport.DismissProgress += (_, progress) => OnDismissProgress(progress);
         _viewport.Tapped += OnViewportTapped;
@@ -455,6 +455,7 @@ internal sealed class MarkdownImageViewer
         _image.Source = item.Image?.Source;
         previous?.Dispose();
         _viewport.Fit();
+        _viewport.SetGalleryNeighbors(PreviewFor(index - 1), PreviewFor(index + 1));
         _viewport.SlideIn(direction);
         UpdateFileActions();
 
@@ -486,6 +487,9 @@ internal sealed class MarkdownImageViewer
         _load = load;
         _ = LoadFullAsync(item, load.Token);
     }
+
+    private Func<IImage?>? PreviewFor(int index) =>
+        (uint)index < (uint)_items.Length ? () => _items[index].Image?.Source : null;
 
     private async Task LoadFullAsync(MarkdownImageFrameInfo item, CancellationToken cancellationToken)
     {
@@ -532,7 +536,7 @@ internal sealed class MarkdownImageViewer
         }
     }
 
-    private void Navigate(int step)
+    private void Navigate(int step, bool animate = true)
     {
         var next = _index + step;
         if (next < 0 || next >= _items.Length)
@@ -540,7 +544,7 @@ internal sealed class MarkdownImageViewer
             _viewport.Settle();
             return;
         }
-        Show(next, step);
+        Show(next, animate ? step : 0);
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

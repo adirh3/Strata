@@ -8,6 +8,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using StrataTheme.Controls;
 
 namespace StrataTheme.Tests;
@@ -354,7 +355,7 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
             Assert.Equal([1, -1], steps);
 
             // A short drag is not a swipe; the image eases back.
-            Swipe(new Vector(-30, 0));
+            Swipe(new Vector(-18, 0));
             Assert.Equal(2, steps.Count);
             Assert.Equal(default, viewport.Offset);
 
@@ -379,6 +380,141 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
                 window.TouchMove(touch, start + travel);
                 window.TouchEnd(touch, start + travel);
             }
+        }
+        finally { window.Close(); }
+    });
+
+    [Theory]
+    [InlineData(412, 52, 280, true)]
+    [InlineData(984, 60, 280, true)]
+    [InlineData(412, 28, 50, true)]
+    [InlineData(412, 28, 280, false)]
+    [InlineData(412, 18, 30, false)]
+    public Task GalleryAcceptsShortDragsAndFlicksWithoutTurningOnAccidentalNudges(
+        double width, double distance, int durationMs, bool navigates) => fixture.Dispatch(() =>
+    {
+        var (window, viewport) = CreateViewport(windowWidth: width);
+        try
+        {
+            Assert.Equal(width, viewport.Bounds.Width);
+            viewport.CanSwipeBetweenImages = true;
+            var steps = new List<int>();
+            viewport.NavigateRequested += (_, step) => steps.Add(step);
+
+            var start = new Point(width / 2, 240);
+            var end = start - new Vector(distance, 4);
+            var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Touch, isPrimary: true);
+            viewport.RaiseEvent(new PointerPressedEventArgs(viewport, pointer, window, start, 1000,
+                new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None, 1));
+            viewport.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, viewport, pointer, window, end,
+                (ulong)(990 + durationMs), new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other), KeyModifiers.None));
+            viewport.RaiseEvent(new PointerReleasedEventArgs(viewport, pointer, window, end, (ulong)(1000 + durationMs),
+                new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased), KeyModifiers.None, MouseButton.Left));
+
+            Assert.Equal(navigates ? [1] : Array.Empty<int>(), steps);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task GalleryDrawsTheNextPageUnderTheGestureAndCommitsOnlyAfterRelease() => fixture.Dispatch(async () =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            var next = Drawing(320, 320);
+            viewport.SetGalleryNeighbors(previous: null, next: () => next);
+            var steps = new List<int>();
+            viewport.NavigateRequested += (_, step) => steps.Add(step);
+            var start = new Point(160, 240);
+            var end = start - new Vector(72, 0);
+            var pointer = window.TouchBegin(start);
+            window.TouchMove(pointer, end);
+
+            window.UpdateLayout();
+            var nextPage = viewport.GetVisualDescendants().OfType<Image>().Single(image => ReferenceEquals(next, image.Source));
+            Assert.True(nextPage.IsEffectivelyVisible);
+            Assert.InRange(nextPage.TranslatePoint(default, viewport)!.Value.X, 250, 280);
+            Assert.Equal(320, nextPage.Bounds.Width);
+            Assert.Empty(steps);
+            window.TouchEnd(pointer, end);
+            Assert.Empty(steps);
+
+            for (var attempt = 0; attempt < 75 && steps.Count == 0; attempt++)
+                await Task.Delay(20);
+            Assert.Equal([1], steps);
+
+            // Pulling toward the missing neighbor at the start of the strip cannot navigate.
+            pointer = window.TouchBegin(start);
+            window.TouchMove(pointer, start + new Vector(150, 0));
+            window.TouchEnd(pointer, start + new Vector(150, 0));
+            await Task.Delay(250);
+            Assert.Equal([1], steps);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task ASwipeStartedDuringAPageTurnStillReachesTheFollowingPhoto() => fixture.Dispatch(async () =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            var next = Drawing(320, 320);
+            viewport.SetGalleryNeighbors(previous: null, next: () => next);
+            var steps = new List<int>();
+            viewport.NavigateRequested += (_, step) => steps.Add(step);
+            var start = new Point(160, 240);
+            var end = start - new Vector(72, 0);
+
+            var first = window.TouchBegin(start);
+            window.TouchMove(first, end);
+            window.TouchEnd(first, end);
+            Assert.Empty(steps);
+
+            var second = window.TouchBegin(start);
+            window.TouchMove(second, end);
+            window.TouchEnd(second, end);
+
+            for (var attempt = 0; attempt < 75 && steps.Count < 2; attempt++)
+                await Task.Delay(20);
+            Assert.Equal([1, 1], steps);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task GalleryReattachesWithoutAnOffsetOrPendingNavigation() => fixture.Dispatch(async () =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            var next = Drawing(320, 320);
+            viewport.SetGalleryNeighbors(previous: null, next: () => next);
+            var steps = new List<int>();
+            viewport.NavigateRequested += (_, step) => steps.Add(step);
+            var current = viewport.GetVisualDescendants().OfType<Image>().Single(image => !ReferenceEquals(image.Source, next)
+                && image.Source is not null);
+            var rest = current.TranslatePoint(default, viewport)!.Value;
+            var start = new Point(160, 240);
+            var end = start - new Vector(72, 0);
+            var finger = window.TouchBegin(start);
+            window.TouchMove(finger, end);
+            window.TouchEnd(finger, end);
+            Assert.Empty(steps);
+
+            var panel = Assert.IsType<ContentPresenter>(viewport.GetVisualParent());
+            window.Content = null;
+            panel.UpdateChild();
+            Assert.False(viewport.IsAttachedToVisualTree());
+            window.Content = viewport;
+            panel.UpdateChild();
+            window.UpdateLayout();
+            Assert.True(viewport.IsAttachedToVisualTree());
+
+            Assert.Equal(rest, current.TranslatePoint(default, viewport)!.Value);
+            await Task.Delay(250);
+            Assert.Empty(steps);
         }
         finally { window.Close(); }
     });
@@ -447,7 +583,8 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
         }
     };
 
-    private static (Window Window, StrataImageViewport Viewport) CreateViewport(double width = 400, double height = 400)
+    private static (Window Window, StrataImageViewport Viewport) CreateViewport(
+        double width = 400, double height = 400, double windowWidth = 320)
     {
         var viewport = new StrataImageViewport(new Image
         {
@@ -463,7 +600,7 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
         });
         var window = new Window
         {
-            Width = 320,
+            Width = windowWidth,
             Height = 480,
             Template = new FuncControlTemplate<Window>((owner, scope) => new VisualLayerManager
             {

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,21 +46,27 @@ public sealed class StrataImageViewport : Border
     private Point _swipeStart;
     private Vector _swipe;
     private SwipeAxis _swipeAxis;
+    private ulong _swipeStartedAt;
     private ulong _swipeLastTime;
     private Vector _swipeVelocity;
     private bool _pinchedOrSwiped;
     private Point _pressAt;
     private Point? _doubleTapAt;
     private DispatcherTimer? _settleTimer;
+    private Func<IImage?>? _previousPage;
+    private Func<IImage?>? _nextPage;
+    private Image? _neighborImage;
+    private readonly TranslateTransform _neighborOffset = new();
+    private int _pendingPageTurn;
 
     /// <summary>A swipe must travel this far before it counts as a swipe rather than a tap.</summary>
     private const double SwipeSlop = 10;
 
-    /// <summary>A flick this fast (pixels per millisecond) completes a swipe however short it was.</summary>
+    /// <summary>Speed and distance for the vertical dismiss flick.</summary>
     private const double FlickVelocity = 0.55;
-
-    /// <summary>Even a flick must travel this far, so a quick nudge is never taken for a swipe.</summary>
     private const double FlickDistance = 40;
+    private const double GalleryFlickVelocity = 0.4;
+    private const double GalleryFlickDistance = 24;
 
     private enum SwipeAxis { None, Horizontal, Vertical }
 
@@ -116,6 +123,35 @@ public sealed class StrataImageViewport : Border
 
     /// <summary>A sideways swipe finished: -1 for the previous image, +1 for the next, in reading order.</summary>
     public event EventHandler<int>? NavigateRequested;
+
+    /// <summary>
+    /// Supplies the adjoining pages so they can be drawn while the finger moves. A null delegate means
+    /// the strip ends there; a delegate returning null means that page is still loading.
+    /// </summary>
+    public void SetGalleryNeighbors(Func<IImage?>? previous, Func<IImage?>? next)
+    {
+        if (_pendingPageTurn != 0 || _swipePointer is not null)
+        {
+            _touch.Clear();
+            CancelSwipe();
+        }
+        _previousPage = previous;
+        _nextPage = next;
+        CanSwipeBetweenImages = previous is not null || next is not null;
+        if (CanSwipeBetweenImages && _neighborImage is null)
+        {
+            _neighborImage = new Image
+            {
+                Stretch = Stretch.Uniform,
+                IsHitTestVisible = false,
+                IsVisible = false,
+                RenderTransform = _neighborOffset
+            };
+            Child = null;
+            Child = new Panel { Children = { _image, _neighborImage } };
+        }
+        UpdateNeighbor();
+    }
 
     /// <summary>An up or down swipe finished far or fast enough to put the viewer away.</summary>
     internal event EventHandler? DismissRequested;
@@ -251,10 +287,29 @@ public sealed class StrataImageViewport : Border
         // The image is arranged in the center but scales around its own top-left, not the viewport's.
         var translation = _offset + _swipe + (Vector)_image.Bounds.Position * (_zoom - 1);
         _transform.Matrix = new Matrix(_zoom, 0, 0, _zoom, translation.X, translation.Y);
+        UpdateNeighbor();
         if ((oldZoom > 1) != (_zoom > 1))
             Cursor = new Cursor(_zoom > 1 ? StandardCursorType.Hand : StandardCursorType.Arrow);
         if (oldZoom != _zoom)
             ZoomChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private double PagePitch => Bounds.Width + 16;
+
+    private void UpdateNeighbor()
+    {
+        if (_neighborImage is null)
+            return;
+
+        var page = _swipe.X switch
+        {
+            > 0 => _previousPage?.Invoke(),
+            < 0 => _nextPage?.Invoke(),
+            _ => null
+        };
+        _neighborImage.Source = page;
+        _neighborImage.IsVisible = page is not null;
+        _neighborOffset.X = _swipe.X - Math.Sign(_swipe.X) * PagePitch;
     }
 
     private double Constrain(double offset, double viewport, double start, double length)
@@ -286,10 +341,18 @@ public sealed class StrataImageViewport : Border
         base.OnPropertyChanged(change);
         if (change.Property == SourceProperty)
         {
+            var source = change.GetNewValue<IImage?>();
+            if (_image.Source is null && source is not null && CanSwipeBetweenImages
+                && (_swipePointer is not null || _pendingPageTurn != 0))
+            {
+                _image.Source = source;
+                UpdateTransform();
+                return;
+            }
             _touch.Clear();
             _swipePointer = null;
             _doubleTapAt = null;
-            _image.Source = change.GetNewValue<IImage?>();
+            _image.Source = source;
             Fit();
         }
         else if (change.Property == BoundsProperty && change.GetOldValue<Rect>().Size != Bounds.Size)
@@ -299,6 +362,8 @@ public sealed class StrataImageViewport : Border
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+        if (_pendingPageTurn != 0)
+            FinishPageTurn(_pendingPageTurn);
         _doubleTapAt = null;
         if (e.Pointer.Type == PointerType.Touch)
         {
@@ -324,7 +389,7 @@ public sealed class StrataImageViewport : Border
             _swipePointer = e.Pointer;
             _swipeStart = _pressAt;
             _swipeAxis = SwipeAxis.None;
-            _swipeLastTime = e.Timestamp;
+            _swipeStartedAt = _swipeLastTime = e.Timestamp;
             _swipeVelocity = default;
             e.PreventGestureRecognition();
             return;
@@ -371,7 +436,7 @@ public sealed class StrataImageViewport : Border
         if (e.Pointer == _swipePointer)
         {
             TrackSwipe(e);
-            FinishSwipe();
+            FinishSwipe(e.Timestamp);
         }
         else if (e.Pointer == _panPointer)
         {
@@ -415,9 +480,8 @@ public sealed class StrataImageViewport : Border
     {
         _panPointer?.Capture(null);
         _touch.Clear();
-        _swipePointer = null;
+        CancelSwipe();
         _doubleTapAt = null;
-        StopSettling();
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -435,7 +499,7 @@ public sealed class StrataImageViewport : Border
         }
 
         var next = _swipeAxis == SwipeAxis.Horizontal
-            ? new Vector(CanSwipeBetweenImages ? travel.X : travel.X * 0.25, 0)
+            ? new Vector(HorizontalSwipeOffset(travel.X), 0)
             : new Vector(0, travel.Y);
         var elapsed = e.Timestamp > _swipeLastTime ? e.Timestamp - _swipeLastTime : 0;
         if (elapsed > 0)
@@ -448,22 +512,30 @@ public sealed class StrataImageViewport : Border
         e.Handled = true;
     }
 
-    private void FinishSwipe()
+    private void FinishSwipe(ulong releasedAt)
     {
         _swipePointer = null;
         var axis = _swipeAxis;
         _swipeAxis = SwipeAxis.None;
         _pinchedOrSwiped = axis != SwipeAxis.None;
-        if (axis == SwipeAxis.Horizontal && CanSwipeBetweenImages
-            && (Math.Abs(_swipe.X) > Bounds.Width * 0.22
-                || (Math.Abs(_swipeVelocity.X) > FlickVelocity && Math.Abs(_swipe.X) > FlickDistance))
-            && Math.Sign(_swipe.X) == Math.Sign(_swipeVelocity.X == 0 ? _swipe.X : _swipeVelocity.X))
+        if (axis == SwipeAxis.Horizontal && CanSwipeBetweenImages && IsGallerySwipe(releasedAt))
         {
             // Swiping toward the start of the line brings the next image, as turning a page does. Positions
             // here are already in the line's direction, so this holds for right-to-left text as it is.
-            NavigateRequested?.Invoke(this, _swipe.X < 0 ? 1 : -1);
-            if (_settleTimer is null)
-                Settle();
+            var step = _swipe.X < 0 ? 1 : -1;
+            if (_previousPage is not null || _nextPage is not null)
+            {
+                if (HasNeighbor(step))
+                    CompletePageTurn(step);
+                else
+                    Settle();
+            }
+            else
+            {
+                NavigateRequested?.Invoke(this, step);
+                if (_settleTimer is null)
+                    Settle();
+            }
             return;
         }
         if (axis == SwipeAxis.Vertical
@@ -476,13 +548,53 @@ public sealed class StrataImageViewport : Border
         Settle();
     }
 
+    private bool HasNeighbor(int step) => step < 0 ? _previousPage is not null : _nextPage is not null;
+
+    private double HorizontalSwipeOffset(double distance)
+    {
+        if (CanSwipeBetweenImages && ((_previousPage is null && _nextPage is null)
+                                     || HasNeighbor(distance > 0 ? -1 : 1)))
+            return Math.Clamp(distance, -PagePitch, PagePitch);
+
+        // Give the ends a little movement without allowing a swipe beyond the first or last image.
+        return Math.Clamp(distance * 0.25, -64, 64);
+    }
+
+    private void CompletePageTurn(int step)
+    {
+        var target = new Vector(-step * PagePitch, 0);
+        var remaining = Math.Abs(target.X - _swipe.X);
+        var duration = TimeSpan.FromMilliseconds(Math.Clamp(remaining * 0.45, 80, 220));
+        _pendingPageTurn = step;
+        AnimateSwipe(target, duration, () => FinishPageTurn(step));
+    }
+
+    private void FinishPageTurn(int step)
+    {
+        StopSettling();
+        _swipe = default;
+        NavigateRequested?.Invoke(this, step);
+        UpdateTransform();
+    }
+
+    private bool IsGallerySwipe(ulong releasedAt)
+    {
+        var distance = Math.Abs(_swipe.X);
+        if (distance >= Math.Clamp(Bounds.Width * 0.12, 36, 56))
+            return true;
+
+        // Use the whole flick: a stationary release report must not erase the gesture's speed.
+        return distance >= GalleryFlickDistance && releasedAt > _swipeStartedAt
+            && distance / (releasedAt - _swipeStartedAt) >= GalleryFlickVelocity;
+    }
+
     private void CancelSwipe()
     {
         _swipePointer = null;
         _swipeAxis = SwipeAxis.None;
+        StopSettling();
         if (_swipe == default)
             return;
-        StopSettling();
         _swipe = default;
         UpdateTransform();
         DismissProgress?.Invoke(this, 0);
@@ -492,23 +604,28 @@ public sealed class StrataImageViewport : Border
         Bounds.Height > 0 ? Math.Clamp(Math.Abs(_swipe.Y) / (Bounds.Height * 0.5), 0, 1) : 0;
 
     /// <summary>Eases a swipe that did not finish back to rest.</summary>
-    internal void Settle()
+    internal void Settle() => AnimateSwipe(default, TimeSpan.FromMilliseconds(200));
+
+    private void AnimateSwipe(Vector target, TimeSpan duration, Action? completed = null)
     {
-        StopSettling();
-        if (_swipe == default)
+        _settleTimer?.Stop();
+        if (_swipe == target)
+        {
+            StopSettling();
+            completed?.Invoke();
             return;
+        }
         var from = _swipe;
-        var started = DateTime.UtcNow;
-        var duration = TimeSpan.FromMilliseconds(200);
+        var started = Stopwatch.GetTimestamp();
         _settleTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Render, (_, _) =>
         {
-            var progress = Math.Clamp((DateTime.UtcNow - started) / duration, 0, 1);
+            var progress = Math.Clamp(Stopwatch.GetElapsedTime(started) / duration, 0, 1);
             var eased = 1 - Math.Pow(1 - progress, 3);
-            _swipe = from * (1 - eased);
+            _swipe = from + (target - from) * eased;
             if (progress >= 1)
             {
-                _swipe = default;
                 StopSettling();
+                completed?.Invoke();
             }
             UpdateTransform();
             if (from.Y != 0)
@@ -521,6 +638,7 @@ public sealed class StrataImageViewport : Border
     {
         _settleTimer?.Stop();
         _settleTimer = null;
+        _pendingPageTurn = 0;
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
