@@ -351,15 +351,11 @@ public class StrataBackdropBlur : Control
         private readonly double _sampleMargin;
 
         // Render-thread state. A new operation is created for every UI-thread render, and a changed operation
-        // always repaints the control's whole bounds, so each instance starts from a full frame. The unblurred
-        // backdrop then lets later partial frames patch only what they redrew. GPU-backed state is only ever
-        // released while its context is current, during a render: see Release.
+        // always repaints the control's whole bounds. Keep its snapshot as the blur input until the first
+        // partial redraw needs a writable copy. Both are released only in their owning context: see Release.
+        private SKImage? _captureImage;
         private SKSurface? _backdrop;
         private GRContext? _backdropContext;
-        private SKSizeI _backdropSize;
-        private SKImage? _frost;
-        private SKRectI _frostSource;
-        private SKRectI _frostDevice;
         private SKRectI _cachedVisible;
         private SKRectI _cachedBounds;
         private bool _failed;
@@ -456,9 +452,7 @@ public class StrataBackdropBlur : Control
             if (!ReferenceEquals(grContext, _backdropContext))
                 Release();
 
-            var hasCache = _frost is not null && _backdrop is not null
-                           && deviceBounds == _cachedBounds
-                           && ReferenceEquals(grContext, _backdropContext);
+            var hasCache = (_backdrop is not null || _captureImage is not null) && deviceBounds == _cachedBounds;
             var full = ShouldRecompute(hasCache, _cachedVisible, visible);
             if (full)
             {
@@ -466,9 +460,18 @@ public class StrataBackdropBlur : Control
                 _cachedBounds = deviceBounds;
             }
 
-            if (!Capture(surface, grContext, visible, full) || !Blur(grContext, (scaleX + scaleY) / 2))
+            if (!Capture(surface, grContext, visible, full))
             {
-                // Start over from the next full frame rather than frost a half-updated backdrop.
+                Release();
+                return;
+            }
+
+            // Keep the full input (including overscan) for the kernel, but only produce pixels this
+            // frame can replace. In particular, a caret-sized redraw need not filter the whole glass.
+            var output = SKRectI.Intersect(visible, deviceBounds);
+            using var frost = Blur(grContext, (scaleX + scaleY) / 2, output, out var source, out var offset);
+            if (frost is null)
+            {
                 Release();
                 return;
             }
@@ -476,31 +479,35 @@ public class StrataBackdropBlur : Control
             if (!full)
                 RequestHeal();
 
-            Draw(canvas, lease.CurrentOpacity, device, scaleX, scaleY);
+            var destination = SKRect.Create(_cachedVisible.Left + offset.X, _cachedVisible.Top + offset.Y,
+                source.Width, source.Height);
+            Draw(canvas, frost, source, destination, lease.CurrentOpacity, device, scaleX, scaleY);
         }
 
-        /// <summary>
-        /// Copies the freshly drawn pixels beneath <paramref name="region"/> into the backdrop. A full
-        /// capture starts a backdrop covering exactly the region; a partial one replaces only the region.
-        /// </summary>
         private bool Capture(SKSurface surface, GRContext? grContext, SKRectI region, bool full)
         {
-            using var patch = surface.Snapshot(region);
-            if (patch is null)
-                return false;
-
-            if (full && (_backdrop is null || !ReferenceEquals(grContext, _backdropContext)
-                         || _backdropSize != region.Size))
+            if (full)
             {
                 _backdrop?.Dispose();
-                _backdrop = grContext is null
-                    ? SKSurface.Create(patch.Info)
-                    : SKSurface.Create(grContext, true, patch.Info);
+                _backdrop = null;
+                _captureImage?.Dispose();
+                _captureImage = surface.Snapshot(region);
                 _backdropContext = grContext;
-                _backdropSize = region.Size;
+                return _captureImage is not null;
             }
 
-            if (_backdrop is null)
+            if (_captureImage is { } image)
+            {
+                _backdrop = grContext is null ? SKSurface.Create(image.Info) : SKSurface.Create(grContext, true, image.Info);
+                if (_backdrop is null)
+                    return false;
+                _backdrop.Canvas.DrawImage(image, 0, 0, _copyPaint);
+                _captureImage = null;
+                image.Dispose();
+            }
+
+            using var patch = surface.Snapshot(region);
+            if (patch is null || _backdrop is null)
                 return false;
 
             _backdrop.Canvas.DrawImage(patch, region.Left - _cachedVisible.Left, region.Top - _cachedVisible.Top, _copyPaint);
@@ -540,42 +547,28 @@ public class StrataBackdropBlur : Control
             _filterSigma = -1;
         }
 
-        private bool Blur(GRContext? grContext, float scale)
+        private SKImage? Blur(GRContext? grContext, float scale, SKRectI output, out SKRectI source, out SKPointI offset)
         {
-            using var backdrop = _backdrop?.Snapshot();
+            using var buffered = _backdrop?.Snapshot();
+            var backdrop = _captureImage ?? buffered;
             if (backdrop is null)
-                return false;
+            {
+                source = default;
+                offset = default;
+                return null;
+            }
 
             var filter = GetFilter((float)(_blurRadius * scale));
-
-            var subset = new SKRectI(0, 0, backdrop.Width, backdrop.Height);
-            SKImage? frost;
-            SKRectI outSubset;
-            SKPointI outOffset;
-            if (grContext is null)
-                frost = backdrop.ApplyImageFilter(filter, subset, subset, out outSubset, out outOffset);
-            else
-                frost = backdrop.ApplyImageFilter(grContext, filter, subset, subset, out outSubset, out outOffset);
-
-            if (frost is null)
-                return false;
-
-            _frost?.Dispose();
-            _frost = frost;
-            _frostSource = outSubset;
-            _frostDevice = new SKRectI(
-                _cachedVisible.Left + outOffset.X,
-                _cachedVisible.Top + outOffset.Y,
-                _cachedVisible.Left + outOffset.X + outSubset.Width,
-                _cachedVisible.Top + outOffset.Y + outSubset.Height);
-            return true;
+            var input = new SKRectI(0, 0, backdrop.Width, backdrop.Height);
+            output.Offset(-_cachedVisible.Left, -_cachedVisible.Top);
+            return grContext is null
+                ? backdrop.ApplyImageFilter(filter, input, output, out source, out offset)
+                : backdrop.ApplyImageFilter(grContext, filter, input, output, out source, out offset);
         }
 
-        private void Draw(SKCanvas canvas, double opacity, SKRect device, float scaleX, float scaleY)
+        private void Draw(SKCanvas canvas, SKImage frost, SKRectI source, SKRect destination,
+            double opacity, SKRect device, float scaleX, float scaleY)
         {
-            if (_frost is null || opacity <= 0)
-                return;
-
             canvas.Save();
             try
             {
@@ -597,19 +590,17 @@ public class StrataBackdropBlur : Control
                 var paint = _drawPaint;
                 erase.Color = new SKColor(0, 0, 0, alpha);
                 paint.Color = new SKColor(255, 255, 255, alpha);
-                var destination = SKRect.Create(_frostDevice.Left, _frostDevice.Top, _frostDevice.Width, _frostDevice.Height);
                 using var ramp = CreateFadeMask(device, _fade,
                     (float)(_fadeLength * scaleY), (float)(_horizontalFadeLength * scaleX));
                 if (ramp is null)
                 {
                     canvas.DrawRect(destination, erase);
-                    canvas.DrawImage(_frost, SKRect.Create(_frostSource.Left, _frostSource.Top,
-                        _frostSource.Width, _frostSource.Height), destination, paint);
+                    canvas.DrawImage(frost, source, destination, paint);
                     return;
                 }
 
-                using var image = _frost.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,
-                    SKMatrix.CreateTranslation(_frostDevice.Left - _frostSource.Left, _frostDevice.Top - _frostSource.Top));
+                using var image = frost.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,
+                    SKMatrix.CreateTranslation(destination.Left - source.Left, destination.Top - source.Top));
                 using var shader = SKShader.CreateBlend(SKBlendMode.DstIn, image, ramp);
                 erase.Shader = ramp;
                 canvas.DrawRect(destination, erase);
@@ -644,17 +635,17 @@ public class StrataBackdropBlur : Control
         {
             if (_backdropContext is { } context)
             {
-                s_retired.Retire(context, _frost);
                 s_retired.Retire(context, _backdrop);
+                s_retired.Retire(context, _captureImage);
             }
             else
             {
-                _frost?.Dispose();
                 _backdrop?.Dispose();
+                _captureImage?.Dispose();
             }
 
-            _frost = null;
             _backdrop = null;
+            _captureImage = null;
             _backdropContext = null;
         }
     }

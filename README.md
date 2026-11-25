@@ -733,11 +733,13 @@ Size a band past the content it covers by its feather, so the feather falls on e
 never shows through it. `SamplesBeyondEdges` also takes in what
 lies just around the glass (three blur radii on every side), so content nearing the rim blurs into
 it as real glass does instead of the clamped edge stretching it; it suits small floating glass such
-as a navigation pill, whose host must not clip it. The glass samples only pixels redrawn
-in the current frame and keeps its unblurred backdrop, so a partial redraw (a caret, button
-feedback, an animation beneath) patches just that region and never samples the glass's own
-foreground. Once partial redraws settle, all glass is repainted together, which updates the frost
-just outside a changed region without letting overlapping glasses keep each other rendering.
+as a navigation pill, whose host must not clip it. On a full redraw (including moving sheets),
+the glass blurs the captured pixels directly, without copying them into a second surface. It
+keeps that unblurred capture and only creates a writable copy when a partial redraw (such as
+a caret blink) needs to patch it. Only freshly drawn pixels are patched, so the glass never
+samples its own foreground. The filter can sample the whole capture but only produces the
+pixels the current redraw can replace. Once partial redraws settle, all glass is repainted
+together to update the frost outside the changed region without keeping overlapping glasses rendering.
 It requires the Skia renderer; elsewhere it draws nothing and the
 translucent surface remains the fallback. Its GPU textures are released only while their context is
 current, by the next frost to render: Avalonia disposes a replaced draw operation before making the
