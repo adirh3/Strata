@@ -123,13 +123,48 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
             viewport.ZoomBy(2);
             var start = new Point(70, 240);
             var touch = window.TouchBegin(start);
-            var edge = start + new Vector(215, 0);
+            var edge = start + new Vector(360, 0);
             window.TouchMove(touch, edge);
-            Assert.Equal(0, viewport.ImageBounds.Left, 6);
+            Assert.Equal(viewport.Bounds.Width / 2, viewport.ImageBounds.Left, 6);
             var back = edge - new Vector(12, 0);
             window.TouchMove(touch, back);
-            Assert.Equal(-12, viewport.ImageBounds.Left, 6);
+            Assert.Equal(viewport.Bounds.Width / 2 - 12, viewport.ImageBounds.Left, 6);
             window.TouchEnd(touch, back);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task AfterLiftingBothPinchFingersAnOversizedPhotoCanMovePastTheScreenEdge() => fixture.Dispatch(() =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            var center = new Point(160, 300);
+            var first = window.TouchBegin(center - new Vector(20, 0));
+            var second = window.TouchBegin(center + new Vector(20, 0));
+            window.TouchMove(first, center - new Vector(70, 0));
+            window.TouchMove(second, center + new Vector(70, 0));
+            window.TouchEnd(first, center - new Vector(70, 0));
+            window.TouchEnd(second, center + new Vector(70, 0));
+
+            var before = viewport.ImageBounds;
+            Assert.True(before.Height > viewport.Bounds.Height * 1.5);
+            Assert.True(before.Bottom > viewport.Bounds.Height);
+
+            DragUp(new Point(160, 410), 310);
+            Assert.Equal(before.Bottom - 310, viewport.ImageBounds.Bottom, 6);
+            Assert.True(viewport.ImageBounds.Bottom < viewport.Bounds.Height);
+            DragUp(new Point(160, 300), 190);
+            Assert.Equal(viewport.Bounds.Height / 2, viewport.ImageBounds.Bottom, 6);
+
+            void DragUp(Point start, double distance)
+            {
+                var finger = window.TouchBegin(start);
+                var destination = start - new Vector(0, distance);
+                window.TouchMove(finger, destination);
+                window.TouchEnd(finger, destination);
+            }
         }
         finally { window.Close(); }
     });

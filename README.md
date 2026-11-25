@@ -132,7 +132,8 @@ commands/output stay left-to-right in RTL layouts.
 Full-screen images and Mermaid diagrams support pinch-to-zoom and dragging on touch screens.
 Pinch and move your fingers together to zoom and pan in one gesture, then lift one finger to keep
 dragging with the other. Inline diagrams use two fingers so one-finger swipes still scroll the chat.
-Zoomed photos can be repositioned by touch even when they fit on one axis.
+Zoomed photos can be repositioned by touch even when they fit on one axis, and you can drag any
+edge toward the center of the viewer to inspect it.
 Images offer double-tap zoom/fit and a zoom toolbar; diagrams retain double-tap-to-fit.
 Viewers respect system-bar safe areas and close on Android Back as well as Escape, before
 the application's underlying navigation. Hosts with native input overlays can consult

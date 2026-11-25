@@ -257,13 +257,15 @@ public sealed class StrataImageViewport : Border
 
     private double Constrain(double offset, double viewport, double start, double length)
     {
-        var space = viewport - length * _zoom;
+        var scaledLength = length * _zoom;
+        var space = viewport - scaledLength;
         var scaledStart = start * _zoom;
         var center = space / 2 - scaledStart;
         if (_zoom > 1 && _usesTouchPanBounds)
         {
-            // Near an exact fit, the usual content bounds leave almost no room to move.
-            var halfTravel = Math.Max(Math.Abs(space) / 2, viewport / 4);
+            // Let touch bring either edge to the reading area at the viewport's center, while
+            // keeping small photos movable across the available space.
+            var halfTravel = Math.Max(space, scaledLength) / 2;
             return Math.Clamp(offset, center - halfTravel, center + halfTravel);
         }
 
