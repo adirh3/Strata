@@ -360,9 +360,14 @@ Loaded local and online markdown images have a keyboard-accessible expand button
 in their top-right corner. It opens the same full-screen overlay as Mermaid diagrams,
 fits the image without cropping, and loads a screen-sized decode on demand while
 keeping inline previews limited to 640 by 480 pixels (240 by 180 within text).
+Use the viewer's arrow buttons or Left/Right keys on desktop, or swipe sideways
+on touch screens while the image is fitted, to browse images in the same Markdown
+message in order. Each occurrence has its own position, even when it shares a
+source with another image or its inline preview hasn't loaded yet.
 Escape or the close button restores the previous window state and keyboard focus.
 Removing the image closes its viewer and releases its larger bitmap. If the larger
-image cannot be loaded, the viewer keeps the inline preview and displays an error.
+image cannot be loaded, the viewer displays an error and keeps the inline preview
+if available. Without a preview, image actions are disabled, but navigation stays available.
 
 ## Native interactive responses
 

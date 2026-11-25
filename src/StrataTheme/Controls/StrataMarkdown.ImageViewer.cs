@@ -81,28 +81,24 @@ public partial class StrataMarkdown
     private void OpenMarkdownImageViewer(Border frame)
     {
         if (_expandedImageViewer is not null
-            || frame.GetValue(ImageFrameInfoProperty) is not { Image.Source: not null } opened)
+            || frame.GetValue(ImageFrameInfoProperty) is not { Image.Source: not null })
         {
             return;
         }
 
         var items = new List<MarkdownImageFrameInfo>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var index = -1;
         foreach (var candidate in this.GetVisualDescendants().OfType<Border>())
         {
-            if (candidate.GetValue(ImageFrameInfoProperty) is { Image.Source: not null } info
-                && seen.Add(info.Source.CacheKey))
-            {
-                items.Add(info);
-            }
-        }
+            if (candidate.GetValue(ImageFrameInfoProperty) is not { } info)
+                continue;
 
-        var index = items.FindIndex(item => item.Source.CacheKey == opened.Source.CacheKey);
-        if (index < 0)
-        {
-            items.Insert(0, opened);
-            index = 0;
+            if (candidate == frame)
+                index = items.Count;
+            items.Add(info);
         }
+        if (index < 0)
+            return;
 
         var viewer = MarkdownImageViewer.Open(
             this,
@@ -443,6 +439,7 @@ internal sealed class MarkdownImageViewer
         previous?.Dispose();
         _viewport.Fit();
         _viewport.SlideIn(direction);
+        UpdateFileActions();
 
         _title.Text = item.Label;
         _subtitle.Text = MarkdownImageFiles.Describe(item.Source, null, _showsFileLocation);
@@ -491,6 +488,7 @@ internal sealed class MarkdownImageViewer
                 _fullBitmap = shown;
                 _image.Source = shown;
                 bitmap = null;
+                UpdateFileActions();
                 _loading.IsVisible = false;
                 _subtitle.Text = MarkdownImageFiles.Describe(item.Source, bytes, _showsFileLocation);
             });
@@ -504,8 +502,10 @@ internal sealed class MarkdownImageViewer
             {
                 if (cancellationToken.IsCancellationRequested)
                     return;
+                _image.Source ??= item.Image.Source;
+                UpdateFileActions();
                 _progress.IsVisible = false;
-                _status.Text = _labels["imageFullUnavailable"];
+                _status.Text = _labels[_image.Source is null ? "imageUnavailable" : "imageFullUnavailable"];
                 AutomationProperties.SetHelpText(_status, ex.Message);
             });
         }
@@ -592,13 +592,12 @@ internal sealed class MarkdownImageViewer
 
     private async Task RunActionAsync(MarkdownImageAction action)
     {
-        if (_isActionRunning || _isClosed || TopLevel.GetTopLevel(_root) is not { } topLevel)
+        if (_isActionRunning || _isClosed || _image.Source is null
+            || TopLevel.GetTopLevel(_root) is not { } topLevel)
             return;
 
         _isActionRunning = true;
-        KeepFocusInViewer([.. _fileActions]);
-        foreach (var button in _fileActions)
-            button.IsEnabled = false;
+        UpdateFileActions();
         try
         {
             var message = await MarkdownImageFiles.RunAsync(
@@ -615,9 +614,17 @@ internal sealed class MarkdownImageViewer
         finally
         {
             _isActionRunning = false;
-            foreach (var button in _fileActions)
-                button.IsEnabled = true;
+            UpdateFileActions();
         }
+    }
+
+    private void UpdateFileActions()
+    {
+        var isEnabled = !_isActionRunning && _image.Source is not null;
+        if (!isEnabled)
+            KeepFocusInViewer([.. _fileActions]);
+        foreach (var button in _fileActions)
+            button.IsEnabled = isEnabled;
     }
 
     /// <summary>

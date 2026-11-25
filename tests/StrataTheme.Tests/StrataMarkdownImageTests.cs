@@ -1085,6 +1085,127 @@ public sealed class StrataMarkdownImageTests
     }
 
     [Fact]
+    public async Task GalleryOpensTheTappedOccurrenceAndTouchSwipesStayWithinThatMessage()
+    {
+        var path = CreateTempPng();
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var message = new StrataMarkdown
+                {
+                    IsInline = true,
+                    Markdown = $"![First picture]({path})\n\nThen ![Repeated picture]({path}) inline.",
+                };
+                var window = CreateImageViewerWindow(new StackPanel
+                {
+                    Children =
+                    {
+                        message,
+                        new StrataMarkdown { IsInline = true, Markdown = $"![Other message]({path})" },
+                    },
+                });
+                try
+                {
+                    await WaitForImageViewerAsync(window, () =>
+                        window.GetVisualDescendants().OfType<Image>()
+                            .Count(image => image.Classes.Contains("strata-md-image-content") && image.Source is not null) == 3);
+
+                    var frames = message.GetVisualDescendants().OfType<Border>()
+                        .Where(border => border.Classes.Contains("strata-md-image")).ToArray();
+                    Assert.Equal(2, frames.Length);
+                    var frame = frames[1];
+                    var center = frame.TranslatePoint(new Point(frame.Bounds.Width / 2, frame.Bounds.Height / 2 + 10), window)!.Value;
+                    var tap = window.TouchBegin(center);
+                    window.TouchEnd(tap, center);
+                    PumpImageViewer(window);
+
+                    var title = FindImageViewerControl<TextBlock>(window, "MarkdownImageTitle");
+                    var counter = FindImageViewerControl<TextBlock>(window, "MarkdownImageCounter");
+                    Assert.Equal("Repeated picture", title.Text);
+                    Assert.Equal("2 / 2", counter.Text);
+
+                    var viewport = FindImageViewerControl<StrataImageViewport>(window, "MarkdownImageViewport");
+                    var start = viewport.TranslatePoint(new Point(viewport.Bounds.Width / 2, viewport.Bounds.Height / 2), window)!.Value;
+                    Swipe(-300);
+                    Assert.Equal("Repeated picture", title.Text);
+                    Swipe(300);
+                    Assert.Equal("First picture", title.Text);
+                    Assert.Equal("1 / 2", counter.Text);
+                    Swipe(-300);
+                    Assert.Equal("Repeated picture", title.Text);
+
+                    void Swipe(double horizontal)
+                    {
+                        var end = start + new Vector(horizontal, 0);
+                        var touch = window.TouchBegin(start);
+                        window.TouchMove(touch, end);
+                        window.TouchEnd(touch, end);
+                        PumpImageViewer(window);
+                    }
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task GalleryCanLoadAnImageWithoutAnInlinePreview()
+    {
+        var first = CreateTempPng();
+        var second = Path.Combine(Path.GetTempPath(), $"strata-gallery-{Guid.NewGuid():N}.png");
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var window = CreateImageViewerWindow($"![First picture]({first})\n\n![Second picture]({second})");
+                try
+                {
+                    var buttons = window.GetVisualDescendants().OfType<Button>()
+                        .Where(button => button.Name == "MarkdownImageExpand").ToArray();
+                    await WaitForImageViewerAsync(window, () => buttons[0].IsVisible);
+                    Assert.False(buttons[1].IsVisible);
+
+                    buttons[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    Assert.Equal("1 / 2", FindImageViewerControl<TextBlock>(window, "MarkdownImageCounter").Text);
+
+                    PressImageViewerKey(window, Key.Right);
+                    Assert.Equal("Second picture", FindImageViewerControl<TextBlock>(window, "MarkdownImageTitle").Text);
+                    await WaitForImageViewerAsync(window, () =>
+                        window.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "Image unavailable"));
+                    var save = FindImageViewerControl<Button>(window, "MarkdownImageSave");
+                    Assert.False(save.IsEnabled);
+                    Assert.False(FindImageViewerControl<Button>(window, "MarkdownImageOpenExternal").IsEnabled);
+
+                    PressImageViewerKey(window, Key.Left);
+                    File.WriteAllBytes(second, TinyPng);
+                    PressImageViewerKey(window, Key.Right);
+                    await WaitForImageViewerAsync(window, () =>
+                        FindImageViewerControl<Image>(window, "ExpandedMarkdownImage").Source is not null);
+                    Assert.True(save.IsEnabled);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(first);
+            File.Delete(second);
+        }
+    }
+
+    [Fact]
     public async Task ViewerOffersFileActionsOnADesktopAndTheHostsShareAndSaveWhenItHasOne()
     {
         var path = CreateTempPng();
@@ -1214,9 +1335,11 @@ public sealed class StrataMarkdownImageTests
         return path;
     }
 
-    private static Window CreateImageViewerWindow(string markdownText)
+    private static Window CreateImageViewerWindow(string markdownText) =>
+        CreateImageViewerWindow(new StrataMarkdown { IsInline = true, Markdown = markdownText });
+
+    private static Window CreateImageViewerWindow(Control content)
     {
-        var markdown = new StrataMarkdown { IsInline = true, Markdown = markdownText };
         var window = new Window
         {
             Width = 1000,
@@ -1230,7 +1353,7 @@ public sealed class StrataMarkdownImageTests
                     [!ContentPresenter.ContentProperty] = new Binding(nameof(Window.Content)) { Source = owner }
                 }.RegisterInNameScope(scope)
             }),
-            Content = markdown
+            Content = content
         };
         window.Styles.Add(new StyleInclude(new Uri("avares://StrataTheme.Tests/"))
         {
@@ -1238,7 +1361,8 @@ public sealed class StrataMarkdownImageTests
         });
         window.Show();
         window.ApplyTemplate();
-        InvokeMarkdownRebuild(markdown);
+        if (content is StrataMarkdown markdown)
+            InvokeMarkdownRebuild(markdown);
         PumpImageViewer(window);
         return window;
     }
