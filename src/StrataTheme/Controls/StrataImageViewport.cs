@@ -240,15 +240,17 @@ public sealed class StrataImageViewport : Border
         return new Rect((size.Width - fitted.Width) / 2, (size.Height - fitted.Height) / 2, fitted.Width, fitted.Height);
     }
 
-    private void UpdateTransform()
+    private void UpdateTransform(Size? arrangedSize = null)
     {
-        var size = Bounds.Size;
+        var size = arrangedSize ?? Bounds.Size;
         var content = FittedContent(size);
         _offset = new Vector(
             Constrain(_offset.X, size.Width, content.Left, content.Width),
             Constrain(_offset.Y, size.Height, content.Top, content.Height));
         var oldZoom = _transform.Matrix.M11;
-        _transform.Matrix = new Matrix(_zoom, 0, 0, _zoom, _offset.X + _swipe.X, _offset.Y + _swipe.Y);
+        // The image is arranged in the center but scales around its own top-left, not the viewport's.
+        var translation = _offset + _swipe + (Vector)_image.Bounds.Position * (_zoom - 1);
+        _transform.Matrix = new Matrix(_zoom, 0, 0, _zoom, translation.X, translation.Y);
         if ((oldZoom > 1) != (_zoom > 1))
             Cursor = new Cursor(_zoom > 1 ? StandardCursorType.Hand : StandardCursorType.Arrow);
         if (oldZoom != _zoom)
@@ -270,6 +272,13 @@ public sealed class StrataImageViewport : Border
         }
 
         return space >= 0 ? center : Math.Clamp(offset, space - scaledStart, -scaledStart);
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        var arranged = base.ArrangeOverride(finalSize);
+        UpdateTransform(arranged);
+        return arranged;
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

@@ -151,12 +151,23 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
             var before = viewport.ImageBounds;
             Assert.True(before.Height > viewport.Bounds.Height * 1.5);
             Assert.True(before.Bottom > viewport.Bounds.Height);
+            AssertRenderedBottom(before.Bottom);
 
             DragUp(new Point(160, 410), 310);
             Assert.Equal(before.Bottom - 310, viewport.ImageBounds.Bottom, 6);
             Assert.True(viewport.ImageBounds.Bottom < viewport.Bounds.Height);
+            AssertRenderedBottom(before.Bottom - 310);
             DragUp(new Point(160, 300), 190);
             Assert.Equal(viewport.Bounds.Height / 2, viewport.ImageBounds.Bottom, 6);
+            AssertRenderedBottom(viewport.Bounds.Height / 2);
+
+            void AssertRenderedBottom(double expected)
+            {
+                var image = Assert.IsType<Image>(viewport.Child);
+                var bottom = image.TranslatePoint(new Point(image.Bounds.Width / 2, image.Bounds.Height), viewport);
+                Assert.NotNull(bottom);
+                Assert.Equal(expected, bottom.Value.Y, 6);
+            }
 
             void DragUp(Point start, double distance)
             {
