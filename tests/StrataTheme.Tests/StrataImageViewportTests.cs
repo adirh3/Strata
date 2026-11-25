@@ -134,6 +134,37 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
         finally { window.Close(); }
     });
 
+    [Theory]
+    [InlineData(200)]
+    [InlineData(300)]
+    public Task PinchingTheLowerHalfLeavesRoomToDragThePhotoUp(double imageHeight) => fixture.Dispatch(() =>
+    {
+        var (window, viewport) = CreateViewport(width: 400, height: imageHeight);
+        try
+        {
+            var before = viewport.ImageBounds;
+            var center = new Point(160, 300);
+            Assert.True(before.Contains(center));
+            var first = window.TouchBegin(center - new Vector(40, 0));
+            var second = window.TouchBegin(center + new Vector(40, 0));
+            window.TouchMove(first, center - new Vector(80, 0));
+            window.TouchMove(second, center + new Vector(80, 0));
+            window.TouchEnd(second, center + new Vector(80, 0));
+            window.TouchEnd(first, center - new Vector(80, 0));
+
+            var anchoredTop = center.Y + (before.Top - center.Y) * 2;
+            Assert.Equal(2, viewport.Zoom, 6);
+            Assert.Equal(anchoredTop, viewport.ImageBounds.Top, 6);
+
+            var finger = window.TouchBegin(center);
+            var higher = center - new Vector(0, 54);
+            window.TouchMove(finger, higher);
+            window.TouchEnd(finger, higher);
+            Assert.Equal(anchoredTop - 54, viewport.ImageBounds.Top, 6);
+        }
+        finally { window.Close(); }
+    });
+
     [Fact]
     public Task ZoomedImageCanBeDraggedAndStopsOnRelease() => fixture.Dispatch(() =>
     {

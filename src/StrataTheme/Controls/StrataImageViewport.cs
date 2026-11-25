@@ -37,6 +37,7 @@ public sealed class StrataImageViewport : Border
     private readonly TouchViewportGesture _touch;
     private double _zoom = 1;
     private Vector _offset;
+    private bool _usesTouchPanBounds;
     private IPointer? _panPointer;
     private Point _panStart;
     private Vector _panOffset;
@@ -85,7 +86,7 @@ public sealed class StrataImageViewport : Border
         image.IsHitTestVisible = false;
         image.RenderTransformOrigin = RelativePoint.TopLeft;
         image.RenderTransform = _transform;
-        _touch = new TouchViewportGesture(this, TransformBetween);
+        _touch = new TouchViewportGesture(this, TransformTouch);
         // A double-tap is known on the second press but zooms on its release, so two quick swipes from
         // the same spot never zoom.
         AddHandler(InputElement.DoubleTappedEvent, (_, e) =>
@@ -184,6 +185,7 @@ public sealed class StrataImageViewport : Border
     {
         _zoom = 1;
         _offset = default;
+        _usesTouchPanBounds = false;
         StopSettling();
         var wasPulled = _swipe.Y != 0;
         _swipe = default;
@@ -213,11 +215,19 @@ public sealed class StrataImageViewport : Border
         TransformBetween(point, point, _zoom * factor);
     }
 
+    private void TransformTouch(Point previous, Point current, double? requestedZoom)
+    {
+        _usesTouchPanBounds = true;
+        TransformBetween(previous, current, requestedZoom);
+    }
+
     private void TransformBetween(Point previous, Point current, double? requestedZoom)
     {
         var zoom = Math.Clamp(requestedZoom ?? _zoom, 1, 8);
         _offset = (Vector)current - ((Vector)previous - _offset) * (zoom / _zoom);
         _zoom = zoom;
+        if (zoom == 1)
+            _usesTouchPanBounds = false;
         UpdateTransform();
     }
 
@@ -245,10 +255,20 @@ public sealed class StrataImageViewport : Border
             ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private double Constrain(double offset, double viewport, double start, double length) =>
-        length * _zoom <= viewport
-            ? (viewport - length * _zoom) / 2 - start * _zoom
-            : Math.Clamp(offset, viewport - (start + length) * _zoom, -start * _zoom);
+    private double Constrain(double offset, double viewport, double start, double length)
+    {
+        var space = viewport - length * _zoom;
+        var scaledStart = start * _zoom;
+        var center = space / 2 - scaledStart;
+        if (_zoom > 1 && _usesTouchPanBounds)
+        {
+            // Near an exact fit, the usual content bounds leave almost no room to move.
+            var halfTravel = Math.Max(Math.Abs(space) / 2, viewport / 4);
+            return Math.Clamp(offset, center - halfTravel, center + halfTravel);
+        }
+
+        return space >= 0 ? center : Math.Clamp(offset, space - scaledStart, -scaledStart);
+    }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -349,6 +369,8 @@ public sealed class StrataImageViewport : Border
         {
             if (_zoom > 1)
                 Fit();
+            else if (e.Pointer.Type == PointerType.Touch)
+                TransformTouch(at, at, 2);
             else
                 ZoomBy(2, at);
         }
