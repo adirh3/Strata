@@ -473,7 +473,9 @@ public partial class StrataMermaid : TemplatedControl
         private Point _panStart;
         private double _panStartX, _panStartY;
         private IPointer? _panPointer;
-        private double _lastPinchScale = 1;
+        private readonly TouchViewportGesture _touch;
+        private Point? _touchResetAt;
+        private const double TouchTapSlop = 10;
         private string? _hoverNode;
         private Point? _hoverPoint;
 
@@ -505,21 +507,15 @@ public partial class StrataMermaid : TemplatedControl
             Cursor = new Cursor(StandardCursorType.Hand);
             _viewMode = owner._expandedOwner is null ? ViewMode.Readable : ViewMode.Fit;
             AutomationProperties.SetName(this, InteractiveLabels.Current["diagramCanvas"]);
-            GestureRecognizers.Add(new PinchGestureRecognizer());
-            AddHandler(InputElement.PinchEvent, OnPinch);
-            AddHandler(InputElement.PinchEndedEvent, (_, _) => _lastPinchScale = 1);
-            AddHandler(InputElement.DoubleTappedEvent, (_, e) =>
-            {
-                ResetView();
-                e.Handled = true;
-            });
+            _touch = new TouchViewportGesture(this, TransformTouch);
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             _animTimer?.Stop();
             _panPointer?.Capture(null);
-            _lastPinchScale = 1;
+            _touch.Clear();
+            _touchResetAt = null;
             base.OnDetachedFromVisualTree(e);
         }
 
@@ -532,26 +528,39 @@ public partial class StrataMermaid : TemplatedControl
             if (!double.IsFinite(factor) || factor <= 0)
                 return;
             var point = anchor ?? new Point(Bounds.Width / 2, Bounds.Height / 2);
-            var before = ViewOrigin(_userZoom);
-            var contentPoint = (point - before) / _userZoom;
-            _userZoom = Math.Clamp(_userZoom * factor, Math.Min(0.1, FitScale(Bounds.Size)), 4.0);
+            TransformBetween(point, point, _userZoom * factor, touch: false);
+        }
+
+        private void TransformTouch(Point previous, Point current, double? requestedZoom) =>
+            TransformBetween(previous, current, requestedZoom ?? _userZoom, touch: true);
+
+        private void TransformBetween(Point previous, Point current, double requestedZoom, bool touch)
+        {
+            var oldZoom = _userZoom;
+            var fit = FitScale(Bounds.Size);
+            var zoom = Math.Clamp(requestedZoom, touch ? fit : Math.Min(0.1, fit), 4.0);
+            var origin = current - (previous - ViewOrigin(oldZoom)) * (zoom / oldZoom);
+            if (touch)
+            {
+                origin = new Point(
+                    ConstrainOrigin(origin.X, Bounds.Width, _contentBounds.Width * zoom),
+                    ConstrainOrigin(origin.Y, Bounds.Height, _contentBounds.Height * zoom));
+            }
+
+            _userZoom = zoom;
             _viewMode = ViewMode.Custom;
             var after = ViewOrigin(_userZoom);
-            _panX += point.X - (after.X + contentPoint.X * _userZoom);
-            _panY += point.Y - (after.Y + contentPoint.Y * _userZoom);
-            _owner.UpdateZoomLabel();
+            _panX += origin.X - after.X;
+            _panY += origin.Y - after.Y;
+            if (zoom != oldZoom)
+                _owner.UpdateZoomLabel();
             InvalidateVisual();
         }
 
-        private void OnPinch(object? sender, PinchEventArgs e)
-        {
-            if (double.IsFinite(e.Scale) && e.Scale > 0)
-            {
-                ZoomBy(e.Scale / _lastPinchScale, e.ScaleOrigin);
-                _lastPinchScale = e.Scale;
-            }
-            e.Handled = true;
-        }
+        private static double ConstrainOrigin(double origin, double viewport, double length) =>
+            length + Pad * 2 <= viewport
+                ? (viewport - length) / 2
+                : Math.Clamp(origin, viewport - Pad - length, Pad);
 
         internal void ResetView()
         {
@@ -611,6 +620,15 @@ public partial class StrataMermaid : TemplatedControl
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
+            if (e.Pointer.Type == PointerType.Touch)
+            {
+                _touchResetAt = !_touch.HasContact && e.ClickCount == 2 ? e.GetPosition(this) : null;
+                // Inline diagrams leave one-finger scrolling to the conversation. Expand to drag
+                // with one finger, or use two fingers directly in the conversation.
+                _touch.Press(e, _userZoom, panWithOneFinger: _owner._expandedOwner is not null);
+                return;
+            }
+
             var props = e.GetCurrentPoint(this).Properties;
             if (_panPointer is null && props.IsLeftButtonPressed)
             {
@@ -636,6 +654,14 @@ public partial class StrataMermaid : TemplatedControl
 
         protected override void OnPointerMoved(PointerEventArgs e)
         {
+            if (e.Pointer.Type == PointerType.Touch)
+            {
+                if (_touchResetAt is { } at && ((Vector)(e.GetPosition(this) - at)).Length > TouchTapSlop)
+                    _touchResetAt = null;
+                _touch.Move(e);
+                return;
+            }
+
             if (_isPanning && e.Pointer == _panPointer)
             {
                 var pos = e.GetPosition(this);
@@ -690,6 +716,18 @@ public partial class StrataMermaid : TemplatedControl
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
+            if (e.Pointer.Type == PointerType.Touch)
+            {
+                _touch.Release(e);
+                if (_touchResetAt is { } at && ((Vector)(e.GetPosition(this) - at)).Length <= TouchTapSlop)
+                {
+                    ResetView();
+                    e.Handled = true;
+                }
+                _touchResetAt = null;
+                return;
+            }
+
             if (_isPanning && e.Pointer == _panPointer)
             {
                 e.Pointer.Capture(null);
@@ -700,9 +738,14 @@ public partial class StrataMermaid : TemplatedControl
 
         protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
         {
-            _isPanning = false;
-            _panPointer = null;
-            Cursor = new Cursor(StandardCursorType.Hand);
+            if (e.Pointer == _panPointer)
+            {
+                _isPanning = false;
+                _panPointer = null;
+                Cursor = new Cursor(StandardCursorType.Hand);
+            }
+            _touch.Forget(e.Pointer);
+            _touchResetAt = null;
             base.OnPointerCaptureLost(e);
         }
 

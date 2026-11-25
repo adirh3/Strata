@@ -16,8 +16,8 @@ namespace StrataTheme.Controls;
 
 /// <summary>
 /// A touch-first image viewer. The image fits the viewport; pinch, double-tap, the mouse wheel and the
-/// <c>+</c>/<c>-</c> keys zoom it (up to 8×) about the point under the gesture, a drag pans it while it is
-/// zoomed, and <c>Home</c> or a second double-tap fits it again.
+/// <c>+</c>/<c>-</c> keys zoom it (up to 8×). Pinching follows the fingers' midpoint, and a remaining
+/// finger can keep dragging the zoomed image after a pinch. <c>Home</c> or a second double-tap fits it again.
 /// </summary>
 /// <remarks>
 /// While the image fits, a touch drag swipes it: sideways to the previous or next image when the host
@@ -34,9 +34,9 @@ public sealed class StrataImageViewport : Border
 
     private readonly Image _image;
     private readonly MatrixTransform _transform = new();
+    private readonly TouchViewportGesture _touch;
     private double _zoom = 1;
     private Vector _offset;
-    private double _lastPinchScale = 1;
     private IPointer? _panPointer;
     private Point _panStart;
     private Vector _panOffset;
@@ -46,7 +46,6 @@ public sealed class StrataImageViewport : Border
     private SwipeAxis _swipeAxis;
     private ulong _swipeLastTime;
     private Vector _swipeVelocity;
-    private bool _isPinching;
     private bool _swiped;
     private Point _pressAt;
     private Point? _doubleTapAt;
@@ -86,13 +85,7 @@ public sealed class StrataImageViewport : Border
         image.IsHitTestVisible = false;
         image.RenderTransformOrigin = RelativePoint.TopLeft;
         image.RenderTransform = _transform;
-        GestureRecognizers.Add(new PinchGestureRecognizer());
-        AddHandler(InputElement.PinchEvent, OnPinch);
-        AddHandler(InputElement.PinchEndedEvent, (_, _) =>
-        {
-            _lastPinchScale = 1;
-            _isPinching = false;
-        });
+        _touch = new TouchViewportGesture(this, TransformBetween);
         // A double-tap is known on the second press but zooms on its release, so two quick swipes from
         // the same spot never zoom.
         AddHandler(InputElement.DoubleTappedEvent, (_, e) =>
@@ -217,22 +210,15 @@ public sealed class StrataImageViewport : Border
         if (!double.IsFinite(factor) || factor <= 0)
             return;
         var point = anchor ?? new Point(Bounds.Width / 2, Bounds.Height / 2);
-        var zoom = Math.Clamp(_zoom * factor, 1, 8);
-        _offset = (Vector)point - ((Vector)point - _offset) * (zoom / _zoom);
-        _zoom = zoom;
-        UpdateTransform();
+        TransformBetween(point, point, _zoom * factor);
     }
 
-    private void OnPinch(object? sender, PinchEventArgs e)
+    private void TransformBetween(Point previous, Point current, double? requestedZoom)
     {
-        _isPinching = true;
-        CancelSwipe();
-        if (double.IsFinite(e.Scale) && e.Scale > 0)
-        {
-            ZoomBy(e.Scale / _lastPinchScale, e.ScaleOrigin);
-            _lastPinchScale = e.Scale;
-        }
-        e.Handled = true;
+        var zoom = Math.Clamp(requestedZoom ?? _zoom, 1, 8);
+        _offset = (Vector)current - ((Vector)previous - _offset) * (zoom / _zoom);
+        _zoom = zoom;
+        UpdateTransform();
     }
 
     private Rect FittedContent(Size size)
@@ -251,9 +237,12 @@ public sealed class StrataImageViewport : Border
         _offset = new Vector(
             Constrain(_offset.X, size.Width, content.Left, content.Width),
             Constrain(_offset.Y, size.Height, content.Top, content.Height));
+        var oldZoom = _transform.Matrix.M11;
         _transform.Matrix = new Matrix(_zoom, 0, 0, _zoom, _offset.X + _swipe.X, _offset.Y + _swipe.Y);
-        Cursor = new Cursor(_zoom > 1 ? StandardCursorType.Hand : StandardCursorType.Arrow);
-        ZoomChanged?.Invoke(this, EventArgs.Empty);
+        if ((oldZoom > 1) != (_zoom > 1))
+            Cursor = new Cursor(_zoom > 1 ? StandardCursorType.Hand : StandardCursorType.Arrow);
+        if (oldZoom != _zoom)
+            ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private double Constrain(double offset, double viewport, double start, double length) =>
@@ -266,6 +255,9 @@ public sealed class StrataImageViewport : Border
         base.OnPropertyChanged(change);
         if (change.Property == SourceProperty)
         {
+            _touch.Clear();
+            _swipePointer = null;
+            _doubleTapAt = null;
             _image.Source = change.GetNewValue<IImage?>();
             Fit();
         }
@@ -276,24 +268,35 @@ public sealed class StrataImageViewport : Border
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        _swiped = false;
-        _pressAt = e.GetPosition(this);
-        if (_swipePointer is not null && _swipePointer != e.Pointer)
+        _doubleTapAt = null;
+        if (e.Pointer.Type == PointerType.Touch)
         {
-            // A second finger is a pinch: the swipe gives way, and the image goes back where it was.
-            CancelSwipe();
-            return;
-        }
-        if (_zoom <= 1 && e.Pointer.Type == PointerType.Touch && _swipePointer is null && !_isPinching)
-        {
+            var joining = _touch.HasContact;
+            if (!joining)
+            {
+                _swiped = false;
+                _pressAt = e.GetPosition(this);
+            }
+            if (_touch.Press(e, _zoom, panWithOneFinger: _zoom > 1))
+            {
+                if (joining)
+                    CancelSwipe();
+                else
+                    Focus();
+                return;
+            }
+
             StopSettling();
             _swipePointer = e.Pointer;
-            _swipeStart = e.GetPosition(this);
+            _swipeStart = _pressAt;
             _swipeAxis = SwipeAxis.None;
             _swipeLastTime = e.Timestamp;
             _swipeVelocity = default;
+            e.PreventGestureRecognition();
             return;
         }
+        _swiped = false;
+        _pressAt = e.GetPosition(this);
         if (_panPointer is not null || _zoom <= 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
         Focus();
@@ -307,6 +310,11 @@ public sealed class StrataImageViewport : Border
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (e.Pointer.Type == PointerType.Touch
+            && ((Vector)(e.GetPosition(this) - _pressAt)).Length > SwipeSlop)
+            _doubleTapAt = null;
+        if (_touch.Move(e))
+            return;
         if (e.Pointer == _swipePointer)
         {
             TrackSwipe(e);
@@ -325,6 +333,7 @@ public sealed class StrataImageViewport : Border
         var doubleTap = _doubleTapAt;
         _doubleTapAt = null;
         var travel = e.GetPosition(this) - _pressAt;
+        _touch.Release(e);
         if (e.Pointer == _swipePointer)
         {
             TrackSwipe(e);
@@ -351,16 +360,19 @@ public sealed class StrataImageViewport : Border
         // swipe it started gives way, and the picture and backdrop come back.
         if (e.Pointer == _swipePointer)
             CancelSwipe();
-        _panPointer = null;
+        if (e.Pointer == _panPointer)
+            _panPointer = null;
+        _touch.Forget(e.Pointer);
+        _doubleTapAt = null;
         base.OnPointerCaptureLost(e);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _panPointer?.Capture(null);
-        _lastPinchScale = 1;
-        _isPinching = false;
+        _touch.Clear();
         _swipePointer = null;
+        _doubleTapAt = null;
         StopSettling();
         base.OnDetachedFromVisualTree(e);
     }

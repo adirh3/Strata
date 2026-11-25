@@ -46,6 +46,95 @@ public sealed class StrataImageViewportTests(AvaloniaFixture fixture)
     });
 
     [Fact]
+    public Task PinchTracksTheMovingMidpointAndEitherFingerCanKeepDragging() => fixture.Dispatch(() =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            foreach (var liftFirst in new[] { true, false })
+            {
+                viewport.Fit();
+                viewport.ZoomBy(2);
+                var start = viewport.Offset;
+                var midpoint = new Point(140, 220);
+                var firstAt = midpoint - new Vector(40, 0);
+                var secondAt = midpoint + new Vector(40, 0);
+                var first = window.TouchBegin(firstAt);
+                var second = window.TouchBegin(secondAt);
+
+                var shift = new Vector(24, 18);
+                firstAt += shift - new Vector(20, 0);
+                secondAt += shift + new Vector(20, 0);
+                window.TouchMove(first, firstAt);
+                window.TouchMove(second, secondAt);
+                Assert.Equal(3, viewport.Zoom, 6);
+                var afterPinch = start * 1.5 - (Vector)midpoint * 0.5 + shift;
+                Assert.Equal(afterPinch.X, viewport.Offset.X, 6);
+                Assert.Equal(afterPinch.Y, viewport.Offset.Y, 6);
+
+                window.TouchEnd(liftFirst ? first : second, liftFirst ? firstAt : secondAt);
+                Assert.Equal(afterPinch.X, viewport.Offset.X, 6);
+                Assert.Equal(afterPinch.Y, viewport.Offset.Y, 6);
+                var remaining = liftFirst ? second : first;
+                var destination = (liftFirst ? secondAt : firstAt) + new Vector(-22, 30);
+                window.TouchMove(remaining, destination);
+                window.TouchEnd(remaining, destination);
+                Assert.Equal(3, viewport.Zoom, 6);
+                Assert.Equal(afterPinch.X - 22, viewport.Offset.X, 6);
+                Assert.Equal(afterPinch.Y + 30, viewport.Offset.Y, 6);
+            }
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task MovingBothFingersAtFitDoesNotChangeTheFinalZoomOrDismiss() => fixture.Dispatch(() =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            var dismissals = 0;
+            viewport.DismissRequested += (_, _) => dismissals++;
+            var firstAt = new Point(120, 110);
+            var secondAt = new Point(120, 190);
+            var first = window.TouchBegin(firstAt);
+            var second = window.TouchBegin(secondAt);
+            var shift = new Vector(0, 40);
+            window.TouchMove(first, firstAt += shift);
+            window.TouchMove(second, secondAt += shift);
+            Assert.Equal(1, viewport.Zoom, 6);
+
+            window.TouchEnd(first, firstAt);
+            window.TouchMove(second, secondAt += new Vector(0, 140));
+            window.TouchEnd(second, secondAt);
+            Assert.Equal(1, viewport.Zoom, 6);
+            Assert.Equal(default, viewport.Offset);
+            Assert.Equal(0, dismissals);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task TouchPanReversesImmediatelyAfterReachingAnImageEdge() => fixture.Dispatch(() =>
+    {
+        var (window, viewport) = CreateViewport();
+        try
+        {
+            viewport.ZoomBy(2);
+            var start = new Point(70, 240);
+            var touch = window.TouchBegin(start);
+            var edge = start + new Vector(215, 0);
+            window.TouchMove(touch, edge);
+            Assert.Equal(0, viewport.ImageBounds.Left, 6);
+            var back = edge - new Vector(12, 0);
+            window.TouchMove(touch, back);
+            Assert.Equal(-12, viewport.ImageBounds.Left, 6);
+            window.TouchEnd(touch, back);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
     public Task ZoomedImageCanBeDraggedAndStopsOnRelease() => fixture.Dispatch(() =>
     {
         var (window, viewport) = CreateViewport();

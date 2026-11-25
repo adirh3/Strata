@@ -9,6 +9,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Input.GestureRecognizers;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
@@ -479,6 +480,79 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
                 window.TouchEnd(second, center + new Vector(80, 0));
                 window.TouchEnd(first, center - new Vector(80, 0));
             }
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task ExpandedCanvasFollowsBothFingersAndContinuesWithOne() => fixture.Dispatch(() =>
+    {
+        var (window, diagram, _) = CreateDiagram(WideFlow, 494);
+        try
+        {
+            Click(diagram, "PART_Expand");
+            Pump(window);
+            var canvas = Field<Control>(Find<StrataMermaid>(window, "ExpandedMermaid"), "_canvas");
+            var center = CanvasPoint(window, canvas, new Point(canvas.Bounds.Width / 2, canvas.Bounds.Height / 2));
+            var firstAt = center - new Vector(40, 0);
+            var secondAt = center + new Vector(40, 0);
+            var first = window.TouchBegin(firstAt);
+            var second = window.TouchBegin(secondAt);
+            firstAt -= new Vector(40, 0);
+            secondAt += new Vector(40, 0);
+            window.TouchMove(first, firstAt);
+            window.TouchMove(second, secondAt);
+            var zoom = Scale(canvas);
+            var before = Pan(canvas);
+
+            var shift = new Vector(-28, 0);
+            window.TouchMove(first, firstAt += shift);
+            window.TouchMove(second, secondAt += shift);
+            Assert.Equal(zoom, Scale(canvas), 6);
+            Assert.Equal(before.X + shift.X, Pan(canvas).X, 6);
+
+            window.TouchEnd(first, firstAt);
+            Assert.Equal(before.X + shift.X, Pan(canvas).X, 6);
+            window.TouchMove(second, secondAt += shift);
+            window.TouchEnd(second, secondAt);
+            Assert.Equal(before.X + 2 * shift.X, Pan(canvas).X, 6);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task InlineCanvasLetsOneFingerScrollButKeepsTwoFingerGestures() => fixture.Dispatch(() =>
+    {
+        var (window, _, canvas) = CreateDiagram(WideFlow, 494);
+        try
+        {
+            var content = Assert.IsType<StackPanel>(window.Content);
+            window.Content = null;
+            content.Children.Add(new Border { Height = 1200 });
+            var scroller = new ScrollContentPresenter { Content = content, CanVerticallyScroll = true };
+            scroller.GestureRecognizers.Add(new ScrollGestureRecognizer { CanVerticallyScroll = true });
+            window.Content = scroller;
+            Pump(window);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            var center = CanvasPoint(window, canvas, new Point(canvas.Bounds.Width / 2, canvas.Bounds.Height / 2));
+            Assert.Same(canvas, window.InputHitTest(center));
+            var initial = Scale(canvas);
+            var first = window.TouchBegin(center - new Vector(40, 0));
+            var second = window.TouchBegin(center + new Vector(40, 0));
+            window.TouchMove(first, center - new Vector(65, 36));
+            window.TouchMove(second, center + new Vector(65, -36));
+            window.TouchEnd(second, center + new Vector(65, -36));
+            window.TouchEnd(first, center - new Vector(65, 36));
+            Assert.True(Scale(canvas) > initial);
+            Assert.Equal(default, scroller.Offset);
+
+            var pan = Pan(canvas);
+            var finger = window.TouchBegin(center);
+            window.TouchMove(finger, center - new Vector(0, 28));
+            window.TouchMove(finger, center - new Vector(0, 64));
+            window.TouchEnd(finger, center - new Vector(0, 64));
+            Assert.True(scroller.Offset.Y > 0, $"Extent={scroller.Extent}; viewport={scroller.Viewport}");
+            Assert.Equal(pan, Pan(canvas));
         }
         finally { window.Close(); }
     });
