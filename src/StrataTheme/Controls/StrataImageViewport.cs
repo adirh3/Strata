@@ -47,7 +47,7 @@ public sealed class StrataImageViewport : Border
     private SwipeAxis _swipeAxis;
     private ulong _swipeLastTime;
     private Vector _swipeVelocity;
-    private bool _swiped;
+    private bool _pinchedOrSwiped;
     private Point _pressAt;
     private Point? _doubleTapAt;
     private DispatcherTimer? _settleTimer;
@@ -305,13 +305,16 @@ public sealed class StrataImageViewport : Border
             var joining = _touch.HasContact;
             if (!joining)
             {
-                _swiped = false;
+                _pinchedOrSwiped = false;
                 _pressAt = e.GetPosition(this);
             }
             if (_touch.Press(e, _zoom, panWithOneFinger: _zoom > 1))
             {
                 if (joining)
+                {
+                    _pinchedOrSwiped = true;
                     CancelSwipe();
+                }
                 else
                     Focus();
                 return;
@@ -326,7 +329,7 @@ public sealed class StrataImageViewport : Border
             e.PreventGestureRecognition();
             return;
         }
-        _swiped = false;
+        _pinchedOrSwiped = false;
         _pressAt = e.GetPosition(this);
         if (_panPointer is not null || _zoom <= 1 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
@@ -376,7 +379,7 @@ public sealed class StrataImageViewport : Border
             e.Handled = true;
         }
 
-        if (doubleTap is { } at && !_swiped && Math.Abs(travel.X) + Math.Abs(travel.Y) <= SwipeSlop)
+        if (doubleTap is { } at && !_pinchedOrSwiped && Math.Abs(travel.X) + Math.Abs(travel.Y) <= SwipeSlop)
         {
             if (_zoom > 1)
                 Fit();
@@ -385,6 +388,14 @@ public sealed class StrataImageViewport : Border
             else
                 ZoomBy(2, at);
         }
+    }
+
+    protected override void OnTapped(TappedEventArgs e)
+    {
+        base.OnTapped(e);
+        // Avalonia can report a tap after the last finger lifts, even during a handled pinch.
+        if (e.Pointer.Type == PointerType.Touch && _pinchedOrSwiped)
+            e.Handled = true;
     }
 
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
@@ -442,7 +453,7 @@ public sealed class StrataImageViewport : Border
         _swipePointer = null;
         var axis = _swipeAxis;
         _swipeAxis = SwipeAxis.None;
-        _swiped = axis != SwipeAxis.None;
+        _pinchedOrSwiped = axis != SwipeAxis.None;
         if (axis == SwipeAxis.Horizontal && CanSwipeBetweenImages
             && (Math.Abs(_swipe.X) > Bounds.Width * 0.22
                 || (Math.Abs(_swipeVelocity.X) > FlickVelocity && Math.Abs(_swipe.X) > FlickDistance))

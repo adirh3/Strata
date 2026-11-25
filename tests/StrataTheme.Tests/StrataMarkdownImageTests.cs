@@ -1157,6 +1157,59 @@ public sealed class StrataMarkdownImageTests
     }
 
     [Fact]
+    public async Task ReleasingAStationaryPinchFingerDoesNotToggleTheViewerControls()
+    {
+        var path = CreateTempPng();
+        try
+        {
+            await _fixture.Dispatch(async () =>
+            {
+                var window = CreateImageViewerWindow($"![Fixture photo]({path})");
+                try
+                {
+                    await WaitForImageViewerAsync(window, () =>
+                        FindImageViewerControl<Button>(window, "MarkdownImageExpand").IsVisible);
+                    FindImageViewerControl<Button>(window, "MarkdownImageExpand")
+                        .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    PumpImageViewer(window);
+                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+                    var viewport = FindImageViewerControl<StrataImageViewport>(window, "MarkdownImageViewport");
+                    var header = FindImageViewerControl<Border>(window, "MarkdownImageHeader");
+                    var center = viewport.TranslatePoint(new Point(viewport.Bounds.Width / 2, viewport.Bounds.Height / 2), window)!.Value;
+                    Assert.Same(viewport, window.InputHitTest(center));
+                    Assert.True(header.IsHitTestVisible);
+
+                    var first = window.TouchBegin(center - new Vector(40, 0));
+                    var stationary = center + new Vector(40, 0);
+                    var second = window.TouchBegin(stationary);
+                    var end = center - new Vector(120, 0);
+                    window.TouchMove(first, end);
+                    window.TouchEnd(first, end);
+                    window.TouchEnd(second, stationary);
+                    Assert.Equal(2, viewport.Zoom, 6);
+
+                    await Task.Delay(350);
+                    PumpImageViewer(window);
+                    Assert.True(header.IsHitTestVisible, "A pinch should not hide the viewer controls.");
+
+                    var tap = window.TouchBegin(center);
+                    window.TouchEnd(tap, center);
+                    await WaitForImageViewerAsync(window, () => !header.IsHitTestVisible);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public async Task GalleryCanLoadAnImageWithoutAnInlinePreview()
     {
         var first = CreateTempPng();
