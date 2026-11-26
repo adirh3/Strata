@@ -17,7 +17,7 @@ public sealed partial class InteractiveLabels
         ["copyOverview"] = "Copiar visão geral", ["expand"] = "Expandir", ["collapse"] = "Recolher",
         ["plainText"] = "Texto simples", ["markdown"] = "Markdown", ["richText"] = "Texto formatado",
         ["forkFromHere"] = "Criar ramificação daqui", ["send"] = "Enviar", ["stopGeneration"] = "Parar geração",
-        ["sendToSteer"] = "Enviar para redirecionar", ["stopAndSend"] = "Parar e enviar",
+        ["sendToSteer"] = "Enviar para redirecionar", ["stopAndSend"] = "Parar e enviar", ["stopSession"] = "Parar sessão",
         ["nextBlank"] = "Próximo campo",
         ["sendShortcut"] = "Enviar (Enter)", ["steerShortcut"] = "Enviar para redirecionar (Enter)",
         ["stopAndSendShortcut"] = "Parar e enviar (Enter)",

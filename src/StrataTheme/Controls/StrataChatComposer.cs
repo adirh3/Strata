@@ -330,6 +330,12 @@ public partial class StrataChatComposer : TemplatedControl
     public static readonly StyledProperty<bool> SteerWhileBusyProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(SteerWhileBusy), true);
 
+    /// <summary>When true, the send button's menu also offers Stop session, which runs <see cref="StopCommand"/>
+    /// and keeps the draft, and the menu opens while busy with a draft even without a <see cref="QueueCommand"/>.
+    /// For hosts such as a phone, where the send button is the only way to stop and it steers while there is a draft.</summary>
+    public static readonly StyledProperty<bool> OffersStopInSendMenuProperty =
+        AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(OffersStopInSendMenu));
+
     /// <summary>When true, Enter sends and Shift+Enter inserts newline. When false, Ctrl+Enter sends.</summary>
     public static readonly StyledProperty<bool> SendWithEnterProperty =
         AvaloniaProperty.Register<StrataChatComposer, bool>(nameof(SendWithEnter), true);
@@ -984,6 +990,7 @@ public partial class StrataChatComposer : TemplatedControl
     public object? SelectedMode { get => GetValue(SelectedModeProperty); set => SetValue(SelectedModeProperty, value); }
     public bool IsBusy { get => GetValue(IsBusyProperty); set => SetValue(IsBusyProperty, value); }
     public bool SteerWhileBusy { get => GetValue(SteerWhileBusyProperty); set => SetValue(SteerWhileBusyProperty, value); }
+    public bool OffersStopInSendMenu { get => GetValue(OffersStopInSendMenuProperty); set => SetValue(OffersStopInSendMenuProperty, value); }
     public bool SendWithEnter { get => GetValue(SendWithEnterProperty); set => SetValue(SendWithEnterProperty, value); }
     public bool CanAttach { get => GetValue(CanAttachProperty); set => SetValue(CanAttachProperty, value); }
     public bool CanVoice { get => GetValue(CanVoiceProperty); set => SetValue(CanVoiceProperty, value); }
@@ -1788,10 +1795,18 @@ public partial class StrataChatComposer : TemplatedControl
         CommandHelper.Execute(QueueCommand, QueueCommandParameter ?? promptText);
     }
 
+    /// <summary>Stop the running turn and keep the draft, from the send button's menu.</summary>
+    private void HandleStopAction()
+    {
+        RaiseEvent(new RoutedEventArgs(StopRequestedEvent));
+        CommandHelper.Execute(StopCommand, StopCommandParameter);
+    }
+
     /// <summary>
-    /// The send button's right-click menu, for hosts that offer queueing: while busy it chooses how the draft
-    /// reaches the running turn — steer it in, queue it for after, or stop and send. It doesn't open when
-    /// there is nothing to choose.
+    /// The send button's right-click menu, for hosts that offer queueing or opt into
+    /// <see cref="OffersStopInSendMenu"/>: while busy it chooses how the draft reaches the running turn —
+    /// steer it in, queue it for after, or stop and send. A host that opts in can also stop the turn and keep
+    /// the draft. It doesn't open when there is nothing to choose.
     /// </summary>
     private ContextMenu BuildSendModeMenu()
     {
@@ -1803,15 +1818,17 @@ public partial class StrataChatComposer : TemplatedControl
         var steer = Item(StrataIcons.ArrowUp);
         var queue = Item(StrataIcons.Clock);
         var stopAndSend = Item(StrataIcons.StopSend);
+        var stop = Item(StrataIcons.Stop);
         steer.Click += (_, _) => HandleSendAction();
         queue.Click += (_, _) => HandleQueueAction();
         stopAndSend.Click += (_, _) => HandleStopAndSendAction();
+        stop.Click += (_, _) => HandleStopAction();
 
         var menu = new ContextMenu
         {
             Placement = PlacementMode.TopEdgeAlignedRight,
             VerticalOffset = -6,
-            Items = { steer, queue, stopAndSend }
+            Items = { steer, queue, stopAndSend, stop }
         };
 
         menu.Opening += (_, e) => e.Cancel = !PrepareSendModeMenu(menu);
@@ -1823,7 +1840,9 @@ public partial class StrataChatComposer : TemplatedControl
     {
         var promptText = CommitInputText();
         var hasDraft = !string.IsNullOrWhiteSpace(promptText) || IsRecording || CanSendWithoutPrompt;
-        if (!CanQueue || !hasDraft || menu.Items is not [MenuItem steer, MenuItem queue, MenuItem stopAndSend])
+        var offersStop = OffersStopInSendMenu;
+        if (!IsBusy || IsEditing || !hasDraft || (!CanQueue && !offersStop)
+            || menu.Items is not [MenuItem steer, MenuItem queue, MenuItem stopAndSend, MenuItem stop])
             return false;
 
         var labels = InteractiveLabels.Current;
@@ -1832,8 +1851,11 @@ public partial class StrataChatComposer : TemplatedControl
         steer.IsVisible = SteerWhileBusy;
         queue.Header = labels["addToQueue"];
         queue.InputGesture = QueueGesture;
+        queue.IsVisible = CanQueue;
         stopAndSend.Header = labels["stopAndSend"];
         stopAndSend.InputGesture = StopAndSendGesture;
+        stop.Header = labels["stopSession"];
+        stop.IsVisible = offersStop;
         return true;
     }
 

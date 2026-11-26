@@ -34,7 +34,7 @@ public sealed partial class InteractiveLabels
         ["send"] = "Senden",
         ["stopGeneration"] = "Generierung stoppen",
         ["sendToSteer"] = "Zum Einsteuern senden",
-        ["stopAndSend"] = "Stoppen & senden",
+        ["stopAndSend"] = "Stoppen & senden", ["stopSession"] = "Sitzung stoppen",
         ["nextBlank"] = "Nächste Lücke",
         ["sendShortcut"] = "Senden (Enter)",
         ["steerShortcut"] = "Zum Einsteuern senden (Enter)",

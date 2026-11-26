@@ -34,7 +34,7 @@ public sealed partial class InteractiveLabels
         ["send"] = "Enviar",
         ["stopGeneration"] = "Detener generación",
         ["sendToSteer"] = "Enviar para orientar",
-        ["stopAndSend"] = "Detener y enviar",
+        ["stopAndSend"] = "Detener y enviar", ["stopSession"] = "Detener sesión",
         ["nextBlank"] = "Siguiente campo",
         ["sendShortcut"] = "Enviar (Enter)",
         ["steerShortcut"] = "Enviar para orientar (Enter)",

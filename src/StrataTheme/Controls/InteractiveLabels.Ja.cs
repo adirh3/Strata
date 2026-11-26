@@ -34,7 +34,7 @@ public sealed partial class InteractiveLabels
         ["send"] = "送信",
         ["stopGeneration"] = "生成を停止",
         ["sendToSteer"] = "方針を送信",
-        ["stopAndSend"] = "停止して送信",
+        ["stopAndSend"] = "停止して送信", ["stopSession"] = "セッションを停止",
         ["nextBlank"] = "次の空欄",
         ["sendShortcut"] = "送信 (Enter)",
         ["steerShortcut"] = "方針を送信 (Enter)",

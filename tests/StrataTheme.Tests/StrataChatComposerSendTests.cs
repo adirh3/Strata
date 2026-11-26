@@ -430,23 +430,18 @@ public class StrataChatComposerSendTests
                 QueueCommand = canQueue ? queue : null,
                 StopAndSendCommand = stopAndSend
             };
-            var menu = (ContextMenu)typeof(StrataChatComposer)
-                .GetMethod("BuildSendModeMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(composer, null)!;
 
-            var prepared = (bool)typeof(StrataChatComposer)
-                .GetMethod("PrepareSendModeMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(composer, [menu])!;
+            var menu = BuildPreparedSendModeMenu(composer, out var prepared);
 
             Assert.Equal(opens, prepared);
             if (!opens)
                 return;
 
-            var items = menu.Items.Cast<MenuItem>().ToArray();
+            // Stop session is only for hosts that opt in, so the desktop's menu keeps its three rows.
+            var items = VisibleItems(menu);
             var labels = InteractiveLabels.Current;
             Assert.Equal([labels["sendToSteer"], labels["addToQueue"], labels["stopAndSend"]],
                 items.Select(item => (string)item.Header!));
-            Assert.All(items, item => Assert.True(item.IsVisible));
             Assert.Equal(Key.Enter, items[1].InputGesture!.Key);
 
             items[1].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
@@ -455,6 +450,69 @@ public class StrataChatComposerSendTests
             Assert.Equal(0, send.ExecuteCount);
         });
     }
+
+    [Theory]
+    [InlineData(true, "steer me", false, true)]
+    [InlineData(true, "steer me", true, true)]
+    [InlineData(false, "steer me", false, false)]
+    // Without a draft the send button itself stops, so there is nothing to choose.
+    [InlineData(true, "  ", false, false)]
+    public async Task SendButtonMenu_OffersStopSessionKeepingTheDraft_WhenTheHostOptsIn(
+        bool busy, string prompt, bool canQueue, bool opens)
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var send = new RecordingCommand();
+            var stop = new RecordingCommand();
+            var composer = new StrataChatComposer
+            {
+                PromptText = prompt,
+                IsBusy = busy,
+                OffersStopInSendMenu = true,
+                SendCommand = send,
+                StopCommand = stop,
+                StopAndSendCommand = new RecordingCommand(),
+                QueueCommand = canQueue ? new RecordingCommand() : null
+            };
+            var stopRequested = 0;
+            composer.StopRequested += (_, _) => stopRequested++;
+
+            var menu = BuildPreparedSendModeMenu(composer, out var prepared);
+
+            Assert.Equal(opens, prepared);
+            if (!opens)
+                return;
+
+            // A host without queueing still offers what it can: steer, stop and send, or just stop.
+            var items = VisibleItems(menu);
+            var labels = InteractiveLabels.Current;
+            string[] expected = canQueue
+                ? [labels["sendToSteer"], labels["addToQueue"], labels["stopAndSend"], labels["stopSession"]]
+                : [labels["sendToSteer"], labels["stopAndSend"], labels["stopSession"]];
+            Assert.Equal(expected, items.Select(item => (string)item.Header!));
+            Assert.Null(items[^1].InputGesture);
+
+            items[^1].RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Equal(1, stop.ExecuteCount);
+            Assert.Equal(1, stopRequested);
+            Assert.Equal(0, send.ExecuteCount);
+            Assert.Equal("steer me", composer.PromptText);
+        });
+    }
+
+    private static ContextMenu BuildPreparedSendModeMenu(StrataChatComposer composer, out bool prepared)
+    {
+        var menu = (ContextMenu)typeof(StrataChatComposer)
+            .GetMethod("BuildSendModeMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(composer, null)!;
+        prepared = (bool)typeof(StrataChatComposer)
+            .GetMethod("PrepareSendModeMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(composer, [menu])!;
+        return menu;
+    }
+
+    private static MenuItem[] VisibleItems(ContextMenu menu) =>
+        menu.Items.Cast<MenuItem>().Where(item => item.IsVisible).ToArray();
 
     [Fact]
     public void ShortcutText_NamesEnterAsTheKeyboardDoes()

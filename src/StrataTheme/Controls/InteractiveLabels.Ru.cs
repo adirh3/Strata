@@ -34,7 +34,7 @@ public sealed partial class InteractiveLabels
         ["send"] = "Отправить",
         ["stopGeneration"] = "Остановить генерацию",
         ["sendToSteer"] = "Отправить для управления",
-        ["stopAndSend"] = "Остановить и отправить",
+        ["stopAndSend"] = "Остановить и отправить", ["stopSession"] = "Закончить сессию",
         ["nextBlank"] = "Следующий пустой",
         ["sendShortcut"] = "Отправить (Enter)",
         ["steerShortcut"] = "Отправить для управления (Enter)",

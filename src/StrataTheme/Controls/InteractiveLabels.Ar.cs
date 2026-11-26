@@ -34,7 +34,7 @@ public sealed partial class InteractiveLabels
         ["send"] = "إرسال",
         ["stopGeneration"] = "إيقاف التوليد",
         ["sendToSteer"] = "إرسال للتوجيه",
-        ["stopAndSend"] = "إيقاف وإرسال",
+        ["stopAndSend"] = "إيقاف وإرسال", ["stopSession"] = "إيقاف الجلسة",
         ["nextBlank"] = "الحقل التالي",
         ["sendShortcut"] = "إرسال (Enter)",
         ["steerShortcut"] = "إرسال للتوجيه (Enter)",

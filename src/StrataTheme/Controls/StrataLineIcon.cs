@@ -114,6 +114,9 @@ public static class StrataIcons
     /// <summary>Send, then stop: an arrow over a baseline.</summary>
     public static Geometry StopSend => Parse("M12 15V5.5 M7.5 10 12 5.5l4.5 4.5 M7 19h10");
 
+    /// <summary>Stop: a rounded square.</summary>
+    public static Geometry Stop => Parse("M8.5 7h7A1.5 1.5 0 0 1 17 8.5v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 15.5v-7A1.5 1.5 0 0 1 8.5 7z");
+
     public static Geometry Mic => Parse("M12 3.5a3 3 0 0 0-3 3V12a3 3 0 0 0 6 0V6.5a3 3 0 0 0-3-3z M6 11.5a6 6 0 0 0 12 0 M12 17.5v3");
 
     /// <summary>Pause: two upright bars.</summary>

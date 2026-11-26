@@ -606,7 +606,10 @@ The toolbar reads left to right as what a message brings in, then the model and 
 - The send button sends, steers and stops as before. With `QueueCommand` bound, a busy draft can
   wait for the running turn instead: Ctrl+Enter (Cmd+Enter on macOS; Ctrl+Shift+Enter when
   `SendWithEnter` is off) queues it (`QueueRequested`), and right-clicking the send button offers
-  steer, queue and stop & send, each with its shortcut. Without it the button has no menu. Menu items show
+  steer, queue and stop & send, each with its shortcut. `OffersStopInSendMenu` adds Stop session,
+  which stops the turn and keeps the draft, and opens the menu for a busy draft even without
+  `QueueCommand`, for hosts such as a phone where the send button is the only way to stop. Without
+  either the button has no menu. Menu items show
   their `InputGesture` in the platform's notation (`StrataKeyGestureConverter`). With `CanVoice`, a microphone beside it
   dictates (`VoiceRequested`/`VoiceCommand`); while `IsRecording` the microphone becomes a check that
   finishes dictation and send steps aside. `DictateLabel` and `StopDictatingLabel` name the microphone.
