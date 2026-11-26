@@ -1176,16 +1176,27 @@ public sealed class StrataMarkdownImageTests
                     FindImageViewerControl<Button>(window, "MarkdownImageExpand")
                         .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     PumpImageViewer(window);
-                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
 
                     var viewport = FindImageViewerControl<StrataImageViewport>(window, "MarkdownImageViewport");
                     var header = FindImageViewerControl<Border>(window, "MarkdownImageHeader");
-                    var center = viewport.TranslatePoint(new Point(viewport.Bounds.Width / 2, viewport.Bounds.Height / 2), window)!.Value;
-                    Assert.Same(viewport, window.InputHitTest(center));
+                    var fingerOffset = new Vector(40, 0);
+                    Point GetCenter() => viewport.TranslatePoint(
+                        new Point(viewport.Bounds.Width / 2, viewport.Bounds.Height / 2), window)!.Value;
+
+                    // Layout can finish before the headless compositor can hit-test the viewport.
+                    await WaitForImageViewerAsync(window, () =>
+                    {
+                        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                        var point = GetCenter();
+                        return ReferenceEquals(viewport, window.InputHitTest(point - fingerOffset))
+                            && ReferenceEquals(viewport, window.InputHitTest(point + fingerOffset));
+                    });
+
+                    var center = GetCenter();
                     Assert.True(header.IsHitTestVisible);
 
-                    var first = window.TouchBegin(center - new Vector(40, 0));
-                    var stationary = center + new Vector(40, 0);
+                    var first = window.TouchBegin(center - fingerOffset);
+                    var stationary = center + fingerOffset;
                     var second = window.TouchBegin(stationary);
                     var end = center - new Vector(120, 0);
                     window.TouchMove(first, end);
