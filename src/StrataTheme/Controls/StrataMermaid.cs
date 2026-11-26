@@ -35,11 +35,13 @@ namespace StrataTheme.Controls;
 /// </list>
 /// <para><b>Template parts:</b> PART_DiagramHost (Panel), PART_ZoomBar (Border),
 /// PART_ZoomIn, PART_ZoomOut, PART_ZoomReset, PART_ActualSize, PART_Expand (Button),
-/// PART_ZoomLabel (TextBlock), PART_KindTag (StackPanel), PART_KindLabel (TextBlock),
+/// PART_ZoomLabel (TextBlock),
 /// PART_ViewSwitch, PART_ZoomGroup, PART_ToolPill (Border; the toolbar's pills, which wrap onto
 /// another row where the diagram is narrow), PART_DiagramView, PART_SourceView, PART_CopySource
 /// (Button), PART_CodeHost (Border), PART_CodeText (SelectableTextBlock).</para>
-/// <para><b>Pseudo-classes:</b> :code (the source in place of the drawing), :fullscreen.</para>
+/// <para><b>Pseudo-classes:</b> :code (the source in place of the drawing), :fullscreen, :engaged (a mouse resting
+/// on the diagram or keyboard focus inside it: the toolbar, quiet ink at rest, raises its glass, as it does in full
+/// screen).</para>
 /// <para>Drag anywhere to pan. Use the toolbar or Ctrl/Cmd+wheel to zoom,
 /// pinch to zoom on touch screens, Home or double-tap to fit, and Escape or system Back
 /// to close the full-window viewer.</para>
@@ -49,8 +51,8 @@ public partial class StrataMermaid : TemplatedControl
     private Panel? _host;
     private MermaidCanvas? _canvas;
     private Button? _zoomIn, _zoomOut, _zoomReset, _actualSize, _expand, _diagramView, _sourceView, _copySource;
-    private TextBlock? _zoomLabel, _kindLabel;
-    private StrataLineIcon? _kindIcon, _copyIcon, _expandIcon;
+    private TextBlock? _zoomLabel;
+    private StrataLineIcon? _copyIcon, _expandIcon;
     private StrataFullScreenOverlay? _expandedView;
     private StrataMermaid? _expandedDiagram, _expandedOwner;
     private bool _showSource;
@@ -63,6 +65,12 @@ public partial class StrataMermaid : TemplatedControl
     static StrataMermaid()
     {
         SourceProperty.Changed.AddClassHandler<StrataMermaid>((c, _) => c.Invalidate());
+    }
+
+    /// <summary>Creates a diagram whose toolbar stays quiet until it is reached for.</summary>
+    public StrataMermaid()
+    {
+        ToolbarEngagement.Attach(this, PseudoClasses);
     }
 
     /// <summary>Gets or sets the Mermaid diagram source text.</summary>
@@ -98,8 +106,6 @@ public partial class StrataMermaid : TemplatedControl
         _copySource = e.NameScope.Find<Button>("PART_CopySource");
         _copyIcon = e.NameScope.Find<StrataLineIcon>("PART_CopyIcon");
         _expandIcon = e.NameScope.Find<StrataLineIcon>("PART_ExpandIcon");
-        _kindIcon = e.NameScope.Find<StrataLineIcon>("PART_KindIcon");
-        _kindLabel = e.NameScope.Find<TextBlock>("PART_KindLabel");
 
         if (_zoomIn is not null) _zoomIn.Click += OnZoomIn;
         if (_zoomOut is not null) _zoomOut.Click += OnZoomOut;
@@ -133,7 +139,6 @@ public partial class StrataMermaid : TemplatedControl
             _host.Children.Add(_canvas);
         }
 
-        UpdateKindTag();
         PseudoClasses.Set(":code", _showSource);
     }
 
@@ -176,39 +181,6 @@ public partial class StrataMermaid : TemplatedControl
             if (_copyIcon is not null) _copyIcon.Data = StrataIcons.Copy;
             ToolTip.SetTip(_copySource, InteractiveLabels.Current["copy"]);
         }, TimeSpan.FromMilliseconds(1400));
-    }
-
-    // The toolbar names what kind of diagram this is, read from the source's first line.
-    private void UpdateKindTag()
-    {
-        if (_kindLabel is null && _kindIcon is null) return;
-        var (key, icon) = DetectKind(Source) switch
-        {
-            DiagramKind.Sequence => ("diagramSequence", StrataIcons.Sequence),
-            DiagramKind.State => ("diagramState", StrataIcons.Branch),
-            DiagramKind.Er => ("diagramEr", StrataIcons.Database),
-            DiagramKind.Class => ("diagramClass", StrataIcons.Cube),
-            DiagramKind.Timeline => ("diagramTimeline", StrataIcons.Clock),
-            DiagramKind.Quadrant => ("diagramQuadrant", StrataIcons.Target),
-            _ => ("diagramFlowchart", StrataIcons.Flowchart),
-        };
-        if (_kindLabel is not null) _kindLabel.Text = InteractiveLabels.Current[key];
-        if (_kindIcon is not null) _kindIcon.Data = icon;
-    }
-
-    private static DiagramKind DetectKind(string? source)
-    {
-        var text = source.AsSpan().TrimStart();
-        var newline = text.IndexOf('\n');
-        var first = (newline >= 0 ? text[..newline] : text).Trim();
-        static bool Starts(ReadOnlySpan<char> line, string prefix) => line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
-        if (Starts(first, "sequencediagram")) return DiagramKind.Sequence;
-        if (Starts(first, "statediagram")) return DiagramKind.State;
-        if (Starts(first, "erdiagram")) return DiagramKind.Er;
-        if (Starts(first, "classdiagram")) return DiagramKind.Class;
-        if (Starts(first, "timeline")) return DiagramKind.Timeline;
-        if (Starts(first, "quadrantchart") || Starts(first, "quadrant-chart")) return DiagramKind.Quadrant;
-        return DiagramKind.Flowchart;
     }
 
     private void OnActualSize(object? sender, RoutedEventArgs e) => _canvas?.ActualSize();
@@ -284,7 +256,6 @@ public partial class StrataMermaid : TemplatedControl
     private void Invalidate()
     {
         if (_expandedDiagram is not null) _expandedDiagram.Source = Source;
-        UpdateKindTag();
         if (_canvas is null) return;
         _canvas.Reparse();
         _canvas.InvalidateMeasure();

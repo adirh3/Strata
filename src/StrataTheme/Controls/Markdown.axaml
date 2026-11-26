@@ -389,24 +389,70 @@
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
 
+  <!-- The copy button is a chip in the header's own colour, so header text running under it is hidden, its end
+       fading out beside it (the scrim), rather than meeting the icon. The icon is quiet until the table is hovered. -->
   <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-table-copy-button">
-    <Setter Property="Opacity" Value="0.68" />
+    <Setter Property="MinWidth" Value="26" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="6,0" />
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+    <Setter Property="Template">
+      <ControlTemplate TargetType="Button">
+        <!-- The chip keeps its size in the header's corner; a host may give the button a larger touch target
+             around it, reaching into the table. -->
+        <Panel Background="Transparent">
+          <Panel Name="PART_Chip"
+                 MinWidth="26"
+                 Height="26"
+                 HorizontalAlignment="Right"
+                 VerticalAlignment="Top">
+            <Border Background="{TemplateBinding Background}" CornerRadius="7" />
+            <Border Name="PART_Tint" CornerRadius="7" Background="Transparent" />
+            <Border Name="PART_FocusRing"
+                    CornerRadius="7"
+                    BorderThickness="{DynamicResource Stroke.FocusRing}"
+                    BorderBrush="Transparent"
+                    IsHitTestVisible="False" />
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              Padding="{TemplateBinding Padding}"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center" />
+          </Panel>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
   </Style>
 
   <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-table-copy-button TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
   </Style>
 
-  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table:pointerover Button.strata-md-table-copy-button">
-    <Setter Property="Opacity" Value="1" />
-  </Style>
-
-  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-table-copy-button:focus-visible">
-    <Setter Property="Opacity" Value="1" />
-  </Style>
-
-  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table:pointerover Button.strata-md-table-copy-button TextBlock">
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table:pointerover Button.strata-md-table-copy-button,
+                   :is(controls|StrataMarkdown) Button.strata-md-table-copy-button:focus-visible">
     <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-table-copy-button:pointerover /template/ Border#PART_Tint">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtleHover}" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-table-copy-button:pressed /template/ Border#PART_Tint">
+    <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) Button.strata-md-table-copy-button.copied">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+  </Style>
+
+  <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table-copy-scrim">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
   </Style>
 
   <Style Selector=":is(controls|StrataMarkdown) :is(Border).strata-md-table-header-cell">

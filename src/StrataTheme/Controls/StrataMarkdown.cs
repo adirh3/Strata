@@ -675,6 +675,8 @@ public partial class StrataMarkdown : ContentControl
         _linkBrush = null;
         _linkHoverBrush = null;
         _citationBrush = null;
+        _taskMarkerBrushes = null;
+        _taskDoneBrush = null;
         // Force full rebuild (not incremental) since brushes changed
         _previousBlocks.Clear();
         _previousGroups.Clear();
@@ -1040,7 +1042,7 @@ public partial class StrataMarkdown : ContentControl
                     oldBlock.Level == newBlock.Level &&
                     IsTextBlockKind(newBlock.Kind) &&
                     g < _contentHost.Children.Count &&
-                    TryUpdateTextBlockInPlace(_contentHost.Children[g], newBlock.Content))
+                    TryUpdateTextBlockInPlace(_contentHost.Children[g], newBlock.Content, newBlock))
                 {
                     continue;
                 }
@@ -1296,14 +1298,18 @@ public partial class StrataMarkdown : ContentControl
 
     private Control CreateTaskItemControl(string text, bool isChecked)
     {
-        var prefix = isChecked ? "☑ " : "☐ ";
-        var textBlock = CreateRichText(text, _bodyFontSize, _bodyFontSize * TextLineHeightRatio, TextWrapping.Wrap, prefix);
-        textBlock.Classes.Add("strata-md-task-text");
-        if (isChecked)
+        var textBlock = new MarkdownTextBlock
         {
-            textBlock.Opacity = 0.6;
-            textBlock.TextDecorations = TextDecorations.Strikethrough;
-        }
+            FontSize = _bodyFontSize,
+            LineHeight = _bodyFontSize * TextLineHeightRatio,
+            TextWrapping = TextWrapping.Wrap,
+            ClipToBounds = false,
+            Margin = ZeroThickness
+        };
+        textBlock.Classes.Add("strata-md-task-text");
+        ApplyDirectionalTextLayout(textBlock, FlowDirection, text);
+        if (PopulateTaskItem(textBlock, text, isChecked))
+            AttachLinkHandlers(textBlock);
         return WrapWithCodeLayer(textBlock);
     }
 
@@ -1497,7 +1503,7 @@ public partial class StrataMarkdown : ContentControl
 
             if (rebuildContent)
             {
-                if (!TryUpdateTextBlockInPlace(_contentHost.Children[groupIndex], block.Content))
+                if (!TryUpdateTextBlockInPlace(_contentHost.Children[groupIndex], block.Content, block))
                     ReplaceTextGroupControl(groupIndex, blocks, group);
             }
             else
@@ -1523,7 +1529,7 @@ public partial class StrataMarkdown : ContentControl
 
     private SelectableTextBlock CreateRichText(string text, double fontSize, double lineHeight, TextWrapping wrapping, string? prefix = null)
     {
-        var textBlock = new SelectableTextBlock
+        var textBlock = new MarkdownTextBlock
         {
             FontSize = fontSize,
             LineHeight = lineHeight,
@@ -2369,7 +2375,7 @@ public partial class StrataMarkdown : ContentControl
     /// control in-place. Avoids recreating the Grid/Border/SelectableTextBlock subtree.
     /// Returns false if the control structure doesn't match expectations.
     /// </summary>
-    private bool TryUpdateTextBlockInPlace(Control existing, string newContent)
+    private bool TryUpdateTextBlockInPlace(Control existing, string newContent, MdBlock? block = null)
     {
         var tb = FindSelectableTextBlock(existing);
         if (tb is null)
@@ -2381,9 +2387,17 @@ public partial class StrataMarkdown : ContentControl
         tb.Text = null;
         tb.Inlines?.Clear();
         ApplyDirectionalTextLayout(tb, FlowDirection, newContent);
-        var inlines = new InlineCollection();
-        AppendFormattedInlines(tb, inlines, newContent, null, forceInlines: false);
-        ApplyFormattedInlines(tb, inlines, tb.FontSize * TextLineHeightRatio);
+        if (block is { Kind: MdBlockKind.TaskItem } task)
+        {
+            // A task streams in with its checkbox kept in front of it.
+            PopulateTaskItem(tb, newContent, task.Level == 1);
+        }
+        else
+        {
+            var inlines = new InlineCollection();
+            AppendFormattedInlines(tb, inlines, newContent, null, forceInlines: false);
+            ApplyFormattedInlines(tb, inlines, tb.FontSize * TextLineHeightRatio);
+        }
 
         // Re-wire link handlers if needed
         if (tb.Inlines != null)
@@ -2717,6 +2731,7 @@ public partial class StrataMarkdown : ContentControl
                 ShowLegend = showLegend,
                 ShowGrid = showGrid,
                 ChartHeight = Math.Clamp(height, 120, 500),
+                ShowToolbar = true,
             };
 
             if (root.TryGetProperty("donutCenterValue", out var dcv))
@@ -2865,6 +2880,7 @@ public partial class StrataMarkdown : ContentControl
             ShowLegend = true,
             ShowGrid = false,
             ChartHeight = 220,
+            ShowToolbar = true,
         };
 
         return chart;
@@ -2971,6 +2987,7 @@ public partial class StrataMarkdown : ContentControl
             ShowLegend = seriesList.Count > 1,
             ShowGrid = true,
             ChartHeight = 220,
+            ShowToolbar = true,
         };
     }
 
@@ -3587,7 +3604,7 @@ public partial class StrataMarkdown : ContentControl
         if (group.Count == 1)
             return CreateControlForBlock(blocks[group.StartIndex]);
 
-        var tb = new SelectableTextBlock();
+        var tb = new MarkdownTextBlock();
         ConfigureMergedTextBlock(tb, group, blocks);
 
         ApplyDirectionalTextLayout(tb, FlowDirection, GetGroupDirectionSource(blocks, group));
@@ -3663,11 +3680,12 @@ public partial class StrataMarkdown : ContentControl
                 MdBlockKind.Bullet when block.Level > 0 => $"{new string(' ', block.Level * 4)}• ",
                 MdBlockKind.Bullet => "• ",
                 MdBlockKind.NumberedItem => $"{block.Level}. ",
-                MdBlockKind.TaskItem => block.Level == 1 ? "☑ " : "☐ ",
                 _ => null,
             };
 
             int inlinesBefore = inlines.Count;
+            if (block.Kind == MdBlockKind.TaskItem)
+                inlines.Add(CreateTaskMarker(block.Level == 1));
             hasLinks |= AppendFormattedInlines(tb, inlines, block.Content, prefix, forceInlines: true);
 
             // Apply heading formatting to newly added inlines (skip InlineCodeRun
@@ -3690,15 +3708,9 @@ public partial class StrataMarkdown : ContentControl
                 }
             }
 
-            // Apply strikethrough for checked task items
+            // A done task's text is struck through and quieter; its checkbox stays as it is.
             if (block.Kind == MdBlockKind.TaskItem && block.Level == 1)
-            {
-                for (int j = inlinesBefore; j < inlines.Count; j++)
-                {
-                    if (inlines[j] is Run run and not InlineCodeRun)
-                        run.TextDecorations = TextDecorations.Strikethrough;
-                }
-            }
+                MarkTaskDone(inlines, inlinesBefore);
         }
 
         ApplyFormattedInlines(tb, inlines, tb.FontSize * TextLineHeightRatio);
@@ -3830,7 +3842,9 @@ public partial class StrataMarkdown : ContentControl
         private readonly InteractiveLabels _labels;
         private readonly Grid _grid;
         private readonly ScrollViewer _scrollViewer;
-        private readonly TextBlock _copyLabel;
+        private readonly StrataLineIcon _copyIcon;
+        private readonly TextBlock _copyStatus;
+        private readonly Border _copyScrim;
         private readonly Button _copyButton;
         private string[] _headers = [];
         private IReadOnlyList<string[]> _rows = [];
@@ -3843,6 +3857,9 @@ public partial class StrataMarkdown : ContentControl
         // column below this many pixels, the table switches to fixed-width
         // columns with a horizontal scrollbar instead of cramped wrapping.
         private const double MinColumnWidth = 120;
+
+        // The header's end keeps clear of the copy button floating over it: the button, its margin and a gap.
+        internal const double CopyGutter = 36;
 
         public MarkdownTableView(InteractiveLabels labels)
         {
@@ -3860,30 +3877,31 @@ public partial class StrataMarkdown : ContentControl
                 MaxHeight = 400,
             };
             _scrollViewer.Classes.Add("strata-md-table-scroll");
+            _scrollViewer.ScrollChanged += OnTableScrollChanged;
 
-            _copyLabel = new TextBlock
+            _copyIcon = new StrataLineIcon
             {
-                Text = "\uE8C8",
-                FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
-                FontSize = 12,
+                Data = StrataIcons.Copy,
                 Width = 14,
-                TextAlignment = TextAlignment.Center,
+                Height = 14,
+                StrokeThickness = 1.7,
+            };
+            _copyStatus = new TextBlock
+            {
+                FontSize = 11.5,
                 VerticalAlignment = VerticalAlignment.Center,
+                IsVisible = false,
             };
 
             _copyButton = new Button
             {
                 Name = "PART_CopyTableButton",
-                Content = _copyLabel,
-                Padding = new Thickness(5, 3),
-                MinHeight = 0,
-                MinWidth = 0,
+                Content = new Panel { Children = { _copyIcon, _copyStatus } },
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 6, 6, 0),
+                Margin = new Thickness(0, 4, 4, 0),
                 Cursor = HandCursorLazy.Value,
             };
-            _copyButton.Classes.Add("subtle");
             _copyButton.Classes.Add("strata-md-table-copy-button");
             ToolTip.SetTip(_copyButton, _labels["copyTableTip"]);
             AutomationProperties.SetName(_copyButton, _labels["copyTable"]);
@@ -3891,8 +3909,28 @@ public partial class StrataMarkdown : ContentControl
             _copyButton.ContextMenu = CreateCopyFormatMenu();
             _copyButton.Click += OnCopyButtonClick;
 
+            // Header text running under the button fades out beside it, and stays hidden under it and past it to
+            // the table's edge, instead of meeting its icon.
+            _copyScrim = new MarkdownBorder
+            {
+                Width = 48,
+                Height = 26,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 4, 0, 0),
+                IsHitTestVisible = false,
+                OpacityMask = new LinearGradientBrush
+                {
+                    StartPoint = new RelativePoint(0, 0.5, RelativeUnit.Relative),
+                    EndPoint = new RelativePoint(1, 0.5, RelativeUnit.Relative),
+                    GradientStops = { new GradientStop(Colors.Transparent, 0), new GradientStop(Colors.Black, 0.375) },
+                },
+            };
+            _copyScrim.Classes.Add("strata-md-table-copy-scrim");
+
             var layout = new Grid();
             layout.Children.Add(_scrollViewer);
+            layout.Children.Add(_copyScrim);
             layout.Children.Add(_copyButton);
 
             ContextMenu = CreateCopyFormatMenu();
@@ -3943,6 +3981,8 @@ public partial class StrataMarkdown : ContentControl
                     TextWrapping.Wrap,
                     borderThickness: GetCellBorderThickness(headers.Length, rows.Count, headerIndex, rowIndex: -1),
                     cornerRadius: GetCellCornerRadius(headers.Length, rows.Count, headerIndex, rowIndex: -1));
+                if (headerIndex == headers.Length - 1)
+                    headerCell.Padding = new Thickness(8, 6, CopyGutter, 6);
                 Grid.SetRow(headerCell, 0);
                 Grid.SetColumn(headerCell, headerIndex);
                 _grid.Children.Add(headerCell);
@@ -3990,6 +4030,10 @@ public partial class StrataMarkdown : ContentControl
                 UpdateResponsiveLayout(e.NewSize.Width);
         }
 
+        // Scrolled down, the header has gone and the button floats over rows of another colour: the fade goes too.
+        private void OnTableScrollChanged(object? sender, ScrollChangedEventArgs e) =>
+            _copyScrim.IsVisible = _scrollViewer.Offset.Y < 1;
+
         protected override Size MeasureOverride(Size availableSize)
         {
             // Chat content is measured broadly before its bubble arranges it more narrowly.
@@ -4029,12 +4073,16 @@ public partial class StrataMarkdown : ContentControl
             if (scrollMode)
             {
                 _scrollViewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
+                // Header text scrolled under the copy chip's scrim ends a pixel inside it, not at the same
+                // anti-aliased edge, where a sliver of it would show past the scrim.
+                _scrollViewer.Margin = new Thickness(0, 0, 1, 0);
                 foreach (var column in _grid.ColumnDefinitions)
                     column.Width = new GridLength(MinColumnWidth, GridUnitType.Pixel);
             }
             else
             {
                 _scrollViewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                _scrollViewer.Margin = default;
                 foreach (var column in _grid.ColumnDefinitions)
                     column.Width = new GridLength(1, GridUnitType.Star);
             }
@@ -4104,7 +4152,7 @@ public partial class StrataMarkdown : ContentControl
                 };
                 await topLevel.Clipboard.SetDataAsync(data);
 
-                await ShowCopyStatusAsync("\uE73E");
+                await ShowCopyStatusAsync(null);
             }
             catch (Exception ex)
             {
@@ -4113,16 +4161,22 @@ public partial class StrataMarkdown : ContentControl
             }
         }
 
-        private async Task ShowCopyStatusAsync(string text)
+        // A tick in the success colour once copied; a failure says so in words, in place of the icon.
+        private async Task ShowCopyStatusAsync(string? failure)
         {
             var version = ++_copyStatusVersion;
-            _copyLabel.Text = text;
-            _copyLabel.Width = text.Length == 1 ? 14 : double.NaN;
+            _copyIcon.Data = failure is null ? StrataIcons.Check : StrataIcons.Copy;
+            _copyIcon.IsVisible = failure is null;
+            _copyStatus.Text = failure;
+            _copyStatus.IsVisible = failure is not null;
+            _copyButton.Classes.Set("copied", failure is null);
             await Task.Delay(1200);
             if (version == _copyStatusVersion)
             {
-                _copyLabel.Text = "\uE8C8";
-                _copyLabel.Width = 14;
+                _copyIcon.Data = StrataIcons.Copy;
+                _copyIcon.IsVisible = true;
+                _copyStatus.IsVisible = false;
+                _copyButton.Classes.Remove("copied");
             }
         }
 
@@ -4331,6 +4385,7 @@ public partial class StrataMarkdown : ContentControl
                 using var state = context.PushTransform(
                     Matrix.CreateTranslation(tb.Padding.Left, tb.Padding.Top) * transform);
                 int charOffset = 0;
+                bool? mirrored = null;
 
                 foreach (var inline in tb.Inlines)
                 {
@@ -4342,6 +4397,16 @@ public partial class StrataMarkdown : ContentControl
                             context.DrawRectangle(bg, null,
                                 rect,
                                 CodeCornerRadius, CodeCornerRadius);
+                        }
+                    }
+                    else if (inline is TaskMarkerRun marker)
+                    {
+                        mirrored ??= TopLevel.GetTopLevel(tb) is { } top
+                                     && tb.TransformToVisual(top) is { M11: < 0 };
+                        foreach (var (rect, baseline) in GetRangeBoxes(layout, charOffset, 1))
+                        {
+                            DrawTaskBox(context, rect, baseline, tb.FontSize, marker, mirrored.Value);
+                            break;
                         }
                     }
                     else if (inline is CitationRun { ChipBackground: { } chipBackground } chip)

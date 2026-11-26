@@ -33,50 +33,39 @@
                   </ScrollViewer>
                 </Border>
 
-                <!-- What kind of diagram it is, then how to look at it. Where the diagram is narrow, as in a card
-                     or a comparison on a phone, the kind gives way and the pills wrap rather than be cut off. -->
+                <!-- How to look at the diagram. Where it is narrow, as in a card or a comparison on a phone,
+                     the pills wrap rather than be cut off. -->
                 <Border Name="PART_ZoomBar" Grid.Row="1"
                         Background="Transparent" Padding="0,6,0,0">
-                  <controls:MermaidToolbarPanel>
-                    <StackPanel Name="PART_KindTag"
-                                Orientation="Horizontal"
-                                Spacing="7"
-                                Margin="4,0,8,0"
-                                VerticalAlignment="Center"
-                                ClipToBounds="True">
-                      <controls:StrataLineIcon Name="PART_KindIcon"
-                                               Width="14" Height="14"
-                                               VerticalAlignment="Center"
-                                               Data="{x:Static controls:StrataIcons.Flowchart}"
-                                               Foreground="{DynamicResource Brush.TextTertiary}" />
-                      <TextBlock Name="PART_KindLabel"
-                                 FontSize="12"
-                                 VerticalAlignment="Center"
-                                 TextTrimming="CharacterEllipsis"
-                                 Foreground="{DynamicResource Brush.TextTertiary}" />
-                    </StackPanel>
-
-                    <WrapPanel ItemsAlignment="End"
-                               ItemSpacing="6"
-                               LineSpacing="6">
-                      <Border Name="PART_ViewSwitch" Classes="mermaid-pill">
-                        <StackPanel Orientation="Horizontal">
+                  <WrapPanel ItemsAlignment="End"
+                             ItemSpacing="6"
+                             LineSpacing="6">
+                    <!-- Each pill is its row of buttons over a pane of glass that rises only when reached for. -->
+                    <Border Name="PART_ViewSwitch" Classes="mermaid-pill">
+                      <Panel>
+                        <Border Classes="mermaid-glass" />
+                        <StackPanel Classes="mermaid-row" Orientation="Horizontal">
                           <Button Name="PART_DiagramView" Classes="mermaid-segment"
                                   Content="{controls:InteractiveLabel diagram}" />
                           <Button Name="PART_SourceView" Classes="mermaid-segment"
                                   Content="{controls:InteractiveLabel diagramCode}" />
                         </StackPanel>
-                      </Border>
+                      </Panel>
+                    </Border>
 
-                      <Border Name="PART_ZoomGroup" Classes="mermaid-pill">
-                        <StackPanel Orientation="Horizontal">
+                    <Border Name="PART_ZoomGroup" Classes="mermaid-pill">
+                      <Panel>
+                        <Border Classes="mermaid-glass" />
+                        <StackPanel Classes="mermaid-row" Orientation="Horizontal">
                           <Button Name="PART_ZoomOut" Classes="mermaid-tool"
                                   ToolTip.Tip="{controls:InteractiveLabel zoomOutShortcut}" AutomationProperties.Name="{controls:InteractiveLabel zoomOut}">
                             <controls:StrataLineIcon Data="{x:Static controls:StrataIcons.Minus}" />
                           </Button>
                           <Button Name="PART_ActualSize" Classes="mermaid-tool" MinWidth="46"
                                   ToolTip.Tip="{controls:InteractiveLabel actualSizeTip}" AutomationProperties.Name="{controls:InteractiveLabel actualSize}">
-                            <TextBlock Name="PART_ZoomLabel" Text="100%" FontSize="11.5" FontWeight="SemiBold" />
+                            <!-- In its button's ink, which the theme's own TextBlock colour would otherwise outrank. -->
+                            <TextBlock Name="PART_ZoomLabel" Text="100%" FontSize="11.5" FontWeight="SemiBold"
+                                       Foreground="{Binding $parent[Button].Foreground}" />
                           </Button>
                           <Button Name="PART_ZoomIn" Classes="mermaid-tool"
                                   ToolTip.Tip="{controls:InteractiveLabel zoomInShortcut}" AutomationProperties.Name="{controls:InteractiveLabel zoomIn}">
@@ -87,10 +76,13 @@
                             <controls:StrataLineIcon Data="{x:Static controls:StrataIcons.FitView}" />
                           </Button>
                         </StackPanel>
-                      </Border>
+                      </Panel>
+                    </Border>
 
-                      <Border Name="PART_ToolPill" Classes="mermaid-pill">
-                        <StackPanel Orientation="Horizontal">
+                    <Border Name="PART_ToolPill" Classes="mermaid-pill">
+                      <Panel>
+                        <Border Classes="mermaid-glass" />
+                        <StackPanel Classes="mermaid-row" Orientation="Horizontal">
                           <Button Name="PART_CopySource" Classes="mermaid-tool"
                                   ToolTip.Tip="{controls:InteractiveLabel copy}" AutomationProperties.Name="{controls:InteractiveLabel copy}">
                             <controls:StrataLineIcon Name="PART_CopyIcon" Data="{x:Static controls:StrataIcons.Copy}" />
@@ -100,25 +92,44 @@
                             <controls:StrataLineIcon Name="PART_ExpandIcon" Data="{x:Static controls:StrataIcons.Expand}" />
                           </Button>
                         </StackPanel>
-                      </Border>
-                    </WrapPanel>
-                  </controls:MermaidToolbarPanel>
+                      </Panel>
+                    </Border>
+                  </WrapPanel>
                 </Border>
               </Grid>
             </Border>
           </ControlTemplate>
         </Setter>
 
-        <!-- ─── Toolbar: quiet glass pills with line icons ─── -->
-        <Style Selector="^ /template/ Border.mermaid-pill">
+        <!-- ─── Toolbar: quiet ink at rest, glass pills when reached for ─── -->
+        <!-- At rest the toolbar is its icons and words alone, so the diagram reads as part of the message. A mouse
+             resting on the diagram or keyboard focus inside it (:engaged), or full screen, raises each pill's glass.
+             Only paint changes, so nothing moves. -->
+        <Style Selector="^ /template/ Border.mermaid-glass">
           <Setter Property="Background" Value="{DynamicResource Brush.GlassFill}" />
           <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRim}" />
           <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
           <Setter Property="CornerRadius" Value="999" />
-          <Setter Property="Padding" Value="2" />
+          <Setter Property="IsHitTestVisible" Value="False" />
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="Transitions">
+            <Transitions>
+              <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+            </Transitions>
+          </Setter>
         </Style>
+        <Style Selector="^:engaged /template/ Border.mermaid-glass, ^:fullscreen /template/ Border.mermaid-glass">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- Inside the glass's rim, as a pill's padding. -->
+        <Style Selector="^ /template/ StackPanel.mermaid-row">
+          <Setter Property="Margin" Value="3" />
+        </Style>
+        <!-- The button's whole box takes touches; what shows is its surface, which a host may inset so a touch
+             target larger than the pill keeps its lit and pressed states inside the pill. -->
         <Style Selector="^ /template/ Button.mermaid-tool, ^ /template/ Button.mermaid-segment">
           <Setter Property="Height" Value="26" />
+          <Setter Property="MinHeight" Value="0" />
           <Setter Property="Padding" Value="7,0" />
           <Setter Property="Cursor" Value="Hand" />
           <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -126,14 +137,16 @@
           <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
           <Setter Property="Template">
             <ControlTemplate TargetType="Button">
-              <Border Name="PART_Surface"
-                      Background="{TemplateBinding Background}"
-                      CornerRadius="999"
-                      Padding="{TemplateBinding Padding}">
-                <ContentPresenter Content="{TemplateBinding Content}"
-                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-              </Border>
+              <Panel Background="Transparent">
+                <Border Name="PART_Surface"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="999"
+                        Padding="{TemplateBinding Padding}">
+                  <ContentPresenter Content="{TemplateBinding Content}"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+              </Panel>
             </ControlTemplate>
           </Setter>
           <Setter Property="Background" Value="Transparent" />
@@ -149,8 +162,8 @@
           <Setter Property="StrokeThickness" Value="1.8" />
         </Style>
         <!-- Text set here, not presented: the theme's TextBlock style would outrank inherited colour and size.
-             Keyboard focus rings the segment in the focus colour, which the chosen view's fill never matches,
-             not even in high contrast. -->
+             The chosen view's capsule is its own layer, so it can fade in with the glass. Keyboard focus rings the
+             segment in the focus colour, which the capsule never matches, not even in high contrast. -->
         <Style Selector="^ /template/ Button.mermaid-segment">
           <Setter Property="Padding" Value="10,0" />
           <Setter Property="BorderBrush" Value="Transparent" />
@@ -158,8 +171,20 @@
           <Setter Property="FontWeight" Value="SemiBold" />
           <Setter Property="Template">
             <ControlTemplate TargetType="Button">
-              <Panel>
-                <Border Background="{TemplateBinding Background}"
+              <Panel Background="Transparent">
+                <Border Name="PART_Capsule"
+                        CornerRadius="999"
+                        Background="{DynamicResource Brush.GlassRimHover}"
+                        Opacity="0"
+                        IsHitTestVisible="False">
+                  <Border.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Border.Transitions>
+                </Border>
+                <Border Name="PART_Surface"
+                        Background="{TemplateBinding Background}"
                         CornerRadius="999"
                         Padding="{TemplateBinding Padding}">
                   <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
@@ -196,10 +221,13 @@
           <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
         </Style>
 
-        <!-- The view being shown is the lit segment. -->
+        <!-- The view being shown reads a shade brighter at rest, and wears its capsule once the toolbar is raised (the
+             capsule is lit by the styles after this theme, which can reach into the segment's own template). -->
         <Style Selector="^:not(:code) /template/ Button#PART_DiagramView, ^:code /template/ Button#PART_SourceView">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        </Style>
+        <Style Selector="^:engaged:not(:code) /template/ Button#PART_DiagramView, ^:engaged:code /template/ Button#PART_SourceView">
           <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
-          <Setter Property="Background" Value="{DynamicResource Brush.GlassRimHover}" />
         </Style>
 
         <!-- ─── Code: the source in place of the drawing ─── -->
@@ -220,4 +248,10 @@
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
+
+  <!-- The chosen view's capsule, inside its segment's template, fades in with the toolbar's glass. -->
+  <Style Selector="controls|StrataMermaid:engaged:not(:code) /template/ Button#PART_DiagramView /template/ Border#PART_Capsule,
+                   controls|StrataMermaid:engaged:code /template/ Button#PART_SourceView /template/ Border#PART_Capsule">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
 </Styles>

@@ -43,19 +43,22 @@ public sealed class StrataMarkdownStyleScopeTests(AvaloniaFixture fixture)
                     var table = FindBorder(markdown, "strata-md-table");
                     var copy = table.GetVisualDescendants().OfType<Button>()
                         .Single(control => control.Classes.Contains("strata-md-table-copy-button"));
+                    var icon = copy.GetVisualDescendants().OfType<StrataLineIcon>().Single();
                     Assert.Equal(0, actions.Opacity);
-                    Assert.Equal(0.68, copy.Opacity);
+                    // An opaque chip in the header's colour, so header text never shows through the icon.
+                    Assert.Equal(1, copy.Opacity);
+                    AssertBrush(window, "Brush.Surface2", copy.Background);
+                    await SettleForeground(icon, "Brush.TextTertiary", window);
 
                     ((IPseudoClasses)frame.Classes).Set(":pointerover", true);
                     ((IPseudoClasses)table.Classes).Set(":pointerover", true);
                     await SettleOpacity(actions, 1, window);
-                    Assert.Equal(1, copy.Opacity);
-                    AssertBrush(window, "Brush.TextPrimary", copy.GetVisualDescendants().OfType<TextBlock>().Single().Foreground);
+                    await SettleForeground(icon, "Brush.TextPrimary", window);
 
                     ((IPseudoClasses)frame.Classes).Set(":pointerover", false);
                     ((IPseudoClasses)table.Classes).Set(":pointerover", false);
                     await SettleOpacity(actions, 0, window);
-                    Assert.Equal(0.68, copy.Opacity);
+                    await SettleForeground(icon, "Brush.TextTertiary", window);
                     ((IPseudoClasses)frame.Classes).Set(":focus-within", true);
                     await SettleOpacity(actions, 1, window);
                 }
@@ -63,6 +66,20 @@ public sealed class StrataMarkdownStyleScopeTests(AvaloniaFixture fixture)
             });
         }
         finally { File.Delete(image); }
+    }
+
+    private static async Task SettleForeground(StrataLineIcon icon, string key, Window window)
+    {
+        Assert.True(window.TryFindResource(key, window.ActualThemeVariant, out var resource));
+        var expected = Assert.IsAssignableFrom<ISolidColorBrush>(resource).Color;
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while ((icon.Foreground as ISolidColorBrush)?.Color != expected && DateTime.UtcNow < deadline)
+        {
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Pump(window);
+            await Task.Delay(16);
+        }
+        Assert.Equal(expected, Assert.IsAssignableFrom<ISolidColorBrush>(icon.Foreground).Color);
     }
 
     private static async Task SettleOpacity(Control control, double expected, Window window)

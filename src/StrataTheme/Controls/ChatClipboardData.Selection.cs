@@ -83,6 +83,7 @@ internal static partial class ChatClipboardData
         {
             var text = inline switch
             {
+                StrataMarkdown.TaskMarkerRun marker => marker.Glyph,
                 Run run => run.Text ?? "",
                 LineBreak => Environment.NewLine,
                 _ => "\uFFFC"
@@ -95,6 +96,12 @@ internal static partial class ChatClipboardData
             var selected = StrataTextSelection.CleanSelectionText(text[from..to]);
             if (selected.Length == 0)
                 continue;
+            if (inline is StrataMarkdown.TaskMarkerRun)
+            {
+                // Read back as markdown's task syntax below.
+                result.Append(selected);
+                continue;
+            }
             if (inline is StrataMarkdown.CitationRun { FootnoteId: { } footnote } footnoteChip)
             {
                 result.Append(footnoteChip.IsFootnoteLabel ? $"[^{footnote}]:" : $"[^{footnote}]");

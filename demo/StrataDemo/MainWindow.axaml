@@ -248,6 +248,7 @@
                   <TextBlock Classes="caption tertiary" Text="{Binding Strings[Chart.Budget.Subtitle]}" />
                 </StackPanel>
                 <sc:StrataChart ChartType="Bar" ChartHeight="200"
+                                ShowToolbar="True"
                                 Labels="{Binding DeptLabels}"
                                 Series="{Binding DeptSeries}" />
               </StackPanel>

@@ -76,13 +76,22 @@ public sealed partial class StrataTextSelection
         {
             get
             {
-                var text = Block.Inlines is { Count: > 0 } inlines ? inlines.Text : Block.Text ?? "";
+                var text = GetSelectableText(Block);
                 var start = Math.Clamp(Math.Min(Start, End), 0, text.Length);
                 var end = Math.Clamp(Math.Max(Start, End), start, text.Length);
                 return CleanSelectionText(text[start..end]);
             }
         }
     }
+
+    /// <summary>
+    /// The text a selection in <paramref name="block"/> reads as, at the same positions as the rendered text:
+    /// a markdown task's checkbox, drawn over a space, reads as ☐ or ☑.
+    /// </summary>
+    internal static string GetSelectableText(SelectableTextBlock block) =>
+        block.Inlines is { Count: > 0 } inlines
+            ? StrataMarkdown.GetSelectionText(inlines)
+            : block.Text ?? "";
 
     internal static string CleanSelectionText(string text) => text
         .Replace("\u2005", "").Replace("\u2060", "").Replace("\uFFFC", "").Replace("\r", "")

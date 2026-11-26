@@ -5,15 +5,249 @@
     <ResourceDictionary>
       <ControlTheme x:Key="{x:Type controls:StrataChart}" TargetType="controls:StrataChart">
         <Setter Property="Focusable" Value="True" />
-        <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
           <ControlTemplate>
-            <Panel Name="PART_ChartHost"
-                   Height="{TemplateBinding ChartHeight}"
-                   ClipToBounds="True" />
+            <Grid RowDefinitions="*,Auto">
+              <!-- The plot, and above it the values under the pointer on a pane of glass. The pane keeps the
+                   plot's own left-to-right space, as the plot does in a right-to-left layout. -->
+              <Panel Name="PART_ChartHost"
+                     Height="{TemplateBinding ChartHeight}"
+                     ClipToBounds="True">
+                <Canvas Name="PART_TipLayer" FlowDirection="LeftToRight" IsHitTestVisible="False">
+                  <Panel Name="PART_Tip" IsVisible="False">
+                    <Panel.Transitions>
+                      <Transitions>
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="0.2,0 0,1" />
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                      </Transitions>
+                    </Panel.Transitions>
+                    <Border CornerRadius="10" ClipToBounds="True">
+                      <controls:StrataBackdropBlur CornerRadius="10" BlurRadius="18" Saturation="1.3" />
+                    </Border>
+                    <Border Name="PART_TipCard">
+                      <StackPanel Name="PART_TipRows" Spacing="4" />
+                    </Border>
+                  </Panel>
+                </Canvas>
+              </Panel>
+
+              <!-- The numbers behind the plot, in its place and at its height, so nothing below moves. The rows
+                   are built when the table is first shown, in the diagram's code well. -->
+              <Panel Name="PART_TableHost"
+                     Height="{TemplateBinding ChartHeight}"
+                     IsVisible="False">
+                <Border Name="PART_TableFrame"
+                        VerticalAlignment="Top"
+                        Background="{DynamicResource Brush.GlassWell}"
+                        BorderBrush="{DynamicResource Brush.GlassDivider}"
+                        BorderThickness="{DynamicResource Stroke.Thin}"
+                        CornerRadius="10"
+                        ClipToBounds="True"
+                        Cursor="Arrow">
+                  <!-- A tab stop, so the keyboard reaches the rows and columns past its edges. -->
+                  <ScrollViewer Name="PART_TableScroll"
+                                Focusable="True"
+                                AutomationProperties.Name="{controls:InteractiveLabel chartTable}"
+                                HorizontalScrollBarVisibility="Auto"
+                                VerticalScrollBarVisibility="Auto" />
+                </Border>
+              </Panel>
+
+              <!-- How to look at the chart: the diagram's toolbar, for charts in a message. -->
+              <Border Name="PART_Toolbar" Grid.Row="1"
+                      IsVisible="{TemplateBinding ShowToolbar}"
+                      Background="Transparent" Padding="0,6,0,0">
+                <WrapPanel ItemsAlignment="End"
+                           ItemSpacing="6"
+                           LineSpacing="6">
+                  <!-- Each pill is its row of buttons over a pane of glass that rises only when reached for. -->
+                  <Border Name="PART_ViewSwitch" Classes="chart-pill">
+                    <Panel>
+                      <Border Classes="chart-glass" />
+                      <StackPanel Classes="chart-row" Orientation="Horizontal">
+                        <Button Name="PART_ChartView" Classes="chart-segment"
+                                Content="{controls:InteractiveLabel chartView}" />
+                        <Button Name="PART_TableView" Classes="chart-segment"
+                                Content="{controls:InteractiveLabel chartTable}" />
+                      </StackPanel>
+                    </Panel>
+                  </Border>
+
+                  <Border Name="PART_ToolPill" Classes="chart-pill">
+                    <Panel>
+                      <Border Classes="chart-glass" />
+                      <StackPanel Classes="chart-row" Orientation="Horizontal">
+                        <Button Name="PART_CopyData" Classes="chart-tool"
+                                ToolTip.Tip="{controls:InteractiveLabel chartCopyData}" AutomationProperties.Name="{controls:InteractiveLabel chartCopyData}">
+                          <controls:StrataLineIcon Name="PART_CopyIcon" Data="{x:Static controls:StrataIcons.Copy}" />
+                        </Button>
+                        <Button Name="PART_Expand" Classes="chart-tool"
+                                ToolTip.Tip="{controls:InteractiveLabel fullScreen}" AutomationProperties.Name="{controls:InteractiveLabel fullScreen}">
+                          <controls:StrataLineIcon Name="PART_ExpandIcon" Data="{x:Static controls:StrataIcons.Expand}" />
+                        </Button>
+                      </StackPanel>
+                    </Panel>
+                  </Border>
+                </WrapPanel>
+              </Border>
+            </Grid>
           </ControlTemplate>
         </Setter>
+
+        <!-- ─── Hover values: a small pane of frosted glass ─── -->
+        <Style Selector="^ /template/ Border#PART_TipCard">
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassFill}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRim}" />
+          <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+          <Setter Property="CornerRadius" Value="10" />
+          <Setter Property="Padding" Value="11,8,12,9" />
+          <Setter Property="BoxShadow" Value="0 10 28 0 #26000000, 0 2 6 0 #14000000" />
+        </Style>
+
+        <!-- ─── Toolbar: the diagram's quiet ink at rest, glass pills when reached for ─── -->
+        <!-- A mouse resting on the chart or keyboard focus inside it (:engaged), or full screen, raises each pill's
+             glass. Only paint changes, so nothing moves. -->
+        <Style Selector="^ /template/ Border.chart-glass">
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassFill}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.GlassRim}" />
+          <Setter Property="BorderThickness" Value="{DynamicResource Stroke.Thin}" />
+          <Setter Property="CornerRadius" Value="999" />
+          <Setter Property="IsHitTestVisible" Value="False" />
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="Transitions">
+            <Transitions>
+              <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+            </Transitions>
+          </Setter>
+        </Style>
+        <Style Selector="^:engaged /template/ Border.chart-glass, ^:fullscreen /template/ Border.chart-glass">
+          <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- Inside the glass's rim, as a pill's padding. -->
+        <Style Selector="^ /template/ StackPanel.chart-row">
+          <Setter Property="Margin" Value="3" />
+        </Style>
+        <!-- As the diagram's: the button's whole box takes touches, and its surface is what shows. -->
+        <Style Selector="^ /template/ Button.chart-tool, ^ /template/ Button.chart-segment">
+          <Setter Property="Height" Value="26" />
+          <Setter Property="MinHeight" Value="0" />
+          <Setter Property="Padding" Value="7,0" />
+          <Setter Property="Cursor" Value="Hand" />
+          <Setter Property="HorizontalContentAlignment" Value="Center" />
+          <Setter Property="VerticalContentAlignment" Value="Center" />
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextTertiary}" />
+          <Setter Property="Template">
+            <ControlTemplate TargetType="Button">
+              <Panel Background="Transparent">
+                <Border Name="PART_Surface"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="999"
+                        Padding="{TemplateBinding Padding}">
+                  <ContentPresenter Content="{TemplateBinding Content}"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+              </Panel>
+            </ControlTemplate>
+          </Setter>
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="Transitions">
+            <Transitions>
+              <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+            </Transitions>
+          </Setter>
+        </Style>
+        <Style Selector="^ /template/ Button.chart-tool controls|StrataLineIcon">
+          <Setter Property="Width" Value="14" />
+          <Setter Property="Height" Value="14" />
+          <Setter Property="StrokeThickness" Value="1.8" />
+        </Style>
+        <!-- Text set here, not presented: the theme's TextBlock style would outrank inherited colour and size.
+             The chosen view's capsule is its own layer, so it can fade in with the glass. Keyboard focus rings the
+             segment in the focus colour, which the capsule never matches. -->
+        <Style Selector="^ /template/ Button.chart-segment">
+          <Setter Property="Padding" Value="10,0" />
+          <Setter Property="BorderBrush" Value="Transparent" />
+          <Setter Property="FontSize" Value="12" />
+          <Setter Property="FontWeight" Value="SemiBold" />
+          <Setter Property="Template">
+            <ControlTemplate TargetType="Button">
+              <Panel Background="Transparent">
+                <Border Name="PART_Capsule"
+                        CornerRadius="999"
+                        Background="{DynamicResource Brush.GlassRimHover}"
+                        Opacity="0"
+                        IsHitTestVisible="False">
+                  <Border.Transitions>
+                    <Transitions>
+                      <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                    </Transitions>
+                  </Border.Transitions>
+                </Border>
+                <Border Name="PART_Surface"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="999"
+                        Padding="{TemplateBinding Padding}">
+                  <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                             Foreground="{TemplateBinding Foreground}"
+                             FontSize="{TemplateBinding FontSize}"
+                             FontWeight="{TemplateBinding FontWeight}"
+                             HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                             VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+                <Border Name="PART_SegmentFocus"
+                        CornerRadius="999"
+                        BorderThickness="{DynamicResource Stroke.FocusRing}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        IsHitTestVisible="False" />
+              </Panel>
+            </ControlTemplate>
+          </Setter>
+        </Style>
+        <Style Selector="^ /template/ Button.chart-tool:pointerover, ^ /template/ Button.chart-segment:pointerover">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassRowHover}" />
+        </Style>
+        <Style Selector="^ /template/ Button.chart-tool:pressed, ^ /template/ Button.chart-segment:pressed">
+          <Setter Property="Background" Value="{DynamicResource Brush.SubtlePressed}" />
+        </Style>
+        <Style Selector="^ /template/ Button.chart-tool:focus-visible, ^ /template/ Button.chart-segment:focus-visible">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+          <Setter Property="Background" Value="{DynamicResource Brush.GlassRowHover}" />
+        </Style>
+        <Style Selector="^ /template/ Button.chart-segment:focus-visible">
+          <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderFocus}" />
+        </Style>
+        <Style Selector="^ /template/ Button.chart-tool.copied">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.SuccessDefault}" />
+        </Style>
+
+        <!-- The view being shown reads a shade brighter at rest, and wears its capsule once the toolbar is raised (the
+             capsule is lit by the styles after this theme, which can reach into the segment's own template). -->
+        <Style Selector="^:not(:table) /template/ Button#PART_ChartView, ^:table /template/ Button#PART_TableView">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        </Style>
+        <Style Selector="^:engaged:not(:table) /template/ Button#PART_ChartView, ^:engaged:table /template/ Button#PART_TableView,
+                         ^:fullscreen:not(:table) /template/ Button#PART_ChartView, ^:fullscreen:table /template/ Button#PART_TableView">
+          <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}" />
+        </Style>
+
+        <!-- ─── Table: the numbers in place of the plot ─── -->
+        <Style Selector="^:table /template/ Panel#PART_ChartHost">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:table /template/ Panel#PART_TableHost">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
+
+  <!-- The chosen view's capsule, inside its segment's template, fades in with the toolbar's glass. -->
+  <Style Selector="controls|StrataChart:engaged:not(:table) /template/ Button#PART_ChartView /template/ Border#PART_Capsule,
+                   controls|StrataChart:engaged:table /template/ Button#PART_TableView /template/ Border#PART_Capsule,
+                   controls|StrataChart:fullscreen:not(:table) /template/ Button#PART_ChartView /template/ Border#PART_Capsule,
+                   controls|StrataChart:fullscreen:table /template/ Button#PART_TableView /template/ Border#PART_Capsule">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
 </Styles>

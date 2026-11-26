@@ -175,10 +175,6 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
             Assert.True(expand.IsEffectivelyVisible);
             Assert.True(right <= diagram.Bounds.Width + 0.5,
                 $"Full screen ends at {right:0.#} in a diagram {diagram.Bounds.Width:0.#} wide.");
-
-            var tag = Find<StackPanel>(diagram, "PART_KindTag");
-            Assert.True(tag.Bounds.Width == 0 || tag.Bounds.Width + tag.Margin.Left + tag.Margin.Right + 0.5 >= tag.DesiredSize.Width,
-                "The kind tag shows whole or gives way, never squeezed under the pills.");
         }
         finally { window.Close(); }
     });
@@ -196,10 +192,35 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
             var chosen = Find<Button>(diagram, "PART_DiagramView");
             chosen.Focus(NavigationMethod.Tab);
             Pump(window);
+            // Keyboard focus coming in raises the toolbar, the chosen view's capsule with it.
+            Assert.Contains(":engaged", diagram.Classes);
             var ring = chosen.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "PART_SegmentFocus");
             var ringColor = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(ring.BorderBrush).Color;
             Assert.NotEqual(0, ringColor.A);
-            Assert.NotEqual(Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(chosen.Background).Color, ringColor);
+            var capsule = Find<Border>(chosen, "PART_Capsule");
+            Assert.NotEqual(Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(capsule.Background).Color, ringColor);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public Task Toolbar_IsQuietInkAtRest_AtItsCompactSize() => fixture.Dispatch(() =>
+    {
+        var (window, diagram, _) = CreateDiagram("flowchart LR\nA[Start] --> B[Next]", 494);
+        try
+        {
+            Assert.DoesNotContain(":engaged", diagram.Classes);
+            var glass = diagram.GetVisualDescendants().OfType<Border>().Where(border => border.Classes.Contains("mermaid-glass")).ToList();
+            Assert.Equal(3, glass.Count);
+            Assert.All(glass, pane => Assert.Equal(0, pane.Opacity));
+            Assert.Equal(0, Find<Border>(Find<Button>(diagram, "PART_DiagramView"), "PART_Capsule").Opacity);
+            // The zoom readout wears its button's quiet ink rather than the theme's bright text.
+            var zoom = Find<Button>(diagram, "PART_ActualSize");
+            Assert.Equal(
+                Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(zoom.Foreground).Color,
+                Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(Find<TextBlock>(diagram, "PART_ZoomLabel").Foreground).Color);
+            // The designed compact button, not the theme's taller minimum.
+            Assert.Equal(26, Find<Button>(diagram, "PART_ZoomIn").Bounds.Height, precision: 1);
         }
         finally { window.Close(); }
     });
@@ -229,12 +250,11 @@ public sealed class StrataMermaidTests(AvaloniaFixture fixture)
     });
 
     [Fact]
-    public Task CodeView_ShowsTheSourceInPlaceOfTheDrawing_AndNamesTheKind() => fixture.Dispatch(() =>
+    public Task CodeView_ShowsTheSourceInPlaceOfTheDrawing() => fixture.Dispatch(() =>
     {
         var (window, diagram, _) = CreateDiagram("sequenceDiagram\nA->>B: Request", 494);
         try
         {
-            Assert.Equal("Sequence diagram", Find<TextBlock>(diagram, "PART_KindLabel").Text);
             Assert.NotEqual(LabelColor(diagram, "PART_DiagramView"), LabelColor(diagram, "PART_SourceView"));
 
             Click(diagram, "PART_SourceView");
