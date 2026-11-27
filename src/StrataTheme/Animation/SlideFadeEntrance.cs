@@ -62,16 +62,20 @@ public static class SlideFadeEntrance
     /// Plays the same entrance on the render thread. Translation does not change the layout,
     /// effective viewport or scroll anchors, and playback continues while the UI thread is busy.
     /// The host must own its opacity and transform. Hiding, detaching or replaying cancels the motion.
+    /// A <paramref name="fromScale"/> below 1 also grows the host into place from
+    /// <paramref name="scaleOrigin"/> (relative to its bounds; its bottom centre by default).
     /// </summary>
     public static void PlayComposited(
-        Control host, double offsetY = 12, TimeSpan? duration = null, TimeSpan? delay = null)
+        Control host, double offsetY = 12, TimeSpan? duration = null, TimeSpan? delay = null,
+        double fromScale = 1, Point? scaleOrigin = null)
     {
         StopComposited(host);
         if (!host.IsAttachedToVisualTree() || !host.IsEffectivelyVisible)
             return;
 
         var entrance = new CompositedEntrance(
-            host, offsetY, duration ?? TimeSpan.FromMilliseconds(260), delay ?? TimeSpan.Zero);
+            host, offsetY, duration ?? TimeSpan.FromMilliseconds(260), delay ?? TimeSpan.Zero,
+            fromScale, scaleOrigin ?? new Point(0.5, 1));
         CompositedEntrances.Add(host, entrance);
         entrance.Queue();
     }
@@ -94,17 +98,22 @@ public static class SlideFadeEntrance
         private readonly double _offsetY;
         private readonly TimeSpan _duration;
         private readonly TimeSpan _delay;
+        private readonly double _fromScale;
+        private readonly Point _scaleOrigin;
         private readonly EffectiveVisibilityObserver _visibility;
         private CompositionVisual? _visual;
         private IDisposable? _completion;
         private bool _disposed;
 
-        public CompositedEntrance(Control host, double offsetY, TimeSpan duration, TimeSpan delay)
+        public CompositedEntrance(
+            Control host, double offsetY, TimeSpan duration, TimeSpan delay, double fromScale, Point scaleOrigin)
         {
             _host = host;
             _offsetY = offsetY;
             _duration = duration;
             _delay = delay;
+            _fromScale = fromScale;
+            _scaleOrigin = scaleOrigin;
             _visibility = new EffectiveVisibilityObserver(host, () =>
             {
                 if (!host.IsEffectivelyVisible)
@@ -164,6 +173,20 @@ public static class SlideFadeEntrance
             _visual.Translation = default;
             _visual.StartAnimation(nameof(CompositionVisual.Opacity), fade);
             _visual.StartAnimation(nameof(CompositionVisual.Translation), rise);
+            if (_fromScale != 1)
+            {
+                var size = _host.Bounds.Size;
+                _visual.CenterPoint = new Vector3D(size.Width * _scaleOrigin.X, size.Height * _scaleOrigin.Y, 0);
+                var grow = _visual.Compositor.CreateStableVector3DKeyFrameAnimation();
+                grow.Duration = _duration;
+                grow.DelayTime = _delay;
+                grow.DelayBehavior = AnimationDelayBehavior.SetInitialValueBeforeDelay;
+                grow.StopBehavior = AnimationStopBehavior.SetToFinalValue;
+                grow.InsertKeyFrame(0f, new Vector3D(_fromScale, _fromScale, 1), easing);
+                grow.InsertKeyFrame(1f, new Vector3D(1, 1, 1), easing);
+                _visual.Scale = new Vector3D(1, 1, 1);
+                _visual.StartAnimation(nameof(CompositionVisual.Scale), grow);
+            }
             _completion = DispatcherTimer.RunOnce(
                 () =>
                 {
@@ -193,6 +216,13 @@ public static class SlideFadeEntrance
                 _visual.Opacity = restingOpacity;
                 _visual.Translation = new Vector3D(0, 1, 0);
                 _visual.Translation = default;
+                if (_fromScale != 1)
+                {
+                    _visual.StopAnimation(nameof(CompositionVisual.Scale));
+                    _visual.Scale = new Vector3D(1, 1, 0.5);
+                    _visual.Scale = new Vector3D(1, 1, 1);
+                    _visual.CenterPoint = default;
+                }
                 _visual = null;
             }
         }

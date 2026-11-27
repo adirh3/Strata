@@ -122,7 +122,10 @@ public class StrataReplyRequestedEventArgs : RoutedEventArgs
 /// PART_StreamBar (Border), PART_ActionBar (StackPanel), PART_CopyButton (Button),
 /// PART_EditButton (Button), PART_RegenerateButton (Button), PART_SaveButton (Button), PART_CancelButton (Button),
 /// PART_ReplyButton (Button, optional), PART_ShareButton (Button, optional), PART_MoreButton (Button, optional),
-/// PART_HeaderRow (WrapPanel), PART_BubbleRow (Grid), PART_Timestamp (TextBlock).</para>
+/// PART_HeaderRow (WrapPanel), PART_BubbleRow (Grid), PART_Timestamp (TextBlock),
+/// PART_ActionTimestamp (TextBlock, optional: a user message's time beside its actions).</para>
+/// <para>Use the <c>compact-user-meta</c> class to move user timestamps next to the actions,
+/// or below the bubble on reveal with the Hosted theme. A supplied author stays above the bubble.</para>
 /// <para><b>Pseudo-classes:</b> :assistant, :user, :system, :tool, :streaming, :editing, :editable, :host-scrolling,
 /// :has-meta, :has-author, :has-timestamp, :has-status, :can-reply, :can-share, :reply-source, :menu-open, :copied,
 /// :progress-update.</para>
@@ -350,11 +353,13 @@ public class StrataChatMessage : TemplatedControl
     ///
     /// The action bar is otherwise revealed by <c>:pointerover</c> / <c>:focus-within</c>, neither of
     /// which a finger can produce, so on a touch device those commands would be unreachable. The
-    /// control sets this itself when it is tapped by a touch or pen pointer (tap again to dismiss),
-    /// which leaves mouse behaviour untouched; a host can also bind it to keep the bar always on.
+    /// control toggles this on touch or pen taps (and on mouse clicks if enabled by the host).
     /// </summary>
     public static readonly StyledProperty<bool> AreActionsRevealedProperty =
         AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(AreActionsRevealed));
+
+    public static readonly StyledProperty<bool> RevealActionsOnClickProperty =
+        AvaloniaProperty.Register<StrataChatMessage, bool>(nameof(RevealActionsOnClick));
 
     public static readonly RoutedEvent<StrataCopyRequestedEventArgs> CopyRequestedEvent =
         RoutedEvent.Register<StrataChatMessage, StrataCopyRequestedEventArgs>(nameof(CopyRequested), RoutingStrategies.Bubble);
@@ -536,6 +541,8 @@ public class StrataChatMessage : TemplatedControl
     /// Gets or sets whether the action bar is pinned visible (the touch equivalent of hovering).
     /// </summary>
     public bool AreActionsRevealed { get => GetValue(AreActionsRevealedProperty); set => SetValue(AreActionsRevealedProperty, value); }
+    /// <summary>Also toggle the reveal on a primary mouse click, for hosts that don't use a hover bar.</summary>
+    public bool RevealActionsOnClick { get => GetValue(RevealActionsOnClickProperty); set => SetValue(RevealActionsOnClickProperty, value); }
     public bool CanShare { get => GetValue(CanShareProperty); set => SetValue(CanShareProperty, value); }
     public string ShareLabel { get => GetValue(ShareLabelProperty); set => SetValue(ShareLabelProperty, value); }
 
@@ -622,7 +629,9 @@ public class StrataChatMessage : TemplatedControl
 
     private void OnTouchPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.Pointer.Type is not (PointerType.Touch or PointerType.Pen))
+        if (e.Pointer.Type is not (PointerType.Touch or PointerType.Pen)
+            && !(RevealActionsOnClick && e.Pointer.Type == PointerType.Mouse
+                 && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed))
             return;
 
         if (_touchPressPointer is not null)
@@ -654,9 +663,8 @@ public class StrataChatMessage : TemplatedControl
 
     /// <summary>
     /// Touch/pen tap toggles the action bar, because a finger cannot hover and the bar is otherwise
-    /// only reachable through <c>:pointerover</c>. Mouse input is deliberately excluded so desktop
-    /// behaviour is unchanged. Interactive descendants and Markdown links are rejected when the
-    /// owning press is observed, while handled selectable-text events still count as ordinary taps.
+    /// only reachable through <c>:pointerover</c>. Hosts may opt into the same gesture for mouse clicks.
+    /// Interactive descendants and Markdown links are excluded at press time.
     /// </summary>
     private void OnTouchPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
@@ -668,9 +676,6 @@ public class StrataChatMessage : TemplatedControl
         ClearTouchPress();
 
         if (wasTouchDrag || IsEditing || IsHostScrolling)
-            return;
-
-        if (e.Pointer.Type is not (PointerType.Touch or PointerType.Pen))
             return;
 
         if (e.InitialPressMouseButton is not (MouseButton.Left or MouseButton.None))

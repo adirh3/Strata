@@ -169,6 +169,16 @@
                                Foreground="{DynamicResource Brush.TextTertiary}"
                                VerticalAlignment="Center"
                                Margin="8,0,0,0" />
+                    <!-- The user's time, beside the bubble with its actions; the user's message has no header. -->
+                    <TextBlock Name="PART_ActionTimestamp"
+                               IsVisible="False"
+                               Text="{TemplateBinding Timestamp}"
+                               ToolTip.Tip="{TemplateBinding TimestampToolTip}"
+                               ToolTip.ShowDelay="350"
+                               FontSize="11"
+                               Foreground="{DynamicResource Brush.TextTertiary}"
+                               VerticalAlignment="Center"
+                               Margin="8,0,2,0" />
                   </StackPanel>
                 </Border>
               </Grid>
@@ -419,21 +429,37 @@
           <Setter Property="controls:StrataChatMessage.IsWithinQuietUpdate" Value="True" />
         </Style>
 
-        <!-- ══ USER: right-aligned subtle pill ══ -->
+        <!-- ══ USER: a right-aligned bubble with rounded corners and a glass rim. ══ -->
         <Style Selector="^:user">
           <Setter Property="Foreground" Value="{DynamicResource Brush.ChatUserBubbleText}" />
         </Style>
         <Style Selector="^:user /template/ Border#PART_Bubble">
-          <Setter Property="Background" Value="{DynamicResource Brush.ChatUserBubble}" />
-          <Setter Property="CornerRadius" Value="14" />
-          <Setter Property="Padding" Value="16,10,16,10" />
+          <Setter Property="Background" Value="{DynamicResource Brush.ChatUserBubbleFill}" />
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ChatUserBubble}" />
+          <Setter Property="CornerRadius" Value="18" />
+          <Setter Property="Padding" Value="16,10,16,11" />
           <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style Selector="^:user:not(.motion-disabled) /template/ Border#PART_Bubble:pointerover">
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ChatUserBubbleHover}" />
+        </Style>
+        <Style Selector="^:user:host-scrolling /template/ Border#PART_Bubble:pointerover">
+          <Setter Property="BoxShadow" Value="{DynamicResource Shadow.ChatUserBubble}" />
         </Style>
         <Style Selector="^:user /template/ WrapPanel#PART_HeaderRow">
           <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
         <Style Selector="^:user /template/ Grid#PART_MetaRow TextBlock">
           <Setter Property="Foreground" Value="{DynamicResource Brush.TextSecondary}" />
+        </Style>
+        <!-- Compact metadata moves the time out of the header but keeps an explicit sender visible. -->
+        <Style Selector="^:user.compact-user-meta:not(:has-author) /template/ WrapPanel#PART_HeaderRow,
+                         ^:user.compact-user-meta /template/ TextBlock#PART_MetaSeparator,
+                         ^:user.compact-user-meta /template/ TextBlock#PART_Timestamp">
+          <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:user.compact-user-meta:has-timestamp /template/ TextBlock#PART_ActionTimestamp">
+          <Setter Property="IsVisible" Value="True" />
         </Style>
         <Style Selector="^:user /template/ Border#PART_ActionLayer">
           <Setter Property="Grid.Column" Value="0" />
@@ -517,6 +543,11 @@
           <Setter Property="BoxShadow" Value="0 0 0 2 #30818CF8" />
           <Setter Property="CornerRadius" Value="6" />
         </Style>
+        <!-- The user's bubble keeps its shape and rim; the ring sits just inside its edge. -->
+        <Style Selector="^:user:focus-visible /template/ Border#PART_Bubble">
+          <Setter Property="BoxShadow" Value="inset 0 0 0 2 #A6818CF8" />
+          <Setter Property="CornerRadius" Value="18" />
+        </Style>
       </ControlTheme>
 
       <!-- Hosts with their own message actions/editor do not build the desktop toolbar and editor
@@ -560,9 +591,18 @@
                   <ContentPresenter Content="{TemplateBinding Content}" TextBlock.TextWrapping="Wrap" />
                 </Border>
               </Grid>
+              <TextBlock Name="PART_RevealedTimestamp" IsVisible="False"
+                         Text="{TemplateBinding Timestamp}"
+                         HorizontalAlignment="Right" Margin="0,4,6,0"
+                         FontSize="{DynamicResource Font.SizeCaption}"
+                         Foreground="{DynamicResource Brush.TextTertiary}" />
             </StackPanel>
           </ControlTemplate>
         </Setter>
+        <Style Selector="^:user.compact-user-meta:has-timestamp:actions-revealed /template/ TextBlock#PART_RevealedTimestamp,
+                         ^:user.compact-user-meta:has-timestamp:focus-visible /template/ TextBlock#PART_RevealedTimestamp">
+          <Setter Property="IsVisible" Value="True" />
+        </Style>
       </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>

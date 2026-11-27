@@ -726,9 +726,22 @@ public class StrataChatMessageTests
             }
 
             message.Role = StrataChatRole.User;
+            message.Author = "";
+            message.Classes.Add("compact-user-meta");
             window.UpdateLayout();
             Assert.Equal("PART_BubbleRow", Assert.IsType<Grid>(actions.Parent).Name);
-            Assert.True(header.TranslatePoint(default, message)!.Value.Y < bubble.TranslatePoint(default, message)!.Value.Y);
+            Assert.False(header.IsVisible);
+            var userTime = message.GetVisualDescendants().OfType<TextBlock>()
+                .Single(block => block.Name == "PART_ActionTimestamp");
+            Assert.True(userTime.IsVisible);
+            Assert.Equal("09:42", userTime.Text);
+            Assert.Equal(message.TimestampToolTip, ToolTip.GetTip(userTime));
+            Assert.True(actions.IsVisualAncestorOf(userTime));
+            message.Author = "Lumi Manager · Review";
+            Assert.True(header.IsVisible);
+            Assert.False(timestamp.IsVisible);
+            message.Timestamp = "";
+            Assert.False(userTime.IsVisible);
             Assert.False(FindButton(message, "PART_MoreButton").IsVisible);
             Assert.DoesNotContain(actions.GetVisualDescendants().OfType<Path>(), path => path.IsVisible);
             window.Close();
@@ -935,19 +948,25 @@ public class StrataChatMessageTests
         });
     }
 
-    [Fact]
-    public async Task MouseRelease_LeavesTheActionBarToHoverSoDesktopIsUnchanged()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MouseClick_RevealsActionsOnlyWhenHostOptsIn(bool optIn)
     {
         await _fixture.Dispatch(() =>
         {
             var message = new StrataChatMessage
             {
                 Role = StrataChatRole.User,
-                Content = new SelectableTextBlock { Text = "Click me" }
+                Content = new SelectableTextBlock { Text = "Click me" },
+                RevealActionsOnClick = optIn
             };
 
             Release(message, PointerType.Mouse);
-
+            Assert.False(message.AreActionsRevealed);
+            Tap(message, PointerType.Mouse);
+            Assert.Equal(optIn, message.AreActionsRevealed);
+            Tap(message, PointerType.Mouse);
             Assert.False(message.AreActionsRevealed);
         });
     }
@@ -1047,7 +1066,7 @@ public class StrataChatMessageTests
             message,
             default,
             0,
-            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonPressed),
+            new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed),
             KeyModifiers.None));
         message.RaiseEvent(new PointerReleasedEventArgs(
             message,

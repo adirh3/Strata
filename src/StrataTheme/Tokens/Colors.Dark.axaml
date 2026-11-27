@@ -165,6 +165,18 @@
   <SolidColorBrush x:Key="Brush.ChatUserBubbleText" Color="{DynamicResource Color.ChatUserBubbleText}" />
   <SolidColorBrush x:Key="Brush.ChatUserBubbleTextSecondary" Color="{DynamicResource Color.ChatUserBubbleTextSecondary}" />
   <SolidColorBrush x:Key="Brush.ChatUserBubbleSelection" Color="{DynamicResource Color.ChatUserBubbleSelection}" />
+  <!-- The user's bubble as drawn: its colour lit from the top-left (toward the accent, settling toward the
+       violet), a glass rim lit along the top, and a soft lift. Accent palettes write their own fill. -->
+  <LinearGradientBrush x:Key="Brush.ChatUserBubbleFill" StartPoint="0%,0%" EndPoint="100%,100%">
+    <GradientStop Offset="0" Color="#3F3F96" />
+    <GradientStop Offset="1" Color="#3A358B" />
+  </LinearGradientBrush>
+  <BoxShadows x:Key="Shadow.ChatUserBubble">inset 0 1 0 0 #1FFFFFFF, inset 0 0 0 1 #0FFFFFFF, 0 4 12 -6 #66000000</BoxShadows>
+  <BoxShadows x:Key="Shadow.ChatUserBubbleHover">inset 0 1 0 0 #2EFFFFFF, inset 0 0 0 1 #1AFFFFFF, 0 6 16 -6 #8C000000</BoxShadows>
+  <!-- Files and chips inside the user's bubble: a light glass on its colour, whatever the accent. -->
+  <SolidColorBrush x:Key="Brush.ChatUserBubbleChip" Color="#17FFFFFF" />
+  <SolidColorBrush x:Key="Brush.ChatUserBubbleChipHover" Color="#26FFFFFF" />
+  <SolidColorBrush x:Key="Brush.ChatUserBubbleChipRim" Color="#1FFFFFFF" />
 
   <SolidColorBrush x:Key="Brush.SuccessDefault" Color="{DynamicResource Palette.Success500}" />
   <SolidColorBrush x:Key="Brush.SuccessSubtle" Color="{DynamicResource Palette.Success100}" />

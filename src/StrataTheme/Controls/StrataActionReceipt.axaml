@@ -77,8 +77,9 @@
               </Style>
             </StackPanel.Styles>
             <Border Name="PART_Bubble" HorizontalAlignment="Right"
-                    Background="{DynamicResource Brush.ChatUserBubble}"
-                    CornerRadius="14" Padding="12,10,14,8">
+                    Background="{DynamicResource Brush.ChatUserBubbleFill}"
+                    BoxShadow="{DynamicResource Shadow.ChatUserBubble}"
+                    CornerRadius="18" Padding="12,10,14,8">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <Border Name="PART_IconTile" Width="26" Height="26" CornerRadius="13" VerticalAlignment="Top"
                         Background="{DynamicResource Brush.SubtleHover}">

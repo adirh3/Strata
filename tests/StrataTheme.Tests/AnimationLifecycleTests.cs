@@ -187,6 +187,41 @@ public sealed class AnimationLifecycleTests
         });
     }
 
+    [Fact]
+    public Task CompositedEntranceGrowsFromItsOriginAndRestsAtFullSize() =>
+        _fixture.Dispatch(() =>
+        {
+            var target = new Border { Width = 80, Height = 40 };
+            var window = new Window { Width = 200, Height = 160, Content = target };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                SlideFadeEntrance.PlayComposited(target, offsetY: 16, duration: TimeSpan.FromMinutes(1),
+                    fromScale: 0.9, scaleOrigin: new Point(1, 1));
+                RenderFrame();
+                var visual = ElementComposition.GetElementVisual(target)!;
+                Assert.Equal(new Vector3D(80, 40, 0), visual.CenterPoint);
+                Assert.True(GetRenderedVisualValue<Vector3D>(visual, "Scale").X < 1);
+
+                SlideFadeEntrance.StopComposited(target);
+                RenderFrame();
+                Assert.Equal(default, visual.CenterPoint);
+                Assert.Equal(new Vector3D(1, 1, 1), GetRenderedVisualValue<Vector3D>(visual, "Scale"));
+                Assert.Equal(default, GetRenderedVisualValue<Vector3D>(visual, "Translation"));
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            void RenderFrame()
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Dispatcher.UIThread.RunJobs();
+            }
+        });
+
     [Theory]
     [InlineData("stop")]
     [InlineData("hide")]
