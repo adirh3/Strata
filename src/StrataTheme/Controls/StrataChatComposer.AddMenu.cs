@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -17,12 +18,27 @@ using Avalonia.VisualTree;
 
 namespace StrataTheme.Controls;
 
+/// <summary>A host-defined option attached to the current composer draft.</summary>
+public sealed record StrataComposerDraftOption(
+    string Id, string Name, string Description, Func<Geometry> IconFactory, bool IsSelected, bool IsEnabled = true);
+
 /// <summary>
 /// The + menu: everything a message can bring in (files, other chats, skills, agents, connectors and a
 /// project) in one place. The Skills and Connectors pickers beside it keep the two used most a click away.
 /// </summary>
 public partial class StrataChatComposer
 {
+    public static readonly StyledProperty<IReadOnlyList<StrataComposerDraftOption>?> DraftOptionsProperty =
+        AvaloniaProperty.Register<StrataChatComposer, IReadOnlyList<StrataComposerDraftOption>?>(nameof(DraftOptions));
+    public static readonly StyledProperty<string?> DraftOptionsLabelProperty =
+        AvaloniaProperty.Register<StrataChatComposer, string?>(nameof(DraftOptionsLabel));
+    public static readonly StyledProperty<ICommand?> ToggleDraftOptionCommandProperty =
+        AvaloniaProperty.Register<StrataChatComposer, ICommand?>(nameof(ToggleDraftOptionCommand));
+
+    public IReadOnlyList<StrataComposerDraftOption>? DraftOptions { get => GetValue(DraftOptionsProperty); set => SetValue(DraftOptionsProperty, value); }
+    public string? DraftOptionsLabel { get => GetValue(DraftOptionsLabelProperty); set => SetValue(DraftOptionsLabelProperty, value); }
+    public ICommand? ToggleDraftOptionCommand { get => GetValue(ToggleDraftOptionCommandProperty); set => SetValue(ToggleDraftOptionCommandProperty, value); }
+
     /// <summary>How many recent chats the + menu offers itself, ahead of "All chats".</summary>
     private const int AddMenuRecentChatCount = 3;
 
@@ -33,6 +49,7 @@ public partial class StrataChatComposer
     private StrataComposerPicker? _agentPicker;
     private StrataConnectorPicker? _connectorPicker;
     private bool _addMenuOpenedFromKeyboard;
+    private bool _showingDraftOptions;
 
     private void ApplyAddMenuTemplate(TemplateAppliedEventArgs e)
     {
@@ -53,6 +70,7 @@ public partial class StrataChatComposer
         _addMenuList = e.NameScope.Find<StackPanel>("PART_AddMenuList");
         _agentPicker = e.NameScope.Find<StrataComposerPicker>("PART_AgentPicker");
         _connectorPicker = e.NameScope.Find<StrataConnectorPicker>("PART_ConnectorPicker");
+        _showingDraftOptions = false;
         PseudoClasses.Set(":add-open", false);
 
         if (_addButton is not null)
@@ -75,7 +93,8 @@ public partial class StrataChatComposer
         || HasAny(AvailableAgents)
         || HasAnyAvailableMcps()
         || McpBrowseCommand is not null
-        || HasAny(AvailableProjects);
+        || HasAny(AvailableProjects)
+        || (DraftOptions is { Count: > 0 } && DraftOptionsLabel is { Length: > 0 });
 
     private static bool HasAny(IEnumerable? items)
     {
@@ -113,13 +132,7 @@ public partial class StrataChatComposer
 
         RebuildAddMenu();
         _addPopup.IsOpen = true;
-
-        var method = _addMenuOpenedFromKeyboard ? NavigationMethod.Tab : NavigationMethod.Unspecified;
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (IsAddMenuOpen)
-                GetAddMenuRows().FirstOrDefault()?.Focus(method);
-        }, DispatcherPriority.Loaded);
+        FocusAddMenuRow();
     }
 
     private void CloseAddMenu()
@@ -131,13 +144,36 @@ public partial class StrataChatComposer
     // The + button follows the menu's open state, not the end of its closing fade.
     private void OnAddPopupPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == Popup.IsOpenProperty)
-            PseudoClasses.Set(":add-open", IsAddMenuOpen);
+        if (e.Property != Popup.IsOpenProperty)
+            return;
+
+        PseudoClasses.Set(":add-open", IsAddMenuOpen);
+        if (!IsAddMenuOpen)
+        {
+            _showingDraftOptions = false;
+            _addPanel?.Classes.Remove("draft-options");
+        }
     }
 
     private List<Button> GetAddMenuRows()
         => _addMenuList?.Children.OfType<Button>().Where(row => row.IsEffectivelyVisible && row.IsEffectivelyEnabled).ToList()
            ?? [];
+
+    private void FocusAddMenuRow(string? name = null)
+    {
+        var showingDraftOptions = _showingDraftOptions;
+        var method = _addMenuOpenedFromKeyboard ? NavigationMethod.Tab : NavigationMethod.Unspecified;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsAddMenuOpen || _showingDraftOptions != showingDraftOptions)
+                return;
+
+            var rows = GetAddMenuRows();
+            var row = (name is null ? null : rows.Find(row => row.Name == name)) ?? rows.FirstOrDefault();
+            row?.Focus(method);
+            row?.BringIntoView();
+        }, DispatcherPriority.Loaded);
+    }
 
     private void OnAddMenuKeyDown(object? sender, KeyEventArgs e)
     {
@@ -146,6 +182,13 @@ public partial class StrataChatComposer
 
         if (e.Key == Key.Escape)
         {
+            if (_showingDraftOptions)
+            {
+                BackToAddMenu();
+                e.Handled = true;
+                return;
+            }
+
             CloseAddMenu();
             if (_addMenuOpenedFromKeyboard)
                 _addButton?.Focus(NavigationMethod.Tab);
@@ -220,6 +263,66 @@ public partial class StrataChatComposer
         }
 
         rows.AddRange(more);
+
+        if (DraftOptions is { Count: > 0 } options && DraftOptionsLabel is { Length: > 0 } label)
+        {
+            if (rows.Count > 0)
+            {
+                var separator = new Border();
+                separator.Classes.Add("add-menu-separator");
+                rows.Add(separator);
+            }
+            var selectedNames = options.Where(static o => o.IsSelected).Select(static o => o.Name).ToList();
+            var meta = selectedNames.Count > 0 ? string.Join(", ", selectedNames) : null;
+            var entry = CreateAddMenuRow(StrataIcons.Sliders, label, OpenDraftOptions, meta: meta, opensList: true, keepMenuOpen: true);
+            entry.Name = "PART_DraftOptionsButton";
+            AutomationProperties.SetAutomationId(entry, entry.Name);
+            rows.Add(entry);
+        }
+    }
+
+    private void OpenDraftOptions()
+    {
+        if (_addMenuList is null || DraftOptions is not { Count: > 0 } options
+            || DraftOptionsLabel is not { Length: > 0 } label)
+            return;
+
+        _showingDraftOptions = true;
+        _addPanel?.Classes.Add("draft-options");
+        var rows = _addMenuList.Children;
+        rows.Clear();
+        var icon = FlowDirection == FlowDirection.RightToLeft ? StrataIcons.ChevronRight : StrataIcons.ChevronLeft;
+        var back = CreateAddMenuRow(icon, label, BackToAddMenu, keepMenuOpen: true);
+        back.Name = "PART_DraftOptionsBackButton";
+        AutomationProperties.SetAutomationId(back, back.Name);
+        AutomationProperties.SetHelpText(back, AddButtonToolTip);
+        rows.Add(back);
+        foreach (var option in options)
+            rows.Add(CreateDraftOptionRow(option));
+
+        var firstOption = options.FirstOrDefault(static option => option.IsEnabled);
+        FocusAddMenuRow(firstOption is null ? null : $"ComposerOption{firstOption.Id}");
+    }
+
+    private void BackToAddMenu()
+    {
+        _showingDraftOptions = false;
+        _addPanel?.Classes.Remove("draft-options");
+        RebuildAddMenu();
+        FocusAddMenuRow("PART_DraftOptionsButton");
+    }
+
+    private Button CreateDraftOptionRow(StrataComposerDraftOption option)
+    {
+        var row = CreateAddMenuRow(option.IconFactory(), option.Name, () =>
+        {
+            CommandHelper.Execute(ToggleDraftOptionCommand, option.Id);
+            FocusInput();
+        }, description: option.Description, selected: option.IsSelected);
+        row.IsEnabled = option.IsEnabled;
+        row.Name = $"ComposerOption{option.Id}";
+        AutomationProperties.SetAutomationId(row, row.Name);
+        return row;
     }
 
     /// <summary>The most recent chats not already brought in, in the host's order.</summary>
@@ -261,7 +364,10 @@ public partial class StrataChatComposer
         Action action,
         string? meta = null,
         string? key = null,
-        bool opensList = false)
+        bool opensList = false,
+        string? description = null,
+        bool selected = false,
+        bool keepMenuOpen = false)
     {
         var glyph = new StrataLineIcon { Data = icon, Width = 18, Height = 18 };
         glyph.Classes.Add("add-menu-icon");
@@ -274,7 +380,7 @@ public partial class StrataChatComposer
         glyph.HorizontalAlignment = HorizontalAlignment.Center;
         glyph.VerticalAlignment = VerticalAlignment.Center;
 
-        return CreateRow(glyphWrap, label, meta, key, opensList, action);
+        return CreateRow(glyphWrap, label, meta, key, opensList, action, description, selected, keepMenuOpen);
     }
 
     private Button CreateRecentChatRow(StrataComposerChip chat)
@@ -294,7 +400,8 @@ public partial class StrataChatComposer
         return CreateRow(tile, chat.Name, chat.SourceLabel, key: null, opensList: false, () => AddRecentChat(chat));
     }
 
-    private Button CreateRow(Control glyph, string label, string? meta, string? key, bool opensList, Action action)
+    private Button CreateRow(Control glyph, string label, string? meta, string? key, bool opensList, Action action,
+        string? description = null, bool selected = false, bool keepMenuOpen = false)
     {
         var layout = new Grid
         {
@@ -305,8 +412,15 @@ public partial class StrataChatComposer
 
         var text = new TextBlock { Text = BidiText.Isolate(this, label) };
         text.Classes.Add("add-menu-label");
-        Grid.SetColumn(text, 1);
-        layout.Children.Add(text);
+        Control labelContent = text;
+        if (!string.IsNullOrEmpty(description))
+        {
+            var detail = new TextBlock { Text = BidiText.Isolate(this, description), TextWrapping = TextWrapping.Wrap };
+            detail.Classes.Add("add-menu-meta");
+            labelContent = new StackPanel { Children = { text, detail } };
+        }
+        Grid.SetColumn(labelContent, 1);
+        layout.Children.Add(labelContent);
 
         if (!string.IsNullOrWhiteSpace(meta))
         {
@@ -321,9 +435,9 @@ public partial class StrataChatComposer
         {
             trailing = CreateKeyHint(key);
         }
-        else if (opensList)
+        else if (opensList || selected)
         {
-            var chevron = new StrataLineIcon { Data = StrataIcons.ChevronRight, Width = 14, Height = 14, StrokeThickness = 2 };
+            var chevron = new StrataLineIcon { Data = selected ? StrataIcons.Check : StrataIcons.ChevronRight, Width = 14, Height = 14, StrokeThickness = 2 };
             chevron.Classes.Add("add-menu-chevron");
             trailing = chevron;
         }
@@ -339,12 +453,15 @@ public partial class StrataChatComposer
         row.Classes.Add("subtle");
         row.Classes.Add("add-menu-row");
         AutomationProperties.SetName(row, string.IsNullOrWhiteSpace(meta) ? label : $"{label}, {meta}");
+        if (description is not null)
+            AutomationProperties.SetHelpText(row, description);
         if (!string.IsNullOrEmpty(key))
             AutomationProperties.SetAcceleratorKey(row, key);
         row.Click += (_, e) =>
         {
             e.Handled = true;
-            CloseAddMenu();
+            if (!keepMenuOpen)
+                CloseAddMenu();
             action();
         };
         return row;
@@ -355,15 +472,14 @@ public partial class StrataChatComposer
         var header = new TextBlock { Text = label };
         header.Classes.Add("add-menu-header");
 
-        var hint = CreateKeyHint(key);
-        Grid.SetColumn(hint, 1);
-
         var layout = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto"),
             Margin = new Thickness(10, 8, 10, 4),
         };
         layout.Children.Add(header);
+        var hint = CreateKeyHint(key);
+        Grid.SetColumn(hint, 1);
         layout.Children.Add(hint);
         return layout;
     }

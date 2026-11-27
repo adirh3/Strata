@@ -619,6 +619,9 @@
                                 <Setter Property="Margin" Value="8,5" />
                                 <Setter Property="Background" Value="{DynamicResource Brush.BorderSubtle}" />
                               </Style>
+                              <Style Selector="Border#PART_AddPanel.draft-options Border#PART_AddFooter">
+                                <Setter Property="IsVisible" Value="False" />
+                              </Style>
                             </Border.Styles>
                             <DockPanel>
                               <Border Name="PART_AddFooter"
@@ -1594,11 +1597,13 @@
     </Setter>
   </Style>
   <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip:pointerover Panel.chip-remove-slot,
-                   controls|StrataChatComposer:not(.mobile) Border.composer-chip:focus-within Panel.chip-remove-slot">
+                   controls|StrataChatComposer:not(.mobile) Border.composer-chip:focus-within Panel.chip-remove-slot,
+                   controls|StrataChatComposer:not(.mobile) Border.composer-chip.composer-draft-option Panel.chip-remove-slot">
     <Setter Property="Width" Value="18" />
   </Style>
   <Style Selector="controls|StrataChatComposer:not(.mobile) Border.composer-chip:pointerover Button.chip-remove,
-                   controls|StrataChatComposer:not(.mobile) Border.composer-chip:focus-within Button.chip-remove">
+                   controls|StrataChatComposer:not(.mobile) Border.composer-chip:focus-within Button.chip-remove,
+                   controls|StrataChatComposer:not(.mobile) Border.composer-chip.composer-draft-option Button.chip-remove">
     <Setter Property="Opacity" Value="1" />
   </Style>
   <Style Selector="Border.composer-chip controls|StrataLineIcon.chip-icon">

@@ -329,6 +329,55 @@ public class StrataChatComposerSendTests
         });
     }
 
+    [Fact]
+    public async Task HandleSendAction_WhenBusyAndSteerDisabled_ExecutesStopAndSendCommand()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var send = new RecordingCommand();
+            var stop = new RecordingCommand();
+            var stopAndSend = new RecordingCommand();
+            var composer = new StrataChatComposer
+            {
+                PromptText = "run with strategy",
+                IsBusy = true,
+                SteerWhileBusy = false,
+                SendCommand = send,
+                StopCommand = stop,
+                StopAndSendCommand = stopAndSend
+            };
+
+            var stopAndSendRaised = false;
+            composer.StopAndSendRequested += (_, _) => stopAndSendRaised = true;
+
+            InvokeHandleSendAction(composer);
+
+            Assert.True(stopAndSendRaised);
+            Assert.Equal(1, stopAndSend.ExecuteCount);
+            Assert.Equal("run with strategy", stopAndSend.LastParameter);
+            Assert.Equal(0, send.ExecuteCount);
+            Assert.Equal(0, stop.ExecuteCount);
+        });
+    }
+
+    [Fact]
+    public async Task DraftOptionsLabel_UpdatesHasAddOptionsPseudoClass()
+    {
+        await _fixture.Dispatch(() =>
+        {
+            var composer = new StrataChatComposer
+            {
+                CanAttach = false,
+                DraftOptions = [new("Autopilot", "Autopilot", "Keep going", static () => StrataIcons.Bolt, false)]
+            };
+
+            Assert.DoesNotContain(":has-add-options", composer.Classes);
+
+            composer.DraftOptionsLabel = "Strategy";
+            Assert.Contains(":has-add-options", composer.Classes);
+        });
+    }
+
     [Theory]
     // Enter sends: Ctrl+Enter queues while busy.
     [InlineData(true, KeyModifiers.Control, true, 1, 0)]

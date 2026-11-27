@@ -875,6 +875,8 @@ public partial class StrataChatComposer : TemplatedControl
         AgentGlyphProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         ProjectNameProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         SkillItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnSkillItemsChanged());
+        DraftOptionsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.RebuildContextChips());
+        DraftOptionsLabelProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         ChatItemsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.OnChatItemsChanged());
         AvailableSkillsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
         AvailableChatsProperty.Changed.AddClassHandler<StrataChatComposer>((c, _) => c.Sync());
@@ -1727,6 +1729,13 @@ public partial class StrataChatComposer : TemplatedControl
         {
             if (hasPromptText || CanSendWithoutPrompt)
             {
+                if (!SteerWhileBusy && StopAndSendCommand is not null)
+                {
+                    RaiseEvent(new RoutedEventArgs(StopAndSendRequestedEvent));
+                    CommandHelper.Execute(StopAndSendCommand, StopAndSendCommandParameter ?? promptText);
+                    return;
+                }
+
                 RaiseEvent(new RoutedEventArgs(SendRequestedEvent));
                 CommandHelper.Execute(SendCommand, SendCommandParameter ?? promptText);
 
@@ -2642,7 +2651,8 @@ public partial class StrataChatComposer : TemplatedControl
         PseudoClasses.Set(":has-project", hasProject);
         PseudoClasses.Set(":has-skills", hasSkills);
         PseudoClasses.Set(":has-chats", hasChats);
-        PseudoClasses.Set(":has-chips", hasAgent || hasProject || hasSkills || hasChats);
+        PseudoClasses.Set(":has-chips", hasAgent || hasProject || hasSkills || hasChats
+            || DraftOptions?.Any(static option => option.IsSelected) == true);
         PseudoClasses.Set(":has-skill-options", AvailableSkills is not null);
         PseudoClasses.Set(":has-chat-options", AvailableChats is not null);
         PseudoClasses.Set(":recording", IsRecording);
@@ -3586,12 +3596,20 @@ public partial class StrataChatComposer : TemplatedControl
                 _chipsRow.Children.Add(CreateChip(item, ChatRemovedEvent, "composer-chat-chip"));
         }
 
+        if (DraftOptions is not null)
+        {
+            foreach (var option in DraftOptions)
+                if (option.IsSelected)
+                    _chipsRow.Children.Add(CreateChip(option, null, "composer-draft-option"));
+        }
+
         Sync();
     }
 
-    private Control CreateChip(object item, RoutedEvent<ComposerChipRemovedEventArgs> removedEvent, string cssClass)
+    private Control CreateChip(object item, RoutedEvent<ComposerChipRemovedEventArgs>? removedEvent, string cssClass)
     {
-        var name = item is StrataComposerChip c ? c.Name : item?.ToString() ?? "";
+        var option = item as StrataComposerDraftOption;
+        var name = option?.Name ?? (item is StrataComposerChip c ? c.Name : item?.ToString() ?? "");
         var glyph = item is StrataComposerChip sc ? sc.Glyph : "✦";
         var hasError = item is StrataComposerChip ec && ec.HasError;
         var errorMessage = item is StrataComposerChip emc ? emc.ErrorMessage : null;
@@ -3600,9 +3618,9 @@ public partial class StrataChatComposer : TemplatedControl
         // The kind's mark sits on a small tile: a chat shows its bubble; a skill the wand on the desktop
         // and its own glyph on touch, where the chip is a larger target with room for it.
         Control mark;
-        if (isChat || (!hasError && removedEvent == SkillRemovedEvent && !Classes.Contains("mobile")))
+        if (option is not null || isChat || (!hasError && removedEvent == SkillRemovedEvent && !Classes.Contains("mobile")))
         {
-            var icon = new StrataLineIcon { Data = isChat ? StrataIcons.Chat : StrataIcons.Wand };
+            var icon = new StrataLineIcon { Data = option?.IconFactory() ?? (isChat ? StrataIcons.Chat : StrataIcons.Wand) };
             icon.Classes.Add("chip-icon");
             mark = icon;
         }
@@ -3634,10 +3652,21 @@ public partial class StrataChatComposer : TemplatedControl
         removeBtn.Classes.Add("subtle");
         removeBtn.Classes.Add("chip-remove");
         Avalonia.Automation.AutomationProperties.SetName(removeBtn, InteractiveLabels.Current.Format("removeItem", name));
+        if (option is not null)
+        {
+            removeBtn.Name = $"RemoveComposerOption{option.Id}";
+            AutomationProperties.SetAutomationId(removeBtn, removeBtn.Name);
+        }
 
         var capturedItem = item;
         removeBtn.Click += (_, _) =>
         {
+            if (option is not null)
+            {
+                CommandHelper.Execute(ToggleDraftOptionCommand, option.Id);
+                FocusInput();
+                return;
+            }
             if (isChat)
             {
                 RemoveReferencedChat(AsChip(capturedItem));
@@ -3645,7 +3674,8 @@ public partial class StrataChatComposer : TemplatedControl
                 return;
             }
 
-            RaiseEvent(new ComposerChipRemovedEventArgs(removedEvent, capturedItem));
+            if (removedEvent is not null)
+                RaiseEvent(new ComposerChipRemovedEventArgs(removedEvent, capturedItem));
             // Fire the matching command with the chip name as default parameter
             var chipName = capturedItem is StrataComposerChip cc ? cc.Name : capturedItem?.ToString() ?? "";
             if (removedEvent == SkillRemovedEvent)
