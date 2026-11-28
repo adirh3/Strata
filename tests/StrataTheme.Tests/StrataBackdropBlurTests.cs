@@ -1,3 +1,4 @@
+using Avalonia.Platform;
 using SkiaSharp;
 using StrataTheme.Controls;
 
@@ -169,12 +170,76 @@ public sealed class StrataBackdropBlurTests
         Assert.Equal(1, retired.Count);
     }
 
+    [Fact]
+    public void GpuCaptureReleaseMakesItsOwningContextCurrentWithoutWaitingForAnotherRender()
+    {
+        var retired = new StrataBackdropBlur.RetiredGpuResources();
+        var graphics = new GraphicsContext();
+        var capture = new Resource(graphics);
+
+        retired.Retire(new object(), capture, graphics);
+
+        Assert.Equal(1, capture.Disposals);
+        Assert.Equal(1, graphics.CurrentScopes);
+        Assert.False(graphics.IsCurrent);
+        Assert.Equal(0, retired.Count);
+    }
+
+    [Fact]
+    public void LostPlatformContextWaitsForSkiaToAbandonItWithoutTryingToMakeItCurrent()
+    {
+        var retired = new StrataBackdropBlur.RetiredGpuResources();
+        var graphics = new GraphicsContext { IsLost = true };
+        var capture = new Resource();
+        var context = new object();
+
+        retired.Retire(context, capture, graphics);
+
+        Assert.Equal(0, capture.Disposals);
+        Assert.Equal(0, graphics.CurrentScopes);
+        Assert.Equal(1, retired.Count);
+
+        retired.ReleaseFor(new object(), candidate => ReferenceEquals(candidate, context));
+
+        Assert.Equal(1, capture.Disposals);
+        Assert.Equal(0, retired.Count);
+    }
+
     private static bool NeverLost(object context) => false;
 
-    private sealed class Resource : IDisposable
+    private sealed class Resource(GraphicsContext? context = null) : IDisposable
     {
         public int Disposals { get; private set; }
 
-        public void Dispose() => Disposals++;
+        public void Dispose()
+        {
+            if (context is not null)
+                Assert.True(context.IsCurrent, "GPU resources must be freed with their owning context current.");
+            Disposals++;
+        }
+    }
+
+    private sealed class GraphicsContext : IPlatformGraphicsContext
+    {
+        public bool IsLost { get; set; }
+        public bool IsCurrent { get; private set; }
+        public int CurrentScopes { get; private set; }
+
+        public IDisposable EnsureCurrent()
+        {
+            Assert.False(IsLost);
+            var wasCurrent = IsCurrent;
+            IsCurrent = true;
+            CurrentScopes++;
+            return new Restore(this, wasCurrent);
+        }
+
+        public object? TryGetFeature(Type featureType) => null;
+        public void Dispose() { }
+
+        private sealed class Restore(GraphicsContext context, bool wasCurrent) : IDisposable
+        {
+            public void Dispose() => context.IsCurrent = wasCurrent;
+        }
     }
 }

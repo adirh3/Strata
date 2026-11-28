@@ -755,9 +755,10 @@ samples its own foreground. The filter can sample the whole capture but only pro
 pixels the current redraw can replace. Once partial redraws settle, all glass is repainted
 together to update the frost outside the changed region without keeping overlapping glasses rendering.
 It requires the Skia renderer; elsewhere it draws nothing and the
-translucent surface remains the fallback. Its GPU textures are released only while their context is
-current, by the next frost to render: Avalonia disposes a replaced draw operation before making the
-context current, and a texture freed then would never be deleted by the driver.
+translucent surface remains the fallback. Disposing a frost makes its owning platform graphics
+context current before releasing its GPU textures, so removing the last glass does not retain its
+capture until another glass renders. If the renderer does not expose that platform context, release
+still waits for a frost rendered under the original context rather than issuing an off-context delete.
 
 Floating controls can be glass of their own. `StrataGlassButton` is an opt-in button theme
 (`Theme="{DynamicResource StrataGlassButton}"`) whose frost, `PART_Backdrop`, is painted before
