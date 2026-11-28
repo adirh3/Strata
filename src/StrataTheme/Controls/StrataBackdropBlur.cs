@@ -88,7 +88,7 @@ public class StrataBackdropBlur : Control
     private static int s_healQueued;
     private static long s_healGeneration;
 
-    // GPU textures of frosts that went away, waiting for a render in which their context is current.
+    // Fallback for renderers that do not expose the platform context needed to release a texture.
     private static readonly RetiredGpuResources s_retired = new();
 
     static StrataBackdropBlur()
@@ -286,9 +286,8 @@ public class StrataBackdropBlur : Control
         context is GRContext gpu && (gpu.Handle == IntPtr.Zero || gpu.IsAbandoned);
 
     /// <summary>
-    /// GPU objects whose owner went away while their graphics context was not current. Releasing a texture
-    /// then never reaches the driver (an OpenGL delete without a current context is dropped), so it would
-    /// stay allocated for the life of the process. They wait here for a render under their own context.
+    /// Releases GPU objects with their owning platform context current. Without access to that context,
+    /// they wait for a render under their own context rather than issuing an off-context texture delete.
     /// </summary>
     internal sealed class RetiredGpuResources
     {
@@ -303,10 +302,27 @@ public class StrataBackdropBlur : Control
             }
         }
 
-        internal void Retire(object context, IDisposable? resource)
+        internal void Retire(object context, IDisposable? resource, IPlatformGraphicsContext? platformContext = null)
         {
             if (resource is null)
                 return;
+
+            if (platformContext is not null)
+            {
+                if (!platformContext.IsLost)
+                {
+                    using (platformContext.EnsureCurrent())
+                        resource.Dispose();
+                    return;
+                }
+
+                // A lost native context is safe to release against only once Skia has abandoned it.
+                if (IsLost(context))
+                {
+                    resource.Dispose();
+                    return;
+                }
+            }
 
             lock (_items)
                 _items.Add((context, resource));
@@ -356,6 +372,7 @@ public class StrataBackdropBlur : Control
         private SKImage? _captureImage;
         private SKSurface? _backdrop;
         private GRContext? _backdropContext;
+        private IPlatformGraphicsContext? _backdropPlatformContext;
         private SKRectI _cachedVisible;
         private SKRectI _cachedBounds;
         private bool _failed;
@@ -451,6 +468,13 @@ public class StrataBackdropBlur : Control
             // State made for another context is released under that context, never under this one.
             if (!ReferenceEquals(grContext, _backdropContext))
                 Release();
+
+            if (grContext is not null && _backdropPlatformContext is null)
+            {
+                // The nested lease temporarily forbids Skia calls; end it before capturing or drawing.
+                using var platformLease = lease.TryLeasePlatformGraphicsApi();
+                _backdropPlatformContext = platformLease?.Context;
+            }
 
             var hasCache = (_backdrop is not null || _captureImage is not null) && deviceBounds == _cachedBounds;
             var full = ShouldRecompute(hasCache, _cachedVisible, visible);
@@ -627,16 +651,15 @@ public class StrataBackdropBlur : Control
         }
 
         /// <summary>
-        /// Lets go of the frost. Raster state is freed at once. GPU state is retired until a render makes its
-        /// context current: the compositor disposes replaced operations while applying its batches, before any
-        /// context is current, and a GPU texture freed then is never deleted by the driver.
+        /// Lets go of the frost under its owning context, even if no glass will render again. The compositor
+        /// disposes replaced operations before making a context current, so the release must establish one.
         /// </summary>
         private void Release()
         {
             if (_backdropContext is { } context)
             {
-                s_retired.Retire(context, _backdrop);
-                s_retired.Retire(context, _captureImage);
+                s_retired.Retire(context, _backdrop, _backdropPlatformContext);
+                s_retired.Retire(context, _captureImage, _backdropPlatformContext);
             }
             else
             {
@@ -647,6 +670,7 @@ public class StrataBackdropBlur : Control
             _backdrop = null;
             _captureImage = null;
             _backdropContext = null;
+            _backdropPlatformContext = null;
         }
     }
 }
